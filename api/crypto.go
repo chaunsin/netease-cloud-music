@@ -103,7 +103,7 @@ func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 		return nil, fmt.Errorf("%s unknown format", format)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("format: %w", err)
 	}
 
 	var text []byte
@@ -116,7 +116,7 @@ func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 		return nil, fmt.Errorf("%s unknown mode", mode)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mode: %w", err)
 	}
 	return text, nil
 }
@@ -275,10 +275,10 @@ func EApiEncrypt(url string, object interface{}) (map[string]string, error) {
 	return map[string]string{"params": ciphertext}, nil
 }
 
-// EApiDecrypt 解密
+// EApiDecrypt 解密,当解析请求参数时encode使用hex,当解析请求响应参数时则为空相当于二进制
 // - params
-func EApiDecrypt(ciphertext string) ([]byte, error) {
-	plaintext, err := aesDecrypt(ciphertext, eApiKey, "", "ecb", "hex")
+func EApiDecrypt(ciphertext, encode string) ([]byte, error) {
+	plaintext, err := aesDecrypt(ciphertext, eApiKey, "", "ecb", encode)
 	if err != nil {
 		return nil, fmt.Errorf("aesDecrypt: %w", err)
 	}

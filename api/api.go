@@ -154,7 +154,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 	var decryptData []byte
 	switch cryptoMode {
 	case "eapi":
-		decryptData, err = EApiDecrypt(string(resp.Body()))
+		decryptData, err = EApiDecrypt(string(resp.Body()), "")
 		if err != nil {
 			return nil, fmt.Errorf("EApiDecrypt: %w", err)
 		}
@@ -191,7 +191,7 @@ func encrypt(c *resty.Client, req *resty.Request) error {
 }
 
 func decrypt(c *resty.Client, resp *resty.Response) error {
-	raw, err := EApiDecrypt(string(resp.Body()))
+	raw, err := EApiDecrypt(string(resp.Body()), "")
 	if err != nil {
 		return fmt.Errorf("EApiDecrypt: %w", err)
 	}

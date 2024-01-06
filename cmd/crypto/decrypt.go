@@ -43,6 +43,7 @@ type decryptCmd struct {
 
 	kind       string
 	ciphertext string
+	encode     string
 }
 
 func NewDecrypt(root *Cmd) *cobra.Command {
@@ -69,6 +70,7 @@ func NewDecrypt(root *Cmd) *cobra.Command {
 func (c *decryptCmd) addFlags() {
 	c.cmd.Flags().StringVarP(&c.kind, "kind", "k", "weapi", "weapi|eapi|linux")
 	c.cmd.Flags().StringVarP(&c.ciphertext, "ciphertext", "c", "", "ciphertext")
+	c.cmd.Flags().StringVarP(&c.encode, "encode", "e", "", "encode base64")
 }
 
 func (c *decryptCmd) execute() error {
@@ -87,42 +89,42 @@ func (c *decryptCmd) execute() error {
 		ciphertext = c.ciphertext
 	}
 
+	if c.encode != "" && c.encode != "base64" && c.encode != "hex" {
+		return fmt.Errorf("%s is unknown encode", c.encode)
+	}
+
 	switch c.kind {
 	case "eapi":
 		{
-			data, err := api.EApiDecrypt(ciphertext)
+			data, err := api.EApiDecrypt(ciphertext, c.encode)
 			if err != nil {
-				return fmt.Errorf("解密失败")
+				return fmt.Errorf("解密失败: %w", err)
 			}
+
 			var (
 				str     = string(data)
-				url     string
 				payload string
-				digest  string
 				temp    map[string]interface{}
+				buf     bytes.Buffer
 			)
-			for i, v := range strings.Split(str, "-36cd479b6b5-") {
-				if i == 0 {
-					url = v
-				}
-				if i == 1 {
-					payload = v
-				}
-				if i == 2 {
-					digest = v
-				}
+
+			// 如果根据标识分隔成3段则说明此数据是包含url和digest摘要形式拼接的数据,反之是结构体数据
+			value := strings.Split(str, "-36cd479b6b5-")
+			if len(value) == 3 {
+				payload = value[1]
+				buf.WriteString("url: " + value[0] + "\n")
+				buf.WriteString("digest: " + value[2] + "\n")
+			} else {
+				payload = str
 			}
 			if err := json.Unmarshal([]byte(payload), &temp); err != nil {
-				return err
+				return fmt.Errorf("Unmarshal: %w", err)
 			}
 			format, err := json.MarshalIndent(temp, "", "\t")
 			if err != nil {
-				return err
+				return fmt.Errorf("MarshalIndent: %w", err)
 			}
 
-			var buf bytes.Buffer
-			buf.WriteString("url: " + url + "\n")
-			buf.WriteString("digest: " + digest + "\n")
 			buf.WriteString("payload: " + string(format) + "\n")
 			buf.WriteString("plaintext:\n" + str + "\n")
 
