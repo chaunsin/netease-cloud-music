@@ -54,9 +54,6 @@ func NewDecrypt(root *Cmd) *cobra.Command {
 		Use:     "decrypt",
 		Short:   "Decrypt data",
 		Example: "ncm decrypt -k weapi -c xxx",
-		// RunE: func(cmd *cobra.Command, args []string) error {
-		// 	return c.execute()
-		// },
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := c.execute(); err != nil {
 				fmt.Println(err)
@@ -70,11 +67,14 @@ func NewDecrypt(root *Cmd) *cobra.Command {
 func (c *decryptCmd) addFlags() {
 	c.cmd.Flags().StringVarP(&c.kind, "kind", "k", "weapi", "weapi|eapi|linux")
 	c.cmd.Flags().StringVarP(&c.ciphertext, "ciphertext", "c", "", "ciphertext")
-	c.cmd.Flags().StringVarP(&c.encode, "encode", "e", "", "encode base64")
+	c.cmd.Flags().StringVarP(&c.encode, "encode", "e", "hex", "string|hex|base64")
 }
 
 func (c *decryptCmd) execute() error {
 	var ciphertext string
+	if c.encode != "string" && c.encode != "base64" && c.encode != "hex" {
+		return fmt.Errorf("%s is unknown encode", c.encode)
+	}
 	if c.ciphertext == "" && c.root.RootOpts.Input == "" {
 		return fmt.Errorf("nothing was entered")
 	}
@@ -87,10 +87,6 @@ func (c *decryptCmd) execute() error {
 	}
 	if c.ciphertext != "" {
 		ciphertext = c.ciphertext
-	}
-
-	if c.encode != "" && c.encode != "base64" && c.encode != "hex" {
-		return fmt.Errorf("%s is unknown encode", c.encode)
 	}
 
 	switch c.kind {

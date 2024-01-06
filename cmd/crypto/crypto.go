@@ -44,8 +44,10 @@ type Cmd struct {
 func New() *Cmd {
 	c := &Cmd{
 		root: &cobra.Command{
-			Use:     "ncm",
-			Example: "ncm -h",
+			Use: "ncm",
+			Example: `ncm -h
+ncm decrypt -k eapi -c xxx
+ncm encrypt -k eapi -P xxx`,
 		},
 	}
 	c.addFlags()
