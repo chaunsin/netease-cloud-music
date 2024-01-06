@@ -1,4 +1,4 @@
-package crypto
+package api
 
 import (
 	"bytes"
@@ -31,13 +31,7 @@ MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDgtQn2JZ34ZC28NWYpAUd98iZ37BUrX/aKzmFbt7cl
 -----END PUBLIC KEY-----`
 )
 
-func Md5Hex(input string) string {
-	hash := md5.New()
-	hash.Write([]byte(input))
-	return hex.EncodeToString(hash.Sum(nil))
-}
-
-func RandomKey() string {
+func randomKey() string {
 	var buffer bytes.Buffer
 	for i := 0; i < 16; i++ {
 		buffer.WriteByte(base62[rand.Int63n(62)])
@@ -45,12 +39,18 @@ func RandomKey() string {
 	return buffer.String()
 }
 
-func ReverseString(str string) string {
+func reverseString(str string) string {
 	var runes = []rune(str)
 	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
 		runes[i], runes[j] = runes[j], runes[i]
 	}
 	return string(runes)
+}
+
+func digest(url, data string) string {
+	message := fmt.Sprintf(eApiSlat, url, data)
+	_digest := fmt.Sprintf("%x", md5.Sum([]byte(message)))
+	return _digest
 }
 
 // aesEncrypt 加密
@@ -123,7 +123,7 @@ func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 
 // encryptCBC 加密
 func encryptCBC(block cipher.Block, plaintext, iv []byte) []byte {
-	plaintext = PKCS7Padding(plaintext, block.BlockSize())
+	plaintext = pkcs7Padding(plaintext, block.BlockSize())
 	ciphertext := make([]byte, len(plaintext))
 	encrypt := cipher.NewCBCEncrypter(block, iv)
 	encrypt.CryptBlocks(ciphertext, plaintext)
@@ -144,7 +144,7 @@ func decryptCBC(block cipher.Block, cipherText, iv []byte) ([]byte, error) {
 
 // encryptECB 加密
 func encryptECB(block cipher.Block, plaintext []byte) []byte {
-	plaintext = PKCS7Padding(plaintext, block.BlockSize())
+	plaintext = pkcs7Padding(plaintext, block.BlockSize())
 	ciphertext := make([]byte, len(plaintext))
 	blockSize := block.BlockSize()
 	for i := 0; i < len(plaintext); i += blockSize {
@@ -162,7 +162,7 @@ func decryptECB(block cipher.Block, cipherBytes []byte) ([]byte, error) {
 	for i := 0; i < len(cipherBytes); i += block.BlockSize() {
 		block.Decrypt(decrypted[i:i+block.BlockSize()], cipherBytes[i:i+block.BlockSize()])
 	}
-	return PKCS7UnPadding(decrypted), nil
+	return pkcs7UnPadding(decrypted), nil
 }
 
 // rsaEncrypt 公钥加密无填充方式
@@ -186,15 +186,15 @@ func rsaEncrypt(ciphertext, key string) (string, error) {
 	return hex.EncodeToString(encryptedBytes), nil
 }
 
-// PKCS7Padding 补码
-func PKCS7Padding(ciphertext []byte, blockSize int) []byte {
+// pkcs7Padding 补码
+func pkcs7Padding(ciphertext []byte, blockSize int) []byte {
 	padding := blockSize - len(ciphertext)%blockSize
 	pad := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(ciphertext, pad...)
 }
 
-// PKCS7UnPadding 去码
-func PKCS7UnPadding(origData []byte) []byte {
+// pkcs7UnPadding 去码
+func pkcs7UnPadding(origData []byte) []byte {
 	length := len(origData)
 	pad := int(origData[length-1])
 	return origData[:(length - pad)]
@@ -202,7 +202,7 @@ func PKCS7UnPadding(origData []byte) []byte {
 
 // WeApiEncrypt 加密
 func WeApiEncrypt(object interface{}) (map[string]string, error) {
-	var secretKey = RandomKey()
+	var secretKey = randomKey()
 	data, err := json.Marshal(object)
 	if err != nil {
 		return nil, err
@@ -215,7 +215,7 @@ func WeApiEncrypt(object interface{}) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("aesEncrypt: %w", err)
 	}
-	encSecKey, err := rsaEncrypt(ReverseString(secretKey), publicKey)
+	encSecKey, err := rsaEncrypt(reverseString(secretKey), publicKey)
 	if err != nil {
 		return nil, fmt.Errorf("rsaEncrypt: %w", err)
 	}
@@ -223,6 +223,12 @@ func WeApiEncrypt(object interface{}) (map[string]string, error) {
 		"params":    params,
 		"encSecKey": encSecKey,
 	}, nil
+}
+
+// WeApiDecrypt 解密 TODO: 由于拿不到私钥则不能解密
+func WeApiDecrypt(params, encSecKey string) (map[string]string, error) {
+	panic("unrealized")
+	return nil, nil
 }
 
 // LinuxApiEncrypt 加密
@@ -248,12 +254,6 @@ func LinuxApiDecrypt(cipherText string) ([]byte, error) {
 	return plaintext, nil
 }
 
-func Digest(url, data string) string {
-	message := fmt.Sprintf(eApiSlat, url, data)
-	_digest := fmt.Sprintf("%x", md5.Sum([]byte(message)))
-	return _digest
-}
-
 // EApiEncrypt 加密
 // 目前所知在PC中有使用，MAC中。windows未知
 // - params
@@ -264,10 +264,8 @@ func EApiEncrypt(url string, object interface{}) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	// message := fmt.Sprintf("nobody%suse%smd5forencrypt", url, string(data))
-	// digest := fmt.Sprintf("%x", md5.Sum([]byte(message)))
-	digest := Digest(url, string(data))
-	text := fmt.Sprintf(eApiFormat, url, string(data), digest)
+
+	text := fmt.Sprintf(eApiFormat, url, string(data), digest(url, string(data)))
 	fmt.Println("payload:", text)
 
 	ciphertext, err := aesEncrypt(text, eApiKey, "", "ecb", "HEX")
@@ -280,7 +278,7 @@ func EApiEncrypt(url string, object interface{}) (map[string]string, error) {
 // EApiDecrypt 解密
 // - params
 func EApiDecrypt(ciphertext string) ([]byte, error) {
-	plaintext, err := aesDecrypt(ciphertext, eApiKey, "", "ecb", "")
+	plaintext, err := aesDecrypt(ciphertext, eApiKey, "", "ecb", "hex")
 	if err != nil {
 		return nil, fmt.Errorf("aesDecrypt: %w", err)
 	}

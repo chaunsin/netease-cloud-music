@@ -958,4 +958,4 @@ Temporary Items
 /testdata/
 /example/cookie.json
 /example/qrcode.png
-/crypto/crypto_test.go
+/api/crypto_test.go

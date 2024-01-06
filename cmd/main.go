@@ -23,6 +23,11 @@
 
 package main
 
-func main() {
+import (
+	"github.com/chaunsin/netease-cloud-music/cmd/crypto"
+)
 
+func main() {
+	cmd := crypto.New()
+	cmd.Execute()
 }

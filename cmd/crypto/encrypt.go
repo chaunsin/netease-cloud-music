@@ -21,31 +21,42 @@
 // SOFTWARE.
 //
 
-package weapi
+package crypto
 
-import (
-	"context"
-	"os"
-	"testing"
+import "github.com/spf13/cobra"
 
-	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/config"
-)
+type cryptoCmd struct {
+	root *Cmd
+	cmd  *cobra.Command
 
-var (
-	a   *Api
-	ctx = context.TODO()
-)
+	kind      string
+	url       string
+	plaintext string
+}
 
-func TestMain(t *testing.M) {
-	cfg := config.Config{
-		Network: config.Network{
-			Debug:   false,
-			Timeout: 0,
-			Retry:   0,
+func NewEncrypt(root *Cmd) *cobra.Command {
+	c := &cryptoCmd{
+		root: root,
+	}
+	c.cmd = &cobra.Command{
+		Use:     "encrypt",
+		Short:   "Encrypt data",
+		Example: "ncm encrypt -k weapi -u /eapi/sms/captcha/sent -P xxx",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return c.execute()
 		},
 	}
-	client := api.New(&cfg)
-	a = New(client)
-	os.Exit(t.Run())
+	c.addFlags()
+	return c.cmd
+}
+
+func (c *cryptoCmd) addFlags() {
+	c.cmd.Flags().StringVarP(&c.kind, "kind", "k", "weapi", "weapi|eapi|linux")
+	c.cmd.Flags().StringVarP(&c.plaintext, "plaintext", "P", "", "string value")
+	c.cmd.Flags().StringVarP(&c.url, "url", "u", "", "url")
+}
+
+func (c *cryptoCmd) execute() error {
+
+	return nil
 }

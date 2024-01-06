@@ -36,8 +36,49 @@ type WebLogResp struct {
 // WebLog 登录使用行为
 func (a *Api) WebLog(ctx context.Context, req *WebLogReq) (*WebLogResp, error) {
 	var (
-		url  = "https://music.163.com/weapi/feedback/weblog?csrf_token=9f6b902c3c811cd4d9f32ec9544c6747"
+		url  = "https://interface.music.163.com/api/feedback/weblog"
 		resp WebLogResp
+	)
+	reply, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	_ = reply
+	return &resp, nil
+}
+
+// WeApiWebLogReq
+//
+//	{
+//		"logs": "[{\"action\":\"mobile_monitor\",\"json\":{\"meta._ver\":2,\"meta._dataName\":\"pip_lyric_monitor\",\"action\":\"impress\",\"userAgent\":\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\",\"chromeVersion\":120,\"mainsite\":\"1\"}}]",
+//		"csrf_token": "9f6b902c3c811cd4d9f32ec9544c6747"
+//	}
+type WeApiWebLogReq struct {
+	Logs      string `json:"logs"`
+	CsrfToken string `json:"csrf_token"` // 可不用传递
+}
+
+type WeApiWebLogReqLog struct {
+	Action string `json:"action"`
+	Json   struct {
+		MetaVer       int    `json:"meta._ver"`
+		MetaDataName  string `json:"meta._dataName"`
+		Action        string `json:"action"`
+		UserAgent     string `json:"userAgent"`
+		ChromeVersion int    `json:"chromeVersion"`
+		MainSite      string `json:"mainsite"`
+	} `json:"json"` // 此值为动态值考虑使用map
+}
+
+type WeApiWebLogResp struct {
+	api.RespCommon
+}
+
+// WeApiWebLog 登录使用行为
+func (a *Api) WeApiWebLog(ctx context.Context, req *WeApiWebLogReq) (*WeApiWebLogResp, error) {
+	var (
+		url  = "https://music.163.com/weapi/feedback/weblog?csrf_token=9f6b902c3c811cd4d9f32ec9544c6747"
+		resp WeApiWebLogResp
 	)
 	reply, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &resp)
 	if err != nil {

@@ -14,7 +14,6 @@ import (
 
 	"github.com/chaunsin/netease-cloud-music/config"
 	"github.com/chaunsin/netease-cloud-music/cookie"
-	"github.com/chaunsin/netease-cloud-music/crypto"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/google/brotli/go/cbrotli"
@@ -108,27 +107,6 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 		}
 	}
 
-	switch cryptoMode {
-	case "eapi":
-		encryptData, err = crypto.EApiEncrypt(uri.Path, req)
-		if err != nil {
-			return nil, fmt.Errorf("EApiEncrypt: %w", err)
-		}
-	case "weapi":
-		encryptData, err = crypto.WeApiEncrypt(req)
-		if err != nil {
-			return nil, fmt.Errorf("EApiEncrypt: %w", err)
-		}
-	case "linux":
-		encryptData, err = crypto.LinuxApiEncrypt(req)
-		if err != nil {
-			return nil, fmt.Errorf("LinuxApiEncrypt: %w", err)
-		}
-	default:
-		return nil, fmt.Errorf("%s crypto mode unknown", cryptoMode)
-	}
-	fmt.Printf("data: %+v\nencriypt: %+v\n", req, encryptData)
-
 	var resp *resty.Response
 	request := c.cli.R().
 		SetContext(ctx).
@@ -139,8 +117,29 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 		SetHeader("Content-Type", "application/x-www-form-urlencoded").
 		SetHeader("Accept-language", "zh-CN,zh-Hans;q=0.9").
 		SetHeader("Referer", "https://music.163.com").
-		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034").
-		SetQueryParam("csrf_token", csrf)
+		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034")
+
+	switch cryptoMode {
+	case "eapi":
+		encryptData, err = EApiEncrypt(uri.Path, req)
+		if err != nil {
+			return nil, fmt.Errorf("EApiEncrypt: %w", err)
+		}
+	case "weapi":
+		request.SetQueryParam("csrf_token", csrf)
+		encryptData, err = WeApiEncrypt(req)
+		if err != nil {
+			return nil, fmt.Errorf("EApiEncrypt: %w", err)
+		}
+	case "linux":
+		encryptData, err = LinuxApiEncrypt(req)
+		if err != nil {
+			return nil, fmt.Errorf("LinuxApiEncrypt: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("%s crypto mode unknown", cryptoMode)
+	}
+	fmt.Printf("data: %+v\nencriypt: %+v\n", req, encryptData)
 
 	switch method {
 	case "POST":
@@ -155,7 +154,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 	var decryptData []byte
 	switch cryptoMode {
 	case "eapi":
-		decryptData, err = crypto.EApiDecrypt(string(resp.Body()))
+		decryptData, err = EApiDecrypt(string(resp.Body()))
 		if err != nil {
 			return nil, fmt.Errorf("EApiDecrypt: %w", err)
 		}
@@ -163,7 +162,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 		// tips: weapi接口返回数据是明文,另外即使是加密数据也拿不到私钥.
 		decryptData = resp.Body()
 	case "linux":
-		decryptData, err = crypto.LinuxApiDecrypt(string(resp.Body()))
+		decryptData, err = LinuxApiDecrypt(string(resp.Body()))
 		if err != nil {
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
@@ -183,7 +182,7 @@ func encrypt(c *resty.Client, req *resty.Request) error {
 	if err != nil {
 		return err
 	}
-	data, err := crypto.EApiEncrypt(u.Path, req.Body)
+	data, err := EApiEncrypt(u.Path, req.Body)
 	if err != nil {
 		return fmt.Errorf("EApiEncrypt: %w", err)
 	}
@@ -192,7 +191,7 @@ func encrypt(c *resty.Client, req *resty.Request) error {
 }
 
 func decrypt(c *resty.Client, resp *resty.Response) error {
-	raw, err := crypto.EApiDecrypt(string(resp.Body()))
+	raw, err := EApiDecrypt(string(resp.Body()))
 	if err != nil {
 		return fmt.Errorf("EApiDecrypt: %w", err)
 	}

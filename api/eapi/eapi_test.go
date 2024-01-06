@@ -40,12 +40,10 @@ var (
 func TestMain(t *testing.M) {
 	cfg := config.Config{
 		Network: config.Network{
-			Url:     "",
 			Debug:   false,
 			Timeout: 0,
 			Retry:   0,
 		},
-		Crypto: config.Crypto{},
 	}
 	client := api.New(&cfg)
 	a = New(client)
