@@ -29,31 +29,48 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestQrcodeCreateKey(t *testing.T) {
-	var req = QrcodeCreateKeyReq{
-		Type:      1,
-		CsrfToken: "", // 可不传
-	}
-	got, err := cli.QrcodeCreateKey(ctx, &req)
+func TestPartnerPeriod(t *testing.T) {
+	resp, err := cli.PartnerPeriod(ctx, &PartnerPeriodReq{})
 	assert.NoError(t, err)
-	t.Logf("QrcodeCreateKey: %+v\n", got)
+	t.Logf("resp: %+v\n", resp)
 }
 
-func TestQrcodeGetReq(t *testing.T) {
-	var req = QrcodeGenerateReq{
-		CodeKey: "",
-	}
-	got, err := cli.QrcodeGenerate(ctx, &req)
+func TestPartnerPeriodUserinfo(t *testing.T) {
+	resp, err := cli.PartnerPeriodUserinfo(ctx, &PartnerPeriodUserinfoReq{})
 	assert.NoError(t, err)
-	t.Logf("QrcodeGenerate: %+v\n", got)
+	t.Logf("resp: %+v\n", resp)
 }
 
-func TestQrcodeCheck(t *testing.T) {
-	var req = QrcodeCheckReq{
-		Key:  "8ddf7539-2b30-4350-962e-b8045762164b",
-		Type: 1,
-	}
-	got, err := cli.QrcodeCheck(ctx, &req)
+func TestPartnerLatest(t *testing.T) {
+	resp, err := cli.PartnerLatest(ctx, &PartnerLatestReq{})
 	assert.NoError(t, err)
-	t.Logf("QrcodeCheck: %+v\n", got)
+	t.Logf("resp: %+v\n", resp)
+}
+
+func TestPartnerHome(t *testing.T) {
+	resp, err := cli.PartnerHome(ctx, &PartnerHomeReq{})
+	assert.NoError(t, err)
+	t.Logf("resp: %+v\n", resp)
+}
+
+func TestPartnerTask(t *testing.T) {
+	resp, err := cli.PartnerTask(ctx, &PartnerTaskReq{})
+	assert.NoError(t, err)
+	t.Logf("resp: %+v\n", resp)
+}
+
+func TestPartnerEvaluate(t *testing.T) {
+	resp, err := cli.PartnerEvaluate(ctx, &PartnerEvaluateReq{
+		CsrfToken:     "",
+		TaskId:        0,
+		WorkId:        0,
+		Score:         3,
+		Tags:          "",
+		CustomTags:    "",
+		Comment:       "",
+		SyncYunCircle: false,
+		Source:        "",
+	})
+	assert.NoError(t, err)
+	t.Logf("resp: %+v\n", resp)
 }

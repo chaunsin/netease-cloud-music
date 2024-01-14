@@ -12,7 +12,7 @@ type LayoutReq struct {
 }
 
 type LayoutResp struct {
-	api.RespCommon
+	api.RespCommon[any]
 }
 
 // Layout 退出

@@ -46,7 +46,7 @@ func NewWithErr(cfg *config.Config) (*Client, error) {
 	if cfg.Network.Cookie.Filepath != "" {
 		opts = append(opts, cookie.WithFilePath(cfg.Network.Cookie.Filepath))
 	}
-	if cfg.Network.Cookie.PublicSuffixList != nil {
+	if opt := cfg.Network.Cookie.Options; opt != nil && opt.PublicSuffixList != nil {
 		opts = append(opts, cookie.WithPublicSuffixList(cfg.Network.Cookie.PublicSuffixList))
 	}
 	jar, err := cookie.NewPersistentJar(opts...)
@@ -90,6 +90,37 @@ func (c *Client) Close(ctx context.Context) error {
 	return c.cookie.Close(ctx)
 }
 
+func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
+	uri, err := neturl.Parse(url)
+	if err != nil {
+		fmt.Println("parse err:", err)
+		return http.Cookie{}, false
+	}
+	for _, c := range c.cookie.Cookies(uri) {
+		if c.Name == name {
+			return *c, true
+		}
+	}
+	return http.Cookie{}, false
+}
+
+func (c *Client) GetCSRF(url string) (string, bool) {
+	uri, err := neturl.Parse(url)
+	if err != nil {
+		fmt.Println("parse err:", err)
+		return "", false
+	}
+	for _, c := range c.cookie.Cookies(uri) {
+		if c.Name == "__csrf_token" && c.Value != "" {
+			return c.Value, true
+		}
+		if c.Name == "__csrf" && c.Value != "" {
+			return c.Value, true
+		}
+	}
+	return "", false
+}
+
 func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, req, reply interface{}) (*resty.Response, error) {
 	var (
 		encryptData map[string]string
@@ -101,11 +132,9 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 	if err != nil {
 		return nil, err
 	}
-	for _, c := range c.cookie.Cookies(uri) {
-		if c.Name == "__crsf_token" {
-			csrf = c.Value
-			break
-		}
+	csrf, has := c.GetCSRF(url)
+	if !has {
+		fmt.Println("get csrftoken not found")
 	}
 
 	var resp *resty.Response

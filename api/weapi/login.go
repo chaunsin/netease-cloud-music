@@ -39,7 +39,7 @@ type QrcodeCreateKeyReq struct {
 }
 
 type QrcodeCreateKeyResp struct {
-	api.RespCommon
+	api.RespCommon[any]
 	UniKey string `json:"unikey"`
 }
 
@@ -131,7 +131,7 @@ type QrcodeGenerateReq struct {
 }
 
 type QrcodeGenerateResp struct {
-	api.RespCommon
+	api.RespCommon[any]
 }
 
 // QrcodeGenerate 根据生成得key 请求生成二维码
@@ -152,7 +152,7 @@ type QrcodeCheckReq struct {
 }
 
 type QrcodeCheckResp struct {
-	api.RespCommon
+	api.RespCommon[any]
 }
 
 // QrcodeCheck 查询扫码状态
@@ -245,7 +245,7 @@ type GetUserInfoReq struct {
 }
 
 type GetUserInfoResp struct {
-	api.RespCommon
+	api.RespCommon[any]
 }
 
 func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInfoResp, error) {

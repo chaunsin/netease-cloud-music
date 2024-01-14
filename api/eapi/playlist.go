@@ -118,7 +118,7 @@ type PlaylistRespList struct {
 }
 
 type PlaylistResp struct {
-	api.RespCommon
+	api.RespCommon[any]
 	Playlist PlaylistRespList `json:"playlist"`
 	Version  string           `json:"version"` // 时间戳1703557080686
 }

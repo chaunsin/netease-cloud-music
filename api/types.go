@@ -1,10 +1,10 @@
 package api
 
-type RespCommon struct {
-	Code    int64       `json:"code,omitempty"`
-	Message string      `json:"message,omitempty"`
-	Msg     string      `json:"msg,omitempty"`
-	Data    interface{} `json:"data,omitempty"`
+type RespCommon[T any] struct {
+	Code    int64  `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+	Msg     string `json:"msg,omitempty"`
+	Data    T      `json:"data,omitempty"`
 }
 
 // SendSMSReq 暂定此结构

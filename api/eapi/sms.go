@@ -35,7 +35,7 @@ type CaptchaSendReq struct {
 }
 
 type CaptchaSendResp struct {
-	api.RespCommon
+	api.RespCommon[any]
 }
 
 // CaptchaSend 发送验证码 PC客户端
@@ -128,7 +128,7 @@ type CaptchaVerifyReq struct {
 }
 
 type CaptchaVerifyResp struct {
-	api.RespCommon
+	api.RespCommon[any]
 }
 
 // CaptchaVerify 验证验证码

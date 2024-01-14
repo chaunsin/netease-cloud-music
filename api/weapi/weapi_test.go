@@ -30,10 +30,11 @@ import (
 
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/config"
+	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
 )
 
 var (
-	a   *Api
+	cli *Api
 	ctx = context.TODO()
 )
 
@@ -43,9 +44,14 @@ func TestMain(t *testing.M) {
 			Debug:   false,
 			Timeout: 0,
 			Retry:   0,
+			Cookie: cookie.PersistentJarConfig{
+				Options:  nil,
+				Filepath: "../../testdata/cookie.json",
+				Interval: 0,
+			},
 		},
 	}
 	client := api.New(&cfg)
-	a = New(client)
+	cli = New(client)
 	os.Exit(t.Run())
 }

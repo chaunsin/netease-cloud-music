@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/chaunsin/netease-cloud-music/cookie/ascii"
+	"github.com/chaunsin/netease-cloud-music/pkg/cookie/ascii"
 )
 
 // PublicSuffixList provides the public suffix of a domain. For example:

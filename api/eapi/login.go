@@ -40,7 +40,7 @@ type LoginPhoneReq struct {
 }
 
 type LoginPhoneResp struct {
-	api.RespCommon
+	api.RespCommon[any]
 }
 
 // LoginPhone 手机号登录
@@ -64,7 +64,7 @@ type RefreshTokenReq struct {
 }
 
 type RefreshTokenResp struct {
-	api.RespCommon
+	api.RespCommon[any]
 }
 
 // RefreshToken token刷新

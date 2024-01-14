@@ -30,7 +30,7 @@ type WebLogReq struct {
 }
 
 type WebLogResp struct {
-	api.RespCommon
+	api.RespCommon[any]
 }
 
 // WebLog 登录使用行为
@@ -71,7 +71,7 @@ type WeApiWebLogReqLog struct {
 }
 
 type WeApiWebLogResp struct {
-	api.RespCommon
+	api.RespCommon[any]
 }
 
 // WeApiWebLog 登录使用行为

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/chaunsin/netease-cloud-music/cookie/ascii"
+	"github.com/chaunsin/netease-cloud-music/pkg/cookie/ascii"
 )
 
 // These parameter values are specified in section 5.
