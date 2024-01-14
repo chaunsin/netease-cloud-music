@@ -13,7 +13,8 @@ import (
 	neturl "net/url"
 
 	"github.com/chaunsin/netease-cloud-music/config"
-	"github.com/chaunsin/netease-cloud-music/cookie"
+	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
+	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/google/brotli/go/cbrotli"
@@ -121,18 +122,18 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 
 	switch cryptoMode {
 	case "eapi":
-		encryptData, err = EApiEncrypt(uri.Path, req)
+		encryptData, err = crypto.EApiEncrypt(uri.Path, req)
 		if err != nil {
 			return nil, fmt.Errorf("EApiEncrypt: %w", err)
 		}
 	case "weapi":
 		request.SetQueryParam("csrf_token", csrf)
-		encryptData, err = WeApiEncrypt(req)
+		encryptData, err = crypto.WeApiEncrypt(req)
 		if err != nil {
 			return nil, fmt.Errorf("EApiEncrypt: %w", err)
 		}
 	case "linux":
-		encryptData, err = LinuxApiEncrypt(req)
+		encryptData, err = crypto.LinuxApiEncrypt(req)
 		if err != nil {
 			return nil, fmt.Errorf("LinuxApiEncrypt: %w", err)
 		}
@@ -154,7 +155,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 	var decryptData []byte
 	switch cryptoMode {
 	case "eapi":
-		decryptData, err = EApiDecrypt(string(resp.Body()), "")
+		decryptData, err = crypto.EApiDecrypt(string(resp.Body()), "")
 		if err != nil {
 			return nil, fmt.Errorf("EApiDecrypt: %w", err)
 		}
@@ -162,7 +163,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 		// tips: weapi接口返回数据是明文,另外即使是加密数据也拿不到私钥.
 		decryptData = resp.Body()
 	case "linux":
-		decryptData, err = LinuxApiDecrypt(string(resp.Body()))
+		decryptData, err = crypto.LinuxApiDecrypt(string(resp.Body()))
 		if err != nil {
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
@@ -182,7 +183,7 @@ func encrypt(c *resty.Client, req *resty.Request) error {
 	if err != nil {
 		return err
 	}
-	data, err := EApiEncrypt(u.Path, req.Body)
+	data, err := crypto.EApiEncrypt(u.Path, req.Body)
 	if err != nil {
 		return fmt.Errorf("EApiEncrypt: %w", err)
 	}
@@ -191,7 +192,7 @@ func encrypt(c *resty.Client, req *resty.Request) error {
 }
 
 func decrypt(c *resty.Client, resp *resty.Response) error {
-	raw, err := EApiDecrypt(string(resp.Body()), "")
+	raw, err := crypto.EApiDecrypt(string(resp.Body()), "")
 	if err != nil {
 		return fmt.Errorf("EApiDecrypt: %w", err)
 	}
@@ -218,6 +219,14 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 			return err
 		}
 		resp.SetBody(bodyBytes)
+
+		// reader:=flate.NewReader(bytes.NewReader(resp.Body()))
+		// defer reader.Close()
+		// bodyBytes, err := io.ReadAll(reader)
+		// if err != nil {
+		// 	return err
+		// }
+		// resp.SetBody(bodyBytes)
 	case "gzip":
 		// TODO: restry 自身已经实现gzip解压缩
 		// reader, err := gzip.NewReader(bytes.NewReader(resp.Body()))

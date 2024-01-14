@@ -31,9 +31,10 @@ import (
 
 type RootOpts struct {
 	Debug  bool   // 是否开启命令行debug模式
-	Input  string // 加载文件路径
+	File   string // 加载文件路径
 	Output string // 生成文件路径
 	Stdout bool   // 生成内容是否打印到标准数据中
+	Kind   string // api类型
 }
 
 type Cmd struct {
@@ -59,9 +60,10 @@ ncm encrypt -k eapi -P xxx`,
 
 func (c *Cmd) addFlags() {
 	c.root.PersistentFlags().BoolVar(&c.RootOpts.Debug, "debug", false, "")
-	c.root.PersistentFlags().StringVarP(&c.RootOpts.Input, "input", "i", "", "ncm [command] -i ./crypto.text")
+	c.root.PersistentFlags().StringVarP(&c.RootOpts.File, "file", "f", "", "ncm [command] -f ./file.tar")
 	c.root.PersistentFlags().StringVarP(&c.RootOpts.Output, "output", "o", "", "Generate decrypt file directory location")
 	c.root.PersistentFlags().BoolVar(&c.RootOpts.Stdout, "stdout", false, "")
+	c.root.PersistentFlags().StringVarP(&c.RootOpts.Kind, "kind", "k", "weapi", "weapi|eapi|linux")
 }
 
 func (c *Cmd) Version(version string) {

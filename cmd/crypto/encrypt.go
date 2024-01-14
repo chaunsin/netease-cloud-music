@@ -28,10 +28,8 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 
-	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/utils"
+	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 
 	"github.com/spf13/cobra"
 )
@@ -40,7 +38,6 @@ type cryptoCmd struct {
 	root *Cmd
 	cmd  *cobra.Command
 
-	kind      string
 	url       string
 	plaintext string
 	encode    string
@@ -53,7 +50,7 @@ func NewEncrypt(root *Cmd) *cobra.Command {
 	c.cmd = &cobra.Command{
 		Use:     "encrypt",
 		Short:   "Encrypt data",
-		Example: "ncm encrypt -k weapi -u /eapi/sms/captcha/sent -P xxx",
+		Example: "ncm encrypt -k weapi -u /eapi/sms/captcha/sent -p \"plaintext\"",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := c.execute(); err != nil {
 				fmt.Println(err)
@@ -65,22 +62,24 @@ func NewEncrypt(root *Cmd) *cobra.Command {
 }
 
 func (c *cryptoCmd) addFlags() {
-	c.cmd.Flags().StringVarP(&c.kind, "kind", "k", "weapi", "weapi|eapi|linux")
 	c.cmd.Flags().StringVarP(&c.plaintext, "plaintext", "p", "", "plaintext json value")
-	c.cmd.Flags().StringVarP(&c.url, "url", "u", "", "url")
+	c.cmd.Flags().StringVarP(&c.url, "url", "u", "", "url params value")
 	// c.cmd.Flags().StringVarP(&c.encode, "encode", "e", "hex", "string|hex|base64")
 }
 
 func (c *cryptoCmd) execute() error {
-	var plaintext string
+	var (
+		plaintext string
+		opts      = c.root.RootOpts
+	)
 	// if c.encode != "string" && c.encode != "base64" && c.encode != "hex" {
 	// 	return fmt.Errorf("%s is unknown encode", c.encode)
 	// }
-	if c.plaintext == "" && c.root.RootOpts.Input == "" {
+	if c.plaintext == "" && opts.File == "" {
 		return fmt.Errorf("nothing was entered")
 	}
-	if c.root.RootOpts.Input != "" {
-		data, err := os.ReadFile(c.root.RootOpts.Input)
+	if opts.File != "" {
+		data, err := os.ReadFile(opts.File)
 		if err != nil {
 			return fmt.Errorf("ReadFile: %w", err)
 		}
@@ -95,14 +94,17 @@ func (c *cryptoCmd) execute() error {
 	}
 
 	var data []byte
-	switch c.kind {
+	switch kind := opts.Kind; kind {
 	case "eapi":
 		{
+			if c.url == "" {
+				return fmt.Errorf("url params is empty")
+			}
 			parsed, err := url.Parse(c.url)
 			if err != nil {
 				return fmt.Errorf("parse: %w", err)
 			}
-			ciphertext, err := api.EApiEncrypt(parsed.Path, payload)
+			ciphertext, err := crypto.EApiEncrypt(parsed.Path, payload)
 			if err != nil {
 				return fmt.Errorf("加密失败: %w", err)
 			}
@@ -112,7 +114,7 @@ func (c *cryptoCmd) execute() error {
 			}
 		}
 	case "weapi":
-		ciphertext, err := api.WeApiEncrypt(payload)
+		ciphertext, err := crypto.WeApiEncrypt(payload)
 		if err != nil {
 			return fmt.Errorf("加密失败: %w", err)
 		}
@@ -121,31 +123,9 @@ func (c *cryptoCmd) execute() error {
 			return fmt.Errorf("MarshalIndent: %w", err)
 		}
 	case "linux":
-		return fmt.Errorf("%s to be realized", c.kind)
+		return fmt.Errorf("%s to be realized", kind)
 	default:
-		return fmt.Errorf("%s known kind", c.kind)
+		return fmt.Errorf("%s known kind", kind)
 	}
-
-	if out := c.root.RootOpts.Output; out != "" {
-		var file string
-		if !filepath.IsAbs(out) {
-			wd, err := os.Getwd()
-			if err != nil {
-				return err
-			}
-			file = filepath.Join(wd, out)
-			if !utils.PathExists(file) {
-				if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
-					return fmt.Errorf("MkdirAll: %w", err)
-				}
-			}
-		}
-		if err := os.WriteFile(file, data, os.ModePerm); err != nil {
-			return fmt.Errorf("WriteFile: %w", err)
-		}
-		fmt.Printf("generate file path: %s\n", file)
-		return nil
-	}
-	fmt.Println("ciphertext:\n" + string(data) + "\n")
-	return nil
+	return writefile(opts.Output, data)
 }

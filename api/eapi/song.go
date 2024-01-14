@@ -31,48 +31,21 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api"
 )
 
-type LoginPhoneReq struct {
-	CounterCode   string
-	Phone         string
-	Password      string
-	Captcha       string
-	RememberLogin bool
+type V3SongDetailReq struct {
 }
 
-type LoginPhoneResp struct {
+type V3SongDetailResp struct {
 	api.RespCommon
+	Playlist PlaylistRespList `json:"playlist"`
+	Version  string           `json:"version"` // 时间戳1703557080686
 }
 
-// LoginPhone 手机号登录
-func (a *Api) LoginPhone(ctx context.Context, req *LoginPhoneReq) (*LoginPhoneResp, error) {
-	var reply LoginPhoneResp
-	// resp, err := a.cli.R().
-	// 	SetContext(ctx).
-	// 	SetHeader("Content-Type", "").
-	// 	SetResult(&reply).
-	// 	Post("https://music.163.com/eapi/w/login/cellphone")
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if resp.StatusCode() != http.StatusOK {
-	// 	return nil, fmt.Errorf("http status code: %d", resp.StatusCode())
-	// }
-	return &reply, nil
-}
-
-type RefreshTokenReq struct {
-}
-
-type RefreshTokenResp struct {
-	api.RespCommon
-}
-
-// RefreshToken token刷新
+// V3SongDetail 未知
 // url: https://app.apifox.com/project/3870894
-func (a *Api) RefreshToken(ctx context.Context, req *RefreshTokenReq) (*RefreshTokenResp, error) {
+func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDetailResp, error) {
 	var (
-		url   = "https://music.163.com/eapi/login/token/refresh"
-		reply RefreshTokenResp
+		url   = "https://music.163.com/eapi/v3/song/detail"
+		reply V3SongDetailResp
 	)
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", req, &reply)
 	if err != nil {

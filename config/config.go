@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/chaunsin/netease-cloud-music/cookie"
+	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
 )
 
 type Network struct {
