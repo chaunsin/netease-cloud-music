@@ -31,8 +31,138 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api"
 )
 
+type PartnerWeekReq struct {
+	api.ReqCommon
+	Period string `json:"period"` // 格式:MMD-1617552000000-37-1
+}
+
+type PartnerWeekResp struct {
+	api.RespCommon[PartnerWeekData]
+}
+
+type PartnerWeekData struct {
+	Period        int         `json:"period"`
+	Week          int         `json:"week"`
+	Periods       interface{} `json:"periods"`
+	SectionPeriod string      `json:"sectionPeriod"`
+	User          struct {
+		UserId    int    `json:"userId"`
+		NickName  string `json:"nickName"`
+		AvatarUrl string `json:"avatarUrl"`
+	} `json:"user"`
+	PickRight struct {
+		Status    interface{} `json:"status"`
+		ValidTime int         `json:"validTime"`
+		ValidDay  int         `json:"validDay"`
+	} `json:"pickRight"`
+	Title      interface{} `json:"title"`
+	Integral   int         `json:"integral"`
+	Evaluation struct {
+		EvaluateCount    int    `json:"evaluateCount"`
+		BasicIntegral    int    `json:"basicIntegral"`
+		AccuracyIntegral int    `json:"accuracyIntegral"`
+		AccurateCount    int    `json:"accurateCount"`
+		AccurateRate     int    `json:"accurateRate"`
+		AccuracyLevel    string `json:"accuracyLevel"`
+	} `json:"evaluation"`
+	Top3 []struct {
+		Work struct {
+			Id                  int         `json:"id"`
+			ResourceType        string      `json:"resourceType"`
+			ResourceId          int         `json:"resourceId"`
+			Name                string      `json:"name"`
+			CoverUrl            string      `json:"coverUrl"`
+			AuthorName          string      `json:"authorName"`
+			Duration            int         `json:"duration"`
+			Source              string      `json:"source"`
+			Status              string      `json:"status"`
+			BackendForceOffline bool        `json:"backendForceOffline"`
+			WorkResourceInfo    interface{} `json:"workResourceInfo"`
+		} `json:"work"`
+		Score            float64 `json:"score"`
+		AvgScore         float64 `json:"avgScore"`
+		BasicIntegral    int     `json:"basicIntegral"`
+		AccuracyIntegral int     `json:"accuracyIntegral"`
+		EvaluateCount    int     `json:"evaluateCount"`
+		Tags             []struct {
+			Tag   string `json:"tag"`
+			Count int    `json:"count"`
+		} `json:"tags"`
+		ScoreStats struct {
+			Field1 int `json:"4.0"`
+			Field2 int `json:"1.0,omitempty"`
+			Field3 int `json:"2.0"`
+			Field4 int `json:"5.0"`
+			Field5 int `json:"3.0"`
+		} `json:"scoreStats"`
+		ScorePercentMap struct {
+			Field1 float64 `json:"1.0,omitempty"`
+			Field2 float64 `json:"4.0"`
+			Field3 float64 `json:"2.0"`
+			Field4 float64 `json:"5.0"`
+			Field5 float64 `json:"3.0"`
+		} `json:"scorePercentMap"`
+		Accuracy float64 `json:"accuracy"`
+	} `json:"top3"`
+	AccurateWorks []struct {
+		Work struct {
+			Id                  int         `json:"id"`
+			ResourceType        string      `json:"resourceType"`
+			ResourceId          int         `json:"resourceId"`
+			Name                string      `json:"name"`
+			CoverUrl            string      `json:"coverUrl"`
+			AuthorName          string      `json:"authorName"`
+			Duration            int         `json:"duration"`
+			Source              string      `json:"source"`
+			Status              string      `json:"status"`
+			BackendForceOffline bool        `json:"backendForceOffline"`
+			WorkResourceInfo    interface{} `json:"workResourceInfo"`
+		} `json:"work"`
+		Score            float64     `json:"score"`
+		AvgScore         float64     `json:"avgScore"`
+		BasicIntegral    int         `json:"basicIntegral"`
+		AccuracyIntegral int         `json:"accuracyIntegral"`
+		EvaluateCount    int         `json:"evaluateCount"`
+		Tags             interface{} `json:"tags"`
+		ScoreStats       interface{} `json:"scoreStats"`
+		ScorePercentMap  interface{} `json:"scorePercentMap"`
+		Accuracy         float64     `json:"accuracy"`
+	} `json:"accurateWorks"`
+	ExcellentWorks     []interface{} `json:"excellentWorks"`
+	RecoverStatus      bool          `json:"recoverStatus"`
+	RecoverExpiredTime int           `json:"recoverExpiredTime"`
+	ExcellentPlaylists []struct {
+		Id    int64  `json:"id"`
+		Name  string `json:"name"`
+		Cover string `json:"cover"`
+	} `json:"excellentPlaylists"`
+	Status            string      `json:"status"`
+	ResultConfigTitle interface{} `json:"resultConfigTitle"`
+	ConfigedAct       bool        `json:"configedAct"`
+	Eliminated        bool        `json:"eliminated"`
+}
+
+// PartnerWeek 查询当前周期周一数据报告情况
+func (a *Api) PartnerWeek(ctx context.Context, req *PartnerWeekReq) (*PartnerWeekResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/music/partner/week/result/get"
+		reply PartnerWeekResp
+	)
+	if req.CSRFToken == "" {
+		csrf, _ := a.client.GetCSRF(url)
+		req.CSRFToken = csrf
+	}
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
 type PartnerPeriodReq struct {
-	CsrfToken string `json:"csrf_token"`
+	api.ReqCommon
 }
 
 type PartnerPeriodResp struct {
@@ -143,9 +273,9 @@ func (a *Api) PartnerPeriod(ctx context.Context, req *PartnerPeriodReq) (*Partne
 		url   = "https://interface.music.163.com/weapi/music/partner/period/result/get"
 		reply PartnerPeriodResp
 	)
-	if req.CsrfToken == "" {
+	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
-		req.CsrfToken = csrf
+		req.CSRFToken = csrf
 	}
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
@@ -157,7 +287,7 @@ func (a *Api) PartnerPeriod(ctx context.Context, req *PartnerPeriodReq) (*Partne
 }
 
 type PartnerPeriodUserinfoReq struct {
-	CsrfToken string `json:"csrf_token"`
+	api.ReqCommon
 }
 
 type PartnerPeriodUserinfoResp struct {
@@ -191,9 +321,9 @@ func (a *Api) PartnerPeriodUserinfo(ctx context.Context, req *PartnerPeriodUseri
 		url   = "https://interface.music.163.com/weapi/music/partner/user/info/get"
 		reply PartnerPeriodUserinfoResp
 	)
-	if req.CsrfToken == "" {
+	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
-		req.CsrfToken = csrf
+		req.CSRFToken = csrf
 	}
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
@@ -205,7 +335,7 @@ func (a *Api) PartnerPeriodUserinfo(ctx context.Context, req *PartnerPeriodUseri
 }
 
 type PartnerLatestReq struct {
-	CsrfToken string `json:"csrf_token"`
+	api.ReqCommon
 }
 
 type PartnerLatestResp struct {
@@ -224,9 +354,9 @@ func (a *Api) PartnerLatest(ctx context.Context, req *PartnerLatestReq) (*Partne
 		url   = "https://interface.music.163.com/weapi/music/partner/latest/settle/period/get"
 		reply PartnerLatestResp
 	)
-	if req.CsrfToken == "" {
+	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
-		req.CsrfToken = csrf
+		req.CSRFToken = csrf
 	}
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
@@ -238,7 +368,7 @@ func (a *Api) PartnerLatest(ctx context.Context, req *PartnerLatestReq) (*Partne
 }
 
 type PartnerHomeReq struct {
-	CsrfToken string `json:"csrf_token"`
+	api.ReqCommon
 }
 
 type PartnerHomeResp struct {
@@ -273,9 +403,9 @@ func (a *Api) PartnerHome(ctx context.Context, req *PartnerHomeReq) (*PartnerHom
 		url   = "https://interface.music.163.com/weapi/music/partner/home/get"
 		reply PartnerHomeResp
 	)
-	if req.CsrfToken == "" {
+	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
-		req.CsrfToken = csrf
+		req.CSRFToken = csrf
 	}
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
@@ -287,7 +417,7 @@ func (a *Api) PartnerHome(ctx context.Context, req *PartnerHomeReq) (*PartnerHom
 }
 
 type PartnerTaskReq struct {
-	CsrfToken string `json:"csrf_token"`
+	api.ReqCommon
 }
 
 type PartnerTaskResp struct {
@@ -335,9 +465,9 @@ func (a *Api) PartnerTask(ctx context.Context, req *PartnerTaskReq) (*PartnerTas
 		url   = "https://interface.music.163.com/weapi/music/partner/daily/task/get"
 		reply PartnerTaskResp
 	)
-	if req.CsrfToken == "" {
+	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
-		req.CsrfToken = csrf
+		req.CSRFToken = csrf
 	}
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
@@ -349,7 +479,7 @@ func (a *Api) PartnerTask(ctx context.Context, req *PartnerTaskReq) (*PartnerTas
 }
 
 type PartnerPickRightReq struct {
-	CsrfToken string `json:"csrf_token"`
+	api.ReqCommon
 }
 
 type PartnerPickRightResp struct {
@@ -366,9 +496,9 @@ func (a *Api) PartnerPickRight(ctx context.Context, req *PartnerPickRightReq) (*
 		url   = "https://interface.music.163.com/weapi/music/partner/song/pick/right/get"
 		reply PartnerPickRightResp
 	)
-	if req.CsrfToken == "" {
+	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
-		req.CsrfToken = csrf
+		req.CSRFToken = csrf
 	}
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
@@ -380,7 +510,7 @@ func (a *Api) PartnerPickRight(ctx context.Context, req *PartnerPickRightReq) (*
 }
 
 type PartnerNoticeReq struct {
-	CsrfToken string `json:"csrf_token"`
+	api.ReqCommon
 }
 
 type PartnerNoticeResp struct {
@@ -393,9 +523,9 @@ func (a *Api) PartnerNotice(ctx context.Context, req *PartnerNoticeReq) (*Partne
 		url   = "https://interface.music.163.com/weapi/music/partner/daily/notice/switch/get"
 		reply PartnerNoticeResp
 	)
-	if req.CsrfToken == "" {
+	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
-		req.CsrfToken = csrf
+		req.CSRFToken = csrf
 	}
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
@@ -406,16 +536,30 @@ func (a *Api) PartnerNotice(ctx context.Context, req *PartnerNoticeReq) (*Partne
 	return &reply, nil
 }
 
+// PartnerTags 音乐合伙人测评默认标签
+type PartnerTags string
+
+const (
+	OnePartnerTags   PartnerTags = "4-A-1" // 歌词有共鸣
+	TwoPartnerTags   PartnerTags = "4-A-2" // 歌词立意不错
+	ThreePartnerTags PartnerTags = "3-B-1" // 旋律耐听
+	FourPartnerTags  PartnerTags = "3-C-1" // 唱功不错
+	FivePartnerTags  PartnerTags = "4-D-1" // 音色独特
+	SixPartnerTags   PartnerTags = "3-D-2" // 情感到位
+	SevenPartnerTags PartnerTags = "4-E-1" // 有节奏感
+	EightPartnerTags PartnerTags = "4-E-2" // 洗脑
+)
+
 type PartnerEvaluateReq struct {
-	CsrfToken     string `json:"csrf_token"`
-	TaskId        int    `json:"taskId"`        // 任务id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
-	WorkId        int    `json:"workId"`        // 哪首歌曲id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
-	Score         int    `json:"score"`         // 分值1~5
-	Tags          string `json:"tags"`          // 音乐标签
-	CustomTags    string `json:"customTags"`    // 实际为数组
-	Comment       string `json:"comment"`       // 评论内容
-	SyncYunCircle bool   `json:"syncYunCircle"` // 同步到音乐圈中
-	Source        string `json:"source"`        // 应该表示平台 例如:mp-music-partner
+	api.ReqCommon
+	TaskId        int         `json:"taskId"`        // 任务id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
+	WorkId        int         `json:"workId"`        // 哪首歌曲id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
+	Score         int         `json:"score"`         // 分值1~5
+	Tags          PartnerTags `json:"tags"`          // 音乐标签
+	CustomTags    string      `json:"customTags"`    // 实际为数组
+	Comment       string      `json:"comment"`       // 评论内容
+	SyncYunCircle bool        `json:"syncYunCircle"` // 同步到音乐圈中
+	Source        string      `json:"source"`        // 应该表示平台 例如:mp-music-partner
 }
 
 type PartnerEvaluateResp struct {
@@ -428,9 +572,9 @@ func (a *Api) PartnerEvaluate(ctx context.Context, req *PartnerEvaluateReq) (*Pa
 		url   = "https://interface.music.163.com/weapi/music/partner/work/evaluate"
 		reply PartnerEvaluateResp
 	)
-	if req.CsrfToken == "" {
+	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
-		req.CsrfToken = csrf
+		req.CSRFToken = csrf
 	}
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)

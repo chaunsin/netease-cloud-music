@@ -32,7 +32,7 @@ import (
 )
 
 type SongPlayerReq struct {
-	CsrfToken string `json:"csrf_token"`
+	api.ReqCommon
 }
 
 type SongPlayerResp struct {
@@ -85,9 +85,9 @@ func (a *Api) SongPlayer(ctx context.Context, req *SongPlayerReq) (*SongPlayerRe
 		url   = "https://interface.music.163.com/weapi/song/enhance/player/url"
 		reply SongPlayerResp
 	)
-	if req.CsrfToken == "" {
+	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
-		req.CsrfToken = csrf
+		req.CSRFToken = csrf
 	}
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)

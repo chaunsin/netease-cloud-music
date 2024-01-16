@@ -1,5 +1,9 @@
 package api
 
+type ReqCommon struct {
+	CSRFToken string `json:"csrf_token,omitempty"`
+}
+
 type RespCommon[T any] struct {
 	Code    int64  `json:"code,omitempty"`
 	Message string `json:"message,omitempty"`

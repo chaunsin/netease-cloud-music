@@ -26,13 +26,15 @@ package weapi
 import (
 	"testing"
 
+	"github.com/chaunsin/netease-cloud-music/api"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestQrcodeCreateKey(t *testing.T) {
 	var req = QrcodeCreateKeyReq{
+		ReqCommon: api.ReqCommon{CSRFToken: ""}, // 可不传
 		Type:      1,
-		CsrfToken: "", // 可不传
 	}
 	got, err := cli.QrcodeCreateKey(ctx, &req)
 	assert.NoError(t, err)

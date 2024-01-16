@@ -26,8 +26,15 @@ package weapi
 import (
 	"testing"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestPartnerWeek(t *testing.T) {
+	resp, err := cli.PartnerWeek(ctx, &PartnerWeekReq{Period: "MMD-1617552000000-37-1"})
+	assert.NoError(t, err)
+	t.Logf("resp: %+v\n", resp)
+}
 
 func TestPartnerPeriod(t *testing.T) {
 	resp, err := cli.PartnerPeriod(ctx, &PartnerPeriodReq{})
@@ -61,15 +68,15 @@ func TestPartnerTask(t *testing.T) {
 
 func TestPartnerEvaluate(t *testing.T) {
 	resp, err := cli.PartnerEvaluate(ctx, &PartnerEvaluateReq{
-		CsrfToken:     "",
-		TaskId:        0,
-		WorkId:        0,
+		ReqCommon:     api.ReqCommon{CSRFToken: ""},
+		TaskId:        101398359,
+		WorkId:        1328062,
 		Score:         3,
-		Tags:          "",
+		Tags:          SixPartnerTags,
 		CustomTags:    "",
 		Comment:       "",
 		SyncYunCircle: false,
-		Source:        "",
+		Source:        "mp-music-partner",
 	})
 	assert.NoError(t, err)
 	t.Logf("resp: %+v\n", resp)
