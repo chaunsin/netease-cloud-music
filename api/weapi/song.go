@@ -33,10 +33,12 @@ import (
 
 type SongPlayerReq struct {
 	api.ReqCommon
+	Ids []string `json:"ids"` // 歌曲id
+	Br  string   `json:"br"`  // 音乐bit率 例如:128000 320000
 }
 
 type SongPlayerResp struct {
-	api.RespCommon[SongPlayerReqData]
+	api.RespCommon[[]SongPlayerReqData]
 }
 
 type SongPlayerReqData struct {

@@ -434,7 +434,7 @@ type PartnerTaskRespData struct {
 		Work struct {
 			Id                int    `json:"id"`
 			ResourceType      string `json:"resourceType"`
-			ResourceId        int    `json:"resourceId"`
+			ResourceId        int    `json:"resourceId"` // 歌曲id
 			Name              string `json:"name"`
 			CoverUrl          string `json:"coverUrl"`
 			AuthorName        string `json:"authorName"`

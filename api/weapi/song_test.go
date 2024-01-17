@@ -30,7 +30,7 @@ import (
 )
 
 func TestApi_SongPlayer(t *testing.T) {
-	got, err := cli.SongPlayer(ctx, &SongPlayerReq{})
+	got, err := cli.SongPlayer(ctx, &SongPlayerReq{Ids: []string{"2115747785"}, Br: "128000"})
 	assert.NoError(t, err)
 	t.Logf("resp:%+v\n", got)
 }
