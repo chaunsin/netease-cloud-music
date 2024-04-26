@@ -94,11 +94,11 @@ func (c *decryptCmd) execute() error {
 				return fmt.Errorf("parseHar: %w", err)
 			}
 			// fmt.Printf("data:%+v\n", list)
-			for i, l := range list {
-				if err := c.decryptReq(l.Kind, &list[i], "hex"); err != nil {
+			for i := range list {
+				if err := c.decryptReq(&list[i], "hex"); err != nil {
 					return fmt.Errorf("decryptReq: %w", err)
 				}
-				if err := c.decryptRes(l.Kind, &list[i], ""); err != nil {
+				if err := c.decryptRes(&list[i], ""); err != nil {
 					return fmt.Errorf("decryptRes: %w", err)
 				}
 			}
@@ -125,7 +125,7 @@ func (c *decryptCmd) execute() error {
 		// },
 	}
 
-	if err := c.decryptReq(opts.Kind, payload, c.encode); err != nil {
+	if err := c.decryptReq(payload, c.encode); err != nil {
 		return fmt.Errorf("decryptReq: %w", err)
 	}
 	// c.decryptResp(ciphertext, c.encode)
@@ -137,11 +137,11 @@ func (c *decryptCmd) execute() error {
 	return writefile(opts.Output, content)
 }
 
-func (c *decryptCmd) decryptReq(kind string, p *Payload, encode string) error {
+func (c *decryptCmd) decryptReq(p *Payload, encode string) error {
 	if p == nil || p.Request.Ciphertext == "" {
 		return fmt.Errorf("request chiphertext is nil or empty")
 	}
-	switch kind {
+	switch p.Kind {
 	case "eapi":
 		{
 			data, err := crypto.EApiDecrypt(p.Request.Ciphertext, encode)
@@ -167,22 +167,22 @@ func (c *decryptCmd) decryptReq(kind string, p *Payload, encode string) error {
 			p.Request.Plaintext = payload
 		}
 	case "weapi":
-		return fmt.Errorf("this [%s] method is not supported", kind)
+		return fmt.Errorf("this [%s] method is not supported", p.Kind)
 	case "api":
-		return fmt.Errorf("%s to be realized", kind)
+		return fmt.Errorf("%s to be realized", p.Kind)
 	case "linux":
-		return fmt.Errorf("%s to be realized", kind)
+		return fmt.Errorf("%s to be realized", p.Kind)
 	default:
-		return fmt.Errorf("%s known kind", kind)
+		return fmt.Errorf("%s known kind", p.Kind)
 	}
 	return nil
 }
 
-func (c *decryptCmd) decryptRes(kind string, p *Payload, encode string) error {
+func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 	if p == nil || p.Response.Ciphertext == "" {
 		return fmt.Errorf("response chiphertext is nil or empty")
 	}
-	switch kind {
+	switch p.Kind {
 	case "eapi":
 		{
 			data, err := crypto.EApiDecrypt(p.Response.Ciphertext, encode)
@@ -205,13 +205,13 @@ func (c *decryptCmd) decryptRes(kind string, p *Payload, encode string) error {
 			p.Response.Plaintext = payload
 		}
 	case "weapi":
-		return fmt.Errorf("this [%s] method is not supported", kind)
+		return fmt.Errorf("this [%s] method is not supported", p.Kind)
 	case "api":
-		return fmt.Errorf("%s to be realized", kind)
+		return fmt.Errorf("%s to be realized", p.Kind)
 	case "linux":
-		return fmt.Errorf("%s to be realized", kind)
+		return fmt.Errorf("%s to be realized", p.Kind)
 	default:
-		return fmt.Errorf("%s known kind", kind)
+		return fmt.Errorf("%s known kind", p.Kind)
 	}
 	return nil
 }
@@ -225,7 +225,7 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 		return nil, fmt.Errorf("request data is empty")
 	}
 	var resp = make([]Payload, 0, h.EntryTotal())
-	for _, entry := range h.Export().Log.Entries { /**/
+	for _, entry := range h.Export().Log.Entries {
 		var (
 			req  = entry.Request
 			res  = entry.Response
@@ -246,7 +246,7 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 		}
 
 		// 解析request请求参数
-		pd := req.PostData
+		var pd = req.PostData
 		if len(pd.Params) > 0 {
 			switch kind {
 			case "eapi":

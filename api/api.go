@@ -126,6 +126,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 		encryptData map[string]string
 		err         error
 		csrf        string
+		resp        *resty.Response
 	)
 
 	uri, err := neturl.Parse(url)
@@ -137,7 +138,6 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 		fmt.Println("get csrftoken not found")
 	}
 
-	var resp *resty.Response
 	request := c.cli.R().
 		SetContext(ctx).
 		SetHeader("Host", "music.163.com").
