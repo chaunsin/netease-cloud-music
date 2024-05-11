@@ -21,13 +21,54 @@
 // SOFTWARE.
 //
 
-package main
+package cmd
 
-import (
-	"github.com/chaunsin/netease-cloud-music/cmd/cmd"
-)
+import "github.com/spf13/cobra"
 
-func main() {
-	c := cmd.New()
-	c.Execute()
+type LoginOpts struct {
+	Account string
+}
+
+type Login struct {
+	root *Root
+	cmd  *cobra.Command
+	opts LoginOpts
+}
+
+func NewLogin(root *Root) *Login {
+	c := &Login{
+		root: root,
+		cmd: &cobra.Command{
+			Use:   "login",
+			Short: "login netease cloud music",
+			Example: `ncm login -h
+ncm login xxx`,
+		},
+	}
+	c.addFlags()
+	c.Add(qrcode(c))
+
+	return c
+}
+
+func (c *Login) addFlags() {
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Account, "account", "a", "", "ncm login -a xxx")
+}
+
+func (c *Login) Version(version string) {
+	c.cmd.Version = version
+}
+
+func (c *Login) Add(command ...*cobra.Command) {
+	c.cmd.AddCommand(command...)
+}
+
+func (c *Login) Execute() {
+	if err := c.cmd.Execute(); err != nil {
+		panic(err)
+	}
+}
+
+func (c *Login) Command() *cobra.Command {
+	return c.cmd
 }

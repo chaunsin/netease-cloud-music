@@ -21,7 +21,7 @@
 // SOFTWARE.
 //
 
-package crypto
+package cmd
 
 import (
 	"encoding/json"
@@ -35,7 +35,7 @@ import (
 )
 
 type cryptoCmd struct {
-	root *Cmd
+	root *Crypto
 	cmd  *cobra.Command
 
 	url       string
@@ -43,14 +43,14 @@ type cryptoCmd struct {
 	encode    string
 }
 
-func NewEncrypt(root *Cmd) *cobra.Command {
+func encrypt(root *Crypto) *cobra.Command {
 	c := &cryptoCmd{
 		root: root,
 	}
 	c.cmd = &cobra.Command{
 		Use:     "encrypt",
 		Short:   "Encrypt data",
-		Example: "ncm encrypt -k weapi -u /eapi/sms/captcha/sent -p \"plaintext\"",
+		Example: "ncm crypto encrypt -k weapi -u /eapi/sms/captcha/sent -p \"plaintext\"",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := c.execute(); err != nil {
 				fmt.Println(err)
@@ -70,7 +70,7 @@ func (c *cryptoCmd) addFlags() {
 func (c *cryptoCmd) execute() error {
 	var (
 		plaintext string
-		opts      = c.root.RootOpts
+		opts      = c.root.opts
 	)
 	// if c.encode != "string" && c.encode != "base64" && c.encode != "hex" {
 	// 	return fmt.Errorf("%s is unknown encode", c.encode)

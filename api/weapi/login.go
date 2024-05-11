@@ -67,6 +67,8 @@ type QrcodeGenerateReq struct {
 
 type QrcodeGenerateResp struct {
 	api.RespCommon[any]
+	Qrcode      []byte //
+	QrcodePrint string
 }
 
 // QrcodeGenerate 根据 QrcodeCreateKey 接口生成得key生成生成二维码,注意此处不是调用服务接口。
@@ -76,9 +78,22 @@ func (a *Api) QrcodeGenerate(ctx context.Context, req *QrcodeGenerateReq) (*Qrco
 		reply   QrcodeGenerateResp
 	)
 
-	if err := qrcode.WriteFile(content, qrcode.Medium, 256, "./qrcode.png"); err != nil {
-		return nil, fmt.Errorf("WriteFile: %w", err)
+	qr, err := qrcode.New(content, qrcode.Medium)
+	if err != nil {
+		return nil, err
 	}
+	reply.Qrcode, err = qr.PNG(256)
+	if err != nil {
+		return nil, fmt.Errorf("PNG: %w", err)
+	}
+	reply.QrcodePrint = qr.ToSmallString(false)
+	// if err := qr.WriteFile(256, "./qrcode.png"); err != nil {
+	// 	return nil, fmt.Errorf("WriteFile: %w", err)
+	// }
+
+	// if err := qrcode.WriteFile(content, qrcode.Medium, 256, "./qrcode.png"); err != nil {
+	// 	return nil, fmt.Errorf("WriteFile: %w", err)
+	// }
 	return &reply, nil
 }
 

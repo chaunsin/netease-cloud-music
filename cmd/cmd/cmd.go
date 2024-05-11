@@ -21,39 +21,55 @@
 // SOFTWARE.
 //
 
-package crypto
+package cmd
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
-	"github.com/chaunsin/netease-cloud-music/pkg/utils"
+	"github.com/spf13/cobra"
 )
 
-func writefile(out string, data []byte) error {
-	if out == "" {
-		_, err := fmt.Fprint(os.Stdout, string(data)+"\r\n")
-		return err
-	}
+type RootOpts struct {
+	Debug  bool // 是否开启命令行debug模式
+	Stdout bool // 生成内容是否打印到标准数据中
+}
 
-	// 写入文件
-	var file string
-	if !filepath.IsAbs(out) {
-		wd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		file = filepath.Join(wd, out)
-		if !utils.PathExists(file) {
-			if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
-				return fmt.Errorf("MkdirAll: %w", err)
-			}
-		}
+type Root struct {
+	cmd  *cobra.Command
+	Opts RootOpts
+}
+
+func New() *Root {
+	c := &Root{
+		cmd: &cobra.Command{
+			Use:   "ncm",
+			Short: "ncm is a tool for encrypting and decrypting the ncm file.",
+			Example: `ncm -h
+ncm crypto decrypt -k eapi -c xxx
+ncm crypto encrypt -k eapi -P xxx
+ncm login qrcode -a xx`,
+		},
 	}
-	if err := os.WriteFile(file, data, os.ModePerm); err != nil {
-		return fmt.Errorf("WriteFile: %w", err)
+	c.addFlags()
+	c.Add(NewCrypto(c).Command())
+	c.Add(NewLogin(c).Command())
+
+	return c
+}
+
+func (c *Root) addFlags() {
+	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "")
+	c.cmd.PersistentFlags().BoolVar(&c.Opts.Stdout, "stdout", false, "")
+}
+
+func (c *Root) Version(version string) {
+	c.cmd.Version = version
+}
+
+func (c *Root) Add(command ...*cobra.Command) {
+	c.cmd.AddCommand(command...)
+}
+
+func (c *Root) Execute() {
+	if err := c.cmd.Execute(); err != nil {
+		panic(err)
 	}
-	fmt.Printf("generate file path: %s\n", file)
-	return nil
 }

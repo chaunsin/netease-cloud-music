@@ -1,6 +1,9 @@
 package example
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -23,12 +26,27 @@ func TestLoginByQrcode(t *testing.T) {
 	}
 
 	// 2. 生成二维码
-	_, err = api.QrcodeGenerate(ctx, &weapi.QrcodeGenerateReq{CodeKey: key.UniKey})
+	qr, err := api.QrcodeGenerate(ctx, &weapi.QrcodeGenerateReq{CodeKey: key.UniKey})
 	if err != nil {
-		t.Fatalf("QrcodeGetReq: %s", err)
+		t.Fatalf("QrcodeGenerate: %s", err)
 	}
 
 	// 3. 手机扫码
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %s", err)
+	}
+	p := filepath.Join(dir, "./")
+	if err := os.MkdirAll(p, os.ModePerm); err != nil {
+		t.Fatalf("Mkdir: %w", err)
+	}
+	p = filepath.Join(p, "qrcode.png")
+	if err := os.WriteFile(p, qr.Qrcode, os.ModePerm); err != nil {
+		t.Fatalf("WriteFile: %s", err)
+	}
+	fmt.Printf(">>>>> please scan qrcode in your phone <<<<<\n")
+	fmt.Printf("qrcode file %s\n", p)
+	fmt.Printf("qrcode: %s\n", qr.QrcodePrint)
 
 	// 4. 轮训获取扫码状态
 	for {

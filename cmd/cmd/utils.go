@@ -21,13 +21,39 @@
 // SOFTWARE.
 //
 
-package main
+package cmd
 
 import (
-	"github.com/chaunsin/netease-cloud-music/cmd/cmd"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
 
-func main() {
-	c := cmd.New()
-	c.Execute()
+func writefile(out string, data []byte) error {
+	if out == "" {
+		_, err := fmt.Fprint(os.Stdout, string(data)+"\r\n")
+		return err
+	}
+
+	// 写入文件
+	var file string
+	if !filepath.IsAbs(out) {
+		wd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		file = filepath.Join(wd, out)
+		if !utils.PathExists(file) {
+			if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
+				return fmt.Errorf("MkdirAll: %w", err)
+			}
+		}
+	}
+	if err := os.WriteFile(file, data, os.ModePerm); err != nil {
+		return fmt.Errorf("WriteFile: %w", err)
+	}
+	fmt.Printf("generate file path: %s\n", file)
+	return nil
 }

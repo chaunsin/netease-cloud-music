@@ -21,69 +21,62 @@
 // SOFTWARE.
 //
 
-package crypto
+package cmd
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 )
 
-type RootOpts struct {
-	Debug  bool   // 是否开启命令行debug模式
+type CryptoOpts struct {
 	File   string // 加载文件路径
 	Output string // 生成文件路径
-	Stdout bool   // 生成内容是否打印到标准数据中
 	Kind   string // api类型
 }
 
-type Cmd struct {
-	root     *cobra.Command
-	RootOpts RootOpts
+type Crypto struct {
+	root *Root
+	cmd  *cobra.Command
+	opts CryptoOpts
 }
 
-func New() *Cmd {
-	c := &Cmd{
-		root: &cobra.Command{
-			Use: "ncm",
-			Example: `ncm -h
-ncm decrypt -k eapi -c xxx
-ncm encrypt -k eapi -P xxx`,
+func NewCrypto(root *Root) *Crypto {
+	c := &Crypto{
+		root: root,
+		cmd: &cobra.Command{
+			Use:   "crypto",
+			Short: "crypto is a tool for encrypting and decrypting the http data",
+			Example: `ncm crypto -h
+ncm crypto decrypt -k eapi -c xxx
+ncm crypto encrypt -k eapi -P xxx`,
 		},
 	}
 	c.addFlags()
-	c.Add(NewEncrypt(c))
-	c.Add(NewDecrypt(c))
+	c.Add(encrypt(c))
+	c.Add(decrypt(c))
 
 	return c
 }
 
-func (c *Cmd) addFlags() {
-	c.root.PersistentFlags().BoolVar(&c.RootOpts.Debug, "debug", false, "")
-	c.root.PersistentFlags().StringVarP(&c.RootOpts.File, "file", "f", "", "ncm [command] -f ./file.tar")
-	c.root.PersistentFlags().StringVarP(&c.RootOpts.Output, "output", "o", "", "Generate decrypt file directory location")
-	c.root.PersistentFlags().BoolVar(&c.RootOpts.Stdout, "stdout", false, "")
-	c.root.PersistentFlags().StringVarP(&c.RootOpts.Kind, "kind", "k", "weapi", "weapi|eapi|linux")
+func (c *Crypto) addFlags() {
+	c.cmd.PersistentFlags().StringVarP(&c.opts.File, "file", "f", "", "ncm [command] -f ./file.tar")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "Generate decrypt file directory location")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "weapi|eapi|linux")
 }
 
-func (c *Cmd) Version(version string) {
-	c.root.Version = version
+func (c *Crypto) Version(version string) {
+	c.cmd.Version = version
 }
 
-func (c *Cmd) Add(command ...*cobra.Command) {
-	c.root.AddCommand(command...)
+func (c *Crypto) Add(command ...*cobra.Command) {
+	c.cmd.AddCommand(command...)
 }
 
-func (c *Cmd) Execute() {
-	if err := c.root.Execute(); err != nil {
+func (c *Crypto) Execute() {
+	if err := c.cmd.Execute(); err != nil {
 		panic(err)
 	}
 }
 
-func defaultString(env, value string) string {
-	v := os.Getenv(env)
-	if v == "" {
-		return value
-	}
-	return v
+func (c *Crypto) Command() *cobra.Command {
+	return c.cmd
 }

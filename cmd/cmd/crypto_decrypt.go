@@ -21,7 +21,7 @@
 // SOFTWARE.
 //
 
-package crypto
+package cmd
 
 import (
 	"bytes"
@@ -40,7 +40,7 @@ import (
 )
 
 type decryptCmd struct {
-	root *Cmd
+	root *Crypto
 	cmd  *cobra.Command
 
 	ciphertext string
@@ -48,14 +48,14 @@ type decryptCmd struct {
 	url        string
 }
 
-func NewDecrypt(root *Cmd) *cobra.Command {
+func decrypt(root *Crypto) *cobra.Command {
 	c := &decryptCmd{
 		root: root,
 	}
 	c.cmd = &cobra.Command{
 		Use:     "decrypt",
 		Short:   "Decrypt data",
-		Example: "ncm decrypt -k weapi -e base64 -c \"ciphertext\"\nncm decrypt -f example.har",
+		Example: "ncm crypto decrypt -k weapi -e base64 -c \"ciphertext\"\nncm decrypt -f example.har",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := c.execute(); err != nil {
 				fmt.Println(err)
@@ -75,7 +75,7 @@ func (c *decryptCmd) addFlags() {
 func (c *decryptCmd) execute() error {
 	var (
 		ciphertext string
-		opts       = c.root.RootOpts
+		opts       = c.root.opts
 	)
 	if c.encode != "string" && c.encode != "base64" && c.encode != "hex" {
 		return fmt.Errorf("%s is unknown encode", c.encode)
