@@ -6,6 +6,7 @@ require (
 	github.com/chaunsin/go-har v0.0.0-20240114091343-a83446c4934b
 	github.com/go-resty/resty/v2 v2.11.0
 	github.com/google/brotli/go/cbrotli v0.0.0-20240111100437-033940f97cfa
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4

@@ -51,6 +51,7 @@ ncm login qrcode -a xx`,
 	c.addFlags()
 	c.Add(NewCrypto(c).Command())
 	c.Add(NewLogin(c).Command())
+	c.Add(NewPartner(c).Command())
 
 	return c
 }

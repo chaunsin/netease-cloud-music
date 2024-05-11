@@ -41,39 +41,39 @@ type PartnerWeekResp struct {
 }
 
 type PartnerWeekData struct {
-	Period        int         `json:"period"`
-	Week          int         `json:"week"`
+	Period        int64       `json:"period"`
+	Week          int64       `json:"week"`
 	Periods       interface{} `json:"periods"`
 	SectionPeriod string      `json:"sectionPeriod"`
 	User          struct {
-		UserId    int    `json:"userId"`
+		UserId    int64  `json:"userId"`
 		NickName  string `json:"nickName"`
 		AvatarUrl string `json:"avatarUrl"`
 	} `json:"user"`
 	PickRight struct {
 		Status    interface{} `json:"status"`
-		ValidTime int         `json:"validTime"`
-		ValidDay  int         `json:"validDay"`
+		ValidTime int64       `json:"validTime"`
+		ValidDay  int64       `json:"validDay"`
 	} `json:"pickRight"`
 	Title      interface{} `json:"title"`
-	Integral   int         `json:"integral"`
+	Integral   int64       `json:"integral"`
 	Evaluation struct {
-		EvaluateCount    int    `json:"evaluateCount"`
-		BasicIntegral    int    `json:"basicIntegral"`
-		AccuracyIntegral int    `json:"accuracyIntegral"`
-		AccurateCount    int    `json:"accurateCount"`
-		AccurateRate     int    `json:"accurateRate"`
+		EvaluateCount    int64  `json:"evaluateCount"`
+		BasicIntegral    int64  `json:"basicIntegral"`
+		AccuracyIntegral int64  `json:"accuracyIntegral"`
+		AccurateCount    int64  `json:"accurateCount"`
+		AccurateRate     int64  `json:"accurateRate"`
 		AccuracyLevel    string `json:"accuracyLevel"`
 	} `json:"evaluation"`
 	Top3 []struct {
 		Work struct {
-			Id                  int         `json:"id"`
+			Id                  int64       `json:"id"`
 			ResourceType        string      `json:"resourceType"`
-			ResourceId          int         `json:"resourceId"`
+			ResourceId          int64       `json:"resourceId"`
 			Name                string      `json:"name"`
 			CoverUrl            string      `json:"coverUrl"`
 			AuthorName          string      `json:"authorName"`
-			Duration            int         `json:"duration"`
+			Duration            int64       `json:"duration"`
 			Source              string      `json:"source"`
 			Status              string      `json:"status"`
 			BackendForceOffline bool        `json:"backendForceOffline"`
@@ -81,19 +81,19 @@ type PartnerWeekData struct {
 		} `json:"work"`
 		Score            float64 `json:"score"`
 		AvgScore         float64 `json:"avgScore"`
-		BasicIntegral    int     `json:"basicIntegral"`
-		AccuracyIntegral int     `json:"accuracyIntegral"`
-		EvaluateCount    int     `json:"evaluateCount"`
+		BasicIntegral    int64   `json:"basicIntegral"`
+		AccuracyIntegral int64   `json:"accuracyIntegral"`
+		EvaluateCount    int64   `json:"evaluateCount"`
 		Tags             []struct {
 			Tag   string `json:"tag"`
-			Count int    `json:"count"`
+			Count int64  `json:"count"`
 		} `json:"tags"`
 		ScoreStats struct {
-			Field1 int `json:"4.0"`
-			Field2 int `json:"1.0,omitempty"`
-			Field3 int `json:"2.0"`
-			Field4 int `json:"5.0"`
-			Field5 int `json:"3.0"`
+			Field1 int64 `json:"4.0"`
+			Field2 int64 `json:"1.0,omitempty"`
+			Field3 int64 `json:"2.0"`
+			Field4 int64 `json:"5.0"`
+			Field5 int64 `json:"3.0"`
 		} `json:"scoreStats"`
 		ScorePercentMap struct {
 			Field1 float64 `json:"1.0,omitempty"`
@@ -106,13 +106,13 @@ type PartnerWeekData struct {
 	} `json:"top3"`
 	AccurateWorks []struct {
 		Work struct {
-			Id                  int         `json:"id"`
+			Id                  int64       `json:"id"`
 			ResourceType        string      `json:"resourceType"`
-			ResourceId          int         `json:"resourceId"`
+			ResourceId          int64       `json:"resourceId"`
 			Name                string      `json:"name"`
 			CoverUrl            string      `json:"coverUrl"`
 			AuthorName          string      `json:"authorName"`
-			Duration            int         `json:"duration"`
+			Duration            int64       `json:"duration"`
 			Source              string      `json:"source"`
 			Status              string      `json:"status"`
 			BackendForceOffline bool        `json:"backendForceOffline"`
@@ -120,9 +120,9 @@ type PartnerWeekData struct {
 		} `json:"work"`
 		Score            float64     `json:"score"`
 		AvgScore         float64     `json:"avgScore"`
-		BasicIntegral    int         `json:"basicIntegral"`
-		AccuracyIntegral int         `json:"accuracyIntegral"`
-		EvaluateCount    int         `json:"evaluateCount"`
+		BasicIntegral    int64       `json:"basicIntegral"`
+		AccuracyIntegral int64       `json:"accuracyIntegral"`
+		EvaluateCount    int64       `json:"evaluateCount"`
 		Tags             interface{} `json:"tags"`
 		ScoreStats       interface{} `json:"scoreStats"`
 		ScorePercentMap  interface{} `json:"scorePercentMap"`
@@ -130,7 +130,7 @@ type PartnerWeekData struct {
 	} `json:"accurateWorks"`
 	ExcellentWorks     []interface{} `json:"excellentWorks"`
 	RecoverStatus      bool          `json:"recoverStatus"`
-	RecoverExpiredTime int           `json:"recoverExpiredTime"`
+	RecoverExpiredTime int64         `json:"recoverExpiredTime"`
 	ExcellentPlaylists []struct {
 		Id    int64  `json:"id"`
 		Name  string `json:"name"`
@@ -170,35 +170,35 @@ type PartnerPeriodResp struct {
 }
 
 type PartnerPeriodRespData struct {
-	Period        int         `json:"period"`
-	Week          int         `json:"week"`
+	Period        int64       `json:"period"`
+	Week          int64       `json:"week"`
 	Periods       string      `json:"periods"`
 	SectionPeriod interface{} `json:"sectionPeriod"`
 	User          struct {
-		UserId    int    `json:"userId"`
+		UserId    int64  `json:"userId"`
 		NickName  string `json:"nickName"`
 		AvatarUrl string `json:"avatarUrl"`
 	} `json:"user"`
 	PickRight  interface{} `json:"pickRight"`
 	Title      string      `json:"title"`
-	Integral   int         `json:"integral"`
+	Integral   int64       `json:"integral"`
 	Evaluation struct {
-		EvaluateCount    int    `json:"evaluateCount"`
-		BasicIntegral    int    `json:"basicIntegral"`
-		AccuracyIntegral int    `json:"accuracyIntegral"`
-		AccurateCount    int    `json:"accurateCount"`
-		AccurateRate     int    `json:"accurateRate"`
+		EvaluateCount    int64  `json:"evaluateCount"`
+		BasicIntegral    int64  `json:"basicIntegral"`
+		AccuracyIntegral int64  `json:"accuracyIntegral"`
+		AccurateCount    int64  `json:"accurateCount"`
+		AccurateRate     int64  `json:"accurateRate"`
 		AccuracyLevel    string `json:"accuracyLevel"`
 	} `json:"evaluation"`
 	Top3 []struct {
 		Work struct {
-			Id                  int         `json:"id"`
+			Id                  int64       `json:"id"`
 			ResourceType        string      `json:"resourceType"`
-			ResourceId          int         `json:"resourceId"`
+			ResourceId          int64       `json:"resourceId"`
 			Name                string      `json:"name"`
 			CoverUrl            string      `json:"coverUrl"`
 			AuthorName          string      `json:"authorName"`
-			Duration            int         `json:"duration"`
+			Duration            int64       `json:"duration"`
 			Source              string      `json:"source"`
 			Status              string      `json:"status"`
 			BackendForceOffline bool        `json:"backendForceOffline"`
@@ -206,19 +206,19 @@ type PartnerPeriodRespData struct {
 		} `json:"work"`
 		Score            float64 `json:"score"`
 		AvgScore         float64 `json:"avgScore"`
-		BasicIntegral    int     `json:"basicIntegral"`
-		AccuracyIntegral int     `json:"accuracyIntegral"`
-		EvaluateCount    int     `json:"evaluateCount"`
+		BasicIntegral    int64   `json:"basicIntegral"`
+		AccuracyIntegral int64   `json:"accuracyIntegral"`
+		EvaluateCount    int64   `json:"evaluateCount"`
 		Tags             []struct {
 			Tag   string `json:"tag"`
-			Count int    `json:"count"`
+			Count int64  `json:"count"`
 		} `json:"tags"`
 		ScoreStats struct {
-			Field1 int `json:"2.0"`
-			Field2 int `json:"4.0"`
-			Field3 int `json:"5.0"`
-			Field4 int `json:"3.0"`
-			Field5 int `json:"1.0,omitempty"`
+			Field1 int64 `json:"2.0"`
+			Field2 int64 `json:"4.0"`
+			Field3 int64 `json:"5.0"`
+			Field4 int64 `json:"3.0"`
+			Field5 int64 `json:"1.0,omitempty"`
 		} `json:"scoreStats"`
 		ScorePercentMap struct {
 			Field1 float64 `json:"4.0"`
@@ -231,13 +231,13 @@ type PartnerPeriodRespData struct {
 	} `json:"top3"`
 	AccurateWorks []struct {
 		Work struct {
-			Id                  int         `json:"id"`
+			Id                  int64       `json:"id"`
 			ResourceType        string      `json:"resourceType"`
-			ResourceId          int         `json:"resourceId"`
+			ResourceId          int64       `json:"resourceId"`
 			Name                string      `json:"name"`
 			CoverUrl            string      `json:"coverUrl"`
 			AuthorName          string      `json:"authorName"`
-			Duration            int         `json:"duration"`
+			Duration            int64       `json:"duration"`
 			Source              string      `json:"source"`
 			Status              string      `json:"status"`
 			BackendForceOffline bool        `json:"backendForceOffline"`
@@ -245,9 +245,9 @@ type PartnerPeriodRespData struct {
 		} `json:"work"`
 		Score            float64     `json:"score"`
 		AvgScore         float64     `json:"avgScore"`
-		BasicIntegral    int         `json:"basicIntegral"`
-		AccuracyIntegral int         `json:"accuracyIntegral"`
-		EvaluateCount    int         `json:"evaluateCount"`
+		BasicIntegral    int64       `json:"basicIntegral"`
+		AccuracyIntegral int64       `json:"accuracyIntegral"`
+		EvaluateCount    int64       `json:"evaluateCount"`
 		Tags             interface{} `json:"tags"`
 		ScoreStats       interface{} `json:"scoreStats"`
 		ScorePercentMap  interface{} `json:"scorePercentMap"`
@@ -255,7 +255,7 @@ type PartnerPeriodRespData struct {
 	} `json:"accurateWorks"`
 	ExcellentWorks     []interface{} `json:"excellentWorks"`
 	RecoverStatus      bool          `json:"recoverStatus"`
-	RecoverExpiredTime int           `json:"recoverExpiredTime"`
+	RecoverExpiredTime int64         `json:"recoverExpiredTime"`
 	ExcellentPlaylists []struct {
 		Id    int64  `json:"id"`
 		Name  string `json:"name"`
@@ -295,24 +295,24 @@ type PartnerPeriodUserinfoResp struct {
 }
 
 type PartnerPeriodUserinfoRespData struct {
-	UserId        int           `json:"userId"`
+	UserId        int64         `json:"userId"`
 	NickName      string        `json:"nickName"`
 	AvatarUrl     string        `json:"avatarUrl"`
-	Number        int           `json:"number"`
+	Number        int64         `json:"number"`
 	Title         string        `json:"title"`
-	Days          int           `json:"days"`
-	Integral      int           `json:"integral"`
-	EvaluateCount int           `json:"evaluateCount"`
-	PickCount     int           `json:"pickCount"`
+	Days          int64         `json:"days"`
+	Integral      int64         `json:"integral"`
+	EvaluateCount int64         `json:"evaluateCount"`
+	PickCount     int64         `json:"pickCount"`
 	Status        string        `json:"status"`
 	PickRights    []interface{} `json:"pickRights"`
 	TitleStats    []struct {
 		Title string `json:"title"`
-		Count int    `json:"count"`
+		Count int64  `json:"count"`
 	} `json:"titleStats"`
 	CurrentPeriodRank  interface{} `json:"currentPeriodRank"`
-	RecoverExpiredTime int         `json:"recoverExpiredTime"`
-	RightType          int         `json:"rightType"`
+	RecoverExpiredTime int64       `json:"recoverExpiredTime"`
+	RightType          int64       `json:"rightType"`
 }
 
 // PartnerPeriodUserinfo 查询当前用户数据
@@ -376,21 +376,21 @@ type PartnerHomeResp struct {
 }
 
 type PartnerHomeRespData struct {
-	Period    int   `json:"period"`
-	Week      int   `json:"week"`
+	Period    int64 `json:"period"`
+	Week      int64 `json:"week"`
 	StartDate int64 `json:"startDate"`
 	EndDate   int64 `json:"endDate"`
 	User      struct {
-		UserId    int    `json:"userId"`
+		UserId    int64  `json:"userId"`
 		NickName  string `json:"nickName"`
 		AvatarUrl string `json:"avatarUrl"`
 		Title     string `json:"title"`
-		Days      int    `json:"days"`
-		Number    int    `json:"number"`
+		Days      int64  `json:"days"`
+		Number    int64  `json:"number"`
 	} `json:"user"`
 	Integral struct {
-		Integral            int `json:"integral"`
-		CurrentWeekIntegral int `json:"currentWeekIntegral"`
+		Integral            int64 `json:"integral"`
+		CurrentWeekIntegral int64 `json:"currentWeekIntegral"`
 	} `json:"integral"`
 	Title   interface{} `json:"title"`
 	Banner  interface{} `json:"banner"`
@@ -425,24 +425,24 @@ type PartnerTaskResp struct {
 }
 
 type PartnerTaskRespData struct {
-	Id             int         `json:"id"`
-	Count          int         `json:"count"`
-	CompletedCount int         `json:"completedCount"`
-	Integral       int         `json:"integral"`
+	Id             int64       `json:"id"`
+	Count          int64       `json:"count"`
+	CompletedCount int64       `json:"completedCount"`
+	Integral       int64       `json:"integral"`
 	TaskTitle      interface{} `json:"taskTitle"`
 	Works          []struct {
 		Work struct {
-			Id                int    `json:"id"`
+			Id                int64  `json:"id"`
 			ResourceType      string `json:"resourceType"`
-			ResourceId        int    `json:"resourceId"` // 歌曲id
+			ResourceId        int64  `json:"resourceId"` // 歌曲id
 			Name              string `json:"name"`
 			CoverUrl          string `json:"coverUrl"`
 			AuthorName        string `json:"authorName"`
-			LyricType         int    `json:"lyricType"`
+			LyricType         int64  `json:"lyricType"`
 			LyricContent      string `json:"lyricContent"`
-			Duration          int    `json:"duration"`
-			SongStartPosition int    `json:"songStartPosition"`
-			SongEndPosition   int    `json:"songEndPosition"`
+			Duration          int64  `json:"duration"`
+			SongStartPosition int64  `json:"songStartPosition"`
+			SongEndPosition   int64  `json:"songEndPosition"`
 			Status            string `json:"status"`
 			PlayUrl           string `json:"playUrl"`
 			Source            string `json:"source"`
@@ -455,8 +455,8 @@ type PartnerTaskRespData struct {
 		Comment       interface{} `json:"comment"`
 		TaskTitleDesc interface{} `json:"taskTitleDesc"`
 	} `json:"works"`
-	PageTaskType int  `json:"pageTaskType"`
-	Completed    bool `json:"completed"`
+	PageTaskType int64 `json:"pageTaskType"`
+	Completed    bool  `json:"completed"`
 }
 
 // PartnerTask 查询当日任务情况
@@ -550,11 +550,41 @@ const (
 	EightPartnerTags PartnerTags = "4-E-2" // 洗脑
 )
 
+func (p PartnerTags) String() string {
+	switch p {
+	case OnePartnerTags:
+		return "歌词有共鸣"
+	case TwoPartnerTags:
+		return "歌词立意不错"
+	case ThreePartnerTags:
+		return "旋律耐听"
+	case FourPartnerTags:
+		return "唱功不错"
+	case FivePartnerTags:
+		return "音色独特"
+	case SixPartnerTags:
+		return "情感到位"
+	case SevenPartnerTags:
+		return "有节奏感"
+	case EightPartnerTags:
+		return "洗脑"
+	}
+	return ""
+}
+
+var PartnerTagsGroup = map[int64][]PartnerTags{
+	1: {OnePartnerTags, TwoPartnerTags, ThreePartnerTags, FourPartnerTags, FivePartnerTags, SixPartnerTags, SevenPartnerTags, EightPartnerTags},
+	2: {OnePartnerTags, TwoPartnerTags, ThreePartnerTags, FourPartnerTags, FivePartnerTags, SixPartnerTags, SevenPartnerTags, EightPartnerTags},
+	3: {OnePartnerTags, TwoPartnerTags, ThreePartnerTags, FourPartnerTags, FivePartnerTags, SixPartnerTags, SevenPartnerTags, EightPartnerTags},
+	4: {OnePartnerTags, TwoPartnerTags, ThreePartnerTags, FourPartnerTags, FivePartnerTags, SixPartnerTags, SevenPartnerTags, EightPartnerTags},
+	5: {OnePartnerTags, TwoPartnerTags, ThreePartnerTags, FourPartnerTags, FivePartnerTags, SixPartnerTags, SevenPartnerTags, EightPartnerTags},
+}
+
 type PartnerEvaluateReq struct {
 	api.ReqCommon
-	TaskId        int         `json:"taskId"`        // 任务id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
-	WorkId        int         `json:"workId"`        // 哪首歌曲id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
-	Score         int         `json:"score"`         // 分值1~5
+	TaskId        int64       `json:"taskId"`        // 任务id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
+	WorkId        int64       `json:"workId"`        // 哪首歌曲id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
+	Score         int64       `json:"score"`         // 分值1~5
 	Tags          PartnerTags `json:"tags"`          // 音乐标签
 	CustomTags    string      `json:"customTags"`    // 实际为数组
 	Comment       string      `json:"comment"`       // 评论内容

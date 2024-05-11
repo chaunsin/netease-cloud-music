@@ -207,6 +207,11 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 	return resp, nil
 }
 
+func (c *Client) NeedLogin(ctx context.Context) bool {
+	// todo:
+	return false
+}
+
 func encrypt(c *resty.Client, req *resty.Request) error {
 	u, err := neturl.Parse(req.URL)
 	if err != nil {

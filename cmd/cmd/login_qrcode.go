@@ -43,9 +43,8 @@ type loginQrcodeCmd struct {
 	root *Login
 	cmd  *cobra.Command
 
-	password string
-	timeout  time.Duration // 登录超时时间
-	dir      string        // 二维码文件路径
+	timeout time.Duration // 登录超时时间
+	dir     string        // 二维码文件路径
 }
 
 func qrcode(root *Login) *cobra.Command {
@@ -67,7 +66,6 @@ func qrcode(root *Login) *cobra.Command {
 }
 
 func (c *loginQrcodeCmd) addFlags() {
-	c.cmd.Flags().StringVarP(&c.password, "password", "p", "", "ciphertext")
 	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Minute*5, "1s 1m")
 	c.cmd.Flags().StringVarP(&c.dir, "dir", "d", "./", "./")
 }
@@ -89,7 +87,6 @@ func (c *loginQrcodeCmd) execute() error {
 	if err != nil {
 		return fmt.Errorf("NewWithErr: %w", err)
 	}
-
 	api := weapi.New(cli)
 
 	ctx, cancel := context.WithTimeout(c.cmd.Context(), c.timeout)

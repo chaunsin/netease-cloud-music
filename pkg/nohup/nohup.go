@@ -25,7 +25,7 @@ func Run(close ...Close) {
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("当前程序运行目录:%s", path)
+	log.Printf("Program run directory: %s", path)
 
 	fd, err := os.Create("./pid")
 	if err != nil {
