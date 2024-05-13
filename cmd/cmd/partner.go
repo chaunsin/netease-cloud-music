@@ -90,12 +90,12 @@ func (c *Partner) Command() *cobra.Command {
 }
 
 func (c *Partner) execute() error {
-	// if err := c.job(c.cmd.Context()); err != nil {
-	// 	fmt.Println("job:", err)
-	// 	return err
-	// }
-	// fmt.Println("execute success ", time.Now())
-	// return nil
+	if err := c.job(c.cmd.Context()); err != nil {
+		fmt.Println("job:", err)
+		return err
+	}
+	fmt.Println("execute success ", time.Now())
+	return nil
 
 	cr := cron.New(cron.WithLocation(time.Local))
 	id, err := cr.AddFunc(c.opts.Crontab, func() {
@@ -182,7 +182,12 @@ func (c *Partner) job(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("PartnerEvaluate: %w", err)
 		}
-		if resp.Code != 200 {
+		switch resp.Code {
+		case 200:
+			// ok
+		case 405:
+			// 当前任务歌曲已完成评
+		default:
 			log.Printf("PartnerEvaluate(%+v) err: %+v\n", req, resp)
 			// return fmt.Errorf("PartnerEvaluate: %v", resp.Message)
 		}
