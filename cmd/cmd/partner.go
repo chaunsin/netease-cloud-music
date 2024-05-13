@@ -176,6 +176,7 @@ func (c *Partner) job(ctx context.Context) error {
 			CustomTags:    "[]",
 			Comment:       "",
 			SyncYunCircle: false,
+			SyncComment:   true,               // ?
 			Source:        "mp-music-partner", // 定死的值？
 		}
 		resp, err := request.PartnerEvaluate(ctx, req)

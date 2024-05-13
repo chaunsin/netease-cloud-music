@@ -540,55 +540,153 @@ func (a *Api) PartnerNotice(ctx context.Context, req *PartnerNoticeReq) (*Partne
 type PartnerTags string
 
 const (
-	OnePartnerTags   PartnerTags = "4-A-1" // 歌词有共鸣
-	TwoPartnerTags   PartnerTags = "4-A-2" // 歌词立意不错
-	ThreePartnerTags PartnerTags = "3-B-1" // 旋律耐听
-	FourPartnerTags  PartnerTags = "3-C-1" // 唱功不错
-	FivePartnerTags  PartnerTags = "4-D-1" // 音色独特
-	SixPartnerTags   PartnerTags = "3-D-2" // 情感到位
-	SevenPartnerTags PartnerTags = "4-E-1" // 有节奏感
-	EightPartnerTags PartnerTags = "4-E-2" // 洗脑
+	OneAOnePartnerTags   PartnerTags = "1-A-1" // 歌词有共鸣
+	OneATwoPartnerTags   PartnerTags = "1-A-2" // 歌词立意不错
+	OneBOnePartnerTags   PartnerTags = "1-B-1" // 旋律耐听
+	OneCOnePartnerTags   PartnerTags = "1-C-1" // 唱功不错
+	OneDOnePartnerTags   PartnerTags = "1-D-1" // 音色独特
+	OneDTwoPartnerTags   PartnerTags = "1-D-2" // 情感到位
+	OneEOnePartnerTags   PartnerTags = "1-E-1" // 有节奏感
+	OneETwoPartnerTags   PartnerTags = "1-E-2" // 洗脑
+	TwoAOnePartnerTags   PartnerTags = "2-A-1" // 歌词有共鸣
+	TwoATwoPartnerTags   PartnerTags = "2-A-2" // 歌词立意不错
+	TwoBOnePartnerTags   PartnerTags = "2-B-1" // 旋律耐听
+	TwoCOnePartnerTags   PartnerTags = "2-C-1" // 唱功不错
+	TwoDOnePartnerTags   PartnerTags = "2-D-1" // 音色独特
+	TwoDTwoPartnerTags   PartnerTags = "2-D-2" // 情感到位
+	TwoEOnePartnerTags   PartnerTags = "2-E-1" // 有节奏感
+	TwoETwoPartnerTags   PartnerTags = "2-E-2" // 洗脑
+	ThreeAOnePartnerTags PartnerTags = "3-A-1" // 歌词有共鸣
+	ThreeATwoPartnerTags PartnerTags = "3-A-2" // 歌词立意不错
+	ThreeBOnePartnerTags PartnerTags = "3-B-1" // 旋律耐听
+	ThreeCOnePartnerTags PartnerTags = "3-C-1" // 唱功不错
+	ThreeDOnePartnerTags PartnerTags = "3-D-1" // 音色独特
+	ThreeDTwoPartnerTags PartnerTags = "3-D-2" // 情感到位
+	ThreeEOnePartnerTags PartnerTags = "3-E-1" // 有节奏感
+	ThreeETwoPartnerTags PartnerTags = "3-E-2" // 洗脑
+	FourAOnePartnerTags  PartnerTags = "4-A-1" // 歌词有共鸣
+	FourATwoPartnerTags  PartnerTags = "4-A-2" // 歌词立意好
+	FourBOnePartnerTags  PartnerTags = "4-B-1" // 旋律耐听
+	FourCOnePartnerTags  PartnerTags = "4-C-1" // 唱功不错
+	FourDOnePartnerTags  PartnerTags = "4-D-1" // 音色独特
+	FourDTwoPartnerTags  PartnerTags = "4-D-2" // 情感到位
+	FourEOnePartnerTags  PartnerTags = "4-E-1" // 有节奏感
+	FourETwoPartnerTags  PartnerTags = "4-E-2" // 洗脑
+	FiveAOnePartnerTags  PartnerTags = "5-A-1" // 歌词有共鸣
+	FiveATwoPartnerTags  PartnerTags = "5-A-2" // 歌词立意不错
+	FiveBOnePartnerTags  PartnerTags = "5-B-1" // 旋律耐听
+	FiveCOnePartnerTags  PartnerTags = "5-C-1" // 唱功不错
+	FiveDOnePartnerTags  PartnerTags = "5-D-1" // 音色独特
+	FiveDTwoPartnerTags  PartnerTags = "5-D-2" // 情感到位
+	FiveEOnePartnerTags  PartnerTags = "5-E-1" // 有节奏感
+	FiveETwoPartnerTags  PartnerTags = "5-E-2" // 洗脑
 )
 
 func (p PartnerTags) String() string {
 	switch p {
-	case OnePartnerTags:
+	case OneAOnePartnerTags:
 		return "歌词有共鸣"
-	case TwoPartnerTags:
+	case OneATwoPartnerTags:
 		return "歌词立意不错"
-	case ThreePartnerTags:
+	case OneBOnePartnerTags:
 		return "旋律耐听"
-	case FourPartnerTags:
+	case OneCOnePartnerTags:
 		return "唱功不错"
-	case FivePartnerTags:
+	case OneDOnePartnerTags:
 		return "音色独特"
-	case SixPartnerTags:
+	case OneDTwoPartnerTags:
 		return "情感到位"
-	case SevenPartnerTags:
+	case OneEOnePartnerTags:
 		return "有节奏感"
-	case EightPartnerTags:
+	case OneETwoPartnerTags:
+		return "洗脑"
+	case TwoAOnePartnerTags:
+		return "歌词有共鸣"
+	case TwoATwoPartnerTags:
+		return "歌词立意不错"
+	case TwoBOnePartnerTags:
+		return "旋律耐听"
+	case TwoCOnePartnerTags:
+		return "唱功不错"
+	case TwoDOnePartnerTags:
+		return "音色独特"
+	case TwoDTwoPartnerTags:
+		return "情感到位"
+	case TwoEOnePartnerTags:
+		return "有节奏感"
+	case TwoETwoPartnerTags:
+		return "洗脑"
+	case ThreeAOnePartnerTags:
+		return "歌词有共鸣"
+	case ThreeATwoPartnerTags:
+		return "歌词立意不错"
+	case ThreeBOnePartnerTags:
+		return "旋律耐听"
+	case ThreeCOnePartnerTags:
+		return "唱功不错"
+	case ThreeDOnePartnerTags:
+		return "音色独特"
+	case ThreeDTwoPartnerTags:
+		return "情感到位"
+	case ThreeEOnePartnerTags:
+		return "有节奏感"
+	case ThreeETwoPartnerTags:
+		return "洗脑"
+	case FourAOnePartnerTags:
+		return "歌词有共鸣"
+	case FourATwoPartnerTags:
+		return "歌词立意好"
+	case FourBOnePartnerTags:
+		return "旋律耐听"
+	case FourCOnePartnerTags:
+		return "唱功不错"
+	case FourDOnePartnerTags:
+		return "音色独特"
+	case FourDTwoPartnerTags:
+		return "情感到位"
+	case FourEOnePartnerTags:
+		return "有节奏感"
+	case FourETwoPartnerTags:
+		return "洗脑"
+	case FiveAOnePartnerTags:
+		return "歌词有共鸣"
+	case FiveATwoPartnerTags:
+		return "歌词立意不错"
+	case FiveBOnePartnerTags:
+		return "旋律耐听"
+	case FiveCOnePartnerTags:
+		return "唱功不错"
+	case FiveDOnePartnerTags:
+		return "音色独特"
+	case FiveDTwoPartnerTags:
+		return "情感到位"
+	case FiveEOnePartnerTags:
+		return "有节奏感"
+	case FiveETwoPartnerTags:
 		return "洗脑"
 	}
 	return ""
 }
 
 var PartnerTagsGroup = map[int64][]PartnerTags{
-	1: {OnePartnerTags, TwoPartnerTags, ThreePartnerTags, FourPartnerTags, FivePartnerTags, SixPartnerTags, SevenPartnerTags, EightPartnerTags},
-	2: {OnePartnerTags, TwoPartnerTags, ThreePartnerTags, FourPartnerTags, FivePartnerTags, SixPartnerTags, SevenPartnerTags, EightPartnerTags},
-	3: {OnePartnerTags, TwoPartnerTags, ThreePartnerTags, FourPartnerTags, FivePartnerTags, SixPartnerTags, SevenPartnerTags, EightPartnerTags},
-	4: {OnePartnerTags, TwoPartnerTags, ThreePartnerTags, FourPartnerTags, FivePartnerTags, SixPartnerTags, SevenPartnerTags, EightPartnerTags},
-	5: {OnePartnerTags, TwoPartnerTags, ThreePartnerTags, FourPartnerTags, FivePartnerTags, SixPartnerTags, SevenPartnerTags, EightPartnerTags},
+	1: {OneAOnePartnerTags, OneATwoPartnerTags, OneBOnePartnerTags, OneCOnePartnerTags, OneDOnePartnerTags, OneDTwoPartnerTags, OneEOnePartnerTags, OneETwoPartnerTags},
+	2: {TwoAOnePartnerTags, TwoATwoPartnerTags, TwoBOnePartnerTags, TwoCOnePartnerTags, TwoDOnePartnerTags, TwoDTwoPartnerTags, TwoEOnePartnerTags, TwoETwoPartnerTags},
+	3: {ThreeAOnePartnerTags, ThreeATwoPartnerTags, ThreeBOnePartnerTags, ThreeCOnePartnerTags, ThreeDOnePartnerTags, ThreeDTwoPartnerTags, ThreeEOnePartnerTags, ThreeETwoPartnerTags},
+	4: {FourAOnePartnerTags, FourATwoPartnerTags, FourBOnePartnerTags, FourCOnePartnerTags, FourDOnePartnerTags, FourDTwoPartnerTags, FourEOnePartnerTags, FourETwoPartnerTags},
+	5: {FiveAOnePartnerTags, FiveATwoPartnerTags, FiveBOnePartnerTags, FiveCOnePartnerTags, FiveDOnePartnerTags, FiveDTwoPartnerTags, FiveEOnePartnerTags, FiveETwoPartnerTags},
 }
 
+// PartnerEvaluateReq "{"taskId":118761451,"workId":787080,"score":4,"tags":"4-A-1,4-A-2,4-B-1,4-C-1,4-D-1,4-D-2,4-E-1,4-E-2","customTags":"[\"特别\"]","comment":"","syncYunCircle":false,"syncComment":true,"source":"mp-music-partner","csrf_token":"77bf3a5074699038504234d63d68d917"}"
 type PartnerEvaluateReq struct {
 	api.ReqCommon
 	TaskId        int64       `json:"taskId"`        // 任务id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
 	WorkId        int64       `json:"workId"`        // 哪首歌曲id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
 	Score         int64       `json:"score"`         // 分值1~5
-	Tags          PartnerTags `json:"tags"`          // 音乐标签
+	Tags          PartnerTags `json:"tags"`          // 音乐标签 多个以逗号分隔
 	CustomTags    string      `json:"customTags"`    // 实际为数组
 	Comment       string      `json:"comment"`       // 评论内容
 	SyncYunCircle bool        `json:"syncYunCircle"` // 同步到音乐圈中
+	SyncComment   bool        `json:"syncComment"`   // ?
 	Source        string      `json:"source"`        // 应该表示平台 例如:mp-music-partner
 }
 
