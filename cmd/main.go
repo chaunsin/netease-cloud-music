@@ -24,13 +24,15 @@
 package main
 
 import (
+	"flag"
+
 	"github.com/chaunsin/netease-cloud-music/cmd/cmd"
 	"github.com/chaunsin/netease-cloud-music/config"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 )
 
 func main() {
-	// pflag.Parse()
+	flag.Parse()
 	cfg := config.New()
 	log.Default = log.New(cfg.Log)
 	c := cmd.New(cfg, log.Default)

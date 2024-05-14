@@ -24,6 +24,8 @@
 package cmd
 
 import (
+	"flag"
+
 	"github.com/chaunsin/netease-cloud-music/config"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
@@ -67,7 +69,7 @@ ncm login qrcode -a xx`,
 func (c *Root) addFlags() {
 	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "")
 	c.cmd.PersistentFlags().BoolVar(&c.Opts.Stdout, "stdout", false, "")
-	// c.cmd.PersistentFlags().AddGoFlag(flag.Lookup("f")) // definition /config/config.go
+	c.cmd.PersistentFlags().AddGoFlag(flag.Lookup("f")) // definition /config/config.go
 }
 
 func (c *Root) Version(version string) {

@@ -36,6 +36,7 @@ import (
 	har "github.com/chaunsin/go-har"
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -45,9 +46,8 @@ type decryptCmd struct {
 	cmd  *cobra.Command
 	l    *log.Logger
 
-	ciphertext string
-	encode     string
-	url        string
+	url    string
+	encode string
 }
 
 func decrypt(root *Crypto, l *log.Logger) *cobra.Command {
@@ -70,28 +70,25 @@ func decrypt(root *Crypto, l *log.Logger) *cobra.Command {
 }
 
 func (c *decryptCmd) addFlags() {
-	c.cmd.Flags().StringVarP(&c.ciphertext, "ciphertext", "c", "", "ciphertext")
 	c.cmd.Flags().StringVarP(&c.encode, "encode", "e", "hex", "ciphertext content encoding: string|hex|base64")
 	c.cmd.Flags().StringVarP(&c.url, "url", "u", "*", "routing address matching example: https://music.163.com/*")
 }
 
 func (c *decryptCmd) execute() error {
-	var (
-		ciphertext string
-		opts       = c.root.opts
-	)
+	var opts = c.root.opts
 	if c.encode != "string" && c.encode != "base64" && c.encode != "hex" {
 		return fmt.Errorf("%s is unknown encode", c.encode)
 	}
-	if c.ciphertext == "" && opts.File == "" {
+	if opts.Input == "" {
 		return fmt.Errorf("nothing was entered")
 	}
-	if opts.File != "" {
-		data, err := os.ReadFile(opts.File)
+
+	if utils.IsFile(opts.Input) {
+		data, err := os.ReadFile(opts.Input)
 		if err != nil {
 			return fmt.Errorf("ReadFile: %w", err)
 		}
-		if filepath.Ext(opts.File) == ".har" {
+		if filepath.Ext(opts.Input) == ".har" {
 			list, err := c.parseHar(data)
 			if err != nil {
 				return fmt.Errorf("parseHar: %w", err)
@@ -111,17 +108,14 @@ func (c *decryptCmd) execute() error {
 			}
 			return writefile(opts.Output, content)
 		}
-		ciphertext = string(data)
-	}
-	if c.ciphertext != "" {
-		ciphertext = c.ciphertext
+		opts.Input = string(data)
 	}
 
 	var payload = &Payload{
 		Kind:   opts.Kind,
 		Status: "ok",
 		Request: Request{
-			Ciphertext: ciphertext,
+			Ciphertext: opts.Input,
 		},
 		// Response: Response{
 		// 	Ciphertext: ciphertext,

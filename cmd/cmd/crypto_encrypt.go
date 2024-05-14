@@ -31,6 +31,7 @@ import (
 
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -40,9 +41,8 @@ type cryptoCmd struct {
 	cmd  *cobra.Command
 	l    *log.Logger
 
-	url       string
-	plaintext string
-	encode    string
+	url string
+	// encode string
 }
 
 func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
@@ -65,34 +65,28 @@ func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
 }
 
 func (c *cryptoCmd) addFlags() {
-	c.cmd.Flags().StringVarP(&c.plaintext, "plaintext", "p", "", "plaintext json value")
 	c.cmd.Flags().StringVarP(&c.url, "url", "u", "", "url params value")
 	// c.cmd.Flags().StringVarP(&c.encode, "encode", "e", "hex", "string|hex|base64")
 }
 
 func (c *cryptoCmd) execute() error {
-	var (
-		plaintext string
-		opts      = c.root.opts
-	)
+	var opts = c.root.opts
 	// if c.encode != "string" && c.encode != "base64" && c.encode != "hex" {
 	// 	return fmt.Errorf("%s is unknown encode", c.encode)
 	// }
-	if c.plaintext == "" && opts.File == "" {
+	if opts.Input == "" {
 		return fmt.Errorf("nothing was entered")
 	}
-	if opts.File != "" {
-		data, err := os.ReadFile(opts.File)
+	if utils.IsFile(opts.Input) {
+		data, err := os.ReadFile(opts.Input)
 		if err != nil {
 			return fmt.Errorf("ReadFile: %w", err)
 		}
-		plaintext = string(data)
+		opts.Input = string(data)
 	}
-	if c.plaintext != "" {
-		plaintext = c.plaintext
-	}
+
 	var payload map[string]interface{}
-	if err := json.Unmarshal([]byte(plaintext), &payload); err != nil {
+	if err := json.Unmarshal([]byte(opts.Input), &payload); err != nil {
 		return fmt.Errorf("Unmarshal: %w", err)
 	}
 
