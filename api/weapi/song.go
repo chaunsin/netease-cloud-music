@@ -28,17 +28,17 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 type SongPlayerReq struct {
-	api.ReqCommon
+	types.ReqCommon
 	Ids []string `json:"ids"` // 歌曲id
 	Br  string   `json:"br"`  // 音乐bit率 例如:128000 320000
 }
 
 type SongPlayerResp struct {
-	api.RespCommon[[]SongPlayerReqData]
+	types.RespCommon[[]SongPlayerReqData]
 }
 
 type SongPlayerReqData struct {

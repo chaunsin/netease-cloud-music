@@ -24,6 +24,8 @@
 package cmd
 
 import (
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
+
 	"github.com/spf13/cobra"
 )
 
@@ -37,11 +39,13 @@ type Crypto struct {
 	root *Root
 	cmd  *cobra.Command
 	opts CryptoOpts
+	l    *log.Logger
 }
 
-func NewCrypto(root *Root) *Crypto {
+func NewCrypto(root *Root, l *log.Logger) *Crypto {
 	c := &Crypto{
 		root: root,
+		l:    l,
 		cmd: &cobra.Command{
 			Use:   "crypto",
 			Short: "crypto is a tool for encrypting and decrypting the http data",
@@ -51,14 +55,13 @@ ncm crypto encrypt -k eapi -P xxx`,
 		},
 	}
 	c.addFlags()
-	c.Add(encrypt(c))
-	c.Add(decrypt(c))
-
+	c.Add(encrypt(c, l))
+	c.Add(decrypt(c, l))
 	return c
 }
 
 func (c *Crypto) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.File, "file", "f", "", "ncm [command] -f ./file.tar")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.File, "file", "f", "", "ncm [command] -f ./file.har")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "Generate decrypt file directory location")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "weapi|eapi|linux")
 }

@@ -35,6 +35,7 @@ import (
 
 	har "github.com/chaunsin/go-har"
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
 	"github.com/spf13/cobra"
 )
@@ -42,15 +43,17 @@ import (
 type decryptCmd struct {
 	root *Crypto
 	cmd  *cobra.Command
+	l    *log.Logger
 
 	ciphertext string
 	encode     string
 	url        string
 }
 
-func decrypt(root *Crypto) *cobra.Command {
+func decrypt(root *Crypto, l *log.Logger) *cobra.Command {
 	c := &decryptCmd{
 		root: root,
+		l:    l,
 	}
 	c.cmd = &cobra.Command{
 		Use:     "decrypt",
@@ -58,7 +61,7 @@ func decrypt(root *Crypto) *cobra.Command {
 		Example: "ncm crypto decrypt -k weapi -e base64 -c \"ciphertext\"\nncm decrypt -f example.har",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := c.execute(); err != nil {
-				fmt.Println(err)
+				cmd.Println(err)
 			}
 		},
 	}

@@ -24,25 +24,13 @@
 package log
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
 
 	"gopkg.in/natefinch/lumberjack.v2"
 )
-
-type Config struct {
-	App    string
-	Format string // text(default) json
-	Level  string // debug(default) < info < warn < error
-	Stdout bool
-	Rotate lumberjack.Logger
-}
-
-type Logger struct {
-	l     *slog.Logger
-	level *slog.LevelVar
-}
 
 var (
 	Default       *Logger
@@ -63,10 +51,24 @@ var (
 	}
 )
 
+type Config struct {
+	App    string            `json:"app,omitempty" yaml:"app"`
+	Format string            `json:"format,omitempty" yaml:"format"` // text(default) json
+	Level  string            `json:"level,omitempty" yaml:"level"`   // debug(default) < info < warn < error
+	Stdout bool              `json:"stdout,omitempty" yaml:"stdout"`
+	Rotate lumberjack.Logger `json:"rotate" yaml:"rotate"`
+}
+
+type Logger struct {
+	l     *slog.Logger
+	level *slog.LevelVar
+}
+
 func New(cfg *Config) *Logger {
 	if cfg == nil {
 		cfg = &defaultConfig
 	}
+
 	var level slog.LevelVar
 	switch cfg.Level {
 	case "debug":
@@ -116,22 +118,43 @@ func (l Logger) Logger() *slog.Logger {
 }
 
 func Debug(msg string, args ...any) {
-	Default.l.Debug(msg, args...)
+	Default.l.Debug(fmt.Sprintf(msg, args...))
 }
 
 func Info(msg string, args ...any) {
-	Default.l.Info(msg, args...)
+	Default.l.Info(fmt.Sprintf(msg, args...))
 }
 
 func Warn(msg string, args ...any) {
-	Default.l.Warn(msg, args...)
+	Default.l.Warn(fmt.Sprintf(msg, args...))
 }
 
 func Error(msg string, args ...any) {
-	Default.l.Error(msg, args...)
+	Default.l.Error(fmt.Sprintf(msg, args...))
 }
 
 func Fatal(msg string, args ...any) {
+	Default.l.Error(fmt.Sprintf(msg, args...))
+	os.Exit(1)
+}
+
+func DebugW(msg string, args ...any) {
+	Default.l.Debug(msg, args...)
+}
+
+func InfoW(msg string, args ...any) {
+	Default.l.Info(msg, args...)
+}
+
+func WarnW(msg string, args ...any) {
+	Default.l.Warn(msg, args...)
+}
+
+func ErrorW(msg string, args ...any) {
+	Default.l.Error(msg, args...)
+}
+
+func FatalW(msg string, args ...any) {
 	Default.l.Error(msg, args...)
 	os.Exit(1)
 }

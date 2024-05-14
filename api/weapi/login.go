@@ -28,18 +28,18 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 
 	"github.com/skip2/go-qrcode"
 )
 
 type QrcodeCreateKeyReq struct {
-	api.ReqCommon
+	types.ReqCommon
 	Type int64 `json:"type"`
 }
 
 type QrcodeCreateKeyResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 	UniKey string `json:"unikey"`
 }
 
@@ -66,7 +66,7 @@ type QrcodeGenerateReq struct {
 }
 
 type QrcodeGenerateResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 	Qrcode      []byte //
 	QrcodePrint string
 }
@@ -103,7 +103,7 @@ type QrcodeCheckReq struct {
 }
 
 type QrcodeCheckResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 }
 
 // QrcodeCheck 查询扫码状态
@@ -127,11 +127,11 @@ func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeChec
 }
 
 type GetUserInfoReq struct {
-	api.ReqCommon
+	types.ReqCommon
 }
 
 type GetUserInfoResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 }
 
 // GetUserInfo 获取用户信息

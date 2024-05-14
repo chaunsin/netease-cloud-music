@@ -16,8 +16,8 @@ import (
 
 type PersistentJarConfig struct {
 	*Options
-	Filepath string
-	Interval time.Duration
+	Filepath string        `json:"filepath" yaml:"filepath"`
+	Interval time.Duration `yaml:"interval" yaml:"interval"`
 	// crypto
 }
 

@@ -24,21 +24,29 @@
 package cmd
 
 import (
+	"github.com/chaunsin/netease-cloud-music/config"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
+
 	"github.com/spf13/cobra"
 )
 
 type RootOpts struct {
-	Debug  bool // 是否开启命令行debug模式
-	Stdout bool // 生成内容是否打印到标准数据中
+	Debug  bool   // 是否开启命令行debug模式
+	Stdout bool   // 生成内容是否打印到标准数据中
+	Config string // 配置文件路径
 }
 
 type Root struct {
-	cmd  *cobra.Command
+	Cfg  *config.Config
 	Opts RootOpts
+	cmd  *cobra.Command
+	l    *log.Logger
 }
 
-func New() *Root {
+func New(cfg *config.Config, l *log.Logger) *Root {
 	c := &Root{
+		Cfg: cfg,
+		l:   l,
 		cmd: &cobra.Command{
 			Use:   "ncm",
 			Short: "ncm is a tool for encrypting and decrypting the ncm file.",
@@ -49,9 +57,9 @@ ncm login qrcode -a xx`,
 		},
 	}
 	c.addFlags()
-	c.Add(NewCrypto(c).Command())
-	c.Add(NewLogin(c).Command())
-	c.Add(NewPartner(c).Command())
+	c.Add(NewCrypto(c, l).Command())
+	c.Add(NewLogin(c, l).Command())
+	c.Add(NewPartner(c, l).Command())
 
 	return c
 }
@@ -59,6 +67,7 @@ ncm login qrcode -a xx`,
 func (c *Root) addFlags() {
 	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "")
 	c.cmd.PersistentFlags().BoolVar(&c.Opts.Stdout, "stdout", false, "")
+	// c.cmd.PersistentFlags().AddGoFlag(flag.Lookup("f")) // definition /config/config.go
 }
 
 func (c *Root) Version(version string) {

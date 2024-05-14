@@ -30,6 +30,7 @@ import (
 	"os"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
 	"github.com/spf13/cobra"
 )
@@ -37,15 +38,17 @@ import (
 type cryptoCmd struct {
 	root *Crypto
 	cmd  *cobra.Command
+	l    *log.Logger
 
 	url       string
 	plaintext string
 	encode    string
 }
 
-func encrypt(root *Crypto) *cobra.Command {
+func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
 	c := &cryptoCmd{
 		root: root,
+		l:    l,
 	}
 	c.cmd = &cobra.Command{
 		Use:     "encrypt",
@@ -53,7 +56,7 @@ func encrypt(root *Crypto) *cobra.Command {
 		Example: "ncm crypto encrypt -k weapi -u /eapi/sms/captcha/sent -p \"plaintext\"",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := c.execute(); err != nil {
-				fmt.Println(err)
+				cmd.Println(err)
 			}
 		},
 	}

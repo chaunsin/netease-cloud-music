@@ -26,7 +26,7 @@ package weapi
 import (
 	"testing"
 
-	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -68,14 +68,15 @@ func TestPartnerTask(t *testing.T) {
 
 func TestPartnerEvaluate(t *testing.T) {
 	resp, err := cli.PartnerEvaluate(ctx, &PartnerEvaluateReq{
-		ReqCommon:     api.ReqCommon{CSRFToken: ""},
+		ReqCommon:     types.ReqCommon{CSRFToken: ""},
 		TaskId:        101398359,
 		WorkId:        1328062,
 		Score:         3,
-		Tags:          SixPartnerTags,
+		Tags:          ThreeDOnePartnerTags,
 		CustomTags:    "",
 		Comment:       "",
 		SyncYunCircle: false,
+		SyncComment:   true,
 		Source:        "mp-music-partner",
 	})
 	assert.NoError(t, err)

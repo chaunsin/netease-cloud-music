@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 // LayoutReq .
@@ -13,7 +13,7 @@ type LayoutReq struct {
 }
 
 type LayoutResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 }
 
 // Layout 退出 TODO:未完成

@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 type ApiWebLogReqJson struct {
@@ -31,7 +31,7 @@ type ApiWebLogReq struct {
 }
 
 type ApiWebLogResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 }
 
 // ApiWebLog 日志上报
@@ -79,7 +79,7 @@ type WeApiWebLogReqLog struct {
 }
 
 type WeApiWebLogResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 }
 
 // WeApiWebLog 日志上报
@@ -120,7 +120,7 @@ type InterfaceWeApiWebLogReqLog struct {
 }
 
 type InterfaceWeApiWebLogResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 }
 
 // InterfaceWeApiWebLog 日志上报

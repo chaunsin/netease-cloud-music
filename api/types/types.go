@@ -1,4 +1,4 @@
-package api
+package types
 
 type ReqCommon struct {
 	CSRFToken string `json:"csrf_token,omitempty"`
@@ -14,16 +14,16 @@ type RespCommon[T any] struct {
 // SendSMSReq 暂定此结构
 //
 //	{
-//	 "deviceId": "4cdb39bf34a848781b89663e1e546b8b",
+//	 "deviceId": "4cdb39bf34a848781b89663e1e546789",
 //	 "os": "OSX",
-//	 "cellphone": "188****926",
+//	 "cellphone": "188****8888",
 //	 "header": "{\"os\":\"osx\",\"appver\":\"2.3.17\",\"deviceId\":\"7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62%7C5FD718A3-0602-4389-B612-EBEFAA7F108B\",\"requestId\":\"93487028\",\"clientSign\":\"\",\"osver\":\"%E7%89%88%E6%9C%AC12.6%EF%BC%88%E7%89%88%E5%8F%B721G115%EF%BC%89\",\"Nm-GCore-Status\":\"1\",\"MConfig-Info\":\"{\\\\\"IuRPVVmc3WWul9fT\\\\\":{\\\\\"version\\\\\":143360,\\\\\"appver\\\\\":\\\\\"2.3.17\\\\\"}}\",\"MG-Product-Name\":\"music\"}",
 //	 "ctcode": "86",
 //	 "verifyId": 1,
 //	 "e_r": true
 //	}
 type SendSMSReq struct {
-	DeviceId  string `json:"deviceId"`  // 设备id 格式:4cdb39bf34a848781b89663e1e546b8b 可参考:https://github.com/mos9527/pyncm/blob/master/pyncm/utils/constant.py todo:哪里获得？
+	DeviceId  string `json:"deviceId"`  // 设备id 格式:4cdb39bf34a848781b89663e1e546789 可参考:https://github.com/mos9527/pyncm/blob/master/pyncm/utils/constant.py todo:哪里获得？
 	Os        string `json:"os"`        // 系统 OSX
 	Cellphone string `json:"cellphone"` // 手机号
 	Header    string `json:"header"`    // Header

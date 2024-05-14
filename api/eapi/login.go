@@ -28,7 +28,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 type LoginPhoneReq struct {
@@ -40,7 +40,7 @@ type LoginPhoneReq struct {
 }
 
 type LoginPhoneResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 }
 
 // LoginPhone 手机号登录
@@ -64,7 +64,7 @@ type RefreshTokenReq struct {
 }
 
 type RefreshTokenResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 }
 
 // RefreshToken token刷新

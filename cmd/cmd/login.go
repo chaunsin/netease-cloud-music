@@ -23,7 +23,11 @@
 
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
+
+	"github.com/spf13/cobra"
+)
 
 type LoginOpts struct {
 	Account string
@@ -33,20 +37,21 @@ type Login struct {
 	root *Root
 	cmd  *cobra.Command
 	opts LoginOpts
+	l    *log.Logger
 }
 
-func NewLogin(root *Root) *Login {
+func NewLogin(root *Root, l *log.Logger) *Login {
 	c := &Login{
 		root: root,
+		l:    l,
 		cmd: &cobra.Command{
-			Use:   "login",
-			Short: "login netease cloud music",
-			Example: `ncm login -h
-ncm login xxx`,
+			Use:     "login",
+			Short:   "login netease cloud music",
+			Example: `ncm login -h\nncm login`,
 		},
 	}
 	c.addFlags()
-	c.Add(qrcode(c))
+	c.Add(qrcode(c, l))
 
 	return c
 }

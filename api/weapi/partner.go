@@ -28,16 +28,16 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 type PartnerWeekReq struct {
-	api.ReqCommon
+	types.ReqCommon
 	Period string `json:"period"` // 格式:MMD-1617552000000-37-1
 }
 
 type PartnerWeekResp struct {
-	api.RespCommon[PartnerWeekData]
+	types.RespCommon[PartnerWeekData]
 }
 
 type PartnerWeekData struct {
@@ -162,11 +162,11 @@ func (a *Api) PartnerWeek(ctx context.Context, req *PartnerWeekReq) (*PartnerWee
 }
 
 type PartnerPeriodReq struct {
-	api.ReqCommon
+	types.ReqCommon
 }
 
 type PartnerPeriodResp struct {
-	api.RespCommon[PartnerPeriodRespData]
+	types.RespCommon[PartnerPeriodRespData]
 }
 
 type PartnerPeriodRespData struct {
@@ -287,11 +287,11 @@ func (a *Api) PartnerPeriod(ctx context.Context, req *PartnerPeriodReq) (*Partne
 }
 
 type PartnerPeriodUserinfoReq struct {
-	api.ReqCommon
+	types.ReqCommon
 }
 
 type PartnerPeriodUserinfoResp struct {
-	api.RespCommon[PartnerPeriodUserinfoRespData]
+	types.RespCommon[PartnerPeriodUserinfoRespData]
 }
 
 type PartnerPeriodUserinfoRespData struct {
@@ -335,11 +335,11 @@ func (a *Api) PartnerPeriodUserinfo(ctx context.Context, req *PartnerPeriodUseri
 }
 
 type PartnerLatestReq struct {
-	api.ReqCommon
+	types.ReqCommon
 }
 
 type PartnerLatestResp struct {
-	api.RespCommon[PartnerLatestRespData]
+	types.RespCommon[PartnerLatestRespData]
 }
 
 type PartnerLatestRespData struct {
@@ -368,11 +368,11 @@ func (a *Api) PartnerLatest(ctx context.Context, req *PartnerLatestReq) (*Partne
 }
 
 type PartnerHomeReq struct {
-	api.ReqCommon
+	types.ReqCommon
 }
 
 type PartnerHomeResp struct {
-	api.RespCommon[PartnerHomeRespData]
+	types.RespCommon[PartnerHomeRespData]
 }
 
 type PartnerHomeRespData struct {
@@ -417,11 +417,11 @@ func (a *Api) PartnerHome(ctx context.Context, req *PartnerHomeReq) (*PartnerHom
 }
 
 type PartnerTaskReq struct {
-	api.ReqCommon
+	types.ReqCommon
 }
 
 type PartnerTaskResp struct {
-	api.RespCommon[PartnerTaskRespData]
+	types.RespCommon[PartnerTaskRespData]
 }
 
 type PartnerTaskRespData struct {
@@ -479,11 +479,11 @@ func (a *Api) PartnerTask(ctx context.Context, req *PartnerTaskReq) (*PartnerTas
 }
 
 type PartnerPickRightReq struct {
-	api.ReqCommon
+	types.ReqCommon
 }
 
 type PartnerPickRightResp struct {
-	api.RespCommon[[]PartnerPickRightRespData]
+	types.RespCommon[[]PartnerPickRightRespData]
 }
 
 // TODO:待补充参数
@@ -510,11 +510,11 @@ func (a *Api) PartnerPickRight(ctx context.Context, req *PartnerPickRightReq) (*
 }
 
 type PartnerNoticeReq struct {
-	api.ReqCommon
+	types.ReqCommon
 }
 
 type PartnerNoticeResp struct {
-	api.RespCommon[bool] // todo: 参数待确定
+	types.RespCommon[bool] // todo: 参数待确定
 }
 
 // PartnerNotice todo：通知？
@@ -678,7 +678,7 @@ var PartnerTagsGroup = map[int64][]PartnerTags{
 
 // PartnerEvaluateReq "{"taskId":118761451,"workId":787080,"score":4,"tags":"4-A-1,4-A-2,4-B-1,4-C-1,4-D-1,4-D-2,4-E-1,4-E-2","customTags":"[\"特别\"]","comment":"","syncYunCircle":false,"syncComment":true,"source":"mp-music-partner","csrf_token":"77bf3a5074699038504234d63d68d917"}"
 type PartnerEvaluateReq struct {
-	api.ReqCommon
+	types.ReqCommon
 	TaskId        int64       `json:"taskId"`        // 任务id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
 	WorkId        int64       `json:"workId"`        // 哪首歌曲id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
 	Score         int64       `json:"score"`         // 分值1~5
@@ -691,7 +691,7 @@ type PartnerEvaluateReq struct {
 }
 
 type PartnerEvaluateResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 }
 
 // PartnerEvaluate 音乐评审提交

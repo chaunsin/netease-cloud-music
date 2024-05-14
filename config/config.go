@@ -1,38 +1,74 @@
 package config
 
 import (
-	"errors"
-	"time"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
-	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
+	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
+
+	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
 )
 
-type Network struct {
-	Debug   bool                       `json:"debug" yaml:"debug"`
-	Timeout time.Duration              `json:"timeout" yaml:"timeout"`
-	Retry   int                        `json:"retry" yaml:"retry"`
-	Cookie  cookie.PersistentJarConfig `json:"cookie" yaml:"cookie"`
-}
+var (
+	confPath *string
+	home     string
+)
 
-type UserAgent struct {
-	Android []string `json:"android"`
-	IOS     []string `json:"ios"`
-	Mac     []string `json:"mac"`
-	Windows []string `json:"windows"`
-	Linux   []string `json:"linux"`
+func init() {
+	var err error
+	home, err = os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	confPath = flag.String("f", "./config.yaml", "main -f ./.ncm/config.yaml")
 }
 
 type Config struct {
-	Network   Network   `json:"network" yaml:"network"`
-	UserAgent UserAgent `json:"userAgent" yaml:"userAgent"`
+	v       *viper.Viper
+	Version string      `json:"version" yaml:"version"`
+	Log     *log.Config `json:"log" yaml:"log"`
+	Network *api.Config `json:"network" yaml:"network"`
 }
 
-func (c *Config) Valid() error {
-	if c.Network.Retry < 0 {
-		return errors.New("retry is < 0")
-	}
-	if c.Network.Timeout < 0 {
-		return errors.New("timeout is < 0")
-	}
+func (c *Config) Validate() error {
 	return nil
+}
+
+func New() *Config {
+	var (
+		conf Config
+		opts = func(m *mapstructure.DecoderConfig) {
+			m.TagName = "yaml"
+		}
+	)
+
+	v := viper.New()
+	v.SetTypeByDefaultValue(true)
+	v.SetEnvPrefix("ncm")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+	v.AllowEmptyEnv(true)
+	v.SetConfigType("yaml")
+	v.SetConfigName("config")
+	v.AddConfigPath(".")
+	v.AddConfigPath("./.ncm")
+	v.AddConfigPath(filepath.Join(home, ".ncm"))
+	v.AddConfigPath(filepath.Dir(*confPath))
+	// v.SetConfigFile(*confPath)
+	if err := v.ReadInConfig(); err != nil {
+		panic(err)
+	}
+	if err := v.UnmarshalExact(&conf, opts); err != nil {
+		panic(err)
+	}
+	if err := conf.Validate(); err != nil {
+		panic(err)
+	}
+	fmt.Printf("[config] %+v\n", conf)
+	return &conf
 }

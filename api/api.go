@@ -1,3 +1,26 @@
+// MIT License
+//
+// Copyright (c) 2024 chaunsin
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+
 package api
 
 import (
@@ -6,48 +29,69 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httputil"
 	neturl "net/url"
+	"time"
 
-	"github.com/chaunsin/netease-cloud-music/config"
 	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/google/brotli/go/cbrotli"
 )
 
+type Config struct {
+	Debug   bool                       `json:"debug" yaml:"debug"`
+	Timeout time.Duration              `json:"timeout" yaml:"timeout"`
+	Retry   int                        `json:"retry" yaml:"retry"`
+	Cookie  cookie.PersistentJarConfig `json:"cookie" yaml:"cookie"`
+	// Agent   *Agent                     `json:"agent" yaml:"agent"`
+}
+
+func (c *Config) Validate() error {
+	if c.Retry < 0 {
+		return errors.New("retry is < 0")
+	}
+	if c.Timeout < 0 {
+		return errors.New("timeout is < 0")
+	}
+	return nil
+}
+
 type Client struct {
-	cfg    *config.Config
+	cfg    *Config
 	cli    *resty.Client
 	cookie *cookie.PersistentJar
+	l      *log.Logger
 	// agent  *Agent
 }
 
-func New(cfg *config.Config) *Client {
-	client, err := NewWithErr(cfg)
+func New(cfg *Config) *Client {
+	client, err := NewWithErr(cfg, log.Default)
 	if err != nil {
 		panic(err)
 	}
 	return client
 }
 
-func NewWithErr(cfg *config.Config) (*Client, error) {
-	if err := cfg.Valid(); err != nil {
-		return nil, fmt.Errorf("valid: %w", err)
+func NewWithErr(cfg *Config, l *log.Logger) (*Client, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("validate: %w", err)
 	}
 
 	var opts = []cookie.PersistentJarOption{
-		cookie.WithSyncInterval(cfg.Network.Cookie.Interval),
+		cookie.WithSyncInterval(cfg.Cookie.Interval),
 	}
-	if cfg.Network.Cookie.Filepath != "" {
-		opts = append(opts, cookie.WithFilePath(cfg.Network.Cookie.Filepath))
+	if cfg.Cookie.Filepath != "" {
+		opts = append(opts, cookie.WithFilePath(cfg.Cookie.Filepath))
 	}
-	if opt := cfg.Network.Cookie.Options; opt != nil && opt.PublicSuffixList != nil {
-		opts = append(opts, cookie.WithPublicSuffixList(cfg.Network.Cookie.PublicSuffixList))
+	if opt := cfg.Cookie.Options; opt != nil && opt.PublicSuffixList != nil {
+		opts = append(opts, cookie.WithPublicSuffixList(cfg.Cookie.PublicSuffixList))
 	}
 	jar, err := cookie.NewPersistentJar(opts...)
 	if err != nil {
@@ -55,20 +99,18 @@ func NewWithErr(cfg *config.Config) (*Client, error) {
 	}
 
 	cli := resty.New()
-	cli.SetRetryCount(cfg.Network.Retry)
-	cli.SetTimeout(cfg.Network.Timeout)
+	cli.SetRetryCount(cfg.Retry)
+	cli.SetTimeout(cfg.Timeout)
 	cli.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	cli.SetDebug(cfg.Network.Debug)
+	cli.SetDebug(cfg.Debug)
 	cli.SetCookieJar(jar)
 	cli.OnAfterResponse(dump)
-	// cli.SetDebug(true)
 	// cli.OnAfterResponse(decrypt)
 	cli.OnAfterResponse(contentEncoding)
 	// cli.OnBeforeRequest(encrypt)
-
-	// c.cli.SetLogger(log.Logger)
-	// c.cli.AddRetryHook(func(resp *resty.Response, err error) {
-	// 	log.Logger.Warnf("URL:%s,RetryCount:%d,RequestBody:%+v StatusCode:%d,ResponseBody:%s CusumeTime:%s Err:%s",
+	// cli.SetLogger(l)
+	// cli.AddRetryHook(func(resp *resty.Response, err error) {
+	// 	l.Warnf("URL:%s,RetryCount:%d,RequestBody:%+v StatusCode:%d,ResponseBody:%s CusumeTime:%s Err:%s",
 	// 		resp.Request.URL, resp.Request.Attempt, resp.Request.Body, resp.StatusCode(), resp.Body(), resp.Time(), err)
 	// })
 
@@ -76,6 +118,7 @@ func NewWithErr(cfg *config.Config) (*Client, error) {
 		cfg:    cfg,
 		cli:    cli,
 		cookie: jar,
+		l:      l,
 		// agent:  NewAgent(),
 	}
 	return &c, nil
@@ -93,7 +136,7 @@ func (c *Client) Close(ctx context.Context) error {
 func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 	uri, err := neturl.Parse(url)
 	if err != nil {
-		fmt.Println("parse err:", err)
+		log.Warn("cookie parse(%v) err: ", url, err)
 		return http.Cookie{}, false
 	}
 	for _, c := range c.cookie.Cookies(uri) {
@@ -107,7 +150,7 @@ func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 func (c *Client) GetCSRF(url string) (string, bool) {
 	uri, err := neturl.Parse(url)
 	if err != nil {
-		fmt.Println("parse err:", err)
+		log.Warn("GetCSRF parse(%v) err: ", url, err)
 		return "", false
 	}
 	for _, c := range c.cookie.Cookies(uri) {
@@ -133,9 +176,10 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 	if err != nil {
 		return nil, err
 	}
+
 	csrf, has := c.GetCSRF(url)
 	if !has {
-		fmt.Println("get csrftoken not found")
+		log.Debug("get csrf token not found")
 	}
 
 	request := c.cli.R().
@@ -169,7 +213,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 	default:
 		return nil, fmt.Errorf("%s crypto mode unknown", cryptoMode)
 	}
-	fmt.Printf("data: %+v\nencriypt: %+v\n", req, encryptData)
+	log.Debug("data: %+v\nencriypt: %+v\n", req, encryptData)
 
 	switch method {
 	case "POST":
@@ -179,7 +223,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 	default:
 		return nil, fmt.Errorf("%s not surpport http method", method)
 	}
-	fmt.Printf("response: %+v\n", string(resp.Body()))
+	log.Debug("response: %+v\n", string(resp.Body()))
 
 	var decryptData []byte
 	switch cryptoMode {
@@ -197,7 +241,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
 	}
-	fmt.Printf("decrypt body:%s\n", string(decryptData))
+	log.Debug("decrypt body:%s\n", string(decryptData))
 	if err := json.Unmarshal(decryptData, &reply); err != nil {
 		return nil, err
 	}
@@ -221,7 +265,7 @@ func encrypt(c *resty.Client, req *resty.Request) error {
 	if err != nil {
 		return fmt.Errorf("EApiEncrypt: %w", err)
 	}
-	fmt.Printf("data: %+v\nencriypt: %+v\n", req.Body, data)
+	log.Debug("data: %+v\nencriypt: %+v\n", req.Body, data)
 	return nil
 }
 
@@ -230,16 +274,16 @@ func decrypt(c *resty.Client, resp *resty.Response) error {
 	if err != nil {
 		return fmt.Errorf("EApiDecrypt: %w", err)
 	}
-	fmt.Printf("raw: %+v\n", string(raw))
+	log.Debug("raw: %+v\n", string(raw))
 	if err := json.Unmarshal(raw, resp.Result()); err != nil {
-		return fmt.Errorf("AAAAA:%w", err)
+		return err
 	}
 	return nil
 }
 
 func contentEncoding(c *resty.Client, resp *resty.Response) error {
 	kind := resp.Header().Get("Content-Encoding")
-	fmt.Printf("Uncompressed: %v\n", resp.RawResponse.Uncompressed)
+	log.Debug("Uncompressed: %v\n", resp.RawResponse.Uncompressed)
 	switch kind {
 	case "deflate":
 		// 为何使用zlib库: https://zlib.net/zlib_faq.html#faq39
@@ -253,7 +297,6 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 			return err
 		}
 		resp.SetBody(bodyBytes)
-
 		// reader:=flate.NewReader(bytes.NewReader(resp.Body()))
 		// defer reader.Close()
 		// bodyBytes, err := io.ReadAll(reader)
@@ -294,22 +337,22 @@ func dump(c *resty.Client, resp *resty.Response) error {
 	if err != nil {
 		return fmt.Errorf("ReadAll: %w", err)
 	}
-	fmt.Printf("rawbody:%s\n", string(d))
-	fmt.Printf("----body:%s\n", string(resp.Body()))
+	log.Debug("rawbody:%s\n", string(d))
+	log.Debug("----body:%s\n", string(resp.Body()))
 
 	resp.RawResponse.Body = io.NopCloser(bytes.NewReader(resp.Body()))
-	fmt.Println("############### http dump ################")
+	log.Debug("############### http dump ################")
 	dumpReq, err := httputil.DumpRequest(resp.Request.RawRequest, true)
 	if err != nil {
 		return fmt.Errorf("DumpRequest: %w", err)
 	}
-	fmt.Printf("---------------- request ----------------\n%s", string(dumpReq))
+	log.Debug("---------------- request ----------------\n%s", string(dumpReq))
 
 	dumpResp, err := httputil.DumpResponse(resp.RawResponse, true)
 	if err != nil {
 		return fmt.Errorf("DumpResponse: %w", err)
 	}
-	fmt.Printf("---------------- response ----------------\n%s\n", string(dumpResp))
-	fmt.Printf("resp body byte: %v\n", resp.Body())
+	log.Debug("---------------- response ----------------\n%s\n", string(dumpResp))
+	log.Debug("resp body byte: %v\n", resp.Body())
 	return nil
 }

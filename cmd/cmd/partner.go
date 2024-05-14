@@ -26,15 +26,15 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
 
 	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
-	"github.com/chaunsin/netease-cloud-music/config"
-	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/nohup"
+
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 )
@@ -42,39 +42,60 @@ import (
 type PartnerOpts struct {
 	Crontab string
 	Star    []int64
-	Tags    []string
+	// Tags    []string
 }
 
 type Partner struct {
 	root *Root
 	cmd  *cobra.Command
 	opts PartnerOpts
+	l    *log.Logger
 }
 
-func NewPartner(root *Root) *Partner {
+func NewPartner(root *Root, l *log.Logger) *Partner {
 	c := &Partner{
 		root: root,
+		l:    l,
 		cmd: &cobra.Command{
 			Use:     "partner",
-			Short:   "partner sync execute music partner",
+			Short:   "partner async execute music partner",
 			Example: `ncm partner`,
 		},
 	}
 	c.addFlags()
-	// c.Add()
 	c.cmd.Run = func(cmd *cobra.Command, args []string) {
 		if err := c.execute(); err != nil {
-			fmt.Println(err)
+			cmd.Println(err)
 		}
 	}
-
 	return c
 }
 
 func (c *Partner) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Crontab, "crontab", "c", "* 18 * * *", "https://crontab.guru/")
+	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "https://crontab.guru/")
 	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.Star, "star", "s", []int64{3, 4}, "star level")
-	c.cmd.PersistentFlags().StringSliceVarP(&c.opts.Tags, "tags", "t", []string{"情感到位", "有节奏感", "音色独特"}, "tags")
+	// c.cmd.PersistentFlags().StringSliceVarP(&c.opts.Tags, "tags", "t", []string{"情感到位", "有节奏感", "音色独特"}, "tags")
+}
+
+func (c *Partner) validate() error {
+	if c.opts.Crontab == "" {
+		return fmt.Errorf("crontab is required")
+	}
+	_, err := cron.ParseStandard(c.opts.Crontab)
+	if err != nil {
+		return fmt.Errorf("ParseStandard: %w", err)
+	}
+	if len(c.opts.Star) == 0 || len(c.opts.Star) > 5 {
+		return fmt.Errorf("star level must be 1-5")
+	}
+	for _, v := range c.opts.Star {
+		for _, vv := range c.opts.Star {
+			if v == vv {
+				return fmt.Errorf("star level must be unique")
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Partner) Version(version string) {
@@ -90,12 +111,16 @@ func (c *Partner) Command() *cobra.Command {
 }
 
 func (c *Partner) execute() error {
-	if err := c.job(c.cmd.Context()); err != nil {
-		fmt.Println("job:", err)
-		return err
+	if err := c.validate(); err != nil {
+		return fmt.Errorf("validate: %w", err)
 	}
-	fmt.Println("execute success ", time.Now())
-	return nil
+
+	// if err := c.job(c.cmd.Context()); err != nil {
+	// 	fmt.Println("job:", err)
+	// 	return err
+	// }
+	// fmt.Println("execute success ", time.Now())
+	// return nil
 
 	cr := cron.New(cron.WithLocation(time.Local))
 	id, err := cr.AddFunc(c.opts.Crontab, func() {
@@ -103,14 +128,14 @@ func (c *Partner) execute() error {
 			fmt.Println("err:", err)
 			return
 		}
-		fmt.Println("execute success ", time.Now())
+		log.Info("execute success ", time.Now())
 	})
 	if err != nil {
 		return fmt.Errorf("crontab error: %v", err)
 	}
 	cr.Start()
 
-	fmt.Println("Next execute: ", cr.Entry(id).Schedule.Next(time.Now()))
+	log.Info("Next execute: ", cr.Entry(id).Schedule.Next(time.Now()))
 
 	nohup.Run(nohup.CloseHook(func(ctx context.Context) error {
 		cr.Stop()
@@ -120,19 +145,7 @@ func (c *Partner) execute() error {
 }
 
 func (c *Partner) job(ctx context.Context) error {
-	cfg := config.Config{
-		Network: config.Network{
-			Debug:   c.root.Opts.Debug,
-			Timeout: 0,
-			Retry:   0,
-			Cookie: cookie.PersistentJarConfig{
-				Options:  nil,
-				Filepath: "./.ncm/cookie.json",
-				Interval: 0,
-			},
-		},
-	}
-	cli, err := api.NewWithErr(&cfg)
+	cli, err := api.NewWithErr(c.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewWithErr: %w", err)
 	}
@@ -144,20 +157,20 @@ func (c *Partner) job(ctx context.Context) error {
 	}
 
 	// 判断是否有音乐合伙人资格
-
-	// 判断是否是周一
+	// todo:
 
 	// 获取任务列表
-	task, err := request.PartnerTask(ctx, &weapi.PartnerTaskReq{ReqCommon: api.ReqCommon{}})
+	task, err := request.PartnerTask(ctx, &weapi.PartnerTaskReq{ReqCommon: types.ReqCommon{}})
 	if err != nil {
 		return fmt.Errorf("PartnerTask: %w", err)
 	}
 	for _, work := range task.Data.Works {
 		_ = work.Work.ResourceId
 
+		// 随机一个分数,然后取一个tag从对应分数组中
 		star := c.opts.Star[rand.Int31n(int32(len(c.opts.Star)))]
 		group := weapi.PartnerTagsGroup[star]
-		tags := group[rand.Int31n(int32(len(group)))] // 随机取一个
+		tags := group[rand.Int31n(int32(len(group)))]
 
 		// 模拟听歌消耗得时间,随机15-25秒
 		time.Sleep(time.Second * time.Duration(15+int(rand.Int31n(10))))
@@ -168,7 +181,7 @@ func (c *Partner) job(ctx context.Context) error {
 
 		// 执行测评
 		var req = &weapi.PartnerEvaluateReq{
-			ReqCommon:     api.ReqCommon{},
+			ReqCommon:     types.ReqCommon{},
 			TaskId:        task.Data.Id,
 			WorkId:        work.Work.Id,
 			Score:         star,
@@ -189,7 +202,7 @@ func (c *Partner) job(ctx context.Context) error {
 		case 405:
 			// 当前任务歌曲已完成评
 		default:
-			log.Printf("PartnerEvaluate(%+v) err: %+v\n", req, resp)
+			log.Error("PartnerEvaluate(%+v) err: %+v\n", req, resp)
 			// return fmt.Errorf("PartnerEvaluate: %v", resp.Message)
 		}
 		break
