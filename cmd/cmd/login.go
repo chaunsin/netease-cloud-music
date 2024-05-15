@@ -46,7 +46,7 @@ func NewLogin(root *Root, l *log.Logger) *Login {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "login",
-			Short:   "login netease cloud music",
+			Short:   "Login netease cloud music",
 			Example: `ncm login -h\nncm login`,
 		},
 	}

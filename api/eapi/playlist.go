@@ -28,7 +28,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 type PlaylistReq struct {
@@ -118,7 +118,7 @@ type PlaylistRespList struct {
 }
 
 type PlaylistResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 	Playlist PlaylistRespList `json:"playlist"`
 	Version  string           `json:"version"` // 时间戳1703557080686
 }

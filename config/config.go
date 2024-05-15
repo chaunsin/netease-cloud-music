@@ -2,7 +2,6 @@ package config
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,6 +68,5 @@ func New() *Config {
 	if err := conf.Validate(); err != nil {
 		panic(err)
 	}
-	fmt.Printf("[config] %+v\n", conf)
 	return &conf
 }

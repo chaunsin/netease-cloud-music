@@ -29,12 +29,14 @@ import (
 	"path/filepath"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
+
+	"github.com/spf13/cobra"
 )
 
-func writefile(out string, data []byte) error {
+func writefile(cmd *cobra.Command, out string, data []byte) error {
 	if out == "" {
-		_, err := fmt.Fprint(os.Stdout, string(data)+"\r\n")
-		return err
+		cmd.Println(string(data))
+		return nil
 	}
 
 	// 写入文件
@@ -54,6 +56,6 @@ func writefile(out string, data []byte) error {
 	if err := os.WriteFile(file, data, os.ModePerm); err != nil {
 		return fmt.Errorf("WriteFile: %w", err)
 	}
-	fmt.Printf("generate file path: %s\n", file)
+	cmd.Printf("generate file path: %s\n", file)
 	return nil
 }

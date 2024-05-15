@@ -28,14 +28,14 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 type V3SongDetailReq struct {
 }
 
 type V3SongDetailResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 	Playlist PlaylistRespList `json:"playlist"`
 	Version  string           `json:"version"` // 时间戳1703557080686
 }

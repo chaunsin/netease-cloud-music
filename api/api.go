@@ -150,7 +150,7 @@ func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 func (c *Client) GetCSRF(url string) (string, bool) {
 	uri, err := neturl.Parse(url)
 	if err != nil {
-		log.Warn("GetCSRF parse(%v) err: ", url, err)
+		log.Warn("GetCSRF parse(%v) err: %s", url, err)
 		return "", false
 	}
 	for _, c := range c.cookie.Cookies(uri) {
@@ -213,7 +213,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 	default:
 		return nil, fmt.Errorf("%s crypto mode unknown", cryptoMode)
 	}
-	log.Debug("data: %+v\nencriypt: %+v\n", req, encryptData)
+	log.Debug("data: %+v encrypt: %+v", req, encryptData)
 
 	switch method {
 	case "POST":
@@ -223,7 +223,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 	default:
 		return nil, fmt.Errorf("%s not surpport http method", method)
 	}
-	log.Debug("response: %+v\n", string(resp.Body()))
+	log.Debug("response: %+v", string(resp.Body()))
 
 	var decryptData []byte
 	switch cryptoMode {
@@ -241,7 +241,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
 	}
-	log.Debug("decrypt body:%s\n", string(decryptData))
+	log.Debug("decrypt body:%s", string(decryptData))
 	if err := json.Unmarshal(decryptData, &reply); err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func encrypt(c *resty.Client, req *resty.Request) error {
 	if err != nil {
 		return fmt.Errorf("EApiEncrypt: %w", err)
 	}
-	log.Debug("data: %+v\nencriypt: %+v\n", req.Body, data)
+	log.Debug("data: %+v encrypt: %+v", req.Body, data)
 	return nil
 }
 
@@ -283,7 +283,7 @@ func decrypt(c *resty.Client, resp *resty.Response) error {
 
 func contentEncoding(c *resty.Client, resp *resty.Response) error {
 	kind := resp.Header().Get("Content-Encoding")
-	log.Debug("Uncompressed: %v\n", resp.RawResponse.Uncompressed)
+	log.Debug("Uncompressed: %v", resp.RawResponse.Uncompressed)
 	switch kind {
 	case "deflate":
 		// 为何使用zlib库: https://zlib.net/zlib_faq.html#faq39
@@ -337,8 +337,8 @@ func dump(c *resty.Client, resp *resty.Response) error {
 	if err != nil {
 		return fmt.Errorf("ReadAll: %w", err)
 	}
-	log.Debug("rawbody:%s\n", string(d))
-	log.Debug("----body:%s\n", string(resp.Body()))
+	log.Debug("rawbody:%s", string(d))
+	log.Debug("----body:%s", string(resp.Body()))
 
 	resp.RawResponse.Body = io.NopCloser(bytes.NewReader(resp.Body()))
 	log.Debug("############### http dump ################")
@@ -353,6 +353,6 @@ func dump(c *resty.Client, resp *resty.Response) error {
 		return fmt.Errorf("DumpResponse: %w", err)
 	}
 	log.Debug("---------------- response ----------------\n%s\n", string(dumpResp))
-	log.Debug("resp body byte: %v\n", resp.Body())
+	log.Debug("resp body byte: %v", resp.Body())
 	return nil
 }

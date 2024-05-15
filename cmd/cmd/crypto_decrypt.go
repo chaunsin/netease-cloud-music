@@ -107,7 +107,7 @@ func (c *decryptCmd) execute(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			return writefile(opts.Output, content)
+			return writefile(c.cmd, opts.Output, content)
 		}
 		opts.Input = string(data)
 	}
@@ -132,7 +132,7 @@ func (c *decryptCmd) execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return writefile(opts.Output, content)
+	return writefile(c.cmd, opts.Output, content)
 }
 
 func (c *decryptCmd) decryptReq(p *Payload, encode string) error {

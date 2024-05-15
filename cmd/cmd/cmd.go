@@ -51,17 +51,19 @@ func New(cfg *config.Config, l *log.Logger) *Root {
 		l:   l,
 		cmd: &cobra.Command{
 			Use:   "ncm",
-			Short: "ncm is a tool for encrypting and decrypting the ncm file.",
+			Short: "ncm is a toolbox for netease cloud music.",
 			Example: `ncm -h
-ncm crypto decrypt -k eapi -c xxx
-ncm crypto encrypt -k eapi -P xxx
-ncm login qrcode -a xx`,
+ncm crypto
+ncm login
+ncm curl
+ncm partner`,
 		},
 	}
 	c.addFlags()
 	c.Add(NewCrypto(c, l).Command())
 	c.Add(NewLogin(c, l).Command())
 	c.Add(NewPartner(c, l).Command())
+	c.Add(NewCurl(c, l).Command())
 
 	return c
 }

@@ -58,7 +58,7 @@ func NewPartner(root *Root, l *log.Logger) *Partner {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "partner",
-			Short:   "partner async execute music partner",
+			Short:   "Partner async execute music partner",
 			Example: `ncm partner`,
 		},
 	}
