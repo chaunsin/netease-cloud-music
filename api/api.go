@@ -40,9 +40,9 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/google/brotli/go/cbrotli"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/google/brotli/go/cbrotli"
 )
 
 type Config struct {
@@ -203,7 +203,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 		request.SetQueryParam("csrf_token", csrf)
 		encryptData, err = crypto.WeApiEncrypt(req)
 		if err != nil {
-			return nil, fmt.Errorf("EApiEncrypt: %w", err)
+			return nil, fmt.Errorf("WeApiEncrypt: %w", err)
 		}
 	case "linux":
 		encryptData, err = crypto.LinuxApiEncrypt(req)
@@ -233,7 +233,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 			return nil, fmt.Errorf("EApiDecrypt: %w", err)
 		}
 	case "weapi":
-		// tips: weapi接口返回数据是明文,另外即使是加密数据也拿不到私钥.
+		// tips: weapi接口返回数据是明文
 		decryptData = resp.Body()
 	case "linux":
 		decryptData, err = crypto.LinuxApiDecrypt(string(resp.Body()))
@@ -304,8 +304,14 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 		// 	return err
 		// }
 		// resp.SetBody(bodyBytes)
+	case "br":
+		bodyBytes, err := cbrotli.Decode(resp.Body())
+		if err != nil {
+			return err
+		}
+		resp.SetBody(bodyBytes)
 	case "gzip":
-		// TODO: restry 自身已经实现gzip解压缩
+		// tips: restry 自身已经实现gzip解压缩
 		// reader, err := gzip.NewReader(bytes.NewReader(resp.Body()))
 		// if err != nil {
 		// 	return err
@@ -316,12 +322,6 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 		// 	return err
 		// }
 		// resp.SetBody(bodyBytes)
-	case "br":
-		bodyBytes, err := cbrotli.Decode(resp.Body())
-		if err != nil {
-			return err
-		}
-		resp.SetBody(bodyBytes)
 	case "":
 		// 空则代表是gzip,golang底层会做相应得解压缩处理,为空得原因是,
 		// 收到请求后进行解压, 同时删除 Content-Encoding: gzip请求头。

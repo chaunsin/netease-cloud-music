@@ -24,6 +24,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -55,7 +56,7 @@ func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
 		Short:   "Encrypt data",
 		Example: "ncm crypto encrypt -k weapi -u /eapi/sms/captcha/sent -p \"plaintext\"",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := c.execute(); err != nil {
+			if err := c.execute(cmd.Context()); err != nil {
 				cmd.Println(err)
 			}
 		},
@@ -69,7 +70,7 @@ func (c *cryptoCmd) addFlags() {
 	// c.cmd.Flags().StringVarP(&c.encode, "encode", "e", "hex", "string|hex|base64")
 }
 
-func (c *cryptoCmd) execute() error {
+func (c *cryptoCmd) execute(ctx context.Context) error {
 	var opts = c.root.opts
 	// if c.encode != "string" && c.encode != "base64" && c.encode != "hex" {
 	// 	return fmt.Errorf("%s is unknown encode", c.encode)

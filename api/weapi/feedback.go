@@ -63,7 +63,7 @@ func (a *Api) ApiWebLog(ctx context.Context, req *ApiWebLogReq) (*ApiWebLogResp,
 //	}
 type WeApiWebLogReq struct {
 	CsrfToken string `json:"csrf_token"` // 可不用传递
-	Logs      string `json:"logs"`
+	Logs      string `json:"logs"`       // WeApiWebLogReqLog
 }
 
 type WeApiWebLogReqLog struct {
@@ -104,7 +104,7 @@ func (a *Api) WeApiWebLog(ctx context.Context, req *WeApiWebLogReq) (*WeApiWebLo
 
 type InterfaceWeApiWebLogReq struct {
 	CsrfToken string `json:"csrf_token"` // 可不用传递
-	Logs      string `json:"logs"`
+	Logs      string `json:"logs"`       // InterfaceWeApiWebLogReqLog
 }
 
 type InterfaceWeApiWebLogReqLog struct {

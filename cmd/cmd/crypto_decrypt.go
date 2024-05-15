@@ -25,6 +25,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -60,7 +61,7 @@ func decrypt(root *Crypto, l *log.Logger) *cobra.Command {
 		Short:   "Decrypt data",
 		Example: "ncm crypto decrypt -k weapi -e base64 -c \"ciphertext\"\nncm decrypt -f example.har",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := c.execute(); err != nil {
+			if err := c.execute(cmd.Context()); err != nil {
 				cmd.Println(err)
 			}
 		},
@@ -74,7 +75,7 @@ func (c *decryptCmd) addFlags() {
 	c.cmd.Flags().StringVarP(&c.url, "url", "u", "*", "routing address matching example: https://music.163.com/*")
 }
 
-func (c *decryptCmd) execute() error {
+func (c *decryptCmd) execute(ctx context.Context) error {
 	var opts = c.root.opts
 	if c.encode != "string" && c.encode != "base64" && c.encode != "hex" {
 		return fmt.Errorf("%s is unknown encode", c.encode)

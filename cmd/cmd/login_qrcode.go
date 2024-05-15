@@ -56,7 +56,7 @@ func qrcode(root *Login, l *log.Logger) *cobra.Command {
 		Short:   "user qrcode login",
 		Example: "ncm login qrcode xxx",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := c.execute(); err != nil {
+			if err := c.execute(cmd.Context()); err != nil {
 				cmd.Println(err)
 			}
 		},
@@ -70,14 +70,15 @@ func (c *loginQrcodeCmd) addFlags() {
 	c.cmd.Flags().StringVarP(&c.dir, "dir", "d", "./", "./")
 }
 
-func (c *loginQrcodeCmd) execute() error {
+func (c *loginQrcodeCmd) execute(ctx context.Context) error {
 	cli, err := api.NewWithErr(c.root.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewWithErr: %w", err)
 	}
+	defer cli.Close(ctx)
 	request := weapi.New(cli)
 
-	ctx, cancel := context.WithTimeout(c.cmd.Context(), c.timeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
 	// 1. 生成key

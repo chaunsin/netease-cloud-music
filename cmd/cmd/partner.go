@@ -64,7 +64,7 @@ func NewPartner(root *Root, l *log.Logger) *Partner {
 	}
 	c.addFlags()
 	c.cmd.Run = func(cmd *cobra.Command, args []string) {
-		if err := c.execute(); err != nil {
+		if err := c.execute(cmd.Context()); err != nil {
 			cmd.Println(err)
 		}
 	}
@@ -110,7 +110,7 @@ func (c *Partner) Command() *cobra.Command {
 	return c.cmd
 }
 
-func (c *Partner) execute() error {
+func (c *Partner) execute(ctx context.Context) error {
 	if err := c.validate(); err != nil {
 		return fmt.Errorf("validate: %w", err)
 	}
@@ -149,6 +149,7 @@ func (c *Partner) job(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("NewWithErr: %w", err)
 	}
+	defer cli.Close(ctx)
 	request := weapi.New(cli)
 
 	// 判断是否需要登录

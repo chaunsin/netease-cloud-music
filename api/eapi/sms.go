@@ -26,7 +26,7 @@ package eapi
 import (
 	"context"
 
-	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 type CaptchaSendReq struct {
@@ -35,7 +35,7 @@ type CaptchaSendReq struct {
 }
 
 type CaptchaSendResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 }
 
 // CaptchaSend 发送验证码 PC客户端
@@ -128,7 +128,7 @@ type CaptchaVerifyReq struct {
 }
 
 type CaptchaVerifyResp struct {
-	api.RespCommon[any]
+	types.RespCommon[any]
 }
 
 // CaptchaVerify 验证验证码
