@@ -1,5 +1,9 @@
 package types
 
+import (
+	"encoding/json"
+)
+
 type ReqCommon struct {
 	CSRFToken string `json:"csrf_token,omitempty"`
 }
@@ -63,4 +67,21 @@ type MConfigInfo struct {
 		Version int    `json:"version"` // 143360
 		Appver  string `json:"appver"`  // 同 SendSMSReqHeader.AppVer 格式:2.3.17
 	} `json:"IuRPVVmc3WWul9fT"`
+}
+
+type (
+	IntsString []int64
+	intsString []int64
+)
+
+func (i IntsString) MarshalJSON() ([]byte, error) {
+	var ii intsString
+	for _, v := range i {
+		ii = append(ii, v)
+	}
+	data, err := json.Marshal(ii)
+	if err != nil {
+		return nil, err
+	}
+	return []byte("\"" + string(data) + "\""), nil
 }

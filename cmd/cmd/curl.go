@@ -151,58 +151,10 @@ func (c *Curl) execute(ctx context.Context) error {
 		instance = reflect.New(req).Elem()
 	)
 
-	for i := 0; i < req.NumField(); i++ {
-		tag, has := req.Field(i).Tag.Lookup("json")
-		if !has {
-			continue
-		}
-		tag = strings.Split(strings.TrimSpace(tag), ",")[0]
-		v, ok := args[tag]
-		if !ok {
-			log.Warn("tag '%s' not found", tag)
-			continue
-		}
-
-		var field = instance.Field(i)
-		switch k := req.Field(i).Type.Kind(); k {
-		case reflect.Bool:
-			field.Set(reflect.ValueOf(v.(bool)))
-		case reflect.Int:
-			field.Set(reflect.ValueOf(v.(int)))
-		case reflect.Int8:
-			field.Set(reflect.ValueOf(v.(int8)))
-		case reflect.Int16:
-			field.Set(reflect.ValueOf(v.(int16)))
-		case reflect.Int32:
-			field.Set(reflect.ValueOf(v.(int32)))
-		case reflect.Int64:
-			field.Set(reflect.ValueOf(int64(v.(float64))))
-		case reflect.Uint:
-			field.Set(reflect.ValueOf(v.(uint)))
-		case reflect.Uint8:
-			field.Set(reflect.ValueOf(v.(uint8)))
-		case reflect.Uint16:
-			field.Set(reflect.ValueOf(v.(uint16)))
-		case reflect.Uint32:
-			field.Set(reflect.ValueOf(v.(uint32)))
-		case reflect.Uint64:
-			field.Set(reflect.ValueOf(v.(uint64)))
-		case reflect.Float32:
-			field.Set(reflect.ValueOf(v.(float32)))
-		case reflect.Float64:
-			field.Set(reflect.ValueOf(v.(float64)))
-		case reflect.String:
-			field.Set(reflect.ValueOf(v.(string)))
-		case reflect.Array:
-			fallthrough
-		case reflect.Slice:
-			fallthrough
-		case reflect.Map:
-			fallthrough
-			// todo: 待支持
-		default:
-			return fmt.Errorf("fields: %s unsupport type: %s\n", tag, k)
-		}
+	decoder := json.NewDecoder(strings.NewReader(c.opts.Input))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(instance.Addr().Interface()); err != nil {
+		return err
 	}
 	log.Debug("request: %+v", instance)
 

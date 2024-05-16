@@ -31,12 +31,66 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
+// SongPlayerReq
+//
+//	{
+//	   "ids": "[1955097630]",
+//	   "br": "128000",
+//	   "csrf_token": "77bf3a5074699038504234d63d68d917"
+//	}
 type SongPlayerReq struct {
 	types.ReqCommon
-	Ids []string `json:"ids"` // 歌曲id
-	Br  string   `json:"br"`  // 音乐bit率 例如:128000 320000
+	Ids types.IntsString `json:"ids"` // 歌曲id
+	Br  string           `json:"br"`  // 音乐bit率 例如:128000 320000
 }
 
+// SongPlayerResp
+//
+//	{
+//	   "data": [
+//	       {
+//	           "id": 1955097630,
+//	           "url": "http://m804.music.126.net/20240517003128/e80a8269f8e418f11fd349420dcf42e6/jdymusic/obj/wo3DlMOGwrbDjj7DisKw/14968401923/7c8d/4357/dc0e/50023048ed42819c67acaec403d832fe.mp3?authSecret=0000018f8227a7c702350aaba39a935b",
+//	           "br": 128000,
+//	           "size": 4265133,
+//	           "md5": "50023048ed42819c67acaec403d832fe",
+//	           "code": 200,
+//	           "expi": 1200,
+//	           "type": "mp3",
+//	           "gain": 0,
+//	           "peak": 0,
+//	           "fee": 0,
+//	           "uf": null,
+//	           "payed": 0,
+//	           "flag": 1,
+//	           "canExtend": false,
+//	           "freeTrialInfo": null,
+//	           "level": "standard",
+//	           "encodeType": "mp3",
+//	           "channelLayout": null,
+//	           "freeTrialPrivilege": {
+//	               "resConsumable": false,
+//	               "userConsumable": false,
+//	               "listenType": null,
+//	               "cannotListenReason": null,
+//	               "playReason": null
+//	           },
+//	           "freeTimeTrialPrivilege": {
+//	               "resConsumable": false,
+//	               "userConsumable": false,
+//	               "type": 0,
+//	               "remainTime": 0
+//	           },
+//	           "urlSource": 0,
+//	           "rightSource": 0,
+//	           "podcastCtrp": null,
+//	           "effectTypes": null,
+//	           "time": 266516,
+//	           "message": null
+//	       }
+//	   ],
+//	   "code": 200
+//	}
 type SongPlayerResp struct {
 	types.RespCommon[[]SongPlayerReqData]
 }
@@ -79,6 +133,7 @@ type SongPlayerReqData struct {
 	PodcastCtrp interface{} `json:"podcastCtrp"`
 	EffectTypes interface{} `json:"effectTypes"`
 	Time        int         `json:"time"`
+	Message     interface{} `json:"message"`
 }
 
 // SongPlayer 音乐播放详情
