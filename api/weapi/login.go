@@ -132,6 +132,64 @@ type GetUserInfoReq struct {
 
 type GetUserInfoResp struct {
 	types.RespCommon[any]
+	Account GetUserInfoRespAccount `json:"account"`
+	Profile GetUserInfoRespProfile `json:"profile"`
+}
+
+type GetUserInfoRespAccount struct {
+	Id                 int    `json:"id"`
+	UserName           string `json:"userName"`
+	Type               int    `json:"type"`
+	Status             int    `json:"status"`
+	WhitelistAuthority int    `json:"whitelistAuthority"`
+	CreateTime         int64  `json:"createTime"`
+	TokenVersion       int    `json:"tokenVersion"`
+	Ban                int    `json:"ban"`
+	BaoyueVersion      int    `json:"baoyueVersion"`
+	DonateVersion      int    `json:"donateVersion"`
+	VipType            int    `json:"vipType"`
+	AnonimousUser      bool   `json:"anonimousUser"`
+	PaidFee            bool   `json:"paidFee"`
+}
+
+type GetUserInfoRespProfile struct {
+	UserId              int         `json:"userId"`
+	UserType            int         `json:"userType"`
+	Nickname            string      `json:"nickname"`
+	AvatarImgId         int64       `json:"avatarImgId"`
+	AvatarUrl           string      `json:"avatarUrl"`
+	BackgroundImgId     int64       `json:"backgroundImgId"`
+	BackgroundUrl       string      `json:"backgroundUrl"`
+	Signature           string      `json:"signature"`
+	CreateTime          int64       `json:"createTime"`
+	UserName            string      `json:"userName"`
+	AccountType         int         `json:"accountType"`
+	ShortUserName       string      `json:"shortUserName"`
+	Birthday            int64       `json:"birthday"`
+	Authority           int         `json:"authority"`
+	Gender              int         `json:"gender"`
+	AccountStatus       int         `json:"accountStatus"`
+	Province            int         `json:"province"`
+	City                int         `json:"city"`
+	AuthStatus          int         `json:"authStatus"`
+	Description         interface{} `json:"description"`
+	DetailDescription   interface{} `json:"detailDescription"`
+	DefaultAvatar       bool        `json:"defaultAvatar"`
+	ExpertTags          interface{} `json:"expertTags"`
+	Experts             interface{} `json:"experts"`
+	DjStatus            int         `json:"djStatus"`
+	LocationStatus      int         `json:"locationStatus"`
+	VipType             int         `json:"vipType"`
+	Followed            bool        `json:"followed"`
+	Mutual              bool        `json:"mutual"`
+	Authenticated       bool        `json:"authenticated"`
+	LastLoginTime       int64       `json:"lastLoginTime"`
+	LastLoginIP         string      `json:"lastLoginIP"`
+	RemarkName          interface{} `json:"remarkName"`
+	ViptypeVersion      int64       `json:"viptypeVersion"`
+	AuthenticationTypes int         `json:"authenticationTypes"`
+	AvatarDetail        interface{} `json:"avatarDetail"`
+	Anchor              bool        `json:"anchor"`
 }
 
 // GetUserInfo 获取用户信息
@@ -140,6 +198,33 @@ func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInf
 		url   = "https://music.163.com/weapi/w/nuser/account/get"
 		reply GetUserInfoResp
 	)
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type TokenRefreshReq struct {
+	types.ReqCommon
+}
+
+type TokenRefreshResp struct {
+	types.RespCommon[any]
+}
+
+// TokenRefresh 登录token刷新 TODO: 400问题待解决
+func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRefreshResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/login/token/refresh"
+		reply TokenRefreshResp
+	)
+	if req.CSRFToken == "" {
+		csrf, _ := a.client.GetCSRF(url)
+		req.CSRFToken = csrf
+	}
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
 	if err != nil {
