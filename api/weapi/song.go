@@ -103,7 +103,7 @@ type SongPlayerReqData struct {
 	Md5                string      `json:"md5"`
 	Code               int         `json:"code"`
 	Expi               int         `json:"expi"`
-	Type               string      `json:"type"`
+	Type               string      `json:"type"` // 类型eg: mp3、FLAC
 	Gain               float64     `json:"gain"`
 	Peak               float64     `json:"peak"`
 	Fee                int         `json:"fee"`
@@ -112,7 +112,7 @@ type SongPlayerReqData struct {
 	Flag               int         `json:"flag"`
 	CanExtend          bool        `json:"canExtend"`
 	FreeTrialInfo      interface{} `json:"freeTrialInfo"`
-	Level              string      `json:"level"`
+	Level              string      `json:"level"` // 通常所说的音质水平 eg: standard、exhigh、higher、lossless、hires
 	EncodeType         string      `json:"encodeType"`
 	ChannelLayout      interface{} `json:"channelLayout"`
 	FreeTrialPrivilege struct {

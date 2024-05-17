@@ -540,22 +540,16 @@ func (a *Api) PartnerNotice(ctx context.Context, req *PartnerNoticeReq) (*Partne
 type PartnerTags string
 
 const (
-	OneAOnePartnerTags   PartnerTags = "1-A-1" // 歌词有共鸣
-	OneATwoPartnerTags   PartnerTags = "1-A-2" // 歌词立意不错
-	OneBOnePartnerTags   PartnerTags = "1-B-1" // 旋律耐听
-	OneCOnePartnerTags   PartnerTags = "1-C-1" // 唱功不错
-	OneDOnePartnerTags   PartnerTags = "1-D-1" // 音色独特
-	OneDTwoPartnerTags   PartnerTags = "1-D-2" // 情感到位
-	OneEOnePartnerTags   PartnerTags = "1-E-1" // 有节奏感
-	OneETwoPartnerTags   PartnerTags = "1-E-2" // 洗脑
-	TwoAOnePartnerTags   PartnerTags = "2-A-1" // 歌词有共鸣
-	TwoATwoPartnerTags   PartnerTags = "2-A-2" // 歌词立意不错
-	TwoBOnePartnerTags   PartnerTags = "2-B-1" // 旋律耐听
-	TwoCOnePartnerTags   PartnerTags = "2-C-1" // 唱功不错
-	TwoDOnePartnerTags   PartnerTags = "2-D-1" // 音色独特
-	TwoDTwoPartnerTags   PartnerTags = "2-D-2" // 情感到位
-	TwoEOnePartnerTags   PartnerTags = "2-E-1" // 有节奏感
-	TwoETwoPartnerTags   PartnerTags = "2-E-2" // 洗脑
+	OneAOnePartnerTags   PartnerTags = "1-A-1" // 歌词立意差
+	OneBOnePartnerTags   PartnerTags = "1-B-1" // 旋律无记忆
+	OneCOnePartnerTags   PartnerTags = "1-C-1" // 唱功不好
+	OneDOnePartnerTags   PartnerTags = "1-D-1" // 音色普通
+	OneDTwoPartnerTags   PartnerTags = "1-D-2" // 情感不饱满
+	TwoAOnePartnerTags   PartnerTags = "2-A-1" // 歌词立意一般
+	TwoBOnePartnerTags   PartnerTags = "2-B-1" // 旋律平平
+	TwoCOnePartnerTags   PartnerTags = "2-C-1" // 唱功一般
+	TwoDOnePartnerTags   PartnerTags = "2-D-1" // 音色普通
+	TwoDTwoPartnerTags   PartnerTags = "2-D-2" // 情感不饱满
 	ThreeAOnePartnerTags PartnerTags = "3-A-1" // 歌词有共鸣
 	ThreeATwoPartnerTags PartnerTags = "3-A-2" // 歌词立意不错
 	ThreeBOnePartnerTags PartnerTags = "3-B-1" // 旋律耐听
@@ -572,10 +566,10 @@ const (
 	FourDTwoPartnerTags  PartnerTags = "4-D-2" // 情感到位
 	FourEOnePartnerTags  PartnerTags = "4-E-1" // 有节奏感
 	FourETwoPartnerTags  PartnerTags = "4-E-2" // 洗脑
-	FiveAOnePartnerTags  PartnerTags = "5-A-1" // 歌词有共鸣
-	FiveATwoPartnerTags  PartnerTags = "5-A-2" // 歌词立意不错
-	FiveBOnePartnerTags  PartnerTags = "5-B-1" // 旋律耐听
-	FiveCOnePartnerTags  PartnerTags = "5-C-1" // 唱功不错
+	FiveAOnePartnerTags  PartnerTags = "5-A-1" // 歌词强共鸣
+	FiveATwoPartnerTags  PartnerTags = "5-A-2" // 歌词立意极高
+	FiveBOnePartnerTags  PartnerTags = "5-B-1" // 旋律有记忆点
+	FiveCOnePartnerTags  PartnerTags = "5-C-1" // 唱功惊艳
 	FiveDOnePartnerTags  PartnerTags = "5-D-1" // 音色独特
 	FiveDTwoPartnerTags  PartnerTags = "5-D-2" // 情感到位
 	FiveEOnePartnerTags  PartnerTags = "5-E-1" // 有节奏感
@@ -585,37 +579,25 @@ const (
 func (p PartnerTags) String() string {
 	switch p {
 	case OneAOnePartnerTags:
-		return "歌词有共鸣"
-	case OneATwoPartnerTags:
-		return "歌词立意不错"
+		return "歌词立意差"
 	case OneBOnePartnerTags:
-		return "旋律耐听"
+		return "旋律无记忆"
 	case OneCOnePartnerTags:
-		return "唱功不错"
+		return "唱功不好"
 	case OneDOnePartnerTags:
-		return "音色独特"
+		return "音色普通"
 	case OneDTwoPartnerTags:
-		return "情感到位"
-	case OneEOnePartnerTags:
-		return "有节奏感"
-	case OneETwoPartnerTags:
-		return "洗脑"
+		return "情感不饱满"
 	case TwoAOnePartnerTags:
-		return "歌词有共鸣"
-	case TwoATwoPartnerTags:
-		return "歌词立意不错"
+		return "歌词立意一般"
 	case TwoBOnePartnerTags:
-		return "旋律耐听"
+		return "旋律平平"
 	case TwoCOnePartnerTags:
-		return "唱功不错"
+		return "唱功一般"
 	case TwoDOnePartnerTags:
-		return "音色独特"
+		return "音色普通"
 	case TwoDTwoPartnerTags:
-		return "情感到位"
-	case TwoEOnePartnerTags:
-		return "有节奏感"
-	case TwoETwoPartnerTags:
-		return "洗脑"
+		return "情感不饱满"
 	case ThreeAOnePartnerTags:
 		return "歌词有共鸣"
 	case ThreeATwoPartnerTags:
@@ -648,14 +630,15 @@ func (p PartnerTags) String() string {
 		return "有节奏感"
 	case FourETwoPartnerTags:
 		return "洗脑"
+
 	case FiveAOnePartnerTags:
-		return "歌词有共鸣"
+		return "歌词强共鸣"
 	case FiveATwoPartnerTags:
-		return "歌词立意不错"
+		return "歌词立意极高"
 	case FiveBOnePartnerTags:
-		return "旋律耐听"
+		return "旋律有记忆点"
 	case FiveCOnePartnerTags:
-		return "唱功不错"
+		return "唱功经验"
 	case FiveDOnePartnerTags:
 		return "音色独特"
 	case FiveDTwoPartnerTags:
@@ -669,8 +652,8 @@ func (p PartnerTags) String() string {
 }
 
 var PartnerTagsGroup = map[int64][]PartnerTags{
-	1: {OneAOnePartnerTags, OneATwoPartnerTags, OneBOnePartnerTags, OneCOnePartnerTags, OneDOnePartnerTags, OneDTwoPartnerTags, OneEOnePartnerTags, OneETwoPartnerTags},
-	2: {TwoAOnePartnerTags, TwoATwoPartnerTags, TwoBOnePartnerTags, TwoCOnePartnerTags, TwoDOnePartnerTags, TwoDTwoPartnerTags, TwoEOnePartnerTags, TwoETwoPartnerTags},
+	1: {OneAOnePartnerTags, OneBOnePartnerTags, OneCOnePartnerTags, OneDOnePartnerTags, OneDTwoPartnerTags},
+	2: {TwoAOnePartnerTags, TwoBOnePartnerTags, TwoCOnePartnerTags, TwoDOnePartnerTags, TwoDTwoPartnerTags},
 	3: {ThreeAOnePartnerTags, ThreeATwoPartnerTags, ThreeBOnePartnerTags, ThreeCOnePartnerTags, ThreeDOnePartnerTags, ThreeDTwoPartnerTags, ThreeEOnePartnerTags, ThreeETwoPartnerTags},
 	4: {FourAOnePartnerTags, FourATwoPartnerTags, FourBOnePartnerTags, FourCOnePartnerTags, FourDOnePartnerTags, FourDTwoPartnerTags, FourEOnePartnerTags, FourETwoPartnerTags},
 	5: {FiveAOnePartnerTags, FiveATwoPartnerTags, FiveBOnePartnerTags, FiveCOnePartnerTags, FiveDOnePartnerTags, FiveDTwoPartnerTags, FiveEOnePartnerTags, FiveETwoPartnerTags},
