@@ -630,7 +630,6 @@ func (p PartnerTags) String() string {
 		return "有节奏感"
 	case FourETwoPartnerTags:
 		return "洗脑"
-
 	case FiveAOnePartnerTags:
 		return "歌词强共鸣"
 	case FiveATwoPartnerTags:
