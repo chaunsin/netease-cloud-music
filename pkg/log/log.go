@@ -24,16 +24,20 @@
 package log
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"runtime"
+	"time"
 
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
 	Default       *Logger
+	ctx           = context.Background()
 	hostname, _   = os.Hostname()
 	defaultConfig = Config{
 		App:    hostname,
@@ -117,44 +121,58 @@ func (l Logger) Logger() *slog.Logger {
 	return l.l
 }
 
-func Debug(msg string, args ...any) {
-	Default.l.Debug(fmt.Sprintf(msg, args...))
+func log(h slog.Handler, lv slog.Level, msg string, args ...any) {
+	// 需要检查是否满足日志级别？
+	if !h.Enabled(context.Background(), lv) {
+		return
+	}
+	var pcs [1]uintptr
+	runtime.Callers(3, pcs[:]) // skip [Callers, Info]
+	r := slog.NewRecord(time.Now(), lv, msg, pcs[0])
+	r.Add(args...)
+	if err := h.Handle(ctx, r); err != nil {
+		fmt.Printf("[log] handle err:%s\n", err)
+	}
 }
 
-func Info(msg string, args ...any) {
-	Default.l.Info(fmt.Sprintf(msg, args...))
+func Debug(format string, args ...any) {
+	log(Default.l.Handler(), slog.LevelDebug, format, args...)
 }
 
-func Warn(msg string, args ...any) {
-	Default.l.Warn(fmt.Sprintf(msg, args...))
+func Info(format string, args ...any) {
+	log(Default.l.Handler(), slog.LevelInfo, fmt.Sprintf(format, args...))
 }
 
-func Error(msg string, args ...any) {
-	Default.l.Error(fmt.Sprintf(msg, args...))
+func Warn(format string, args ...any) {
+	log(Default.l.Handler(), slog.LevelWarn, fmt.Sprintf(format, args...))
 }
 
-func Fatal(msg string, args ...any) {
-	Default.l.Error(fmt.Sprintf(msg, args...))
+func Error(format string, args ...any) {
+	log(Default.l.Handler(), slog.LevelError, fmt.Sprintf(format, args...))
+}
+
+func Fatal(format string, args ...any) {
+	log(Default.l.Handler(), slog.LevelError, fmt.Sprintf(format, args...))
 	os.Exit(1)
 }
 
 func DebugW(msg string, args ...any) {
-	Default.l.Debug(msg, args...)
+	log(Default.l.Handler(), slog.LevelDebug, msg, args...)
 }
 
 func InfoW(msg string, args ...any) {
-	Default.l.Info(msg, args...)
+	log(Default.l.Handler(), slog.LevelInfo, msg, args...)
 }
 
 func WarnW(msg string, args ...any) {
-	Default.l.Warn(msg, args...)
+	log(Default.l.Handler(), slog.LevelWarn, msg, args...)
 }
 
 func ErrorW(msg string, args ...any) {
-	Default.l.Error(msg, args...)
+	log(Default.l.Handler(), slog.LevelError, msg, args...)
 }
 
 func FatalW(msg string, args ...any) {
-	Default.l.Error(msg, args...)
+	log(Default.l.Handler(), slog.LevelError, msg, args...)
 	os.Exit(1)
 }

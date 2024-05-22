@@ -24,6 +24,7 @@
 package log
 
 import (
+	"fmt"
 	"log/slog"
 	"testing"
 )
@@ -33,8 +34,8 @@ func init() {
 }
 
 func TestPrint(t *testing.T) {
-	Debug("hello debug", "module", slog.StringValue("LOG"))
-	Info("hello info", "module", slog.StringValue("LOG"))
-	Warn("hello warn", "module", slog.StringValue("LOG"))
-	Error("hello error", "module", slog.StringValue("LOG"))
+	Debug("hello debug")
+	Info("hello info:%s", "chaunsin")
+	InfoW(fmt.Sprintf("hello info:%s", "chaunsin"), "sex", slog.StringValue("man"))
+	Fatal("hello fatal")
 }
