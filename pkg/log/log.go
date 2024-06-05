@@ -136,7 +136,7 @@ func log(h slog.Handler, lv slog.Level, msg string, args ...any) {
 }
 
 func Debug(format string, args ...any) {
-	log(Default.l.Handler(), slog.LevelDebug, format, args...)
+	log(Default.l.Handler(), slog.LevelDebug, fmt.Sprintf(format, args...))
 }
 
 func Info(format string, args ...any) {
