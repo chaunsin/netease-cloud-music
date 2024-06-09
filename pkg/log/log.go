@@ -123,7 +123,7 @@ func (l Logger) Logger() *slog.Logger {
 
 func log(h slog.Handler, lv slog.Level, msg string, args ...any) {
 	// 需要检查是否满足日志级别？
-	if !h.Enabled(context.Background(), lv) {
+	if !h.Enabled(ctx, lv) {
 		return
 	}
 	var pcs [1]uintptr

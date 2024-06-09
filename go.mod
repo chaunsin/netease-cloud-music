@@ -12,6 +12,7 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.9.0
+	github.com/wneessen/go-mail v0.4.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
