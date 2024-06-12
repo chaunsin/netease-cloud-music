@@ -4,15 +4,27 @@ import (
 	"encoding/json"
 )
 
+// ReqCommon weapi通用请求字段
 type ReqCommon struct {
 	CSRFToken string `json:"csrf_token,omitempty"`
 }
 
+// RespCommon weapi通用返回字段
 type RespCommon[T any] struct {
 	Code    int64  `json:"code,omitempty"`
 	Message string `json:"message,omitempty"`
 	Msg     string `json:"msg,omitempty"`
 	Data    T      `json:"data,omitempty"`
+}
+
+// ApiRespCommon api接口通用返回结构
+type ApiRespCommon[T any] struct {
+	Code      int64       `json:"code,omitempty"`
+	Message   string      `json:"message,omitempty"`
+	Msg       string      `json:"msg,omitempty"`
+	DebugInfo interface{} `json:"debugInfo,omitempty"`
+	FailData  interface{} `json:"failData,omitempty"`
+	Data      T           `json:"data,omitempty"`
 }
 
 // SendSMSReq 暂定此结构

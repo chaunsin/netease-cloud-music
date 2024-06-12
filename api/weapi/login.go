@@ -215,7 +215,7 @@ type TokenRefreshResp struct {
 	types.RespCommon[any]
 }
 
-// TokenRefresh 登录token刷新 TODO: 400问题待解决
+// TokenRefresh 登录token刷新 TODO: 400问题待解决 已经定位到问题cookie中需要增加 SetCookie(&http.Cookie{Name: "os", Value: "pc"})待解决
 func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRefreshResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/login/token/refresh"

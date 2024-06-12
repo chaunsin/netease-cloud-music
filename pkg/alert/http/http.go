@@ -21,62 +21,47 @@
 // SOFTWARE.
 //
 
-package mail
+package http
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"net/http"
+	"time"
 
-	"github.com/wneessen/go-mail"
+	"github.com/go-resty/resty/v2"
 )
 
 type Config struct {
-	Host     string
-	Port     int64
-	Username string
-	Password string
-	To       []string
+	Host     string        `json:"host" yaml:"host"`
+	Username string        `json:"username" yaml:"username"`
+	Password string        `json:"password" yaml:"password"`
+	Timeout  time.Duration `json:"timeout" yaml:"timeout"`
 }
 
 func (c Config) Validate() error {
 	if c.Host == "" {
 		return errors.New("host is empty")
 	}
-	if c.Port == 0 {
-		return errors.New("port is empty")
-	}
-	if c.Username == "" {
-		return errors.New("username is empty")
-	}
-	if c.Password == "" {
-		return errors.New("password is empty")
-	}
-	if len(c.To) == 0 {
-		return errors.New("to is empty")
-	}
 	return nil
 }
 
 type Client struct {
-	cli *mail.Client
+	cli *resty.Client
 	cfg *Config
 }
 
 func New(cfg *Config) (*Client, error) {
 	if err := cfg.Validate(); err != nil {
-		return nil, fmt.Errorf("mail: Validate: %w", err)
+		return nil, fmt.Errorf("http: Validate: %w", err)
 	}
 
-	cli, err := mail.NewClient(
-		cfg.Host,
-		mail.WithPort(int(cfg.Port)),
-		mail.WithSMTPAuth(mail.SMTPAuthPlain),
-		mail.WithUsername(cfg.Username),
-		mail.WithPassword(cfg.Password))
-	if err != nil {
-		return nil, err
-	}
+	cli := resty.New()
+	cli.SetTimeout(cfg.Timeout)
+	cli.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	// cli.SetDebug(cfg.Debug)
 
 	m := &Client{
 		cli: cli,
@@ -86,25 +71,22 @@ func New(cfg *Config) (*Client, error) {
 }
 
 func (c *Client) Send(ctx context.Context, content string) error {
-	var msg []*mail.Msg
-	for _, to := range c.cfg.To {
-		m := mail.NewMsg()
-		if err := m.From(c.cfg.Username); err != nil {
-			return fmt.Errorf("From: %w", err)
-		}
-		if err := m.To(to); err != nil {
-			return fmt.Errorf("To: %w", err)
-		}
-		m.Subject("This is my first mail with go-mail!")
-		m.SetBodyString(mail.TypeTextPlain, content)
-		msg = append(msg, m)
+	resp, err := c.cli.R().
+		SetContext(ctx).
+		SetHeader("Content-Type", "application/json").
+		SetBasicAuth(c.cfg.Username, c.cfg.Password).
+		SetBody(content).
+		Post(c.cfg.Host)
+	if err != nil {
+		return err
 	}
-	if err := c.cli.DialAndSendWithContext(ctx, msg...); err != nil {
-		return fmt.Errorf("DialAndSendWithContext: %w", err)
+	if resp.StatusCode() != http.StatusOK {
+		return fmt.Errorf("http: status code: %d", resp.StatusCode())
 	}
 	return nil
 }
 
 func (c *Client) Close(ctx context.Context) error {
-	return c.cli.Close()
+	c.cli.SetCloseConnection(true)
+	return nil
 }
