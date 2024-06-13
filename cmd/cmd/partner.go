@@ -125,7 +125,7 @@ func (c *Partner) execute(ctx context.Context) error {
 	cr := cron.New(cron.WithLocation(time.Local))
 	id, err := cr.AddFunc(c.opts.Crontab, func() {
 		if err := c.job(c.cmd.Context()); err != nil {
-			fmt.Println("err:", err)
+			log.Error("err:", err)
 			return
 		}
 		log.Info("execute success ", time.Now())

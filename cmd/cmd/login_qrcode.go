@@ -53,7 +53,7 @@ func qrcode(root *Login, l *log.Logger) *cobra.Command {
 	}
 	c.cmd = &cobra.Command{
 		Use:     "qrcode",
-		Short:   "user qrcode login",
+		Short:   "use qrcode login",
 		Example: "ncm login qrcode xxx",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := c.execute(cmd.Context()); err != nil {
@@ -71,6 +71,12 @@ func (c *loginQrcodeCmd) addFlags() {
 }
 
 func (c *loginQrcodeCmd) execute(ctx context.Context) error {
+	if c.root.root.Opts.Debug {
+		c.root.root.Cfg.Network.Debug = true
+	} else {
+		c.root.root.Cfg.Network.Debug = false
+	}
+
 	cli, err := api.NewWithErr(c.root.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewWithErr: %w", err)
@@ -111,7 +117,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context) error {
 	}
 	fmt.Println(">>>>> please scan qrcode in your phone <<<<<")
 	fmt.Printf("qrcode file %s\n", p)
-	fmt.Printf("qrcode: %s\n", qr.QrcodePrint)
+	fmt.Printf("qrcode: \n%s\n", qr.QrcodePrint)
 
 	// 4. 轮训获取扫码状态
 	for {

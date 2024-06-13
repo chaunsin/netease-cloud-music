@@ -25,6 +25,7 @@ package cmd
 
 import (
 	"flag"
+	"log/slog"
 
 	"github.com/chaunsin/netease-cloud-music/config"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
@@ -52,19 +53,25 @@ func New(cfg *config.Config, l *log.Logger) *Root {
 		cmd: &cobra.Command{
 			Use:   "ncm",
 			Short: "ncm is a toolbox for netease cloud music.",
-			Example: `ncm -h
-ncm crypto
-ncm login
-ncm curl
-ncm partner`,
+			Example: `  ncm -h
+  ncm crypto
+  ncm login
+  ncm curl
+  ncm partner`,
 		},
+	}
+	c.cmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		if c.Opts.Debug {
+			l.SetLevel(slog.LevelDebug)
+		} else {
+			l.SetLevel(slog.LevelInfo)
+		}
 	}
 	c.addFlags()
 	c.Add(NewCrypto(c, l).Command())
 	c.Add(NewLogin(c, l).Command())
 	c.Add(NewPartner(c, l).Command())
 	c.Add(NewCurl(c, l).Command())
-
 	return c
 }
 

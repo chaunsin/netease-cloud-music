@@ -111,6 +111,12 @@ func (c *Curl) execute(ctx context.Context) error {
 		return err
 	}
 
+	if c.root.Opts.Debug {
+		c.root.Cfg.Network.Debug = true
+	} else {
+		c.root.Cfg.Network.Debug = false
+	}
+
 	cli, err := api.NewWithErr(c.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewWithErr: %w", err)
@@ -165,7 +171,7 @@ func (c *Curl) execute(ctx context.Context) error {
 	if !resp[1].IsNil() {
 		return resp[1].Interface().(error)
 	}
-	data := resp[0].Interface() // 请求返回值
+	var data = resp[0].Interface() // 请求返回值
 	binary, err := json.MarshalIndent(data, "", "\t")
 	if err != nil {
 		return fmt.Errorf("MarshalIndent: %w", err)
