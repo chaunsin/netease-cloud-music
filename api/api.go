@@ -133,6 +133,7 @@ func (c *Client) Close(ctx context.Context) error {
 	return c.cookie.Close(ctx)
 }
 
+// Cookie 根据url和cookie name获取cookie
 func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 	uri, err := neturl.Parse(url)
 	if err != nil {
@@ -147,6 +148,15 @@ func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 	return http.Cookie{}, false
 }
 
+// Cookies 获取当前所有cookies
+func (c *Client) Cookies() []*http.Cookie {
+	if c.cli != nil {
+		return c.cli.R().Cookies
+	}
+	return make([]*http.Cookie, 0)
+}
+
+// GetCSRF 获取csrf 一般用于weapi接口中使用
 func (c *Client) GetCSRF(url string) (string, bool) {
 	uri, err := neturl.Parse(url)
 	if err != nil {
@@ -164,12 +174,30 @@ func (c *Client) GetCSRF(url string) (string, bool) {
 	return "", false
 }
 
-func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, req, reply interface{}) (*resty.Response, error) {
+// NeedLogin 是否需要登录
+func (c *Client) NeedLogin(ctx context.Context) bool {
+	var need = true
+	for _, c := range c.cli.R().Cookies {
+		if c.Name == "MUSIC_U" && c.Expires.Before(time.Now()) {
+			need = false
+			break
+		}
+	}
+	return need
+}
+
+// UserInfo 获取用户信息
+func (c *Client) UserInfo() interface{} {
+	// todo:
+	return nil
+}
+
+// Request 接口请求
+func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, req, resp interface{}) (*resty.Response, error) {
 	var (
 		encryptData map[string]string
 		err         error
-		csrf        string
-		resp        *resty.Response
+		response    *resty.Response
 	)
 
 	uri, err := neturl.Parse(url)
@@ -177,10 +205,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 		return nil, err
 	}
 
-	csrf, has := c.GetCSRF(url)
-	if !has {
-		log.Debug("get csrf token not found")
-	}
+	// todo: User-Agent
 
 	request := c.cli.R().
 		SetContext(ctx).
@@ -195,11 +220,16 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 
 	switch cryptoMode {
 	case "eapi":
+		// todo: set common params
 		encryptData, err = crypto.EApiEncrypt(uri.Path, req)
 		if err != nil {
 			return nil, fmt.Errorf("EApiEncrypt: %w", err)
 		}
 	case "weapi":
+		csrf, has := c.GetCSRF(url)
+		if !has {
+			log.Debug("get csrf token not found")
+		}
 		request.SetQueryParam("csrf_token", csrf)
 		encryptData, err = crypto.WeApiEncrypt(req)
 		if err != nil {
@@ -216,44 +246,44 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 	log.Debug("data: %+v encrypt: %+v", req, encryptData)
 
 	switch method {
-	case "POST":
-		resp, err = request.SetFormData(encryptData).Post(url)
-	case "GET":
+	case http.MethodPost:
+		response, err = request.SetFormData(encryptData).Post(url)
+	case http.MethodGet:
 		resp, err = request.Get(url)
 	default:
 		return nil, fmt.Errorf("%s not surpport http method", method)
 	}
-	log.Debug("response: %+v", string(resp.Body()))
+	log.Debug("response: %+v", string(response.Body()))
+	if err != nil {
+		return nil, err
+	}
 
 	var decryptData []byte
 	switch cryptoMode {
 	case "eapi":
-		decryptData, err = crypto.EApiDecrypt(string(resp.Body()), "")
-		if err != nil {
-			return nil, fmt.Errorf("EApiDecrypt: %w", err)
-		}
+		// 貌似eapi接口返回数据是明文
+		// decryptData, err = crypto.EApiDecrypt(string(response.Body()), "")
+		// if err != nil {
+		// 	return nil, fmt.Errorf("EApiDecrypt: %w", err)
+		// }
+		fallthrough
 	case "weapi":
 		// tips: weapi接口返回数据是明文
-		decryptData = resp.Body()
+		decryptData = response.Body()
 	case "linux":
-		decryptData, err = crypto.LinuxApiDecrypt(string(resp.Body()))
+		decryptData, err = crypto.LinuxApiDecrypt(string(response.Body()))
 		if err != nil {
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
 	}
 	log.Debug("decrypt body:%s", string(decryptData))
-	if err := json.Unmarshal(decryptData, &reply); err != nil {
+	if err := json.Unmarshal(decryptData, &resp); err != nil {
 		return nil, err
 	}
-	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("http status code: %d", resp.StatusCode())
+	if response.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("http status code: %d", response.StatusCode())
 	}
-	return resp, nil
-}
-
-func (c *Client) NeedLogin(ctx context.Context) bool {
-	// todo:
-	return false
+	return response, nil
 }
 
 func encrypt(c *resty.Client, req *resty.Request) error {
@@ -333,15 +363,15 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 }
 
 func dump(c *resty.Client, resp *resty.Response) error {
-	d, err := io.ReadAll(resp.RawBody())
-	if err != nil {
-		return fmt.Errorf("ReadAll: %w", err)
-	}
-	log.Debug("rawbody:%s", string(d))
-	log.Debug("----body:%s", string(resp.Body()))
+	// d, err := io.ReadAll(resp.RawBody())
+	// if err != nil {
+	// 	return fmt.Errorf("ReadAll: %w", err)
+	// }
+	// log.Debug("rawbody:%s", string(d))
 
 	resp.RawResponse.Body = io.NopCloser(bytes.NewReader(resp.Body()))
 	log.Debug("############### http dump ################")
+
 	dumpReq, err := httputil.DumpRequest(resp.Request.RawRequest, true)
 	if err != nil {
 		return fmt.Errorf("DumpRequest: %w", err)
@@ -353,6 +383,5 @@ func dump(c *resty.Client, resp *resty.Response) error {
 		return fmt.Errorf("DumpResponse: %w", err)
 	}
 	log.Debug("---------------- response ----------------\n%s\n", string(dumpResp))
-	log.Debug("resp body byte: %v", resp.Body())
 	return nil
 }

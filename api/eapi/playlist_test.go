@@ -22,3 +22,20 @@
 //
 
 package eapi
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestPlaylist(t *testing.T) {
+	var req = PlaylistReq{
+		Uid:    1289504343,
+		Offset: 0,
+		Limit:  30,
+	}
+	got, err := a.Playlist(ctx, &req)
+	assert.NoError(t, err)
+	t.Logf("Playlist: %+v\n", got)
+}

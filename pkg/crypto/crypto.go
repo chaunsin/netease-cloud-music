@@ -48,9 +48,8 @@ func reverseString(str string) string {
 }
 
 func digest(url, data string) string {
-	message := fmt.Sprintf(eApiSlat, url, data)
-	_digest := fmt.Sprintf("%x", md5.Sum([]byte(message)))
-	return _digest
+	var message = fmt.Sprintf(eApiSlat, url, data)
+	return fmt.Sprintf("%x", md5.Sum([]byte(message)))
 }
 
 // aesEncrypt 加密
@@ -255,8 +254,7 @@ func LinuxApiDecrypt(cipherText string) ([]byte, error) {
 }
 
 // EApiEncrypt 加密
-// 目前所知在PC中有使用，MAC中。windows未知
-// - params
+// 目前所知在PC端中有使用，MAC中。windows、android、ios中均未知
 func EApiEncrypt(url string, object interface{}) (map[string]string, error) {
 	// 需要替换路由地址,不然会出现接口未找到错误
 	url = strings.Replace(url, "eapi", "api", 1)
@@ -266,7 +264,7 @@ func EApiEncrypt(url string, object interface{}) (map[string]string, error) {
 	}
 
 	text := fmt.Sprintf(eApiFormat, url, string(data), digest(url, string(data)))
-	fmt.Println("payload:", text)
+	// fmt.Println("payload:", text)
 
 	ciphertext, err := aesEncrypt(text, eApiKey, "", "ecb", "HEX")
 	if err != nil {
