@@ -193,7 +193,7 @@ func (c *Client) UserInfo() interface{} {
 }
 
 // Request 接口请求
-func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, req, resp interface{}) (*resty.Response, error) {
+func (c *Client) Request(ctx context.Context, method, url, cryptoType string, req, resp interface{}) (*resty.Response, error) {
 	var (
 		encryptData map[string]string
 		err         error
@@ -218,9 +218,37 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 		SetHeader("Referer", "https://music.163.com").
 		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034")
 
-	switch cryptoMode {
+	switch cryptoType {
 	case "eapi":
 		// todo: set common params
+		// var dataHeader = http.Header{}
+		// dataHeader.Add("osver", getCookie(options.cookies, "osver"))
+		// dataHeader.Add("deviceId", getCookie(options.cookies, "deviceId"))
+		// dataHeader.Add("appver", getCookie(options.cookies, "appver", "6.1.1"))
+		// dataHeader.Add("versioncode", getCookie(options.cookies, "versioncode", "140"))
+		// dataHeader.Add("mobilename", getCookie(options.cookies, "mobilename"))
+		// dataHeader.Add("buildver", getCookie(options.cookies, "buildver"))
+		// dataHeader.Add("resolution", getCookie(options.cookies, "resolution", "1920x1080"))
+		// dataHeader.Add("__csrf", getCookie(options.cookies, "__csrf"))
+		// dataHeader.Add("os", getCookie(options.cookies, "os", "android"))
+		// dataHeader.Add("channel", getCookie(options.cookies, "channel"))
+		// dataHeader.Add("channel", getCookie(options.cookies, "channel"))
+		// dataHeader.Add("requestId", fmt.Sprintf("%d_%04d", time.Now().UnixNano()/1000000, r.Intn(1000)))
+		// if c := getCookie(options.cookies, "MUSIC_U"); c != "" {
+		// 	dataHeader.Add("MUSIC_U", c)
+		// }
+		// if c := getCookie(options.cookies, "MUSIC_A"); c != "" {
+		// 	dataHeader.Add("MUSIC_A", c)
+		// }
+		// req.Header.Set("Cookie", "")
+		// for k, v := range dataHeader {
+		// 	req.AddCookie(&http.Cookie{
+		// 		Name:  k,
+		// 		Value: v[0],
+		// 	})
+		// }
+		// data["header"] = dataHeader
+
 		encryptData, err = crypto.EApiEncrypt(uri.Path, req)
 		if err != nil {
 			return nil, fmt.Errorf("EApiEncrypt: %w", err)
@@ -231,6 +259,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 			log.Debug("get csrf token not found")
 		}
 		request.SetQueryParam("csrf_token", csrf)
+
 		encryptData, err = crypto.WeApiEncrypt(req)
 		if err != nil {
 			return nil, fmt.Errorf("WeApiEncrypt: %w", err)
@@ -241,7 +270,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 			return nil, fmt.Errorf("LinuxApiEncrypt: %w", err)
 		}
 	default:
-		return nil, fmt.Errorf("%s crypto mode unknown", cryptoMode)
+		return nil, fmt.Errorf("%s crypto mode unknown", cryptoType)
 	}
 	log.Debug("data: %+v encrypt: %+v", req, encryptData)
 
@@ -259,7 +288,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 	}
 
 	var decryptData []byte
-	switch cryptoMode {
+	switch cryptoType {
 	case "eapi":
 		// 貌似eapi接口返回数据是明文
 		// decryptData, err = crypto.EApiDecrypt(string(response.Body()), "")

@@ -181,3 +181,94 @@ func (a *Api) CloudList(ctx context.Context, req *CloudListReq) (*CloudListResp,
 	_ = resp
 	return &reply, nil
 }
+
+type CloudTokenAllocReq struct {
+	types.ReqCommon
+	Bucket string `json:"bucket,omitempty"`
+	// 文件扩展名 例如mp3
+	Ext      string `json:"ext,omitempty"`
+	Filename string `json:"filename,omitempty"`
+	Local    string `json:"local,omitempty"`
+	// 3
+	NosProduct string `json:"nos_product,omitempty"`
+	// 文件类型 例如 audio
+	Type string `json:"type,omitempty"`
+	Md5  string `json:"md5,omitempty"`
+}
+
+type CloudTokenAllocResp struct {
+	types.RespCommon[any]
+	CloudTokenAllocRespResult `json:"result,omitempty"`
+}
+
+type CloudTokenAllocRespResult struct {
+	Bucket     string `json:"bucket"`
+	DocID      string `json:"docId"`
+	ObjectKey  string `json:"objectKey"`
+	OuterURL   string `json:"outerUrl"`
+	ResourceID int64  `json:"resourceId"`
+	Token      string `json:"token"`
+}
+
+// CloudTokenAlloc 获取上传云盘token
+// url:
+// needLogin: 未知
+// todo:待验证
+func (a *Api) CloudTokenAlloc(ctx context.Context, req *CloudTokenAllocReq) (*CloudTokenAllocResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/nos/token/alloc"
+		reply CloudTokenAllocResp
+	)
+	if req.CSRFToken == "" {
+		csrf, _ := a.client.GetCSRF(url)
+		req.CSRFToken = csrf
+	}
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type CloudUploadCheckReq struct {
+	types.ReqCommon
+	// 音乐比特率 例如: 128000、192000、320000、999000
+	Bitrate string `json:"bitrate,omitempty"`
+	Ext     string `json:"ext,omitempty"`
+	Length  string `json:"length,omitempty"`
+	Md5     string `json:"md5,omitempty"`
+	SongId  string `json:"songId,omitempty"`
+	Version string `json:"version,omitempty"`
+}
+
+type CloudUploadCheckResp struct {
+	types.RespCommon[any]
+	SongId     string `json:"songId,omitempty"`
+	NeedUpload bool   `json:"needUpload" json:"needUpload,omitempty"`
+}
+
+// CloudUploadCheck 获取上传云盘token
+// url:
+// needLogin: 未知
+// todo: 需要迁移到api包中
+// todo: 待验证
+func (a *Api) CloudUploadCheck(ctx context.Context, req *CloudUploadCheckReq) (*CloudUploadCheckResp, error) {
+	var (
+		url = "https://interface.music.163.com/weapi/cloud/upload/check"
+		// url   = "https://interface.music.163.com/api/cloud/upload/check" // TODO:原本url 考虑Request替换url
+		reply CloudUploadCheckResp
+	)
+	if req.CSRFToken == "" {
+		csrf, _ := a.client.GetCSRF(url)
+		req.CSRFToken = csrf
+	}
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}

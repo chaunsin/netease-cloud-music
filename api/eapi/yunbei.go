@@ -25,37 +25,36 @@ package eapi
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
-type CaptchaSendReq struct {
-	Phone  string
-	CTCode string
+type YunBeiSignReq struct {
+	// Type 签到类型 0:安卓(默认) 1:web/PC
+	Type int64 `json:"type"`
 }
 
-type CaptchaSendResp struct {
+type YunBeiSignResp struct {
+	// 错误码 -2:重复签到 200:成功
 	types.RespCommon[any]
+	Point int64 `json:"point"`
 }
 
-// CaptchaSend 发送验证码 PC客户端
-func (a *Api) CaptchaSend(ctx context.Context, req *CaptchaSendReq) (*CaptchaSendResp, error) {
-	// TODO
-	return nil, nil
-}
-
-type CaptchaVerifyReq struct {
-	Phone   string `json:"phone"`
-	CTCode  string `json:"ctcode"`
-	Captcha string `json:"captcha"`
-}
-
-type CaptchaVerifyResp struct {
-	types.RespCommon[any]
-}
-
-// CaptchaVerify 验证验证码
-func (a *Api) CaptchaVerify(ctx context.Context, req *CaptchaVerifyReq) (*CaptchaVerifyResp, error) {
-	// TODO
-	return nil, nil
+// YunBeiSign 用户每日签到
+// url:
+// needLogin: 未知
+// todo:目前传0会出现功能暂不支持不知为何(可能请求头或cookie问题)待填坑
+func (a *Api) YunBeiSign(ctx context.Context, req *YunBeiSignReq) (*YunBeiSignResp, error) {
+	var (
+		url   = "https://music.163.com/eapi/point/dailyTask"
+		reply YunBeiSignResp
+	)
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
 }

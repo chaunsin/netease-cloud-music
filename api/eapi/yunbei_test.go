@@ -24,38 +24,16 @@
 package eapi
 
 import (
-	"context"
+	"testing"
 
-	"github.com/chaunsin/netease-cloud-music/api/types"
+	"github.com/stretchr/testify/assert"
 )
 
-type CaptchaSendReq struct {
-	Phone  string
-	CTCode string
-}
-
-type CaptchaSendResp struct {
-	types.RespCommon[any]
-}
-
-// CaptchaSend 发送验证码 PC客户端
-func (a *Api) CaptchaSend(ctx context.Context, req *CaptchaSendReq) (*CaptchaSendResp, error) {
-	// TODO
-	return nil, nil
-}
-
-type CaptchaVerifyReq struct {
-	Phone   string `json:"phone"`
-	CTCode  string `json:"ctcode"`
-	Captcha string `json:"captcha"`
-}
-
-type CaptchaVerifyResp struct {
-	types.RespCommon[any]
-}
-
-// CaptchaVerify 验证验证码
-func (a *Api) CaptchaVerify(ctx context.Context, req *CaptchaVerifyReq) (*CaptchaVerifyResp, error) {
-	// TODO
-	return nil, nil
+func TestYunBeiSign(t *testing.T) {
+	var req = YunBeiSignReq{
+		Type: 1,
+	}
+	got, err := a.YunBeiSign(ctx, &req)
+	assert.NoError(t, err)
+	t.Logf("YunBeiSign: %+v\n", got)
 }
