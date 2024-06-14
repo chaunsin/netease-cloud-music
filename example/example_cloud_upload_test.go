@@ -41,6 +41,7 @@ func TestCloudUpload(t *testing.T) {
 	var (
 		filename = "../testdata/music/record3.m4a"
 		ext      = "mp3"
+		bitrate  = "999000"
 	)
 
 	file, err := os.Open(filename)
@@ -71,7 +72,7 @@ func TestCloudUpload(t *testing.T) {
 
 	// 3.检查此文件是否需要上传
 	var checkReq = weapi.CloudUploadCheckReq{
-		Bitrate: "128000",
+		Bitrate: bitrate,
 		Ext:     ext,
 		Length:  fmt.Sprintf("%d", stat.Size()),
 		Md5:     md5,
@@ -139,7 +140,7 @@ func TestCloudUpload(t *testing.T) {
 		Song:       "record3",
 		Album:      "未知专辑",
 		Artist:     "未知艺术家",
-		Bitrate:    "128000",
+		Bitrate:    bitrate,
 		ResourceId: allocResp.ResourceID,
 	}
 	infoResp, err := api.CloudInfo(ctx, &InfoReq)
