@@ -21,39 +21,47 @@
 // SOFTWARE.
 //
 
-package example
+package alert
 
 import (
 	"context"
-	"os"
-	"testing"
+	"errors"
 
-	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/alert/http"
+	"github.com/chaunsin/netease-cloud-music/pkg/alert/mail"
+	"github.com/chaunsin/netease-cloud-music/pkg/alert/qq/bot"
 )
 
-var (
-	cli *api.Client
-	ctx = context.TODO()
+type Config struct {
+	Module Module       `json:"module" yaml:"module"`
+	Mail   *mail.Config `json:"mail" yaml:"mail"`
+	QQBot  *bot.Config  `json:"qq_bot" yaml:"qq_bot"`
+	HTTP   *http.Config `json:"http" yaml:"http"`
+}
+
+type Module string
+
+const (
+	ModuleMail  Module = "mail"
+	ModuleQQBot Module = "qq_bot"
+	ModuleHTTP  Module = "http"
 )
 
-func TestMain(t *testing.M) {
-	log.Default = log.New(&log.Config{
-		Level:  "debug",
-		Stdout: true,
-	})
-	cfg := api.Config{
-		Debug:   true,
-		Timeout: 0,
-		Retry:   0,
-		Cookie: cookie.PersistentJarConfig{
-			Options:  nil,
-			Filepath: "../testdata/cookie.json",
-			Interval: 0,
-		},
+type Alert interface {
+	Send(ctx context.Context, content string) error
+	Close(ctx context.Context) error
+}
+
+func New(module Module, cfg *Config) (a Alert, err error) {
+	switch module {
+	case ModuleMail:
+		a, err = mail.New(cfg.Mail)
+	case ModuleQQBot:
+		a, err = bot.New(cfg.QQBot)
+	case ModuleHTTP:
+		a, err = http.New(cfg.HTTP)
+	default:
+		return nil, errors.New("invalid module")
 	}
-	cli = api.New(&cfg)
-	defer cli.Close(ctx)
-	os.Exit(t.Run())
+	return
 }

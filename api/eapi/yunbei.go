@@ -21,39 +21,40 @@
 // SOFTWARE.
 //
 
-package example
+package eapi
 
 import (
 	"context"
-	"os"
-	"testing"
+	"fmt"
+	"net/http"
 
-	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
-var (
-	cli *api.Client
-	ctx = context.TODO()
-)
+type YunBeiSignReq struct {
+	// Type 签到类型 0:安卓(默认) 1:web/PC
+	Type int64 `json:"type"`
+}
 
-func TestMain(t *testing.M) {
-	log.Default = log.New(&log.Config{
-		Level:  "debug",
-		Stdout: true,
-	})
-	cfg := api.Config{
-		Debug:   true,
-		Timeout: 0,
-		Retry:   0,
-		Cookie: cookie.PersistentJarConfig{
-			Options:  nil,
-			Filepath: "../testdata/cookie.json",
-			Interval: 0,
-		},
+type YunBeiSignResp struct {
+	// 错误码 -2:重复签到 200:成功
+	types.RespCommon[any]
+	Point int64 `json:"point"`
+}
+
+// YunBeiSign 用户每日签到
+// url:
+// needLogin: 未知
+// todo:目前传0会出现功能暂不支持不知为何(可能请求头或cookie问题)待填坑
+func (a *Api) YunBeiSign(ctx context.Context, req *YunBeiSignReq) (*YunBeiSignResp, error) {
+	var (
+		url   = "https://music.163.com/eapi/point/dailyTask"
+		reply YunBeiSignResp
+	)
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
 	}
-	cli = api.New(&cfg)
-	defer cli.Close(ctx)
-	os.Exit(t.Run())
+	_ = resp
+	return &reply, nil
 }

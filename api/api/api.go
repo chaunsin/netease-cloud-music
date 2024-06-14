@@ -21,39 +21,15 @@
 // SOFTWARE.
 //
 
-package example
+package api
 
-import (
-	"context"
-	"os"
-	"testing"
+import "github.com/chaunsin/netease-cloud-music/api"
 
-	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
-)
+type Api struct {
+	client *api.Client
+}
 
-var (
-	cli *api.Client
-	ctx = context.TODO()
-)
-
-func TestMain(t *testing.M) {
-	log.Default = log.New(&log.Config{
-		Level:  "debug",
-		Stdout: true,
-	})
-	cfg := api.Config{
-		Debug:   true,
-		Timeout: 0,
-		Retry:   0,
-		Cookie: cookie.PersistentJarConfig{
-			Options:  nil,
-			Filepath: "../testdata/cookie.json",
-			Interval: 0,
-		},
-	}
-	cli = api.New(&cfg)
-	defer cli.Close(ctx)
-	os.Exit(t.Run())
+func New(client *api.Client) *Api {
+	a := Api{client: client}
+	return &a
 }

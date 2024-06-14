@@ -32,100 +32,105 @@ import (
 )
 
 type PlaylistReq struct {
+	Uid    int `json:"uid"`
+	Offset int `json:"offset"`
+	Limit  int `json:"limit"`
 }
 
 type PlaylistRespList struct {
-	AdType             int         `json:"adType"`
-	Anonimous          bool        `json:"anonimous"`
-	Artists            interface{} `json:"artists"`
-	BackgroundCoverId  int64       `json:"backgroundCoverId"`
-	BackgroundCoverUrl *string     `json:"backgroundCoverUrl"`
-	CloudTrackCount    int         `json:"cloudTrackCount"`
-	CommentThreadId    string      `json:"commentThreadId"`
-	Copied             bool        `json:"copied"`
-	CoverImgId         int64       `json:"coverImgId"`
-	CoverImgIdStr      *string     `json:"coverImgId_str"`
-	CoverImgUrl        string      `json:"coverImgUrl"`
-	CreateTime         int64       `json:"createTime"`
-	Creator            struct {
-		AccountStatus       int         `json:"accountStatus"`
-		Anchor              bool        `json:"anchor"`
-		AuthStatus          int         `json:"authStatus"`
-		AuthenticationTypes int         `json:"authenticationTypes"`
-		Authority           int         `json:"authority"`
-		AvatarDetail        interface{} `json:"avatarDetail"`
-		AvatarImgId         int64       `json:"avatarImgId"`
-		AvatarImgIdStr      string      `json:"avatarImgIdStr"`
-		AvatarImgIdStr1     string      `json:"avatarImgId_str,omitempty"`
-		AvatarUrl           string      `json:"avatarUrl"`
-		BackgroundImgId     int64       `json:"backgroundImgId"`
-		BackgroundImgIdStr  string      `json:"backgroundImgIdStr"`
-		BackgroundUrl       string      `json:"backgroundUrl"`
-		Birthday            int         `json:"birthday"`
-		City                int         `json:"city"`
-		DefaultAvatar       bool        `json:"defaultAvatar"`
-		Description         string      `json:"description"`
-		DetailDescription   string      `json:"detailDescription"`
-		DjStatus            int         `json:"djStatus"`
-		ExpertTags          []string    `json:"expertTags"`
-		Experts             *struct {
+	Subscribers []interface{} `json:"subscribers"`
+	Subscribed  bool          `json:"subscribed"`
+	Creator     struct {
+		DefaultAvatar     bool     `json:"defaultAvatar"`
+		Province          int      `json:"province"`
+		AuthStatus        int      `json:"authStatus"`
+		Followed          bool     `json:"followed"`
+		AvatarUrl         string   `json:"avatarUrl"`
+		AccountStatus     int      `json:"accountStatus"`
+		Gender            int      `json:"gender"`
+		City              int      `json:"city"`
+		Birthday          int      `json:"birthday"`
+		UserId            int      `json:"userId"`
+		UserType          int      `json:"userType"`
+		Nickname          string   `json:"nickname"`
+		Signature         string   `json:"signature"`
+		Description       string   `json:"description"`
+		DetailDescription string   `json:"detailDescription"`
+		AvatarImgId       int64    `json:"avatarImgId"`
+		BackgroundImgId   int64    `json:"backgroundImgId"`
+		BackgroundUrl     string   `json:"backgroundUrl"`
+		Authority         int      `json:"authority"`
+		Mutual            bool     `json:"mutual"`
+		ExpertTags        []string `json:"expertTags"`
+		Experts           *struct {
 			Field1 string `json:"2"`
 		} `json:"experts"`
-		Followed   bool        `json:"followed"`
-		Gender     int         `json:"gender"`
-		Mutual     bool        `json:"mutual"`
-		Nickname   string      `json:"nickname"`
-		Province   int         `json:"province"`
-		RemarkName interface{} `json:"remarkName"`
-		Signature  string      `json:"signature"`
-		UserId     int         `json:"userId"`
-		UserType   int         `json:"userType"`
-		VipType    int         `json:"vipType"`
+		DjStatus            int         `json:"djStatus"`
+		VipType             int         `json:"vipType"`
+		RemarkName          interface{} `json:"remarkName"`
+		AuthenticationTypes int         `json:"authenticationTypes"`
+		AvatarDetail        interface{} `json:"avatarDetail"`
+		BackgroundImgIdStr  string      `json:"backgroundImgIdStr"`
+		AvatarImgIdStr      string      `json:"avatarImgIdStr"`
+		Anchor              bool        `json:"anchor"`
+		AvatarImgIdStr1     string      `json:"avatarImgId_str,omitempty"`
 	} `json:"creator"`
-	Description   *string `json:"description"`
-	EnglishTitle  *string `json:"englishTitle"`
-	HighQuality   bool    `json:"highQuality"`
-	Id            int64   `json:"id"`
-	Name          string  `json:"name"`
-	NewImported   bool    `json:"newImported"`
-	OpRecommend   bool    `json:"opRecommend"`
-	Ordered       bool    `json:"ordered"`
-	PlayCount     int64   `json:"playCount"`
-	Privacy       int     `json:"privacy"`
-	RecommendInfo *struct {
+	Artists            interface{} `json:"artists"`
+	Tracks             interface{} `json:"tracks"`
+	Top                bool        `json:"top"`
+	UpdateFrequency    *string     `json:"updateFrequency"`
+	BackgroundCoverId  int64       `json:"backgroundCoverId"`
+	BackgroundCoverUrl *string     `json:"backgroundCoverUrl"`
+	TitleImage         int64       `json:"titleImage"`
+	TitleImageUrl      *string     `json:"titleImageUrl"`
+	EnglishTitle       *string     `json:"englishTitle"`
+	OpRecommend        bool        `json:"opRecommend"`
+	RecommendInfo      *struct {
 		Alg     string `json:"alg"`
 		LogInfo string `json:"logInfo"`
 	} `json:"recommendInfo"`
-	ShareStatus           interface{}   `json:"shareStatus"`
-	SharedUsers           interface{}   `json:"sharedUsers"`
-	SpecialType           int           `json:"specialType"`
-	Status                int           `json:"status"`
-	Subscribed            bool          `json:"subscribed"`
-	SubscribedCount       int           `json:"subscribedCount"`
-	Subscribers           []interface{} `json:"subscribers"`
-	Tags                  []string      `json:"tags"`
-	TitleImage            int64         `json:"titleImage"`
-	TitleImageUrl         *string       `json:"titleImageUrl"`
-	Top                   bool          `json:"top"`
-	TotalDuration         int           `json:"totalDuration"`
-	TrackCount            int           `json:"trackCount"`
-	TrackNumberUpdateTime int64         `json:"trackNumberUpdateTime"`
-	TrackUpdateTime       int64         `json:"trackUpdateTime"`
-	Tracks                interface{}   `json:"tracks"`
-	UpdateFrequency       *string       `json:"updateFrequency"`
-	UpdateTime            int64         `json:"updateTime"`
-	UserId                int           `json:"userId"`
+	SubscribedCount       int         `json:"subscribedCount"`
+	CloudTrackCount       int         `json:"cloudTrackCount"`
+	UserId                int         `json:"userId"`
+	TotalDuration         int         `json:"totalDuration"`
+	CoverImgId            int64       `json:"coverImgId"`
+	Privacy               int         `json:"privacy"`
+	TrackUpdateTime       int64       `json:"trackUpdateTime"`
+	TrackCount            int         `json:"trackCount"`
+	UpdateTime            int64       `json:"updateTime"`
+	CommentThreadId       string      `json:"commentThreadId"`
+	CoverImgUrl           string      `json:"coverImgUrl"`
+	SpecialType           int         `json:"specialType"`
+	Anonimous             bool        `json:"anonimous"`
+	CreateTime            int64       `json:"createTime"`
+	HighQuality           bool        `json:"highQuality"`
+	NewImported           bool        `json:"newImported"`
+	TrackNumberUpdateTime int64       `json:"trackNumberUpdateTime"`
+	PlayCount             int64       `json:"playCount"`
+	AdType                int         `json:"adType"`
+	Description           *string     `json:"description"`
+	Tags                  []string    `json:"tags"`
+	Ordered               bool        `json:"ordered"`
+	Status                int         `json:"status"`
+	Name                  string      `json:"name"`
+	Id                    int64       `json:"id"`
+	CoverImgIdStr         *string     `json:"coverImgId_str"`
+	SharedUsers           interface{} `json:"sharedUsers"`
+	ShareStatus           interface{} `json:"shareStatus"`
+	Copied                bool        `json:"copied"`
 }
 
 type PlaylistResp struct {
 	types.RespCommon[any]
-	Playlist PlaylistRespList `json:"playlist"`
-	Version  string           `json:"version"` // 时间戳1703557080686
+	Version  string             `json:"version"` // 时间戳1703557080686
+	More     bool               `json:"more"`
+	Playlist []PlaylistRespList `json:"playlist"`
 }
 
-// Playlist 自创建的歌单列表
+// Playlist 歌单列表
 // url: https://app.apifox.com/project/3870894
-func (a *Api) Playlist(ctx context.Context, req *RefreshTokenReq) (*PlaylistResp, error) {
+// NeedLogin: 未知
+func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/user/playlist/"
 		reply PlaylistResp

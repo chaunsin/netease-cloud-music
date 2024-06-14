@@ -47,7 +47,7 @@ func NewLogin(root *Root, l *log.Logger) *Login {
 		cmd: &cobra.Command{
 			Use:     "login",
 			Short:   "Login netease cloud music",
-			Example: `ncm login -h\nncm login`,
+			Example: "  ncm login -h\n  ncm login qrcode",
 		},
 	}
 	c.addFlags()
@@ -57,7 +57,7 @@ func NewLogin(root *Root, l *log.Logger) *Login {
 }
 
 func (c *Login) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Account, "account", "a", "", "ncm login -a xxx")
+	// c.cmd.PersistentFlags().StringVarP(&c.opts.Account, "account", "a", "", "ncm login -a xxx")
 }
 
 func (c *Login) Version(version string) {

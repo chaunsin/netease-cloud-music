@@ -21,39 +21,21 @@
 // SOFTWARE.
 //
 
-package example
+package eapi
 
 import (
-	"context"
-	"os"
 	"testing"
 
-	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/stretchr/testify/assert"
 )
 
-var (
-	cli *api.Client
-	ctx = context.TODO()
-)
-
-func TestMain(t *testing.M) {
-	log.Default = log.New(&log.Config{
-		Level:  "debug",
-		Stdout: true,
-	})
-	cfg := api.Config{
-		Debug:   true,
-		Timeout: 0,
-		Retry:   0,
-		Cookie: cookie.PersistentJarConfig{
-			Options:  nil,
-			Filepath: "../testdata/cookie.json",
-			Interval: 0,
-		},
+func TestPlaylist(t *testing.T) {
+	var req = PlaylistReq{
+		Uid:    1289504343,
+		Offset: 0,
+		Limit:  30,
 	}
-	cli = api.New(&cfg)
-	defer cli.Close(ctx)
-	os.Exit(t.Run())
+	got, err := a.Playlist(ctx, &req)
+	assert.NoError(t, err)
+	t.Logf("Playlist: %+v\n", got)
 }

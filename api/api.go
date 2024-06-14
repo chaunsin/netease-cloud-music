@@ -35,11 +35,14 @@ import (
 	"net/http"
 	"net/http/httputil"
 	neturl "net/url"
+	"os"
+	"regexp"
 	"time"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 	"github.com/google/brotli/go/cbrotli"
 
 	"github.com/go-resty/resty/v2"
@@ -133,6 +136,7 @@ func (c *Client) Close(ctx context.Context) error {
 	return c.cookie.Close(ctx)
 }
 
+// Cookie 根据url和cookie name获取cookie
 func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 	uri, err := neturl.Parse(url)
 	if err != nil {
@@ -147,6 +151,15 @@ func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 	return http.Cookie{}, false
 }
 
+// Cookies 获取当前所有cookies
+func (c *Client) Cookies() []*http.Cookie {
+	if c.cli != nil {
+		return c.cli.R().Cookies
+	}
+	return make([]*http.Cookie, 0)
+}
+
+// GetCSRF 获取csrf 一般用于weapi接口中使用
 func (c *Client) GetCSRF(url string) (string, bool) {
 	uri, err := neturl.Parse(url)
 	if err != nil {
@@ -164,12 +177,31 @@ func (c *Client) GetCSRF(url string) (string, bool) {
 	return "", false
 }
 
-func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, req, reply interface{}) (*resty.Response, error) {
+// NeedLogin 是否需要登录
+func (c *Client) NeedLogin(ctx context.Context) bool {
+	var need = true
+	u, _ := neturl.Parse("https://music.163.com")
+	for _, c := range c.cli.GetClient().Jar.Cookies(u) {
+		if c.Name == "MUSIC_U" && c.Expires.Before(time.Now()) {
+			need = false
+			break
+		}
+	}
+	return need
+}
+
+// UserInfo 获取用户信息
+func (c *Client) UserInfo() interface{} {
+	// todo:
+	return nil
+}
+
+// Request 接口请求
+func (c *Client) Request(ctx context.Context, method, url, cryptoType string, req, resp interface{}) (*resty.Response, error) {
 	var (
 		encryptData map[string]string
 		err         error
-		csrf        string
-		resp        *resty.Response
+		response    *resty.Response
 	)
 
 	uri, err := neturl.Parse(url)
@@ -177,10 +209,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 		return nil, err
 	}
 
-	csrf, has := c.GetCSRF(url)
-	if !has {
-		log.Debug("get csrf token not found")
-	}
+	// todo: User-Agent
 
 	request := c.cli.R().
 		SetContext(ctx).
@@ -193,14 +222,60 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 		SetHeader("Referer", "https://music.163.com").
 		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034")
 
-	switch cryptoMode {
+	switch cryptoType {
 	case "eapi":
+		// todo: set common params
+		// var dataHeader = http.Header{}
+		// dataHeader.Add("osver", getCookie(options.cookies, "osver"))
+		// dataHeader.Add("deviceId", getCookie(options.cookies, "deviceId"))
+		// dataHeader.Add("appver", getCookie(options.cookies, "appver", "6.1.1"))
+		// dataHeader.Add("versioncode", getCookie(options.cookies, "versioncode", "140"))
+		// dataHeader.Add("mobilename", getCookie(options.cookies, "mobilename"))
+		// dataHeader.Add("buildver", getCookie(options.cookies, "buildver"))
+		// dataHeader.Add("resolution", getCookie(options.cookies, "resolution", "1920x1080"))
+		// dataHeader.Add("__csrf", getCookie(options.cookies, "__csrf"))
+		// dataHeader.Add("os", getCookie(options.cookies, "os", "android"))
+		// dataHeader.Add("channel", getCookie(options.cookies, "channel"))
+		// dataHeader.Add("channel", getCookie(options.cookies, "channel"))
+		// dataHeader.Add("requestId", fmt.Sprintf("%d_%04d", time.Now().UnixNano()/1000000, r.Intn(1000)))
+		// if c := getCookie(options.cookies, "MUSIC_U"); c != "" {
+		// 	dataHeader.Add("MUSIC_U", c)
+		// }
+		// if c := getCookie(options.cookies, "MUSIC_A"); c != "" {
+		// 	dataHeader.Add("MUSIC_A", c)
+		// }
+		// req.Header.Set("Cookie", "")
+		// for k, v := range dataHeader {
+		// 	req.AddCookie(&http.Cookie{
+		// 		Name:  k,
+		// 		Value: v[0],
+		// 	})
+		// }
+		// data["header"] = dataHeader
+
 		encryptData, err = crypto.EApiEncrypt(uri.Path, req)
 		if err != nil {
 			return nil, fmt.Errorf("EApiEncrypt: %w", err)
 		}
 	case "weapi":
+		// todo: 需要替换？因为有些 https://interface.music.163.com/api 得接口也会走这个逻辑
+		reg, _ := regexp.Compile(`\w*api`)
+		url = reg.ReplaceAllString(url, "weapi")
+		// url = strings.ReplaceAll(url, "api", "weapi")
+
+		csrf, has := c.GetCSRF(url)
+		if !has {
+			log.Debug("get csrf token not found")
+		}
 		request.SetQueryParam("csrf_token", csrf)
+
+		request.SetCookie(&http.Cookie{Name: "appver", Value: "2.3.17"})
+		request.SetCookie(&http.Cookie{Name: "os", Value: "osx"})
+		request.SetCookie(&http.Cookie{Name: "deviceId", Value: "7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62%7C5FD718A3-0602-4389-B612-EBEFAA7F108B"})
+		request.SetCookie(&http.Cookie{Name: "WEVNSM", Value: "1.0.0"})
+		request.SetCookie(&http.Cookie{Name: "channel", Value: "netease"})
+		request.SetHeader("nm-gcore-status", "1")
+
 		encryptData, err = crypto.WeApiEncrypt(req)
 		if err != nil {
 			return nil, fmt.Errorf("WeApiEncrypt: %w", err)
@@ -211,49 +286,102 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoMode string, re
 			return nil, fmt.Errorf("LinuxApiEncrypt: %w", err)
 		}
 	default:
-		return nil, fmt.Errorf("%s crypto mode unknown", cryptoMode)
+		return nil, fmt.Errorf("%s crypto mode unknown", cryptoType)
 	}
-	log.Debug("data: %+v encrypt: %+v", req, encryptData)
+	log.Debug("request: %+v encrypt: %+v", req, encryptData)
 
 	switch method {
-	case "POST":
-		resp, err = request.SetFormData(encryptData).Post(url)
-	case "GET":
+	case http.MethodPost:
+		response, err = request.SetFormData(encryptData).Post(url)
+	case http.MethodGet:
 		resp, err = request.Get(url)
 	default:
 		return nil, fmt.Errorf("%s not surpport http method", method)
 	}
-	log.Debug("response: %+v", string(resp.Body()))
+	log.Debug("response: %+v", string(response.Body()))
+	if err != nil {
+		return nil, err
+	}
 
 	var decryptData []byte
-	switch cryptoMode {
+	switch cryptoType {
 	case "eapi":
-		decryptData, err = crypto.EApiDecrypt(string(resp.Body()), "")
-		if err != nil {
-			return nil, fmt.Errorf("EApiDecrypt: %w", err)
-		}
+		// 貌似eapi接口返回数据是明文
+		// decryptData, err = crypto.EApiDecrypt(string(response.Body()), "")
+		// if err != nil {
+		// 	return nil, fmt.Errorf("EApiDecrypt: %w", err)
+		// }
+		fallthrough
 	case "weapi":
 		// tips: weapi接口返回数据是明文
-		decryptData = resp.Body()
+		decryptData = response.Body()
 	case "linux":
-		decryptData, err = crypto.LinuxApiDecrypt(string(resp.Body()))
+		decryptData, err = crypto.LinuxApiDecrypt(string(response.Body()))
 		if err != nil {
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
 	}
 	log.Debug("decrypt body:%s", string(decryptData))
-	if err := json.Unmarshal(decryptData, &reply); err != nil {
+	if err := json.Unmarshal(decryptData, &resp); err != nil {
 		return nil, err
 	}
-	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("http status code: %d", resp.StatusCode())
+	if response.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("http status code: %d", response.StatusCode())
 	}
-	return resp, nil
+	return response, nil
 }
 
-func (c *Client) NeedLogin(ctx context.Context) bool {
-	// todo:
-	return false
+func (c *Client) Upload(ctx context.Context, url string, headers map[string]string, req, resp interface{}) (*resty.Response, error) {
+	file, err := os.Open(req.(string))
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	md5, err := utils.MD5Hex(data)
+	if err != nil {
+		return nil, fmt.Errorf("MD5Hex: %v", err)
+	}
+
+	// headers["Content-Length"] = fmt.Sprintf("%d", stat.Size())
+	// headers["Content-Md5"] = md5
+	// headers["Content-Type"] = "audio/mpeg"
+
+	response, err := c.cli.R().
+		SetContext(ctx).
+		SetHeaders(headers).
+		SetHeader("Content-Length", fmt.Sprintf("%d", stat.Size())).
+		SetHeader("Content-Type", "audio/mpeg").
+		SetHeader("Content-Md5", md5).
+		SetHeader("Host", "music.163.com").
+		SetHeader("Connection", "keep-alive").
+		SetHeader("Accept", "*/*").
+		SetHeader("Referer", "https://music.163.com").
+		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034").
+		SetBody(bytes.NewReader(data)).
+		// SetFile("file", "").
+		Post(url)
+	if err != nil {
+		return nil, err
+	}
+	log.Debug("response: %+v", string(response.Body()))
+	if err := json.Unmarshal(response.Body(), &resp); err != nil {
+		return nil, err
+	}
+	if response.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("http status code: %d", response.StatusCode())
+	}
+	return response, nil
 }
 
 func encrypt(c *resty.Client, req *resty.Request) error {
@@ -333,15 +461,15 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 }
 
 func dump(c *resty.Client, resp *resty.Response) error {
-	d, err := io.ReadAll(resp.RawBody())
-	if err != nil {
-		return fmt.Errorf("ReadAll: %w", err)
-	}
-	log.Debug("rawbody:%s", string(d))
-	log.Debug("----body:%s", string(resp.Body()))
+	// d, err := io.ReadAll(resp.RawBody())
+	// if err != nil {
+	// 	return fmt.Errorf("ReadAll: %w", err)
+	// }
+	// log.Debug("rawbody:%s", string(d))
 
 	resp.RawResponse.Body = io.NopCloser(bytes.NewReader(resp.Body()))
 	log.Debug("############### http dump ################")
+
 	dumpReq, err := httputil.DumpRequest(resp.Request.RawRequest, true)
 	if err != nil {
 		return fmt.Errorf("DumpRequest: %w", err)
@@ -353,6 +481,5 @@ func dump(c *resty.Client, resp *resty.Response) error {
 		return fmt.Errorf("DumpResponse: %w", err)
 	}
 	log.Debug("---------------- response ----------------\n%s\n", string(dumpResp))
-	log.Debug("resp body byte: %v", resp.Body())
 	return nil
 }

@@ -33,7 +33,19 @@ type UserAgent struct {
 	Linux   []string `json:"linux" yaml:"linux"`
 }
 
-func (u *UserAgent) Get() string {
+func (u *UserAgent) Get(os string) string {
+	switch os {
+	case "android":
+		return u.Android[0]
+	case "ios":
+		return u.IOS[0]
+	case "mac":
+		return u.Mac[0]
+	case "windows":
+		return u.Windows[0]
+	case "linux":
+		return u.Linux[0]
+	}
 	return ""
 }
 
@@ -50,10 +62,10 @@ func NewAgent() *Agent {
 	return &a
 }
 
-func (a *Agent) Get(user string) string {
+func (a *Agent) Get(user, os string) string {
 	data, ok := a.store[user]
 	if !ok {
 		return ""
 	}
-	return data.Get()
+	return data.Get(os)
 }
