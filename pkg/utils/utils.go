@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"os"
 )
 
@@ -18,4 +20,10 @@ func IsFile(path string) bool {
 		return false
 	}
 	return true
+}
+
+func MD5Hex(data []byte) (string, error) {
+	var m = md5.New()
+	_, err := m.Write(data)
+	return hex.EncodeToString(m.Sum(nil)), err
 }

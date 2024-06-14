@@ -21,39 +21,27 @@
 // SOFTWARE.
 //
 
-package example
+package utils
 
 import (
-	"context"
 	"os"
 	"testing"
 
-	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/stretchr/testify/assert"
 )
 
-var (
-	cli *api.Client
-	ctx = context.TODO()
-)
-
-func TestMain(t *testing.M) {
-	log.Default = log.New(&log.Config{
-		Level:  "debug",
-		Stdout: true,
-	})
-	cfg := api.Config{
-		Debug:   true,
-		Timeout: 0,
-		Retry:   0,
-		Cookie: cookie.PersistentJarConfig{
-			Options:  nil,
-			Filepath: "../testdata/cookie.json",
-			Interval: 0,
-		},
+func TestMd5Hex(t *testing.T) {
+	var filename = "../../testdata/music/record1.m4a"
+	file, err := os.Open(filename)
+	if err != nil {
+		t.Fatal(err)
 	}
-	cli = api.New(&cfg)
-	defer cli.Close(ctx)
-	os.Exit(t.Run())
+	defer file.Close()
+
+	md5, err := MD5Hex(file)
+	assert.NoError(t, err)
+	t.Logf("md5:%s", md5)
+	// 6b5102e69b87185ca474fa40b284d884
+	// caf9a5afee5532376daf14ae9349114d 网易算出值
+
 }

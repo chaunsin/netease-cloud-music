@@ -35,11 +35,13 @@ import (
 	"net/http"
 	"net/http/httputil"
 	neturl "net/url"
+	"os"
 	"time"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 	"github.com/google/brotli/go/cbrotli"
 
 	"github.com/go-resty/resty/v2"
@@ -177,7 +179,8 @@ func (c *Client) GetCSRF(url string) (string, bool) {
 // NeedLogin 是否需要登录
 func (c *Client) NeedLogin(ctx context.Context) bool {
 	var need = true
-	for _, c := range c.cli.R().Cookies {
+	u, _ := neturl.Parse("https://music.163.com")
+	for _, c := range c.cli.GetClient().Jar.Cookies(u) {
 		if c.Name == "MUSIC_U" && c.Expires.Before(time.Now()) {
 			need = false
 			break
@@ -254,6 +257,9 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 			return nil, fmt.Errorf("EApiEncrypt: %w", err)
 		}
 	case "weapi":
+		// todo: 需要替换？
+		// url := strings.ReplaceAll(url, "api", "weapi")
+
 		csrf, has := c.GetCSRF(url)
 		if !has {
 			log.Debug("get csrf token not found")
@@ -307,6 +313,59 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 	}
 	log.Debug("decrypt body:%s", string(decryptData))
 	if err := json.Unmarshal(decryptData, &resp); err != nil {
+		return nil, err
+	}
+	if response.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("http status code: %d", response.StatusCode())
+	}
+	return response, nil
+}
+
+func (c *Client) Upload(ctx context.Context, url string, headers map[string]string, req, resp interface{}) (*resty.Response, error) {
+	file, err := os.Open(req.(string))
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	md5, err := utils.MD5Hex(data)
+	if err != nil {
+		return nil, fmt.Errorf("MD5Hex: %v", err)
+	}
+
+	// headers["Content-Length"] = fmt.Sprintf("%d", stat.Size())
+	// headers["Content-Md5"] = md5
+	// headers["Content-Type"] = "audio/mpeg"
+
+	response, err := c.cli.R().
+		SetContext(ctx).
+		SetHeaders(headers).
+		SetHeader("Content-Length", fmt.Sprintf("%d", stat.Size())).
+		SetHeader("Content-Type", "audio/mpeg").
+		SetHeader("Content-Md5", md5).
+		SetHeader("Host", "music.163.com").
+		SetHeader("Connection", "keep-alive").
+		SetHeader("Accept", "*/*").
+		SetHeader("Referer", "https://music.163.com").
+		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034").
+		SetBody(bytes.NewReader(data)).
+		// SetFile("file", "").
+		Post(url)
+	if err != nil {
+		return nil, err
+	}
+	log.Debug("response: %+v", string(response.Body()))
+	if err := json.Unmarshal(response.Body(), &resp); err != nil {
 		return nil, err
 	}
 	if response.StatusCode() != http.StatusOK {

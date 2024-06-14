@@ -23,7 +23,11 @@
 
 package weapi
 
-import "github.com/chaunsin/netease-cloud-music/api"
+import (
+	"context"
+
+	"github.com/chaunsin/netease-cloud-music/api"
+)
 
 type Api struct {
 	client *api.Client
@@ -32,4 +36,8 @@ type Api struct {
 func New(client *api.Client) *Api {
 	a := Api{client: client}
 	return &a
+}
+
+func (a *Api) NeedLogin(ctx context.Context) bool {
+	return a.client.NeedLogin(ctx)
 }

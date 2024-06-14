@@ -27,6 +27,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
@@ -201,19 +202,27 @@ type CloudTokenAllocResp struct {
 	CloudTokenAllocRespResult `json:"result,omitempty"`
 }
 
+// CloudTokenAllocRespResult 数据示例
+// {
+// "bucket": "jd-musicrep-privatecloud-audio-public",
+// "token": "UPLOAD 037a197cb50b42468694de59c0bdd9b1:zWmW6BmWPo5mWEMdTCEjtu9SaSRpgYmSQpXtb20fVd0=:eyJSZWdpb24iOiJKRCIsIk9iamVjdCI6Im9iai93b0REbU1PQnc2UENsV3pDbk1LLS8zNjY1NjcyOTU5OC8xN2JjL2Y0MjQvYjMyNi84MDJiMmVmZTJiMGY1ZjU0MzAyNGFlYWFmNzQ3NGEwNi5tNGEiLCJFeHBpcmVzIjoxNzE4MzUyNjI4LCJCdWNrZXQiOiJqZC1tdXNpY3JlcC1wcml2YXRlY2xvdWQtYXVkaW8tcHVibGljIn0=",
+// "outerUrl": "https://jd-musicrep-privatecloud-audio-public.nos-jd.163yun.com/obj%2FwoDDmMOBw6PClWzCnMK-%2F36656729598%2F17bc%2Ff424%2Fb326%2F802b2efe2b0f5f543024aeaaf7474a06.m4a?Signature=NuGYr715XbqmSdr7xWoVoYR0GiwDc6zJ0luYLY0WSaE%3D&Expires=1718350828&NOSAccessKeyId=037a197cb50b42468694de59c0bdd9b1",
+// "docId": "-1",
+// "objectKey": "obj/woDDmMOBw6PClWzCnMK-/36656729598/17bc/f424/b326/802b2efe2b0f5f543024aeaaf7474a06.m4a",
+// "resourceId": 36656729598
+// }
 type CloudTokenAllocRespResult struct {
 	Bucket     string `json:"bucket"`
+	Token      string `json:"token"`
+	OuterURL   string `json:"outerUrl"`
 	DocID      string `json:"docId"`
 	ObjectKey  string `json:"objectKey"`
-	OuterURL   string `json:"outerUrl"`
 	ResourceID int64  `json:"resourceId"`
-	Token      string `json:"token"`
 }
 
 // CloudTokenAlloc 获取上传云盘token
 // url:
 // needLogin: 未知
-// todo:待验证
 func (a *Api) CloudTokenAlloc(ctx context.Context, req *CloudTokenAllocReq) (*CloudTokenAllocResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/nos/token/alloc"
@@ -245,15 +254,15 @@ type CloudUploadCheckReq struct {
 
 type CloudUploadCheckResp struct {
 	types.RespCommon[any]
-	SongId     string `json:"songId,omitempty"`
-	NeedUpload bool   `json:"needUpload" json:"needUpload,omitempty"`
+	SongId string `json:"songId,omitempty"`
+	// NeedUpload 是否需要上传 true:需要上传说明网易云网盘没有此音乐文件
+	NeedUpload bool `json:"needUpload" json:"needUpload,omitempty"`
 }
 
 // CloudUploadCheck 获取上传云盘token
 // url:
 // needLogin: 未知
 // todo: 需要迁移到api包中
-// todo: 待验证
 func (a *Api) CloudUploadCheck(ctx context.Context, req *CloudUploadCheckReq) (*CloudUploadCheckResp, error) {
 	var (
 		url = "https://interface.music.163.com/weapi/cloud/upload/check"
@@ -264,6 +273,138 @@ func (a *Api) CloudUploadCheck(ctx context.Context, req *CloudUploadCheckReq) (*
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type CloudUploadReq struct {
+	types.ReqCommon
+	Bucket    string `json:"bucket"`
+	ObjectKey string `json:"objectKey"`
+	Token     string `json:"token"`
+	Filepath  string `json:"filepath"`
+}
+
+type CloudUploadResp struct {
+	// types.RespCommon[any]
+	ErrCode        string `json:"errCode,omitempty"`
+	ErrMsg         string `json:"errMsg,omitempty"`
+	RequestId      string `json:"requestId,omitempty"`
+	Offset         int64  `json:"offset,omitempty"`
+	Context        string `json:"context,omitempty"`
+	CallbackRetMsg string `json:"callbackRetMsg,omitempty"`
+	DownloadUrl    string `json:"downloadUrl,omitempty"` // 为啥没有？
+}
+
+// CloudUpload 上传到云盘
+// url:
+// needLogin: 未知
+// todo: 需要迁移到合适的包中
+func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploadResp, error) {
+	// 获取上传地址，查找服务上传点
+	// https://wanproxy.127.net/lbs?version=1.0&bucketname=${bucket}
+	// TODO: https://gitlab.com/Binaryify/neteasecloudmusicapi/-/blob/main/plugins/songUpload.js?ref_type=heads#L42
+
+	objectKey, err := url.PathUnescape(req.ObjectKey)
+	if err != nil {
+		return nil, fmt.Errorf("PathUnescape: %v", err)
+	}
+
+	var (
+		// url   = fmt.Sprintf("http://45.127.129.8/%s/%s?offset=0&complete=true&version=1.0", req.Bucket, objectKey) // 写死的地址方式目前也能上传
+		url   = fmt.Sprintf("http://59.111.242.121/%s/%s?offset=0&complete=true&version=1.0", req.Bucket, objectKey)
+		reply CloudUploadResp
+	)
+
+	if req.CSRFToken == "" {
+		csrf, _ := a.client.GetCSRF(url)
+		req.CSRFToken = csrf
+	}
+
+	var headers = map[string]string{
+		// "Content-Type":   "audio/mpeg",
+		// "Content-Length": "1.0",
+		// "Content-Md5":    "",
+		"X-Nos-Token": req.Token,
+	}
+
+	resp, err := a.client.Upload(ctx, url, headers, req.Filepath, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type CloudInfoReq struct {
+	types.ReqCommon
+	Md5      string `json:"md5,omitempty"`
+	SongId   string `json:"songid,omitempty"`
+	Filename string `json:"filename,omitempty"`
+	// Song 歌曲名称
+	Song string `json:"song,omitempty"`
+	// Album 专辑名称
+	Album string `json:"album,omitempty"`
+	// Artist 艺术家
+	Artist     string `json:"artist,omitempty"`
+	Bitrate    string `json:"bitrate,omitempty"`
+	ResourceId int64  `json:"resourceId,omitempty"`
+}
+
+type CloudInfoResp struct {
+	types.RespCommon[any]
+	SongId string `json:"songId,omitempty"`
+}
+
+// CloudInfo 上传信息歌曲信息
+// url:
+// needLogin: 未知
+// todo: 需要迁移到合适的包中
+// todo: 待验证
+func (a *Api) CloudInfo(ctx context.Context, req *CloudInfoReq) (*CloudInfoResp, error) {
+	var (
+		url   = "https://music.163.com/api/upload/cloud/info/v2"
+		reply CloudInfoResp
+	)
+	if req.Album == "" {
+		req.Album = "未知专辑"
+	}
+	if req.Artist == "" {
+		req.Artist = "未知艺术家"
+	}
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type CloudPublishReq struct {
+	types.ReqCommon
+	SongId string `json:"songId"`
+}
+
+type CloudPublishResp struct {
+	types.RespCommon[any]
+}
+
+// CloudPublish 上传信息发布
+// url:
+// needLogin: 未知
+// todo: 需要迁移到合适的包中
+// todo: 待验证
+func (a *Api) CloudPublish(ctx context.Context, req *CloudPublishReq) (*CloudPublishResp, error) {
+	var (
+		url   = "https://interface.music.163.com/api/cloud/pub/v2"
+		reply CloudPublishResp
+	)
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
 	if err != nil {
