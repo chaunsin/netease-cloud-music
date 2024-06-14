@@ -6,7 +6,7 @@
 
 # 重要声明
 
-本项目仅供个人学习使用.
+本项目仅供个人学习使用,切勿用于商业用途使用！！！
 
 # 功能
 
@@ -33,6 +33,11 @@
 - golang >= 1.21
 
 # 使用示例
+
+参考如下
+
+- [登录](example%2Fexample_login_test.go)
+- [云盘上传](example%2Fexample_cloud_upload_test.go)
 
 # 项目参考
 
