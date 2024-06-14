@@ -36,6 +36,7 @@ import (
 	"net/http/httputil"
 	neturl "net/url"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
@@ -257,14 +258,23 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 			return nil, fmt.Errorf("EApiEncrypt: %w", err)
 		}
 	case "weapi":
-		// todo: 需要替换？
-		// url := strings.ReplaceAll(url, "api", "weapi")
+		// todo: 需要替换？因为有些 https://interface.music.163.com/api 得接口也会走这个逻辑
+		reg, _ := regexp.Compile(`\w*api`)
+		url = reg.ReplaceAllString(url, "weapi")
+		// url = strings.ReplaceAll(url, "api", "weapi")
 
 		csrf, has := c.GetCSRF(url)
 		if !has {
 			log.Debug("get csrf token not found")
 		}
 		request.SetQueryParam("csrf_token", csrf)
+
+		request.SetCookie(&http.Cookie{Name: "appver", Value: "2.3.17"})
+		request.SetCookie(&http.Cookie{Name: "os", Value: "osx"})
+		request.SetCookie(&http.Cookie{Name: "deviceId", Value: "7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62%7C5FD718A3-0602-4389-B612-EBEFAA7F108B"})
+		request.SetCookie(&http.Cookie{Name: "WEVNSM", Value: "1.0.0"})
+		request.SetCookie(&http.Cookie{Name: "channel", Value: "netease"})
+		request.SetHeader("nm-gcore-status", "1")
 
 		encryptData, err = crypto.WeApiEncrypt(req)
 		if err != nil {
@@ -278,7 +288,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 	default:
 		return nil, fmt.Errorf("%s crypto mode unknown", cryptoType)
 	}
-	log.Debug("data: %+v encrypt: %+v", req, encryptData)
+	log.Debug("request: %+v encrypt: %+v", req, encryptData)
 
 	switch method {
 	case http.MethodPost:

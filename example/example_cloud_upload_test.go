@@ -32,6 +32,8 @@ import (
 
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
+
+	"github.com/dhowden/tag"
 )
 
 func TestCloudUpload(t *testing.T) {
@@ -39,9 +41,10 @@ func TestCloudUpload(t *testing.T) {
 
 	// 1.读取文件
 	var (
-		filename = "../testdata/music/record3.m4a"
+		filename = "../testdata/music/本兮 - 逢场作戏.mp3"
 		ext      = "mp3"
 		bitrate  = "999000"
+		// bitrate = "128000"
 	)
 
 	file, err := os.Open(filename)
@@ -65,6 +68,12 @@ func TestCloudUpload(t *testing.T) {
 		t.Fatalf("MD5Hex: %v", err)
 	}
 
+	// 重新设置文件指针到开头
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		t.Fatalf("Seek: %v", err)
+	}
+
 	// 2.检查是否需要登录
 	if api.NeedLogin(ctx) {
 		t.Fatal("need login")
@@ -83,7 +92,10 @@ func TestCloudUpload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("check resp: %+v\n", resp)
+	t.Logf("CloudUploadCheck resp: %+v\n", resp)
+	if resp.Code != 200 {
+		t.Logf("CloudUploadCheck resp: %+v\n", resp)
+	}
 
 	// 4.获取上传凭证
 	var allocReq = weapi.CloudTokenAllocReq{
@@ -100,22 +112,25 @@ func TestCloudUpload(t *testing.T) {
 		t.Fatalf("CloudTokenAlloc: %v", err)
 	}
 	t.Logf("CloudTokenAlloc resp: %+v\n", allocResp)
+	if allocResp.Code != 200 {
+		t.Logf("CloudTokenAlloc resp: %+v\n", allocResp)
+	}
 
 	if resp.NeedUpload {
-		var allocReq2 = weapi.CloudTokenAllocReq{
-			Bucket:     "jd-musicrep-privatecloud-audio-public",
-			Ext:        ext,
-			Filename:   filepath.Base(filename),
-			Local:      "false",
-			NosProduct: "3",
-			Type:       "audio",
-			Md5:        md5,
-		}
-		allocResp2, err := api.CloudTokenAlloc(ctx, &allocReq2)
-		if err != nil {
-			t.Fatalf("CloudTokenAlloc: %v", err)
-		}
-		t.Logf("CloudTokenAlloc resp2: %+v\n", allocResp2)
+		// var allocReq2 = weapi.CloudTokenAllocReq{
+		// 	Bucket:     "jd-musicrep-privatecloud-audio-public",
+		// 	Ext:        ext,
+		// 	Filename:   filepath.Base(filename),
+		// 	Local:      "false",
+		// 	NosProduct: "3",
+		// 	Type:       "audio",
+		// 	Md5:        md5,
+		// }
+		// allocResp2, err := api.CloudTokenAlloc(ctx, &allocReq2)
+		// if err != nil {
+		// 	t.Fatalf("CloudTokenAlloc: %v", err)
+		// }
+		// t.Logf("CloudTokenAlloc resp2: %+v\n", allocResp2)
 
 		// 5.上传文件
 		var uploadReq = weapi.CloudUploadReq{
@@ -129,17 +144,24 @@ func TestCloudUpload(t *testing.T) {
 			t.Fatalf("CloudUpload: %v", err)
 		}
 		t.Logf("CloudUpload resp: %+v\n", uploadResp)
+		if uploadResp.ErrCode != "0" {
+			t.Logf("CloudUpload resp: %+v\n", uploadResp)
+		}
 	}
 
-	// todo: 解决接口返回400问题
 	// 6.上传歌曲相关信息
+	metadata, err := tag.ReadFrom(file)
+	if err != nil {
+		t.Fatalf("ReadFrom: %v", err)
+	}
+
 	var InfoReq = weapi.CloudInfoReq{
 		Md5:        md5,
 		SongId:     resp.SongId,
 		Filename:   stat.Name(),
-		Song:       "record3",
-		Album:      "未知专辑",
-		Artist:     "未知艺术家",
+		Song:       utils.Ternary(metadata.Title() != "", metadata.Title(), filepath.Base(filename)),
+		Album:      utils.Ternary(metadata.Album() != "", metadata.Album(), "未知专辑"),
+		Artist:     utils.Ternary(metadata.Artist() != "", metadata.Artist(), "未知艺术家"),
 		Bitrate:    bitrate,
 		ResourceId: allocResp.ResourceID,
 	}
@@ -148,16 +170,22 @@ func TestCloudUpload(t *testing.T) {
 		t.Fatalf("CloudInfo: %v", err)
 	}
 	t.Logf("CloudInfo resp: %+v\n", infoResp)
+	if infoResp.Code != 200 {
+		t.Fatalf("CloudInfo: %v", infoResp)
+	}
 
-	// // 7.对上传得歌曲进行发布，和自己账户做关联,不然云盘列表看不到上传得歌曲信息
-	// var publishReq = weapi.CloudPublishReq{
-	// 	SongId: infoResp.SongId,
-	// }
-	// publishResp, err := api.CloudPublish(ctx, &publishReq)
-	// if err != nil {
-	// 	t.Fatalf("CloudPublish: %v", err)
-	// }
-	// t.Logf("CloudPublish resp: %+v\n", publishResp)
+	// 7.对上传得歌曲进行发布，和自己账户做关联,不然云盘列表看不到上传得歌曲信息
+	var publishReq = weapi.CloudPublishReq{
+		SongId: infoResp.SongId,
+	}
+	publishResp, err := api.CloudPublish(ctx, &publishReq)
+	if err != nil {
+		t.Fatalf("CloudPublish: %v", err)
+	}
+	t.Logf("CloudPublish resp: %+v\n", publishResp)
+	if publishResp.Code != 200 {
+		t.Fatalf("CloudPublish: %v", publishResp)
+	}
 
 	t.Log("upload success!!!")
 }

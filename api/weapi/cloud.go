@@ -357,15 +357,117 @@ type CloudInfoReq struct {
 }
 
 type CloudInfoResp struct {
-	types.RespCommon[any]
-	SongId string `json:"songId,omitempty"`
+	Code           int64        `json:"code,omitempty"`
+	SongId         string       `json:"songId,omitempty"`
+	WaitTime       int          `json:"waitTime"`
+	Exists         bool         `json:"exists"`
+	NextUploadTime int          `json:"nextUploadTime"`
+	SongIdLong     int          `json:"songIdLong"`
+	PrivateCloud   PrivateCloud `json:"privateCloud"`
+}
+
+type PrivateCloud struct {
+	SimpleSong struct {
+		Name string `json:"name"`
+		Id   int    `json:"id"`
+		Pst  int    `json:"pst"`
+		T    int    `json:"t"`
+		Ar   []struct {
+			Id    int           `json:"id"`
+			Name  string        `json:"name"`
+			Tns   []interface{} `json:"tns"`
+			Alias []interface{} `json:"alias"`
+		} `json:"ar"`
+		Alia []interface{} `json:"alia"`
+		Pop  float64       `json:"pop"`
+		St   int           `json:"st"`
+		Rt   string        `json:"rt"`
+		Fee  int           `json:"fee"`
+		V    int           `json:"v"`
+		Crbt interface{}   `json:"crbt"`
+		Cf   string        `json:"cf"`
+		Al   struct {
+			Id     int           `json:"id"`
+			Name   string        `json:"name"`
+			PicUrl string        `json:"picUrl"`
+			Tns    []interface{} `json:"tns"`
+			Pic    int64         `json:"pic"`
+		} `json:"al"`
+		Dt                   int           `json:"dt"`
+		H                    Quality       `json:"h"`
+		M                    Quality       `json:"m"`
+		L                    Quality       `json:"l"`
+		A                    interface{}   `json:"a"`
+		Cd                   string        `json:"cd"`
+		No                   int           `json:"no"`
+		RtUrl                interface{}   `json:"rtUrl"`
+		Ftype                int           `json:"ftype"`
+		RtUrls               []interface{} `json:"rtUrls"`
+		DjId                 int           `json:"djId"`
+		Copyright            int           `json:"copyright"`
+		SId                  int           `json:"s_id"`
+		Mark                 int           `json:"mark"`
+		OriginCoverType      int           `json:"originCoverType"`
+		OriginSongSimpleData interface{}   `json:"originSongSimpleData"`
+		Single               int           `json:"single"`
+		NoCopyrightRcmd      interface{}   `json:"noCopyrightRcmd"`
+		Mst                  int           `json:"mst"`
+		Cp                   int           `json:"cp"`
+		Mv                   int           `json:"mv"`
+		Rtype                int           `json:"rtype"`
+		Rurl                 interface{}   `json:"rurl"`
+		PublishTime          int64         `json:"publishTime"`
+		Privilege            struct {
+			Id                 int         `json:"id"`
+			Fee                int         `json:"fee"`
+			Payed              int         `json:"payed"`
+			St                 int         `json:"st"`
+			Pl                 int         `json:"pl"`
+			Dl                 int         `json:"dl"`
+			Sp                 int         `json:"sp"`
+			Cp                 int         `json:"cp"`
+			Subp               int         `json:"subp"`
+			Cs                 bool        `json:"cs"`
+			Maxbr              int         `json:"maxbr"`
+			Fl                 int         `json:"fl"`
+			Toast              bool        `json:"toast"`
+			Flag               int         `json:"flag"`
+			PreSell            bool        `json:"preSell"`
+			PlayMaxbr          int         `json:"playMaxbr"`
+			DownloadMaxbr      int         `json:"downloadMaxbr"`
+			MaxBrLevel         string      `json:"maxBrLevel"`
+			PlayMaxBrLevel     string      `json:"playMaxBrLevel"`
+			DownloadMaxBrLevel string      `json:"downloadMaxBrLevel"`
+			PlLevel            string      `json:"plLevel"`
+			DlLevel            string      `json:"dlLevel"`
+			FlLevel            string      `json:"flLevel"`
+			Rscl               interface{} `json:"rscl"`
+			FreeTrialPrivilege struct {
+				ResConsumable  bool        `json:"resConsumable"`
+				UserConsumable bool        `json:"userConsumable"`
+				ListenType     interface{} `json:"listenType"`
+			} `json:"freeTrialPrivilege"`
+			ChargeInfoList interface{} `json:"chargeInfoList"`
+		} `json:"privilege"`
+	} `json:"simpleSong"`
+	Cover    int    `json:"cover"`
+	AddTime  int64  `json:"addTime"`
+	SongName string `json:"songName"`
+	Album    string `json:"album"`
+	Artist   string `json:"artist"`
+	Bitrate  int    `json:"bitrate"`
+	SongId   int    `json:"songId"`
+	CoverId  string `json:"coverId"`
+	LyricId  string `json:"lyricId"`
+	Version  int    `json:"version"`
+	FileSize int    `json:"fileSize"`
+	FileName string `json:"fileName"`
 }
 
 // CloudInfo 上传信息歌曲信息
 // url:
 // needLogin: 未知
 // todo: 需要迁移到合适的包中
-// todo: 待验证
 func (a *Api) CloudInfo(ctx context.Context, req *CloudInfoReq) (*CloudInfoResp, error) {
 	var (
 		url   = "https://music.163.com/api/upload/cloud/info/v2"
@@ -388,18 +490,19 @@ func (a *Api) CloudInfo(ctx context.Context, req *CloudInfoReq) (*CloudInfoResp,
 
 type CloudPublishReq struct {
 	types.ReqCommon
-	SongId string `json:"songId"`
+	SongId string `json:"songid"`
 }
 
 type CloudPublishResp struct {
-	types.RespCommon[any]
+	// 200:成功 201:貌似重复上传
+	Code         int64        `json:"code"`
+	PrivateCloud PrivateCloud `json:"privateCloud"`
 }
 
 // CloudPublish 上传信息发布
 // url:
 // needLogin: 未知
 // todo: 需要迁移到合适的包中
-// todo: 待验证
 func (a *Api) CloudPublish(ctx context.Context, req *CloudPublishReq) (*CloudPublishResp, error) {
 	var (
 		url   = "https://interface.music.163.com/api/cloud/pub/v2"

@@ -27,3 +27,11 @@ func MD5Hex(data []byte) (string, error) {
 	_, err := m.Write(data)
 	return hex.EncodeToString(m.Sum(nil)), err
 }
+
+// Ternary is a generic function that mimics a ternary expression
+func Ternary[T any](condition bool, trueVal, falseVal T) T {
+	if condition {
+		return trueVal
+	}
+	return falseVal
+}

@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/chaunsin/go-har v0.0.0-20240605180008-edcaba908e26
+	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/go-resty/resty/v2 v2.13.1
 	github.com/google/brotli/go/cbrotli v0.0.0-20240531161123-a528bce9f65b
 	github.com/mitchellh/mapstructure v1.5.0
