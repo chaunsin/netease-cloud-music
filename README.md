@@ -1,6 +1,6 @@
 # netease-cloud-music
 
-[![GoDoc](https://godoc.org/github.com/chaunsin/netease-clould-music?status.svg)](https://godoc.org/github.com/chaunsin/netease-clould-music) [![Go Report Card](https://goreportcard.com/badge/github.com/chaunsin/netease-clould-music)](https://goreportcard.com/report/github.com/chaunsin/netease-clould-music)
+[![GoDoc](https://godoc.org/github.com/chaunsin/netease-cloud-music?status.svg)](https://godoc.org/github.com/chaunsin/netease-cloud-music) [![Go Report Card](https://goreportcard.com/badge/github.com/chaunsin/netease-cloud-music)](https://goreportcard.com/report/github.com/chaunsin/netease-cloud-music)
 
 网抑云音乐 Golang API 接口
 
