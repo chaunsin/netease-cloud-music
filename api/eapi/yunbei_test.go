@@ -33,7 +33,7 @@ func TestYunBeiSign(t *testing.T) {
 	var req = YunBeiSignReq{
 		Type: 1,
 	}
-	got, err := a.YunBeiSign(ctx, &req)
+	got, err := cli.YunBeiSign(ctx, &req)
 	assert.NoError(t, err)
 	t.Logf("YunBeiSign: %+v\n", got)
 }

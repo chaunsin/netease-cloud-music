@@ -35,7 +35,7 @@ func TestPlaylist(t *testing.T) {
 		Offset: 0,
 		Limit:  30,
 	}
-	got, err := a.Playlist(ctx, &req)
+	got, err := cli.Playlist(ctx, &req)
 	assert.NoError(t, err)
 	t.Logf("Playlist: %+v\n", got)
 }

@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	a   *Api
+	cli *Api
 	ctx = context.TODO()
 )
 
@@ -54,6 +54,6 @@ func TestMain(t *testing.M) {
 		},
 	}
 	client := api.New(cfg)
-	a = New(client)
+	cli = New(client)
 	os.Exit(t.Run())
 }

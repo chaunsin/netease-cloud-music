@@ -31,25 +31,27 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
-type YunBeiSignReq struct {
-	// Type 签到类型 0:安卓(默认) 1:web/PC
+type YunBeiSignInReq struct {
+	// Type 签到类型 0:安卓(默认)3点经验 1:web/PC2点经验
 	Type int64 `json:"type"`
 }
 
-type YunBeiSignResp struct {
-	// 错误码 -2:重复签到 200:成功
+// YunBeiSignInResp 签到返回
+type YunBeiSignInResp struct {
+	// Code 错误码 -2:重复签到 200:成功(会有例外会出现“功能暂不支持”) 301:未登录
 	types.RespCommon[any]
+	// Point 签到获得积分奖励数量
 	Point int64 `json:"point"`
 }
 
 // YunBeiSign 用户每日签到
 // url:
-// needLogin: 未知
+// needLogin: 是
 // todo:目前传0会出现功能暂不支持不知为何(可能请求头或cookie问题)待填坑
-func (a *Api) YunBeiSign(ctx context.Context, req *YunBeiSignReq) (*YunBeiSignResp, error) {
+func (a *Api) YunBeiSign(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSignInResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/point/dailyTask"
-		reply YunBeiSignResp
+		reply YunBeiSignInResp
 	)
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", req, &reply)
 	if err != nil {

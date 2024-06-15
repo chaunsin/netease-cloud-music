@@ -21,7 +21,7 @@
 // SOFTWARE.
 //
 
-package eapi
+package weapi
 
 import (
 	"testing"
@@ -29,30 +29,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	phone = "your mobile phone number"
-	ct    = "86"
-)
-
-func TestCaptchaSend(t *testing.T) {
-	// 发送验证码
-	var req = CaptchaSendReq{
-		Phone:  phone,
-		CTCode: ct,
+func TestYunBeiSign(t *testing.T) {
+	var req = YunBeiSignReq{
+		Type: 1,
 	}
-	got, err := cli.CaptchaSend(ctx, &req)
+	got, err := cli.YunBeiSign(ctx, &req)
 	assert.NoError(t, err)
-	t.Logf("CaptchaSend: %+v\n", got)
-}
-
-func TestCaptchaVerify(t *testing.T) {
-	// 发送验证码
-	var req = CaptchaVerifyReq{
-		Phone:   phone,
-		CTCode:  ct,
-		Captcha: "2129",
-	}
-	got, err := cli.CaptchaVerify(ctx, &req)
-	assert.NoError(t, err)
-	t.Logf("CaptchaVerify: %+v\n", got)
+	t.Logf("YunBeiSign: %+v\n", got)
 }

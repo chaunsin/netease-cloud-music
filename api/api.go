@@ -36,7 +36,6 @@ import (
 	"net/http/httputil"
 	neturl "net/url"
 	"os"
-	"regexp"
 	"time"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
@@ -221,6 +220,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 		SetHeader("Accept-language", "zh-CN,zh-Hans;q=0.9").
 		SetHeader("Referer", "https://music.163.com").
 		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034")
+	// SetHeader("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.1 Chrome/121.0.0.0 Mobile Safari/537.36")
 
 	switch cryptoType {
 	case "eapi":
@@ -259,8 +259,8 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 		}
 	case "weapi":
 		// todo: 需要替换？因为有些 https://interface.music.163.com/api 得接口也会走这个逻辑
-		reg, _ := regexp.Compile(`\w*api`)
-		url = reg.ReplaceAllString(url, "weapi")
+		// reg, _ := regexp.Compile(`\w*api`)
+		// url = reg.ReplaceAllString(url, "weapi")
 		// url = strings.ReplaceAll(url, "api", "weapi")
 
 		csrf, has := c.GetCSRF(url)
@@ -269,12 +269,16 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 		}
 		request.SetQueryParam("csrf_token", csrf)
 
-		request.SetCookie(&http.Cookie{Name: "appver", Value: "2.3.17"})
-		request.SetCookie(&http.Cookie{Name: "os", Value: "osx"})
-		request.SetCookie(&http.Cookie{Name: "deviceId", Value: "7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62%7C5FD718A3-0602-4389-B612-EBEFAA7F108B"})
-		request.SetCookie(&http.Cookie{Name: "WEVNSM", Value: "1.0.0"})
-		request.SetCookie(&http.Cookie{Name: "channel", Value: "netease"})
-		request.SetHeader("nm-gcore-status", "1")
+		// // request.SetCookie(&http.Cookie{Name: "appver", Value: "2.3.17"})
+		// request.SetCookie(&http.Cookie{Name: "appver", Value: "9.0.95"})
+		// // request.SetCookie(&http.Cookie{Name: "os", Value: "osx"})
+		// request.SetCookie(&http.Cookie{Name: "os", Value: "android"})
+		// // request.SetCookie(&http.Cookie{Name: "deviceId", Value: "7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62%7C5FD718A3-0602-4389-B612-EBEFAA7F108B"})
+		// // request.SetCookie(&http.Cookie{Name: "WEVNSM", Value: "1.0.0"})
+		// // request.SetCookie(&http.Cookie{Name: "channel", Value: "netease"})
+		// // request.SetHeader("nm-gcore-status", "1")
+		// request.SetHeader("appver", "9.0.95")
+		// request.SetHeader("os", "android")
 
 		encryptData, err = crypto.WeApiEncrypt(req)
 		if err != nil {

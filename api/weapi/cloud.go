@@ -470,7 +470,7 @@ type PrivateCloud struct {
 // todo: 需要迁移到合适的包中
 func (a *Api) CloudInfo(ctx context.Context, req *CloudInfoReq) (*CloudInfoResp, error) {
 	var (
-		url   = "https://music.163.com/api/upload/cloud/info/v2"
+		url   = "https://music.163.com/weapi/upload/cloud/info/v2" // 是api还是weapi？
 		reply CloudInfoResp
 	)
 	if req.Album == "" {
@@ -505,7 +505,7 @@ type CloudPublishResp struct {
 // todo: 需要迁移到合适的包中
 func (a *Api) CloudPublish(ctx context.Context, req *CloudPublishReq) (*CloudPublishResp, error) {
 	var (
-		url   = "https://interface.music.163.com/api/cloud/pub/v2"
+		url   = "https://interface.music.163.com/weapi/cloud/pub/v2" // 是api还是weapi
 		reply CloudPublishResp
 	)
 

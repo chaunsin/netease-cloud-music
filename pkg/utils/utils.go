@@ -35,3 +35,14 @@ func Ternary[T any](condition bool, trueVal, falseVal T) T {
 	}
 	return falseVal
 }
+
+func IsUnique[T comparable](arr []T) bool {
+	var set = make(map[T]struct{})
+	for _, v := range arr {
+		if _, ok := set[v]; ok {
+			return false
+		}
+		set[v] = struct{}{}
+	}
+	return true
+}

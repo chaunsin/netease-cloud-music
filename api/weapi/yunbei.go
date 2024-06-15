@@ -21,38 +21,42 @@
 // SOFTWARE.
 //
 
-package eapi
+package weapi
 
 import (
-	"testing"
+	"context"
+	"fmt"
+	"net/http"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
-const (
-	phone = "your mobile phone number"
-	ct    = "86"
-)
-
-func TestCaptchaSend(t *testing.T) {
-	// 发送验证码
-	var req = CaptchaSendReq{
-		Phone:  phone,
-		CTCode: ct,
-	}
-	got, err := cli.CaptchaSend(ctx, &req)
-	assert.NoError(t, err)
-	t.Logf("CaptchaSend: %+v\n", got)
+type YunBeiSignInReq struct {
+	// Type 签到类型 0:安卓(默认) 1:web/PC
+	Type int64 `json:"type"`
 }
 
-func TestCaptchaVerify(t *testing.T) {
-	// 发送验证码
-	var req = CaptchaVerifyReq{
-		Phone:   phone,
-		CTCode:  ct,
-		Captcha: "2129",
+// YunBeiSignInResp 签到返回
+type YunBeiSignInResp struct {
+	// Code 错误码 -2:重复签到 200:成功(会有例外会出现“功能暂不支持”) 301:未登录
+	types.RespCommon[any]
+	// Point 签到获得积分奖励数量,目前签到规则已经更改变成连续几天签到才能拿获取奖励
+	Point int64 `json:"point"`
+}
+
+// YunBeiSignIn 用户每日签到
+// url:
+// needLogin: 是
+// todo:目前传0会出现功能暂不支持不知为何(可能请求头或cookie问题)待填坑
+func (a *Api) YunBeiSignIn(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSignInResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/point/dailyTask"
+		reply YunBeiSignInResp
+	)
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
 	}
-	got, err := cli.CaptchaVerify(ctx, &req)
-	assert.NoError(t, err)
-	t.Logf("CaptchaVerify: %+v\n", got)
+	_ = resp
+	return &reply, nil
 }

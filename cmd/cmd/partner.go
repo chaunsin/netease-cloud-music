@@ -34,6 +34,7 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/nohup"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
@@ -42,6 +43,7 @@ import (
 type PartnerOpts struct {
 	Crontab string
 	Star    []int64
+	Once    bool
 	// Tags    []string
 }
 
@@ -59,7 +61,7 @@ func NewPartner(root *Root, l *log.Logger) *Partner {
 		cmd: &cobra.Command{
 			Use:     "partner",
 			Short:   "Partner async execute music partner",
-			Example: `ncm partner`,
+			Example: `  ncm partner`,
 		},
 	}
 	c.addFlags()
@@ -74,6 +76,7 @@ func NewPartner(root *Root, l *log.Logger) *Partner {
 func (c *Partner) addFlags() {
 	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "https://crontab.guru/")
 	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.Star, "star", "s", []int64{3, 4}, "star level")
+	c.cmd.PersistentFlags().BoolVarP(&c.opts.Once, "once", "", false, "real-time execution once")
 	// c.cmd.PersistentFlags().StringSliceVarP(&c.opts.Tags, "tags", "t", []string{"情感到位", "有节奏感", "音色独特"}, "tags")
 }
 
@@ -88,12 +91,8 @@ func (c *Partner) validate() error {
 	if len(c.opts.Star) == 0 || len(c.opts.Star) > 5 {
 		return fmt.Errorf("star level must be 1-5")
 	}
-	for _, v := range c.opts.Star {
-		for _, vv := range c.opts.Star {
-			if v == vv {
-				return fmt.Errorf("star level must be unique")
-			}
-		}
+	if !utils.IsUnique(c.opts.Star) {
+		return fmt.Errorf("star level must be unique")
 	}
 	return nil
 }
@@ -115,12 +114,14 @@ func (c *Partner) execute(ctx context.Context) error {
 		return fmt.Errorf("validate: %w", err)
 	}
 
-	// if err := c.job(c.cmd.Context()); err != nil {
-	// 	fmt.Println("job:", err)
-	// 	return err
-	// }
-	// fmt.Println("execute success ", time.Now())
-	// return nil
+	if c.opts.Once {
+		if err := c.job(c.cmd.Context()); err != nil {
+			fmt.Println("job:", err)
+			return err
+		}
+		fmt.Println("execute success ", time.Now())
+		return nil
+	}
 
 	cr := cron.New(cron.WithLocation(time.Local))
 	id, err := cr.AddFunc(c.opts.Crontab, func() {
@@ -206,8 +207,6 @@ func (c *Partner) job(ctx context.Context) error {
 			log.Error("PartnerEvaluate(%+v) err: %+v\n", req, resp)
 			// return fmt.Errorf("PartnerEvaluate: %v", resp.Message)
 		}
-		break
 	}
-
 	return nil
 }
