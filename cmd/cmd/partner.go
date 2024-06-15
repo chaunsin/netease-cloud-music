@@ -97,10 +97,6 @@ func (c *Partner) validate() error {
 	return nil
 }
 
-func (c *Partner) Version(version string) {
-	c.cmd.Version = version
-}
-
 func (c *Partner) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
 }
@@ -116,10 +112,10 @@ func (c *Partner) execute(ctx context.Context) error {
 
 	if c.opts.Once {
 		if err := c.job(c.cmd.Context()); err != nil {
-			fmt.Println("job:", err)
+			c.cmd.Println("job:", err)
 			return err
 		}
-		fmt.Println("execute success ", time.Now())
+		c.cmd.Println("execute success ", time.Now())
 		return nil
 	}
 

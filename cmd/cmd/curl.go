@@ -83,18 +83,8 @@ func (c *Curl) addFlags() {
 	c.cmd.PersistentFlags().DurationVarP(&c.opts.Timeout, "timeout", "t", 15*time.Second, "request timeout eg:1s、1m")
 }
 
-func (c *Curl) Version(version string) {
-	c.cmd.Version = version
-}
-
 func (c *Curl) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
-}
-
-func (c *Curl) Execute() {
-	if err := c.cmd.Execute(); err != nil {
-		panic(err)
-	}
 }
 
 func (c *Curl) Command() *cobra.Command {

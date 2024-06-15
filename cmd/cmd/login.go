@@ -60,18 +60,8 @@ func (c *Login) addFlags() {
 	// c.cmd.PersistentFlags().StringVarP(&c.opts.Account, "account", "a", "", "ncm login -a xxx")
 }
 
-func (c *Login) Version(version string) {
-	c.cmd.Version = version
-}
-
 func (c *Login) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
-}
-
-func (c *Login) Execute() {
-	if err := c.cmd.Execute(); err != nil {
-		panic(err)
-	}
 }
 
 func (c *Login) Command() *cobra.Command {

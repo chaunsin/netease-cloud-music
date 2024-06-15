@@ -24,52 +24,74 @@
 package cmd
 
 import (
+	"context"
+
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
 	"github.com/spf13/cobra"
 )
 
-type CryptoOpts struct {
-	Input  string // 加载文件路径,或文本内容
+type CloudOpts struct {
+	Input    string // 加载文件路径,或文件
+	Parallel int64  // 并发上传文件数量
+
 	Output string // 生成文件路径
-	Kind   string // api类型
 }
 
-type Crypto struct {
+type Cloud struct {
 	root *Root
 	cmd  *cobra.Command
-	opts CryptoOpts
+	opts CloudOpts
 	l    *log.Logger
 }
 
-func NewCrypto(root *Root, l *log.Logger) *Crypto {
-	c := &Crypto{
+func NewCloud(root *Root, l *log.Logger) *Cloud {
+	c := &Cloud{
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:   "crypto",
-			Short: "Crypto is a tool for encrypting and decrypting the http data",
-			Example: `  ncm crypto -h
-  ncm crypto decrypt -k eapi -c xxx
-  ncm crypto encrypt -k eapi -P xxx`,
+			Use:     "cloud",
+			Short:   "Cloud is a tool for encrypting and decrypting the http data",
+			Example: "  ncm cloud -h\n  ncm cloud xxx",
+			Args:    cobra.RangeArgs(0, 1),
 		},
 	}
 	c.addFlags()
-	c.Add(encrypt(c, l))
-	c.Add(decrypt(c, l))
+	c.cmd.Run = func(cmd *cobra.Command, args []string) {
+		if err := c.execute(cmd.Context(), args); err != nil {
+			cmd.Println(err)
+		}
+	}
+
 	return c
 }
 
-func (c *Crypto) addFlags() {
+func (c *Cloud) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "*.har file path、text")
+	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "concurrent upload count")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate decrypt file directory location")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "weapi|eapi|linux")
 }
 
-func (c *Crypto) Add(command ...*cobra.Command) {
+func (c *Cloud) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
 }
 
-func (c *Crypto) Command() *cobra.Command {
+func (c *Cloud) Command() *cobra.Command {
 	return c.cmd
+}
+
+func (c *Cloud) execute(ctx context.Context, args []string) error {
+	// 执行命令行指定文件上传
+	if len(args) > 0 {
+		// 判断是否是单个文件
+		utils.IsFile(args[0])
+
+		return nil
+	}
+
+	// 执行目录文件上传
+
+	c.cmd.Println(args)
+	return nil
 }

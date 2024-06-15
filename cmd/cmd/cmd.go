@@ -72,6 +72,7 @@ func New(cfg *config.Config, l *log.Logger) *Root {
 	c.Add(NewLogin(c, l).Command())
 	c.Add(NewPartner(c, l).Command())
 	c.Add(NewCurl(c, l).Command())
+	c.Add(NewCloud(c, l).Command())
 	return c
 }
 
@@ -91,6 +92,6 @@ func (c *Root) Add(command ...*cobra.Command) {
 
 func (c *Root) Execute() {
 	if err := c.cmd.Execute(); err != nil {
-		panic(err)
+		c.cmd.PrintErrln(err)
 	}
 }
