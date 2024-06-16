@@ -30,6 +30,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync/atomic"
 
 	"github.com/chaunsin/netease-cloud-music/api"
@@ -43,10 +44,8 @@ import (
 )
 
 type CloudOpts struct {
-	Input    string // 加载文件路径,或文件
+	Input    string // 加载文件路径
 	Parallel int64  // 并发上传文件数量
-
-	Output string // 生成文件路径
 }
 
 type Cloud struct {
@@ -63,24 +62,21 @@ func NewCloud(root *Root, l *log.Logger) *Cloud {
 		cmd: &cobra.Command{
 			Use:     "cloud",
 			Short:   "Cloud is a tool for encrypting and decrypting the http data",
-			Example: "  ncm cloud -h\n  ncm cloud xxx",
+			Example: "  ncm cloud -h\n  ncm cloud ./mymusic.mp3\n  ncm cloud -i ./my/music/",
 			Args:    cobra.RangeArgs(0, 1),
 		},
 	}
 	c.addFlags()
-	c.cmd.Run = func(cmd *cobra.Command, args []string) {
-		if err := c.execute(cmd.Context(), args); err != nil {
-			cmd.Println(err)
-		}
+	c.cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return c.execute(cmd.Context(), args)
 	}
 
 	return c
 }
 
 func (c *Cloud) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "*.har file path、text")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "music file path")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "concurrent upload count")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate decrypt file directory location")
 }
 
 func (c *Cloud) Add(command ...*cobra.Command) {
@@ -154,9 +150,19 @@ func (c *Cloud) execute(ctx context.Context, args []string) error {
 		args = append(args, filelist...)
 	}
 
+	if len(args) <= 0 {
+		return fmt.Errorf("no file to upload")
+	}
+	args = slices.Compact(args)
+
+	c.root.Cfg.Network.Debug = false
+	if c.root.Opts.Debug {
+		c.root.Cfg.Network.Debug = true
+	}
+
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
-		return fmt.Errorf("NewWithErr: %w", err)
+		return fmt.Errorf("NewClient: %w", err)
 	}
 	defer cli.Close(ctx)
 	request := weapi.New(cli)
@@ -186,7 +192,7 @@ func (c *Cloud) execute(ctx context.Context, args []string) error {
 	if err := sema.Acquire(ctx, c.opts.Parallel); err != nil {
 		return fmt.Errorf("wait: %w", err)
 	}
-	c.cmd.Printf("Number of upload failures %v", fail)
+	c.cmd.Printf("Number of upload failures %v\n", fail)
 	return nil
 }
 
@@ -319,11 +325,13 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string) 
 		return fmt.Errorf("CloudPublish: %w", err)
 	}
 	log.Debug("CloudPublish resp: %+v\n", publishResp)
-	if publishResp.Code != 200 {
+	switch publishResp.Code {
+	case 200:
+		log.Debug("上传成功: %s", filename)
+	case 201:
+		log.Debug("重复上传: %s", filename)
+	default:
 		return fmt.Errorf("CloudPublish: %+v", publishResp)
-	}
-	if publishResp.Code == 201 {
-		log.Debug("貌似重复上传 CloudPublish: %+v", publishResp)
 	}
 	return nil
 }

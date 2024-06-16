@@ -55,10 +55,8 @@ func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
 		Use:     "encrypt",
 		Short:   "Encrypt data",
 		Example: "  ncm crypto encrypt -k weapi -u /eapi/sms/captcha/sent -p \"plaintext\"",
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := c.execute(cmd.Context()); err != nil {
-				cmd.Println(err)
-			}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return c.execute(cmd.Context())
 		},
 	}
 	c.addFlags()

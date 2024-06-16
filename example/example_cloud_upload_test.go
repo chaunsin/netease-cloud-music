@@ -183,9 +183,12 @@ func TestCloudUpload(t *testing.T) {
 		t.Fatalf("CloudPublish: %v", err)
 	}
 	t.Logf("CloudPublish resp: %+v\n", publishResp)
-	if publishResp.Code != 200 {
-		t.Fatalf("CloudPublish: %v", publishResp)
+	switch publishResp.Code {
+	case 200:
+		t.Logf("上传成功: %s", filename)
+	case 201:
+		t.Logf("重复上传: %s", filename)
+	default:
+		t.Fatalf("上传失败: %s: %+v", filename, publishResp)
 	}
-
-	t.Log("upload success!!!")
 }

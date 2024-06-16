@@ -60,10 +60,8 @@ func decrypt(root *Crypto, l *log.Logger) *cobra.Command {
 		Use:     "decrypt",
 		Short:   "Decrypt data",
 		Example: "  ncm crypto decrypt -k weapi -e base64 -c \"ciphertext\"\nncm decrypt -f example.har",
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := c.execute(cmd.Context()); err != nil {
-				cmd.Println(err)
-			}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return c.execute(cmd.Context())
 		},
 	}
 	c.addFlags()
@@ -191,10 +189,10 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 			var (
 				str     = string(data)
 				payload string
+				// 如果根据标识分隔成3段则说明此数据是包含url和digest摘要形式拼接的数据,反之是结构体数据
+				value = strings.Split(str, "-36cd479b6b5-")
 			)
 
-			// 如果根据标识分隔成3段则说明此数据是包含url和digest摘要形式拼接的数据,反之是结构体数据
-			value := strings.Split(str, "-36cd479b6b5-")
 			if len(value) == 3 {
 				payload = value[1]
 			} else {
@@ -257,9 +255,9 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 				}
 			case "weapi":
 				// 不支持请求加密参数解析，可采通过在前端打断点进行查看
-				fmt.Printf("weapi %s request params not support parsing\n", req.URL)
+				c.cmd.Printf("weapi %s request params not support parsing\n", req.URL)
 			case "api":
-				fmt.Printf("api %s request params not support parsing\n", req.URL)
+				c.cmd.Printf("api %s request params not support parsing\n", req.URL)
 				for _, param := range pd.Params {
 					_ = param
 					item.Request.RawPlaintext = param.Value
@@ -284,7 +282,7 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 
 		// 解析response参数
 		if res.Content == nil {
-			fmt.Printf("%s content is nil\n", req.URL)
+			c.cmd.Printf("%s content is nil\n", req.URL)
 			continue
 		}
 

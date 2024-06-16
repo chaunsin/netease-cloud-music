@@ -79,7 +79,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context) error {
 
 	cli, err := api.NewClient(c.root.root.Cfg.Network, c.l)
 	if err != nil {
-		return fmt.Errorf("NewWithErr: %w", err)
+		return fmt.Errorf("NewClient: %w", err)
 	}
 	defer cli.Close(ctx)
 	request := weapi.New(cli)
@@ -115,15 +115,14 @@ func (c *loginQrcodeCmd) execute(ctx context.Context) error {
 	if err := os.WriteFile(p, qr.Qrcode, os.ModePerm); err != nil {
 		return err
 	}
-	fmt.Println(">>>>> please scan qrcode in your phone <<<<<")
-	fmt.Printf("qrcode file %s\n", p)
-	fmt.Printf("qrcode: \n%s\n", qr.QrcodePrint)
+	c.cmd.Println(">>>>> please scan qrcode in your phone <<<<<")
+	c.cmd.Printf("qrcode file %s\n", p)
+	c.cmd.Printf("qrcode: \n%s\n", qr.QrcodePrint)
 
 	// 4. 轮训获取扫码状态
 	for {
 		select {
 		case <-ctx.Done():
-			log.Warn("timeout retry")
 			return ctx.Err()
 		default:
 		}
@@ -133,6 +132,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("QrcodeCheck: %w", err)
 		}
+		log.Debug("QrcodeCheck resp: %v\n", resp)
 		switch resp.Code {
 		case 800: // 二维码不存在或已过期
 			return fmt.Errorf("current QrcodeCheck resp: %v\n", resp)
@@ -141,10 +141,9 @@ func (c *loginQrcodeCmd) execute(ctx context.Context) error {
 		case 802: // 正在扫码授权中
 			continue
 		case 803: // 授权登录成功
-			log.Info("current QrcodeCheck resp: %v\n", resp)
 			goto ok
 		default:
-			log.Error("current QrcodeCheck resp: %v\n", resp)
+			return fmt.Errorf("登录失败 QrcodeCheck resp: %v\n", resp)
 		}
 	}
 ok:
@@ -154,6 +153,6 @@ ok:
 	if err != nil {
 		return fmt.Errorf("GetUserInfo: %s", err)
 	}
-	log.Info("login success: %+v", user)
+	c.cmd.Printf("login success: %+v", user)
 	return nil
 }

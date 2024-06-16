@@ -115,7 +115,7 @@ func (c *Partner) execute(ctx context.Context) error {
 			c.cmd.Println("job:", err)
 			return err
 		}
-		c.cmd.Println("execute success ", time.Now())
+		c.cmd.Printf("%s execute success\n", time.Now())
 		return nil
 	}
 
@@ -144,7 +144,7 @@ func (c *Partner) execute(ctx context.Context) error {
 func (c *Partner) job(ctx context.Context) error {
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
-		return fmt.Errorf("NewWithErr: %w", err)
+		return fmt.Errorf("NewClient: %w", err)
 	}
 	defer cli.Close(ctx)
 	request := weapi.New(cli)
