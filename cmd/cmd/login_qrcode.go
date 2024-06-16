@@ -77,7 +77,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context) error {
 		c.root.root.Cfg.Network.Debug = false
 	}
 
-	cli, err := api.NewWithErr(c.root.root.Cfg.Network, c.l)
+	cli, err := api.NewClient(c.root.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewWithErr: %w", err)
 	}

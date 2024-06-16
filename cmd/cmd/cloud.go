@@ -25,11 +25,21 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sync/atomic"
 
+	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
+	"github.com/dhowden/tag"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/semaphore"
 )
 
 type CloudOpts struct {
@@ -82,16 +92,238 @@ func (c *Cloud) Command() *cobra.Command {
 }
 
 func (c *Cloud) execute(ctx context.Context, args []string) error {
-	// 执行命令行指定文件上传
-	if len(args) > 0 {
-		// 判断是否是单个文件
-		utils.IsFile(args[0])
+	if c.opts.Parallel < 0 || c.opts.Parallel > 50 {
+		return fmt.Errorf("parallel must be between 0 and 50")
+	}
 
-		return nil
+	// 执行命令行指定文件上传
+	for _, file := range args {
+		// 判断是否是单个文件
+		exist, isDir, err := utils.CheckPath(file)
+		if err != nil {
+			return fmt.Errorf("CheckPath: %w", err)
+		}
+		if !exist {
+			return fmt.Errorf("%s not found", file)
+		}
+		if isDir {
+			return fmt.Errorf("%s is directory need file", file)
+		}
+		if ok := utils.IsMusicExt(file); !ok {
+			return fmt.Errorf("%s is not music file", file)
+		}
+		stat, err := os.Stat(file)
+		if err != nil {
+			return fmt.Errorf("%s stat: %w", file, err)
+		}
+		if stat.Size() > 200*utils.MB {
+			return fmt.Errorf("%s file size too large", file)
+		}
+	}
+
+	// 处理目录上传
+	if c.opts.Input != "" {
+		var filelist []string
+		if err := fs.WalkDir(os.DirFS(c.opts.Input), ".", func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if d.IsDir() {
+				return nil
+			}
+
+			fileinfo, err := d.Info()
+			if err != nil {
+				return err
+			}
+
+			var file = filepath.Join(c.opts.Input, path)
+			if ok := utils.IsMusicExt(file); !ok {
+				return nil
+			}
+
+			if fileinfo.Size() > 200*utils.MB {
+				return fmt.Errorf("%s file size too large", path)
+			}
+			filelist = append(filelist, file)
+			return nil
+		}); err != nil {
+			return fmt.Errorf("WalkDir: %w", err)
+		}
+		args = append(args, filelist...)
+	}
+
+	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
+	if err != nil {
+		return fmt.Errorf("NewWithErr: %w", err)
+	}
+	defer cli.Close(ctx)
+	request := weapi.New(cli)
+
+	// 判断是否需要登录
+	if cli.NeedLogin(ctx) {
+		return fmt.Errorf("need login")
 	}
 
 	// 执行目录文件上传
+	var (
+		fail int64
+		sema = semaphore.NewWeighted(c.opts.Parallel)
+	)
+	for _, v := range args {
+		if err := sema.Acquire(ctx, 1); err != nil {
+			return fmt.Errorf("acquire: %w", err)
+		}
+		go func(filename string) {
+			defer sema.Release(1)
+			if err := c.upload(ctx, request, filename); err != nil {
+				atomic.AddInt64(&fail, 1)
+				log.Error("upload(%s): %s", filename, err)
+			}
+		}(v)
+	}
+	if err := sema.Acquire(ctx, c.opts.Parallel); err != nil {
+		return fmt.Errorf("wait: %w", err)
+	}
+	c.cmd.Printf("Number of upload failures %v", fail)
+	return nil
+}
 
-	c.cmd.Println(args)
+func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string) error {
+	// 1.读取文件
+	var (
+		ext     = "mp3"
+		bitrate = "999000"
+		// bitrate = "128000"
+	)
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return fmt.Errorf("Open: %w", err)
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("Stat: %w", err)
+	}
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return fmt.Errorf("ReadAll: %w", err)
+	}
+
+	md5, err := utils.MD5Hex(data)
+	if err != nil {
+		return fmt.Errorf("MD5Hex: %w", err)
+	}
+
+	// 重新设置文件指针到开头
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("Seek: %w", err)
+	}
+
+	// // 2.检查是否需要登录
+	// if api.NeedLogin(ctx) {
+	// 	t.Fatal("need login")
+	// }
+
+	// 3.检查此文件是否需要上传
+	var checkReq = weapi.CloudUploadCheckReq{
+		Bitrate: bitrate,
+		Ext:     ext,
+		Length:  fmt.Sprintf("%d", stat.Size()),
+		Md5:     md5,
+		SongId:  "0",
+		Version: "1",
+	}
+	resp, err := client.CloudUploadCheck(ctx, &checkReq)
+	if err != nil {
+		return fmt.Errorf("CloudUploadCheck: %w", err)
+	}
+	log.Debug("CloudUploadCheck resp: %+v\n", resp)
+	if resp.Code != 200 {
+		return fmt.Errorf("CloudUploadCheck resp: %+v\n", resp)
+	}
+
+	// 4.获取上传凭证
+	var allocReq = weapi.CloudTokenAllocReq{
+		Bucket:     "", // jd-musicrep-privatecloud-audio-public
+		Ext:        ext,
+		Filename:   filepath.Base(filename),
+		Local:      "false",
+		NosProduct: "3",
+		Type:       "audio",
+		Md5:        md5,
+	}
+	allocResp, err := client.CloudTokenAlloc(ctx, &allocReq)
+	if err != nil {
+		return fmt.Errorf("CloudTokenAlloc: %w", err)
+	}
+	log.Debug("CloudTokenAlloc resp: %+v\n", allocResp)
+	if allocResp.Code != 200 {
+		return fmt.Errorf("CloudTokenAlloc resp: %+v\n", allocResp)
+	}
+
+	if resp.NeedUpload {
+		// 5.上传文件
+		var uploadReq = weapi.CloudUploadReq{
+			Bucket:    allocResp.Bucket,
+			ObjectKey: allocResp.ObjectKey,
+			Token:     allocResp.Token,
+			Filepath:  filename,
+		}
+		uploadResp, err := client.CloudUpload(ctx, &uploadReq)
+		if err != nil {
+			return fmt.Errorf("CloudUpload: %w", err)
+		}
+		log.Debug("CloudUpload resp: %+v\n", uploadResp)
+		if uploadResp.ErrCode != "0" {
+			return fmt.Errorf("CloudUpload resp: %+v\n", uploadResp)
+		}
+	}
+
+	// 6.上传歌曲相关信息
+	metadata, err := tag.ReadFrom(file)
+	if err != nil {
+		return fmt.Errorf("ReadFrom: %w", err)
+	}
+
+	var InfoReq = weapi.CloudInfoReq{
+		Md5:        md5,
+		SongId:     resp.SongId,
+		Filename:   stat.Name(),
+		Song:       utils.Ternary(metadata.Title() != "", metadata.Title(), filepath.Base(filename)),
+		Album:      utils.Ternary(metadata.Album() != "", metadata.Album(), "未知专辑"),
+		Artist:     utils.Ternary(metadata.Artist() != "", metadata.Artist(), "未知艺术家"),
+		Bitrate:    bitrate,
+		ResourceId: allocResp.ResourceID,
+	}
+	infoResp, err := client.CloudInfo(ctx, &InfoReq)
+	if err != nil {
+		return fmt.Errorf("CloudInfo: %w", err)
+	}
+	log.Debug("CloudInfo resp: %+v\n", infoResp)
+	if infoResp.Code != 200 {
+		return fmt.Errorf("CloudInfo: %+v", infoResp)
+	}
+
+	// 7.对上传得歌曲进行发布，和自己账户做关联,不然云盘列表看不到上传得歌曲信息
+	var publishReq = weapi.CloudPublishReq{
+		SongId: infoResp.SongId,
+	}
+	publishResp, err := client.CloudPublish(ctx, &publishReq)
+	if err != nil {
+		return fmt.Errorf("CloudPublish: %w", err)
+	}
+	log.Debug("CloudPublish resp: %+v\n", publishResp)
+	if publishResp.Code != 200 {
+		return fmt.Errorf("CloudPublish: %+v", publishResp)
+	}
+	if publishResp.Code == 201 {
+		log.Debug("貌似重复上传 CloudPublish: %+v", publishResp)
+	}
 	return nil
 }

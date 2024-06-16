@@ -74,14 +74,14 @@ type Client struct {
 }
 
 func New(cfg *Config) *Client {
-	client, err := NewWithErr(cfg, log.Default)
+	client, err := NewClient(cfg, log.Default)
 	if err != nil {
 		panic(err)
 	}
 	return client
 }
 
-func NewWithErr(cfg *Config, l *log.Logger) (*Client, error) {
+func NewClient(cfg *Config, l *log.Logger) (*Client, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("validate: %w", err)
 	}

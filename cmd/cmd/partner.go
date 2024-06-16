@@ -142,7 +142,7 @@ func (c *Partner) execute(ctx context.Context) error {
 }
 
 func (c *Partner) job(ctx context.Context) error {
-	cli, err := api.NewWithErr(c.root.Cfg.Network, c.l)
+	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewWithErr: %w", err)
 	}
