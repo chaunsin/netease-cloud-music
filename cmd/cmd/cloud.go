@@ -25,6 +25,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -38,6 +39,7 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
+	"github.com/cheggaaa/pb/v3"
 	"github.com/dhowden/tag"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/semaphore"
@@ -46,6 +48,7 @@ import (
 type CloudOpts struct {
 	Input    string // 加载文件路径
 	Parallel int64  // 并发上传文件数量
+	MinSize  string // 上传文件最低大小限制
 }
 
 type Cloud struct {
@@ -77,6 +80,7 @@ func NewCloud(root *Root, l *log.Logger) *Cloud {
 func (c *Cloud) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "music file path")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "concurrent upload count")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.MinSize, "minsize", "m", "500kb", "upload music minimum file size limit. supporting unit:b、k/kb/KB、m/mb/MB")
 }
 
 func (c *Cloud) Add(command ...*cobra.Command) {
@@ -87,14 +91,15 @@ func (c *Cloud) Command() *cobra.Command {
 	return c.cmd
 }
 
-func (c *Cloud) execute(ctx context.Context, args []string) error {
+func (c *Cloud) execute(ctx context.Context, filelist []string) error {
 	if c.opts.Parallel < 0 || c.opts.Parallel > 50 {
 		return fmt.Errorf("parallel must be between 0 and 50")
 	}
 
-	// 执行命令行指定文件上传
-	for _, file := range args {
-		// 判断是否是单个文件
+	var barSize int64
+
+	// 命令行指定文件上传检验处理
+	for _, file := range filelist {
 		exist, isDir, err := utils.CheckPath(file)
 		if err != nil {
 			return fmt.Errorf("CheckPath: %w", err)
@@ -115,11 +120,19 @@ func (c *Cloud) execute(ctx context.Context, args []string) error {
 		if stat.Size() > 200*utils.MB {
 			return fmt.Errorf("%s file size too large", file)
 		}
+		if stat.Size() <= 0 {
+			return fmt.Errorf("%s file size too small", file)
+		}
+		barSize += stat.Size()
 	}
 
-	// 处理目录上传
+	// 目录上传检验处理
 	if c.opts.Input != "" {
-		var filelist []string
+		minsize, err := utils.ParseBytes(c.opts.MinSize)
+		if err != nil {
+			return fmt.Errorf("bytesize.Parse: %w", err)
+		}
+
 		if err := fs.WalkDir(os.DirFS(c.opts.Input), ".", func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -139,21 +152,24 @@ func (c *Cloud) execute(ctx context.Context, args []string) error {
 				return nil
 			}
 
-			if fileinfo.Size() > 200*utils.MB {
-				return fmt.Errorf("%s file size too large", path)
+			// 忽略大于200M的文件、小于0字节的文件以及用户配置得忽略的最小文件大小
+			if fileinfo.Size() > 200*utils.MB || fileinfo.Size() <= 0 || fileinfo.Size() < minsize {
+				return nil
 			}
+
+			barSize += fileinfo.Size()
 			filelist = append(filelist, file)
 			return nil
 		}); err != nil {
 			return fmt.Errorf("WalkDir: %w", err)
 		}
-		args = append(args, filelist...)
 	}
 
-	if len(args) <= 0 {
-		return fmt.Errorf("no file to upload")
+	if len(filelist) <= 0 {
+		return errors.New("no input file or the file does not meet the upload conditions")
 	}
-	args = slices.Compact(args)
+	filelist = slices.Compact(filelist)
+	log.Debug("Ready to upload list: %v", filelist)
 
 	c.root.Cfg.Network.Debug = false
 	if c.root.Opts.Debug {
@@ -176,14 +192,20 @@ func (c *Cloud) execute(ctx context.Context, args []string) error {
 	var (
 		fail int64
 		sema = semaphore.NewWeighted(c.opts.Parallel)
+		bar  = pb.Full.Start64(barSize)
 	)
-	for _, v := range args {
+	defer func() {
+		bar.Finish()
+		c.cmd.Printf("upload failures: %v success: %v\n", fail, len(filelist)-1)
+	}()
+
+	for _, v := range filelist {
 		if err := sema.Acquire(ctx, 1); err != nil {
 			return fmt.Errorf("acquire: %w", err)
 		}
 		go func(filename string) {
 			defer sema.Release(1)
-			if err := c.upload(ctx, request, filename); err != nil {
+			if err := c.upload(ctx, request, filename, bar); err != nil {
 				atomic.AddInt64(&fail, 1)
 				log.Error("upload(%s): %s", filename, err)
 			}
@@ -192,11 +214,11 @@ func (c *Cloud) execute(ctx context.Context, args []string) error {
 	if err := sema.Acquire(ctx, c.opts.Parallel); err != nil {
 		return fmt.Errorf("wait: %w", err)
 	}
-	c.cmd.Printf("Number of upload failures %v\n", fail)
+
 	return nil
 }
 
-func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string) error {
+func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, bar *pb.ProgressBar) error {
 	// 1.读取文件
 	var (
 		ext     = "mp3"
@@ -273,8 +295,8 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string) 
 		return fmt.Errorf("CloudTokenAlloc resp: %+v\n", allocResp)
 	}
 
+	// 5.上传文件
 	if resp.NeedUpload {
-		// 5.上传文件
 		var uploadReq = weapi.CloudUploadReq{
 			Bucket:    allocResp.Bucket,
 			ObjectKey: allocResp.ObjectKey,
@@ -327,8 +349,14 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string) 
 	log.Debug("CloudPublish resp: %+v\n", publishResp)
 	switch publishResp.Code {
 	case 200:
+		if !resp.NeedUpload {
+			bar.Add64(stat.Size())
+		}
 		log.Debug("上传成功: %s", filename)
 	case 201:
+		if !resp.NeedUpload {
+			bar.Add64(stat.Size())
+		}
 		log.Debug("重复上传: %s", filename)
 	default:
 		return fmt.Errorf("CloudPublish: %+v", publishResp)

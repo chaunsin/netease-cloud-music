@@ -30,6 +30,7 @@ import (
 	"net/url"
 
 	"github.com/chaunsin/netease-cloud-music/api/types"
+	"github.com/cheggaaa/pb/v3"
 )
 
 type CloudListReq struct {
@@ -284,10 +285,11 @@ func (a *Api) CloudUploadCheck(ctx context.Context, req *CloudUploadCheckReq) (*
 
 type CloudUploadReq struct {
 	types.ReqCommon
-	Bucket    string `json:"bucket"`
-	ObjectKey string `json:"objectKey"`
-	Token     string `json:"token"`
-	Filepath  string `json:"filepath"`
+	Bucket      string          `json:"bucket"`
+	ObjectKey   string          `json:"objectKey"`
+	Token       string          `json:"token"`
+	Filepath    string          `json:"filepath"`
+	ProgressBar *pb.ProgressBar `json:"-"` // 仅用于上传显示进度条使用跟网易云api无关.通常设置成nil
 }
 
 type CloudUploadResp struct {
@@ -327,13 +329,10 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 	}
 
 	var headers = map[string]string{
-		// "Content-Type":   "audio/mpeg",
-		// "Content-Length": "1.0",
-		// "Content-Md5":    "",
 		"X-Nos-Token": req.Token,
 	}
 
-	resp, err := a.client.Upload(ctx, url, headers, req.Filepath, &reply)
+	resp, err := a.client.Upload(ctx, url, headers, req.Filepath, &reply, req.ProgressBar)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

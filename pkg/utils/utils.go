@@ -3,8 +3,12 @@ package utils
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -15,6 +19,53 @@ const (
 	TB
 	PB
 )
+
+var (
+	parseBytesRegexp = regexp.MustCompile(`(?i)^(\d+)([a-zA-Z]*)$`)
+	unitMap          = map[string]int64{
+		"B":  B,
+		"K":  KB,
+		"KB": KB,
+		"M":  MB,
+		"MB": MB,
+	}
+)
+
+// ParseBytes 将输入字符串转换为字节数
+func ParseBytes(input string) (int64, error) {
+	if input == "" {
+		return 0, nil
+	}
+
+	matches := parseBytesRegexp.FindStringSubmatch(input)
+	if len(matches) != 3 {
+		return 0, fmt.Errorf("invalid input format: %s", input)
+	}
+
+	valueStr := matches[1]
+	unit := matches[2]
+
+	// 转换数字部分
+	value, err := strconv.ParseInt(valueStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid number: %s", valueStr)
+	}
+
+	// 默认单位是字节
+	if unit == "" {
+		unit = "B"
+	}
+
+	// 将单位转换为小写
+	unit = strings.ToUpper(unit)
+
+	// 获取对应的字节数乘数
+	multiplier, exists := unitMap[unit]
+	if !exists {
+		return 0, fmt.Errorf("unknown unit: %s", unit)
+	}
+	return value * multiplier, nil
+}
 
 func PathExists(path string) bool {
 	_, err := os.Stat(path)

@@ -30,18 +30,112 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestParseBytes(t *testing.T) {
+	type args struct {
+		input string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    int64
+		wantErr bool
+	}{
+		{
+			name:    "empty",
+			args:    args{input: ""},
+			want:    0,
+			wantErr: false,
+		},
+		{
+			name:    "default",
+			args:    args{input: "1"},
+			want:    B,
+			wantErr: false,
+		},
+		{
+			name:    "b",
+			args:    args{input: "1024"},
+			want:    1024,
+			wantErr: false,
+		},
+		{
+			name:    "B",
+			args:    args{input: "1024"},
+			want:    1024,
+			wantErr: false,
+		},
+		{
+			name:    "k",
+			args:    args{input: "1k"},
+			want:    KB,
+			wantErr: false,
+		},
+		{
+			name:    "K",
+			args:    args{input: "1K"},
+			want:    KB,
+			wantErr: false,
+		},
+		{
+			name:    "kB",
+			args:    args{input: "1kB"},
+			want:    KB,
+			wantErr: false,
+		},
+		{
+			name:    "Kb",
+			args:    args{input: "1Kb"},
+			want:    KB,
+			wantErr: false,
+		},
+		{
+			name:    "KB",
+			args:    args{input: "1KB"},
+			want:    KB,
+			wantErr: false,
+		},
+		{
+			name:    "M",
+			args:    args{input: "1M"},
+			want:    MB,
+			wantErr: false,
+		},
+		{
+			name:    "Mb",
+			args:    args{input: "1Mb"},
+			want:    MB,
+			wantErr: false,
+		},
+		{
+			name:    "mB",
+			args:    args{input: "1mB"},
+			want:    MB,
+			wantErr: false,
+		},
+		{
+			name:    "MB",
+			args:    args{input: "1MB"},
+			want:    MB,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseBytes(tt.args.input)
+			assert.Equal(t, tt.wantErr, err != nil, "ParseBytes(%v)", tt.args.input)
+			assert.Equalf(t, tt.want, got, "ParseBytes(%v)", tt.args.input)
+		})
+	}
+}
+
 func TestMd5Hex(t *testing.T) {
 	var filename = "../../testdata/music/record1.m4a"
-	file, err := os.Open(filename)
+	file, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
 
 	md5, err := MD5Hex(file)
 	assert.NoError(t, err)
 	t.Logf("md5:%s", md5)
-	// 6b5102e69b87185ca474fa40b284d884
-	// caf9a5afee5532376daf14ae9349114d 网易算出值
-
 }

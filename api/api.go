@@ -42,6 +42,7 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
+	"github.com/cheggaaa/pb/v3"
 	"github.com/google/brotli/go/cbrotli"
 
 	"github.com/go-resty/resty/v2"
@@ -335,7 +336,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 	return response, nil
 }
 
-func (c *Client) Upload(ctx context.Context, url string, headers map[string]string, req, resp interface{}) (*resty.Response, error) {
+func (c *Client) Upload(ctx context.Context, url string, headers map[string]string, req, resp interface{}, bar *pb.ProgressBar) (*resty.Response, error) {
 	file, err := os.Open(req.(string))
 	if err != nil {
 		return nil, err
@@ -357,9 +358,12 @@ func (c *Client) Upload(ctx context.Context, url string, headers map[string]stri
 		return nil, fmt.Errorf("MD5Hex: %v", err)
 	}
 
-	// headers["Content-Length"] = fmt.Sprintf("%d", stat.Size())
-	// headers["Content-Md5"] = md5
-	// headers["Content-Type"] = "audio/mpeg"
+	var body any
+	if bar != nil {
+		body = bar.NewProxyReader(bytes.NewReader(data))
+	} else {
+		body = bytes.NewReader(data)
+	}
 
 	response, err := c.cli.R().
 		SetContext(ctx).
@@ -372,7 +376,7 @@ func (c *Client) Upload(ctx context.Context, url string, headers map[string]stri
 		SetHeader("Accept", "*/*").
 		SetHeader("Referer", "https://music.163.com").
 		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034").
-		SetBody(bytes.NewReader(data)).
+		SetBody(body).
 		// SetFile("file", "").
 		Post(url)
 	if err != nil {
