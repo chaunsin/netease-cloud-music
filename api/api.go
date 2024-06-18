@@ -42,10 +42,10 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-	"github.com/cheggaaa/pb/v3"
-	"github.com/google/brotli/go/cbrotli"
 
+	"github.com/cheggaaa/pb/v3"
 	"github.com/go-resty/resty/v2"
+	"github.com/google/brotli/go/cbrotli"
 )
 
 type Config struct {
@@ -194,6 +194,10 @@ func (c *Client) NeedLogin(ctx context.Context) bool {
 func (c *Client) UserInfo() interface{} {
 	// todo:
 	return nil
+}
+
+func (c *Client) NewRequest() *resty.Request {
+	return c.cli.NewRequest()
 }
 
 // Request 接口请求

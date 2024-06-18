@@ -25,11 +25,14 @@ package weapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/url"
 
 	"github.com/chaunsin/netease-cloud-music/api/types"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/cheggaaa/pb/v3"
 )
 
@@ -284,7 +287,7 @@ func (a *Api) CloudUploadCheck(ctx context.Context, req *CloudUploadCheckReq) (*
 }
 
 type CloudUploadReq struct {
-	types.ReqCommon
+	// types.ReqCommon
 	Bucket      string          `json:"bucket"`
 	ObjectKey   string          `json:"objectKey"`
 	Token       string          `json:"token"`
@@ -294,6 +297,7 @@ type CloudUploadReq struct {
 
 type CloudUploadResp struct {
 	// types.RespCommon[any]
+	// ErrCode 为空则说明成功
 	ErrCode        string `json:"errCode,omitempty"`
 	ErrMsg         string `json:"errMsg,omitempty"`
 	RequestId      string `json:"requestId,omitempty"`
@@ -303,38 +307,61 @@ type CloudUploadResp struct {
 	DownloadUrl    string `json:"downloadUrl,omitempty"` // 为啥没有？
 }
 
+type CloudUploadLbsResp struct {
+	Lbs    string   `json:"lbs"`
+	Upload []string `json:"upload"`
+}
+
 // CloudUpload 上传到云盘
 // url:
 // needLogin: 未知
 // todo: 需要迁移到合适的包中
 func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploadResp, error) {
-	// 获取上传地址，查找服务上传点
-	// https://wanproxy.127.net/lbs?version=1.0&bucketname=${bucket}
-	// TODO: https://gitlab.com/Binaryify/neteasecloudmusicapi/-/blob/main/plugins/songUpload.js?ref_type=heads#L42
-
 	objectKey, err := url.PathUnescape(req.ObjectKey)
 	if err != nil {
 		return nil, fmt.Errorf("PathUnescape: %v", err)
 	}
 
 	var (
-		// url   = fmt.Sprintf("http://45.127.129.8/%s/%s?offset=0&complete=true&version=1.0", req.Bucket, objectKey) // 写死的地址方式目前也能上传
-		url   = fmt.Sprintf("http://59.111.242.121/%s/%s?offset=0&complete=true&version=1.0", req.Bucket, objectKey)
-		reply CloudUploadResp
+		addr      = fmt.Sprintf("https://wanproxy.127.net/lbs?version=1.0&bucketname=%s", req.Bucket)
+		urlFormat = "%s/%s/%s?offset=0&complete=true&version=1.0"
+		uploadUrl = fmt.Sprintf(urlFormat, "http://59.111.242.121", req.Bucket, objectKey)
+		reply     CloudUploadResp
 	)
 
-	if req.CSRFToken == "" {
-		csrf, _ := a.client.GetCSRF(url)
-		req.CSRFToken = csrf
+	// 获取上传地址，查找服务上传点
+	resp, err := a.client.
+		NewRequest().
+		SetContext(ctx).
+		SetHeader("Referer", "https://music.163.com").
+		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034"). // todo: hard code
+		Get(addr)
+	if err != nil || resp.StatusCode() != http.StatusOK {
+		log.Error("user default upload lbs node. get %s error: %v", addr, err)
+		return nil, fmt.Errorf("Get: %w", err)
+	} else {
+		var lbs CloudUploadLbsResp
+		if err := json.Unmarshal(resp.Body(), &lbs); err != nil {
+			log.Error("user default upload lbs node. Unmarshal %s error: %v", addr, err)
+		} else {
+			if len(lbs.Upload) > 0 {
+				uploadUrl = fmt.Sprintf(urlFormat, lbs.Upload[rand.Intn(len(lbs.Upload))], req.Bucket, objectKey)
+			}
+		}
 	}
+
+	// if req.CSRFToken == "" {
+	// 	csrf, _ := a.client.GetCSRF(url)
+	// 	req.CSRFToken = csrf
+	// }
 
 	var headers = map[string]string{
 		"X-Nos-Token": req.Token,
 	}
 
-	resp, err := a.client.Upload(ctx, url, headers, req.Filepath, &reply, req.ProgressBar)
+	resp, err = a.client.Upload(ctx, uploadUrl, headers, req.Filepath, &reply, req.ProgressBar)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("Upload: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -356,6 +383,7 @@ type CloudInfoReq struct {
 }
 
 type CloudInfoResp struct {
+	// Code 404: 错误未知,目前在上传文件时文件大于200MB时出现此错误，经后来测试多试了几次重传发现又好了貌似是临时性错误，待确认排查。
 	Code           int64        `json:"code,omitempty"`
 	SongId         string       `json:"songId,omitempty"`
 	WaitTime       int          `json:"waitTime"`

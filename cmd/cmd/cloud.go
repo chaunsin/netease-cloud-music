@@ -45,6 +45,8 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
+const maxSize = 300 * utils.MB
+
 type CloudOpts struct {
 	Input    string // 加载文件路径
 	Parallel int64  // 并发上传文件数量
@@ -117,7 +119,7 @@ func (c *Cloud) execute(ctx context.Context, filelist []string) error {
 		if err != nil {
 			return fmt.Errorf("%s stat: %w", file, err)
 		}
-		if stat.Size() > 200*utils.MB {
+		if stat.Size() > maxSize {
 			return fmt.Errorf("%s file size too large", file)
 		}
 		if stat.Size() <= 0 {
@@ -152,8 +154,8 @@ func (c *Cloud) execute(ctx context.Context, filelist []string) error {
 				return nil
 			}
 
-			// 忽略大于200M的文件、小于0字节的文件以及用户配置得忽略的最小文件大小
-			if fileinfo.Size() > 200*utils.MB || fileinfo.Size() <= 0 || fileinfo.Size() < minsize {
+			// 忽略大于300M的文件、小于0字节的文件以及用户配置得忽略的最小文件大小
+			if fileinfo.Size() > maxSize || fileinfo.Size() <= 0 || fileinfo.Size() < minsize {
 				return nil
 			}
 
@@ -196,7 +198,7 @@ func (c *Cloud) execute(ctx context.Context, filelist []string) error {
 	)
 	defer func() {
 		bar.Finish()
-		c.cmd.Printf("upload failures: %v success: %v\n", fail, len(filelist)-1)
+		c.cmd.Printf("upload success: %v failures: %v \n", int64(len(filelist))-fail, fail)
 	}()
 
 	for _, v := range filelist {
@@ -221,7 +223,7 @@ func (c *Cloud) execute(ctx context.Context, filelist []string) error {
 func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, bar *pb.ProgressBar) error {
 	// 1.读取文件
 	var (
-		ext     = "mp3"
+		ext     = "mp3" // todo: 上传.m4a也能成功,另外bitrate值有何影响？
 		bitrate = "999000"
 		// bitrate = "128000"
 	)
@@ -298,17 +300,18 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 	// 5.上传文件
 	if resp.NeedUpload {
 		var uploadReq = weapi.CloudUploadReq{
-			Bucket:    allocResp.Bucket,
-			ObjectKey: allocResp.ObjectKey,
-			Token:     allocResp.Token,
-			Filepath:  filename,
+			Bucket:      allocResp.Bucket,
+			ObjectKey:   allocResp.ObjectKey,
+			Token:       allocResp.Token,
+			Filepath:    filename,
+			ProgressBar: bar,
 		}
 		uploadResp, err := client.CloudUpload(ctx, &uploadReq)
 		if err != nil {
 			return fmt.Errorf("CloudUpload: %w", err)
 		}
 		log.Debug("CloudUpload resp: %+v\n", uploadResp)
-		if uploadResp.ErrCode != "0" {
+		if uploadResp.ErrCode != "" {
 			return fmt.Errorf("CloudUpload resp: %+v\n", uploadResp)
 		}
 	}
