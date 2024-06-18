@@ -31,7 +31,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chaunsin/netease-cloud-music/api"
+	client "github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/api"
 	"github.com/chaunsin/netease-cloud-music/api/eapi"
 	"github.com/chaunsin/netease-cloud-music/api/linux"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
@@ -42,7 +43,7 @@ import (
 
 type CurlOpts struct {
 	Method  string        // 请求方法
-	Input   string        // 加载文件路径,或文本内容
+	Data    string        // 参数内容
 	Output  string        // 生成文件路径
 	Kind    string        // api类型
 	Timeout time.Duration // 超时时间
@@ -62,14 +63,12 @@ func NewCurl(root *Root, l *log.Logger) *Curl {
 		cmd: &cobra.Command{
 			Use:     "curl",
 			Short:   "Like curl invoke netease cloud music api",
-			Example: "ncm curl -h\nncm curl -k weapi -m Ping -i '{}'",
+			Example: "  ncm curl -h\n  ncm curl -k weapi -i '{}' Ping",
 		},
 	}
 	c.addFlags()
-	c.cmd.Run = func(cmd *cobra.Command, args []string) {
-		if err := c.execute(cmd.Context()); err != nil {
-			cmd.Println(err)
-		}
+	c.cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return c.execute(cmd.Context(), args)
 	}
 
 	return c
@@ -77,9 +76,9 @@ func NewCurl(root *Root, l *log.Logger) *Curl {
 
 func (c *Curl) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Method, "method", "m", "", "request method")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", `{}`, `request params. eg:'{"id":1,"name":"bob"}'`)
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Data, "data", "d", `{}`, `request params. eg:'{"id":1,"name":"bob"}'`)
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate response file directory location")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "weapi|eapi|linux")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "weapi|eapi|linux|api")
 	c.cmd.PersistentFlags().DurationVarP(&c.opts.Timeout, "timeout", "t", 15*time.Second, "request timeout eg:1s、1m")
 }
 
@@ -91,14 +90,16 @@ func (c *Curl) Command() *cobra.Command {
 	return c.cmd
 }
 
-func (c *Curl) execute(ctx context.Context) error {
-	if c.opts.Method == "" {
-		return fmt.Errorf("method is required")
+func (c *Curl) execute(ctx context.Context, args []string) error {
+	var method string
+	if len(args) > 0 {
+		method = strings.TrimSpace(args[0])
 	}
-
-	var args map[string]interface{}
-	if err := json.Unmarshal([]byte(c.opts.Input), &args); err != nil {
-		return err
+	if c.opts.Method != "" {
+		method = c.opts.Method
+	}
+	if method == "" {
+		return fmt.Errorf("method is required")
 	}
 
 	if c.root.Opts.Debug {
@@ -107,7 +108,7 @@ func (c *Curl) execute(ctx context.Context) error {
 		c.root.Cfg.Network.Debug = false
 	}
 
-	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
+	cli, err := client.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
@@ -118,6 +119,8 @@ func (c *Curl) execute(ctx context.Context) error {
 
 	var request any
 	switch c.opts.Kind {
+	case "api":
+		request = api.New(cli)
 	case "epai":
 		request = eapi.New(cli)
 	case "linux":
@@ -128,33 +131,33 @@ func (c *Curl) execute(ctx context.Context) error {
 		request = weapi.New(cli)
 	}
 
-	method, ok := reflect.TypeOf(request).MethodByName(c.opts.Method)
+	methodName, ok := reflect.TypeOf(request).MethodByName(method)
 	if !ok {
-		return fmt.Errorf("method %s not found", c.opts.Method)
+		return fmt.Errorf("method %s not found", method)
 	}
-	if !method.IsExported() {
-		return fmt.Errorf("method %s not exported", c.opts.Method)
+	if !methodName.IsExported() {
+		return fmt.Errorf("method %s not exported", method)
 	}
 	// 判断调用方法参数是否为2个
-	if n := method.Func.Type().NumIn() - 1; n != 2 {
+	if n := methodName.Func.Type().NumIn() - 1; n != 2 {
 		return fmt.Errorf("method %s args length %d invalid", c.opts.Method, n)
 	}
-	log.Debug("method: %+v", method)
+	log.Debug("method: %+v", methodName)
 
 	var (
-		t        = method.Func.Type()
+		t        = methodName.Func.Type()
 		req      = t.In(2).Elem() // 0:为当前请求对应 1:context.Context 2:req请求参数
 		instance = reflect.New(req).Elem()
 	)
 
-	decoder := json.NewDecoder(strings.NewReader(c.opts.Input))
+	decoder := json.NewDecoder(strings.NewReader(c.opts.Data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(instance.Addr().Interface()); err != nil {
 		return err
 	}
 	log.Debug("request: %+v", instance)
 
-	resp := method.Func.Call([]reflect.Value{reflect.ValueOf(request), reflect.ValueOf(ctx), instance.Addr()})
+	resp := methodName.Func.Call([]reflect.Value{reflect.ValueOf(request), reflect.ValueOf(ctx), instance.Addr()})
 	if len(resp) != 2 {
 		return fmt.Errorf("method %s resp length %d invalid", c.opts.Method, len(resp))
 	}

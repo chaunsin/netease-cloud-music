@@ -33,6 +33,7 @@ import (
 
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+
 	"github.com/cheggaaa/pb/v3"
 )
 
@@ -349,11 +350,6 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 			}
 		}
 	}
-
-	// if req.CSRFToken == "" {
-	// 	csrf, _ := a.client.GetCSRF(url)
-	// 	req.CSRFToken = csrf
-	// }
 
 	var headers = map[string]string{
 		"X-Nos-Token": req.Token,
