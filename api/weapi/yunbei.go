@@ -79,10 +79,9 @@ type YunBeiSignInfoRespData struct {
 // YunBeiSignInfo 获取用户每日签到任务信息？
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiSignInfo(ctx context.Context, req *YunBeiSignInfoReq) (*YunBeiSignInfoResp, error) {
 	var (
-		url   = "https://music.163.com/api/point/signed/get"
+		url   = "https://music.163.com/weapi/point/signed/get"
 		reply YunBeiSignInfoResp
 	)
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
@@ -129,10 +128,9 @@ type YunBeiUserInfoResp struct {
 // YunBeiUserInfo 获取用户云贝用户信息
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiUserInfo(ctx context.Context, req *YunBeiUserInfoReq) (*YunBeiUserInfoResp, error) {
 	var (
-		url   = "https://music.163.com/api/v1/user/info"
+		url   = "https://music.163.com/weapi/v1/user/info"
 		reply YunBeiUserInfoResp
 	)
 
@@ -158,10 +156,9 @@ type YunBeiSignInV2RespData struct {
 // YunBeiSignInV2 每日签到 TODO: 和 YunBeiSignIn() 有啥区别？
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiSignInV2(ctx context.Context, req *YunBeiSignInV2Req) (*YunBeiSignInV2Resp, error) {
 	var (
-		url   = "https://music.163.com/api/pointmall/user/sign"
+		url   = "https://music.163.com/weapi/pointmall/user/sign"
 		reply YunBeiSignInV2Resp
 	)
 
@@ -186,10 +183,9 @@ type YunBeiTodaySignInInfoRespData struct {
 // YunBeiTodaySignInInfo 获取今天签到获取的云贝数量
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiTodaySignInInfo(ctx context.Context, req *YunBeiTodaySignInInfoReq) (*YunBeiTodaySignInInfoResp, error) {
 	var (
-		url   = "https://music.163.com/api/point/today/get"
+		url   = "https://music.163.com/weapi/point/today/get"
 		reply YunBeiTodaySignInInfoResp
 	)
 
@@ -342,10 +338,9 @@ type YunBeiTaskListRespData struct {
 // YunBeiTaskList 获取用户云贝任务列表
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiTaskList(ctx context.Context, req *YunBeiTaskListReq) (*YunBeiTaskListResp, error) {
 	var (
-		url   = "https://music.163.com/api/usertool/task/list/all"
+		url   = "https://music.163.com/weapi/usertool/task/list/all"
 		reply YunBeiTaskListResp
 	)
 
@@ -415,7 +410,6 @@ type YunBeiTaskListRespV3Data struct {
 // YunBeiTaskListV3 获取用户云贝任务列表V3
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiTaskListV3(ctx context.Context, req *YunBeiTaskListReqV3) (*YunBeiTaskListRespV3, error) {
 	var (
 		url   = "https://music.163.com/weapi/usertool/task/list/all/v3"
@@ -454,10 +448,9 @@ type YunBeiTaskTodoRespData struct {
 // YunBeiTaskTodo 获取用户云贝todo任务列表
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiTaskTodo(ctx context.Context, req *YunBeiTaskTodoReq) (*YunBeiTaskTodoResp, error) {
 	var (
-		url   = "https://music.163.com/api/usertool/task/todo/query"
+		url   = "https://music.163.com/weapi/usertool/task/todo/query"
 		reply YunBeiTaskTodoResp
 	)
 
@@ -489,10 +482,9 @@ type YunBeiTaskFinishResp struct {
 // YunBeiTaskFinish 获取完成云贝任务奖励
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiTaskFinish(ctx context.Context, req *YunBeiTaskFinishReq) (*YunBeiTaskFinishResp, error) {
 	var (
-		url   = "https://music.163.com/api/usertool/task/point/receive"
+		url   = "https://music.163.com/weapi/usertool/task/point/receive"
 		reply YunBeiTaskFinishResp
 	)
 	if req.Period == "" {
@@ -526,7 +518,6 @@ type YunBeiSignInCalendarRespData struct {
 // YunBeiSignInCalendar 获取签到日历情况
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiSignInCalendar(ctx context.Context, req *YunBeiSignInCalendarReq) (*YunBeiSignInCalendarResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/pointmall/sign/calendar"
@@ -548,10 +539,9 @@ type YunBeiSignInJudgeResp struct {
 	types.RespCommon[bool]
 }
 
-// YunBeiSignInJudge todo: 貌似判断当日是否签到状态待确认
+// YunBeiSignInJudge todo: 貌似判断当日是否签到状态待确认经测试发现未签到时也是返回true状态，还需要确定排查
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiSignInJudge(ctx context.Context, req *YunBeiSignInJudgeReq) (*YunBeiSignInJudgeResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/pointmall/extra/sign/judge"
@@ -603,7 +593,6 @@ type YunBeiSignInProgressRespDataLotteryConfig struct {
 // YunBeiSignInProgress 获取签到阶段奖励列表
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiSignInProgress(ctx context.Context, req *YunBeiSignInProgressReq) (*YunBeiSignInProgressResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/pointmall/user/sign/config"
@@ -633,7 +622,6 @@ type YunBeiNewJudgeRespData struct {
 // YunBeiNewJudge TODO: 未知
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiNewJudge(ctx context.Context, req *YunBeiNewJudgeReq) (*YunBeiNewJudgeResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/usertool/user/new/judge"
@@ -662,7 +650,6 @@ type YunBeiExpireRespData struct {
 // YunBeiExpire TODO: 应该是获取云贝过期数量
 // url:
 // needLogin: 是
-// todo: 迁移到合适的包中
 func (a *Api) YunBeiExpire(ctx context.Context, req *YunBeiExpireReq) (*YunBeiExpireResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/yunbei/expire/get"
