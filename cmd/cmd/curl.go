@@ -121,7 +121,7 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 	switch c.opts.Kind {
 	case "api":
 		request = api.New(cli)
-	case "epai":
+	case "eapi":
 		request = eapi.New(cli)
 	case "linux":
 		request = linux.New(cli)
@@ -153,7 +153,7 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 	decoder := json.NewDecoder(strings.NewReader(c.opts.Data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(instance.Addr().Interface()); err != nil {
-		return err
+		return fmt.Errorf("Decode: %w", err)
 	}
 	log.Debug("request: %+v", instance)
 

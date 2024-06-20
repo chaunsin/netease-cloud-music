@@ -25,6 +25,7 @@ package eapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -32,6 +33,16 @@ import (
 )
 
 type V3SongDetailReq struct {
+	C []V3SongDetailReqList `json:"c"`
+}
+
+type V3SongDetailReqList struct {
+	Id string `json:"id"`
+	V  int64  `json:"v"`
+}
+
+type v3SongDetailReq struct {
+	C string `json:"c"`
 }
 
 // V3SongDetailResp
@@ -115,18 +126,127 @@ type V3SongDetailReq struct {
 // publish_time: i64, 毫秒为单位的Unix时间戳
 type V3SongDetailResp struct {
 	types.RespCommon[any]
-	Playlist PlaylistRespList `json:"playlist"`
-	Version  string           `json:"version"` // 时间戳1703557080686
+	Songs      []V3SongDetailRespSongs      `json:"songs"`
+	Privileges []V3SongDetailRespPrivileges `json:"privileges"`
 }
 
-// V3SongDetail 未知
-// url: https://app.apifox.com/project/3870894
+type V3SongDetailRespSongs struct {
+	Name string `json:"name"`
+	Id   int    `json:"id"`
+	Pst  int    `json:"pst"`
+	T    int    `json:"t"`
+	Ar   []struct {
+		Id    int           `json:"id"`
+		Name  string        `json:"name"`
+		Tns   []interface{} `json:"tns"`
+		Alias []interface{} `json:"alias"`
+	} `json:"ar"`
+	Alia []interface{} `json:"alia"`
+	Pop  float64       `json:"pop"`
+	St   int           `json:"st"`
+	Rt   string        `json:"rt"`
+	Fee  int           `json:"fee"`
+	V    int           `json:"v"`
+	Crbt interface{}   `json:"crbt"`
+	Cf   string        `json:"cf"`
+	Al   struct {
+		Id     int           `json:"id"`
+		Name   string        `json:"name"`
+		PicUrl string        `json:"picUrl"`
+		Tns    []interface{} `json:"tns"`
+		PicStr string        `json:"pic_str"`
+		Pic    int64         `json:"pic"`
+	} `json:"al"`
+	Dt                   int           `json:"dt"`
+	H                    types.Quality `json:"h"`
+	M                    types.Quality `json:"m"`
+	L                    types.Quality `json:"l"`
+	Sq                   types.Quality `json:"sq"`
+	Hr                   interface{}   `json:"hr"`
+	A                    interface{}   `json:"a"`
+	Cd                   string        `json:"cd"`
+	No                   int           `json:"no"`
+	RtUrl                interface{}   `json:"rtUrl"`
+	Ftype                int           `json:"ftype"`
+	RtUrls               []interface{} `json:"rtUrls"`
+	DjId                 int           `json:"djId"`
+	Copyright            int           `json:"copyright"`
+	SId                  int           `json:"s_id"`
+	Mark                 int           `json:"mark"`
+	OriginCoverType      int           `json:"originCoverType"`
+	OriginSongSimpleData interface{}   `json:"originSongSimpleData"`
+	TagPicList           interface{}   `json:"tagPicList"`
+	ResourceState        bool          `json:"resourceState"`
+	Version              int           `json:"version"`
+	SongJumpInfo         interface{}   `json:"songJumpInfo"`
+	EntertainmentTags    interface{}   `json:"entertainmentTags"`
+	AwardTags            interface{}   `json:"awardTags"`
+	Single               int           `json:"single"`
+	NoCopyrightRcmd      interface{}   `json:"noCopyrightRcmd"`
+	Mv                   int           `json:"mv"`
+	Rurl                 interface{}   `json:"rurl"`
+	Mst                  int           `json:"mst"`
+	Cp                   int           `json:"cp"`
+	Rtype                int           `json:"rtype"`
+	PublishTime          int           `json:"publishTime"`
+}
+
+type V3SongDetailRespPrivileges struct {
+	Id                 int         `json:"id"`
+	Fee                int         `json:"fee"`
+	Payed              int         `json:"payed"`
+	St                 int         `json:"st"`
+	Pl                 int         `json:"pl"`
+	Dl                 int         `json:"dl"`
+	Sp                 int         `json:"sp"`
+	Cp                 int         `json:"cp"`
+	Subp               int         `json:"subp"`
+	Cs                 bool        `json:"cs"`
+	Maxbr              int         `json:"maxbr"`
+	Fl                 int         `json:"fl"`
+	Toast              bool        `json:"toast"`
+	Flag               int         `json:"flag"`
+	PreSell            bool        `json:"preSell"`
+	PlayMaxbr          int         `json:"playMaxbr"`
+	DownloadMaxbr      int         `json:"downloadMaxbr"`
+	MaxBrLevel         string      `json:"maxBrLevel"`
+	PlayMaxBrLevel     string      `json:"playMaxBrLevel"`
+	DownloadMaxBrLevel string      `json:"downloadMaxBrLevel"`
+	PlLevel            string      `json:"plLevel"`
+	DlLevel            string      `json:"dlLevel"`
+	FlLevel            string      `json:"flLevel"`
+	Rscl               interface{} `json:"rscl"`
+	FreeTrialPrivilege struct {
+		ResConsumable      bool        `json:"resConsumable"`
+		UserConsumable     bool        `json:"userConsumable"`
+		ListenType         interface{} `json:"listenType"`
+		CannotListenReason interface{} `json:"cannotListenReason"`
+		PlayReason         interface{} `json:"playReason"`
+	} `json:"freeTrialPrivilege"`
+	RightSource    int `json:"rightSource"`
+	ChargeInfoList []struct {
+		Rate          int         `json:"rate"`
+		ChargeUrl     interface{} `json:"chargeUrl"`
+		ChargeMessage interface{} `json:"chargeMessage"`
+		ChargeType    int         `json:"chargeType"`
+	} `json:"chargeInfoList"`
+}
+
+// V3SongDetail todo: 歌单列表 应该是根据歌单ID获取
+// url: https://app.apifox.com/project/3870894 testdata/har/1.har
 func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDetailResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/v3/song/detail"
 		reply V3SongDetailResp
 	)
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", req, &reply)
+
+	// "[{\"id\":\"1974334953\",\"v\":0}]
+	data, err := json.Marshal(req.C)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", &v3SongDetailReq{C: string(data)}, &reply)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

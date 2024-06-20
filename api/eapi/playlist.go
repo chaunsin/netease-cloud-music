@@ -32,9 +32,10 @@ import (
 )
 
 type PlaylistReq struct {
-	Uid    int `json:"uid"`
-	Offset int `json:"offset"`
-	Limit  int `json:"limit"`
+	Uid    string `json:"uid"`
+	Offset string `json:"offset"`
+	// Limit default 1000
+	Limit string `json:"limit"`
 }
 
 type PlaylistRespList struct {
@@ -127,14 +128,18 @@ type PlaylistResp struct {
 	Playlist []PlaylistRespList `json:"playlist"`
 }
 
-// Playlist 歌单列表
-// url: https://app.apifox.com/project/3870894
+// Playlist 歌单列表.其中包含用户创建得歌单+我喜欢得歌单
+// url: https://app.apifox.com/project/3870894 testdata/har/4.har
 // NeedLogin: 未知
 func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/user/playlist/"
 		reply PlaylistResp
 	)
+	if req.Limit == "" {
+		req.Limit = "1000"
+	}
+
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", req, &reply)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)

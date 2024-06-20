@@ -68,13 +68,6 @@ type CloudListRespData struct {
 	FileName   string                      `json:"fileName"` // 音乐文件名称例如: 陈琳 - 十二种颜色.flac
 }
 
-type Quality struct {
-	Br   int     `json:"br"`
-	Fid  int     `json:"fid"`
-	Size int     `json:"size"`
-	Vd   float64 `json:"vd"`
-}
-
 type CloudListRespDataSimpleSong struct {
 	Name string `json:"name"`
 	Id   int    `json:"id"`
@@ -103,9 +96,9 @@ type CloudListRespDataSimpleSong struct {
 		Pic    int64         `json:"pic"`
 	} `json:"al"`
 	Dt                   int           `json:"dt"`
-	H                    Quality       `json:"h"`
-	M                    Quality       `json:"m"`
-	L                    Quality       `json:"l"`
+	H                    types.Quality `json:"h"`
+	M                    types.Quality `json:"m"`
+	L                    types.Quality `json:"l"`
 	A                    interface{}   `json:"a"`
 	Cd                   string        `json:"cd"`
 	No                   int           `json:"no"`
@@ -417,9 +410,9 @@ type PrivateCloud struct {
 			Pic    int64         `json:"pic"`
 		} `json:"al"`
 		Dt                   int           `json:"dt"`
-		H                    Quality       `json:"h"`
-		M                    Quality       `json:"m"`
-		L                    Quality       `json:"l"`
+		H                    types.Quality `json:"h"`
+		M                    types.Quality `json:"m"`
+		L                    types.Quality `json:"l"`
 		A                    interface{}   `json:"a"`
 		Cd                   string        `json:"cd"`
 		No                   int           `json:"no"`
@@ -530,6 +523,65 @@ func (a *Api) CloudPublish(ctx context.Context, req *CloudPublishReq) (*CloudPub
 	var (
 		url   = "https://interface.music.163.com/weapi/cloud/pub/v2" // 是api还是weapi
 		reply CloudPublishResp
+	)
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type CloudDownloadReq struct {
+	SongId string `json:"songId"`
+}
+
+type CloudDownloadResp struct {
+	types.RespCommon[any]
+	Name string `json:"name"`
+	Url  string `json:"url"`
+	// Size 单位字节(B)
+	Size int64 `json:"size"`
+}
+
+// CloudDownload 云盘歌曲下载歌曲
+// url: testdata/har/2.har
+// needLogin: 未知
+func (a *Api) CloudDownload(ctx context.Context, req *CloudDownloadReq) (*CloudDownloadResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/cloud/dowonload"
+		reply CloudDownloadResp
+	)
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type CloudLyricReq struct {
+	UserId string `json:"userId,omitempty"`
+	SongId string `json:"songId,omitempty"`
+	Lv     string `json:"lv,omitempty"`
+	Kv     string `json:"kv,omitempty"`
+}
+
+type CloudLyricResp struct {
+	types.RespCommon[any]
+	Lyc string `json:"lrc"`
+	Krc string `json:"krc"`
+}
+
+// CloudLyric 云盘歌曲歌词获取
+// url: testdata/har/3.har
+// needLogin: 未知
+func (a *Api) CloudLyric(ctx context.Context, req *CloudLyricReq) (*CloudLyricResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/cloud/lyric/get"
+		reply CloudLyricResp
 	)
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)

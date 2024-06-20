@@ -463,9 +463,8 @@ func (a *Api) YunBeiTaskTodo(ctx context.Context, req *YunBeiTaskTodoReq) (*YunB
 }
 
 type YunBeiTaskFinishReq struct {
-	Period     string `json:"period"`
-	UserTaskId string `json:"userTaskId"`
-	// DepositCode 默认为0
+	Period      string `json:"period"`
+	UserTaskId  string `json:"userTaskId"`
 	DepositCode string `json:"depositCode"`
 }
 
@@ -479,7 +478,7 @@ type YunBeiTaskFinishResp struct {
 	Empty   bool
 }
 
-// YunBeiTaskFinish 获取完成云贝任务奖励
+// YunBeiTaskFinish 获取完成云贝任务奖励,一次只能领取一个,网易一键领取是调用了多次该接口实现。
 // url:
 // needLogin: 是
 func (a *Api) YunBeiTaskFinish(ctx context.Context, req *YunBeiTaskFinishReq) (*YunBeiTaskFinishResp, error) {
@@ -487,12 +486,6 @@ func (a *Api) YunBeiTaskFinish(ctx context.Context, req *YunBeiTaskFinishReq) (*
 		url   = "https://music.163.com/weapi/usertool/task/point/receive"
 		reply YunBeiTaskFinishResp
 	)
-	if req.Period == "" {
-		req.Period = "0"
-	}
-	if req.DepositCode == "" {
-		req.DepositCode = "0"
-	}
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
 	if err != nil {
@@ -654,6 +647,36 @@ func (a *Api) YunBeiExpire(ctx context.Context, req *YunBeiExpireReq) (*YunBeiEx
 	var (
 		url   = "https://music.163.com/weapi/yunbei/expire/get"
 		reply YunBeiExpireResp
+	)
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiRecommendConfigReq struct{}
+
+type YunBeiRecommendConfigResp struct {
+	types.RespCommon[YunBeiRecommendConfigRespData]
+}
+
+type YunBeiRecommendConfigRespData struct {
+	RedeemCount      int    `json:"redeemCount"`
+	RedeemFlag       int    `json:"redeemFlag"`
+	RedeemProductIds string `json:"redeemProductIds"`
+	RefreshTime      int    `json:"refreshTime"`
+}
+
+// YunBeiRecommendConfig 推荐配置
+// url:
+// needLogin: 是
+func (a *Api) YunBeiRecommendConfig(ctx context.Context, req *YunBeiRecommendConfigReq) (*YunBeiRecommendConfigResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/pointmall/recommend/config"
+		reply YunBeiRecommendConfigResp
 	)
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)

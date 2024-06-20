@@ -107,9 +107,8 @@ func NewClient(cfg *Config, l *log.Logger) (*Client, error) {
 	cli.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	cli.SetDebug(cfg.Debug)
 	cli.SetCookieJar(jar)
-	cli.OnAfterResponse(dump)
-	// cli.OnAfterResponse(decrypt)
 	cli.OnAfterResponse(contentEncoding)
+	// cli.OnAfterResponse(dump)
 	// cli.OnBeforeRequest(encrypt)
 	// cli.SetLogger(l)
 	// cli.AddRetryHook(func(resp *resty.Response, err error) {
@@ -394,31 +393,6 @@ func (c *Client) Upload(ctx context.Context, url string, headers map[string]stri
 		return nil, fmt.Errorf("http status code: %d", response.StatusCode())
 	}
 	return response, nil
-}
-
-func encrypt(c *resty.Client, req *resty.Request) error {
-	u, err := neturl.Parse(req.URL)
-	if err != nil {
-		return err
-	}
-	data, err := crypto.EApiEncrypt(u.Path, req.Body)
-	if err != nil {
-		return fmt.Errorf("EApiEncrypt: %w", err)
-	}
-	log.Debug("data: %+v encrypt: %+v", req.Body, data)
-	return nil
-}
-
-func decrypt(c *resty.Client, resp *resty.Response) error {
-	raw, err := crypto.EApiDecrypt(string(resp.Body()), "")
-	if err != nil {
-		return fmt.Errorf("EApiDecrypt: %w", err)
-	}
-	log.Debug("raw: %+v\n", string(raw))
-	if err := json.Unmarshal(raw, resp.Result()); err != nil {
-		return err
-	}
-	return nil
 }
 
 func contentEncoding(c *resty.Client, resp *resty.Response) error {
