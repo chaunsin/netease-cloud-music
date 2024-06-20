@@ -21,7 +21,7 @@
 // SOFTWARE.
 //
 
-package eapi
+package weapi
 
 import (
 	"testing"
@@ -29,11 +29,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestYunBeiInSign(t *testing.T) {
-	var req = YunBeiSignInReq{
-		Type: 1,
+func TestPlaylist(t *testing.T) {
+	var req = PlaylistReq{
+		Uid:    "1289504343",
+		Offset: "",
+		Limit:  "30",
 	}
-	got, err := cli.YunBeiSignIn(ctx, &req)
+	got, err := cli.Playlist(ctx, &req)
 	assert.NoError(t, err)
-	t.Logf("YunBeiSignIn: %+v\n", got)
+	t.Logf("Playlist: %+v\n", got)
 }

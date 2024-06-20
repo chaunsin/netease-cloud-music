@@ -30,10 +30,10 @@ import (
 )
 
 func TestYunBeiSign(t *testing.T) {
-	var req = YunBeiSignReq{
+	var req = YunBeiSignInReq{
 		Type: 1,
 	}
-	got, err := cli.YunBeiSign(ctx, &req)
+	got, err := cli.YunBeiSignIn(ctx, &req)
 	assert.NoError(t, err)
-	t.Logf("YunBeiSign: %+v\n", got)
+	t.Logf("YunBeiSignIn: %+v\n", got)
 }

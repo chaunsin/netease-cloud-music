@@ -44,11 +44,11 @@ type YunBeiSignInResp struct {
 	Point int64 `json:"point"`
 }
 
-// YunBeiSign 用户每日签到
+// YunBeiSignIn 用户每日签到
 // url:
 // needLogin: 是
 // todo:目前传0会出现功能暂不支持不知为何(可能请求头或cookie问题)待填坑
-func (a *Api) YunBeiSign(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSignInResp, error) {
+func (a *Api) YunBeiSignIn(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSignInResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/point/dailyTask"
 		reply YunBeiSignInResp

@@ -31,9 +31,9 @@ import (
 
 func TestPlaylist(t *testing.T) {
 	var req = PlaylistReq{
-		Uid:    1289504343,
-		Offset: 0,
-		Limit:  30,
+		Uid:    "1289504343",
+		Offset: "",
+		Limit:  "30",
 	}
 	got, err := cli.Playlist(ctx, &req)
 	assert.NoError(t, err)

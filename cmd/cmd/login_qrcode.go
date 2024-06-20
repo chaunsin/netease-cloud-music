@@ -111,12 +111,12 @@ func (c *loginQrcodeCmd) execute(ctx context.Context) error {
 	if err := os.MkdirAll(p, os.ModePerm); err != nil {
 		return fmt.Errorf("MkdirAll: %w", err)
 	}
-	p = filepath.Join(p, "qrcode.png")
-	if err := os.WriteFile(p, qr.Qrcode, os.ModePerm); err != nil {
+	var file = filepath.Join(p, "qrcode.png")
+	if err := os.WriteFile(file, qr.Qrcode, os.ModePerm); err != nil {
 		return err
 	}
 	c.cmd.Println(">>>>> please scan qrcode in your phone <<<<<")
-	c.cmd.Printf("qrcode file %s\n", p)
+	c.cmd.Printf("qrcode file %s\n", file)
 	c.cmd.Printf("qrcode: \n%s\n", qr.QrcodePrint)
 
 	// 4. 轮训获取扫码状态
@@ -147,6 +147,12 @@ func (c *loginQrcodeCmd) execute(ctx context.Context) error {
 		}
 	}
 ok:
+
+	if err := os.Remove(file); err != nil {
+		if !os.IsNotExist(err) {
+			log.Info("remove qrcode file: %s", err)
+		}
+	}
 
 	// 5. 查询登录信息是否成功
 	user, err := request.GetUserInfo(ctx, &weapi.GetUserInfoReq{})

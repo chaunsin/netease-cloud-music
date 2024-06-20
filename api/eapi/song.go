@@ -234,6 +234,7 @@ type V3SongDetailRespPrivileges struct {
 
 // V3SongDetail todo: 歌单列表 应该是根据歌单ID获取
 // url: https://app.apifox.com/project/3870894 testdata/har/1.har
+// needLogin: 未知
 func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDetailResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/v3/song/detail"

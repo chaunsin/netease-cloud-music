@@ -21,19 +21,35 @@
 // SOFTWARE.
 //
 
-package eapi
+package weapi
 
 import (
-	"testing"
+	"context"
+	"fmt"
+	"net/http"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
-func TestYunBeiInSign(t *testing.T) {
-	var req = YunBeiSignInReq{
-		Type: 1,
+type CDNListReq struct{}
+
+type CDNListResp struct {
+	types.RespCommon[[][]string]
+}
+
+// CDNList 获取CDN列表
+// url: testdata/har/5.har
+// needLogin: 未知
+func (a *Api) CDNList(ctx context.Context, req *CDNListReq) (*CDNListResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/cdns"
+		reply CDNListResp
+	)
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
 	}
-	got, err := cli.YunBeiSignIn(ctx, &req)
-	assert.NoError(t, err)
-	t.Logf("YunBeiSignIn: %+v\n", got)
+	_ = resp
+	return &reply, nil
 }
