@@ -21,7 +21,7 @@
 // SOFTWARE.
 //
 
-package cmd
+package ncmctl
 
 import (
 	"flag"
