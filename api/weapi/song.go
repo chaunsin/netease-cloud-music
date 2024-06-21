@@ -32,133 +32,6 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
-// SongPlayerReq
-//
-//	{
-//	   "ids": "[1955097630]",
-//	   "br": "128000",
-//	   "csrf_token": "77bf3a5074699038504234d63d68d917"
-//	}
-type SongPlayerReq struct {
-	types.ReqCommon
-	Ids types.IntsString `json:"ids"` // 歌曲id
-	Br  string           `json:"br"`  // 音乐bit率 例如:128000 320000
-}
-
-// SongPlayerResp
-//
-//	{
-//	   "data": [
-//	       {
-//	           "id": 1955097630,
-//	           "url": "http://m804.music.126.net/20240517003128/e80a8269f8e418f11fd349420dcf42e6/jdymusic/obj/wo3DlMOGwrbDjj7DisKw/14968401923/7c8d/4357/dc0e/50023048ed42819c67acaec403d832fe.mp3?authSecret=0000018f8227a7c702350aaba39a935b",
-//	           "br": 128000,
-//	           "size": 4265133,
-//	           "md5": "50023048ed42819c67acaec403d832fe",
-//	           "code": 200,
-//	           "expi": 1200,
-//	           "type": "mp3",
-//	           "gain": 0,
-//	           "peak": 0,
-//	           "fee": 0,
-//	           "uf": null,
-//	           "payed": 0,
-//	           "flag": 1,
-//	           "canExtend": false,
-//	           "freeTrialInfo": null,
-//	           "level": "standard",
-//	           "encodeType": "mp3",
-//	           "channelLayout": null,
-//	           "freeTrialPrivilege": {
-//	               "resConsumable": false,
-//	               "userConsumable": false,
-//	               "listenType": null,
-//	               "cannotListenReason": null,
-//	               "playReason": null
-//	           },
-//	           "freeTimeTrialPrivilege": {
-//	               "resConsumable": false,
-//	               "userConsumable": false,
-//	               "type": 0,
-//	               "remainTime": 0
-//	           },
-//	           "urlSource": 0,
-//	           "rightSource": 0,
-//	           "podcastCtrp": null,
-//	           "effectTypes": null,
-//	           "time": 266516,
-//	           "message": null
-//	       }
-//	   ],
-//	   "code": 200
-//	}
-type SongPlayerResp struct {
-	types.RespCommon[[]SongPlayerReqData]
-}
-
-type SongPlayerReqData struct {
-	Id                 int         `json:"id"`
-	Url                string      `json:"url"`
-	Br                 int         `json:"br"`
-	Size               int         `json:"size"`
-	Md5                string      `json:"md5"`
-	Code               int         `json:"code"`
-	Expi               int         `json:"expi"`
-	Type               string      `json:"type"` // 类型eg: mp3、FLAC
-	Gain               float64     `json:"gain"`
-	Peak               float64     `json:"peak"`
-	Fee                int         `json:"fee"`
-	Uf                 interface{} `json:"uf"`
-	Payed              int         `json:"payed"`
-	Flag               int         `json:"flag"`
-	CanExtend          bool        `json:"canExtend"`
-	FreeTrialInfo      interface{} `json:"freeTrialInfo"`
-	Level              string      `json:"level"` // 通常所说的音质水平 eg: standard、exhigh、higher、lossless、hires
-	EncodeType         string      `json:"encodeType"`
-	ChannelLayout      interface{} `json:"channelLayout"`
-	FreeTrialPrivilege struct {
-		ResConsumable      bool        `json:"resConsumable"`
-		UserConsumable     bool        `json:"userConsumable"`
-		ListenType         interface{} `json:"listenType"`
-		CannotListenReason interface{} `json:"cannotListenReason"`
-		PlayReason         interface{} `json:"playReason"`
-	} `json:"freeTrialPrivilege"`
-	FreeTimeTrialPrivilege struct {
-		ResConsumable  bool `json:"resConsumable"`
-		UserConsumable bool `json:"userConsumable"`
-		Type           int  `json:"type"`
-		RemainTime     int  `json:"remainTime"`
-	} `json:"freeTimeTrialPrivilege"`
-	UrlSource   int         `json:"urlSource"`
-	RightSource int         `json:"rightSource"`
-	PodcastCtrp interface{} `json:"podcastCtrp"`
-	EffectTypes interface{} `json:"effectTypes"`
-	Time        int         `json:"time"` // 音乐时长,单位毫秒
-	Message     interface{} `json:"message"`
-}
-
-// SongPlayer 音乐播放详情
-// url:
-// needLogin: 未知
-// 提示: 获取的歌曲url有时效性,失效时间目前测试为20分钟,过期访问则会出现403错误
-func (a *Api) SongPlayer(ctx context.Context, req *SongPlayerReq) (*SongPlayerResp, error) {
-	var (
-		url   = "https://interface.music.163.com/weapi/song/enhance/player/url"
-		reply SongPlayerResp
-	)
-	if req.CSRFToken == "" {
-		csrf, _ := a.client.GetCSRF(url)
-		req.CSRFToken = csrf
-	}
-
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
-	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
-	}
-	_ = resp
-	return &reply, nil
-}
-
 // Level 音乐品质
 type Level string
 
@@ -506,6 +379,156 @@ func (a *Api) SongMusicQuality(ctx context.Context, req *SongMusicQualityReq) (*
 	var (
 		url   = "https://music.163.com/weapi/song/music/detail/get"
 		reply SongMusicQualityResp
+	)
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", &req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+// SongPlayerReq
+//
+//	{
+//	   "ids": "[1955097630]",
+//	   "br": "128000",
+//	   "csrf_token": "77bf3a5074699038504234d63d68d917"
+//	}
+type SongPlayerReq struct {
+	types.ReqCommon
+	Ids types.IntsString `json:"ids"` // 歌曲id
+	Br  string           `json:"br"`  // 音乐bit率 例如:128000 320000
+}
+
+type SongPlayerResp struct {
+	types.RespCommon[[]SongPlayerReqData]
+}
+
+type SongPlayerReqData struct {
+	Id                 int         `json:"id"`
+	Url                string      `json:"url"`
+	Br                 int         `json:"br"`
+	Size               int         `json:"size"`
+	Md5                string      `json:"md5"`
+	Code               int         `json:"code"`
+	Expi               int         `json:"expi"`
+	Type               string      `json:"type"` // 类型eg: mp3、FLAC
+	Gain               float64     `json:"gain"`
+	Peak               float64     `json:"peak"`
+	Fee                int         `json:"fee"`
+	Uf                 interface{} `json:"uf"`
+	Payed              int         `json:"payed"`
+	Flag               int         `json:"flag"`
+	CanExtend          bool        `json:"canExtend"`
+	FreeTrialInfo      interface{} `json:"freeTrialInfo"`
+	Level              string      `json:"level"` // 通常所说的音质水平 eg: standard、exhigh、higher、lossless、hires
+	EncodeType         string      `json:"encodeType"`
+	ChannelLayout      interface{} `json:"channelLayout"`
+	FreeTrialPrivilege struct {
+		ResConsumable      bool        `json:"resConsumable"`
+		UserConsumable     bool        `json:"userConsumable"`
+		ListenType         interface{} `json:"listenType"`
+		CannotListenReason interface{} `json:"cannotListenReason"`
+		PlayReason         interface{} `json:"playReason"`
+	} `json:"freeTrialPrivilege"`
+	FreeTimeTrialPrivilege struct {
+		ResConsumable  bool `json:"resConsumable"`
+		UserConsumable bool `json:"userConsumable"`
+		Type           int  `json:"type"`
+		RemainTime     int  `json:"remainTime"`
+	} `json:"freeTimeTrialPrivilege"`
+	UrlSource   int         `json:"urlSource"`
+	RightSource int         `json:"rightSource"`
+	PodcastCtrp interface{} `json:"podcastCtrp"`
+	EffectTypes interface{} `json:"effectTypes"`
+	Time        int         `json:"time"` // 音乐时长,单位毫秒
+	Message     interface{} `json:"message"`
+}
+
+// SongPlayer 音乐播放详情
+// url:
+// needLogin: 未知
+// 提示: 获取的歌曲url有时效性,失效时间目前测试为20分钟,过期访问则会出现403错误
+func (a *Api) SongPlayer(ctx context.Context, req *SongPlayerReq) (*SongPlayerResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/song/enhance/player/url"
+		reply SongPlayerResp
+	)
+	if req.CSRFToken == "" {
+		csrf, _ := a.client.GetCSRF(url)
+		req.CSRFToken = csrf
+	}
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type SongDownloadUrlReq struct {
+	Id string `json:"id"`
+	Br string `json:"br"`
+}
+
+type SongDownloadUrlResp struct {
+	types.RespCommon[SongDownloadUrlRespData]
+}
+
+type SongDownloadUrlRespData struct {
+	Br                     int         `json:"br"`
+	CanExtend              bool        `json:"canExtend"`
+	ChannelLayout          interface{} `json:"channelLayout"`
+	Code                   int         `json:"code"`
+	EffectTypes            interface{} `json:"effectTypes"`
+	EncodeType             string      `json:"encodeType"`
+	Expi                   int         `json:"expi"`
+	Fee                    int         `json:"fee"`
+	Flag                   int         `json:"flag"`
+	FreeTimeTrialPrivilege struct {
+		RemainTime     int  `json:"remainTime"`
+		ResConsumable  bool `json:"resConsumable"`
+		Type           int  `json:"type"`
+		UserConsumable bool `json:"userConsumable"`
+	} `json:"freeTimeTrialPrivilege"`
+	FreeTrialInfo      interface{} `json:"freeTrialInfo"`
+	FreeTrialPrivilege struct {
+		CannotListenReason interface{} `json:"cannotListenReason"`
+		ListenType         interface{} `json:"listenType"`
+		PlayReason         interface{} `json:"playReason"`
+		ResConsumable      bool        `json:"resConsumable"`
+		UserConsumable     bool        `json:"userConsumable"`
+	} `json:"freeTrialPrivilege"`
+	Gain         float64     `json:"gain"`
+	Id           int         `json:"id"`
+	Level        string      `json:"level"`
+	LevelConfuse interface{} `json:"levelConfuse"`
+	Md5          string      `json:"md5"`
+	Message      interface{} `json:"message"`
+	Payed        int         `json:"payed"`
+	Peak         float64     `json:"peak"`
+	PodcastCtrp  interface{} `json:"podcastCtrp"`
+	RightSource  int         `json:"rightSource"`
+	Size         int         `json:"size"`
+	Time         int         `json:"time"`
+	Type         string      `json:"type"`
+	Uf           interface{} `json:"uf"`
+	Url          string      `json:"url"`
+	UrlSource    int         `json:"urlSource"`
+}
+
+// SongDownloadUrl 根据歌曲id获取下载链接
+// url:
+// needLogin: 未知
+// 说明: 使用 SongPlayer(song/enhance/player/url) 接口获取的是歌曲试听 url, 但存在部分歌曲在非 VIP 账号上可以下载无损音质而不能试听无损音质, 使用此接口可使非 VIP 账号获取这些歌曲的无损音频
+// see: https://gitlab.com/Binaryify/neteasecloudmusicapi/-/blob/main/public/docs/home.md?ref_type=heads#%E8%8E%B7%E5%8F%96%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%AD%8C%E6%9B%B2%E4%B8%8B%E8%BD%BD-url
+func (a *Api) SongDownloadUrl(ctx context.Context, req *SongDownloadUrlReq) (*SongDownloadUrlResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/song/enhance/download/url"
+		reply SongDownloadUrlResp
 	)
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", &req, &reply)

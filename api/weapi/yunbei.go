@@ -31,28 +31,167 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
-type YunBeiSignInReq struct {
+type SignInReq struct {
 	// Type 签到类型 0:安卓(默认) 1:web/PC
 	Type int64 `json:"type"`
 }
 
-// YunBeiSignInResp 签到返回
-type YunBeiSignInResp struct {
+// SignInResp 签到返回
+type SignInResp struct {
 	// Code 错误码 -2:重复签到 200:成功(会有例外会出现“功能暂不支持”) 301:未登录
 	types.RespCommon[any]
 	// Point 签到获得积分奖励数量,目前签到规则已经更改变成连续几天签到才能拿获取奖励
 	Point int64 `json:"point"`
 }
 
-// YunBeiSignIn 用户每日签到
+// SignIn 乐签每日签到
 // url:
 // needLogin: 是
-// todo:目前传0会出现功能暂不支持不知为何(可能请求头或cookie问题)待填坑
-func (a *Api) YunBeiSignIn(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSignInResp, error) {
+// todo:
+//
+//	1.目前传0会出现功能暂不支持不知为何(可能请求头或cookie问题)待填坑
+//	2.该接口签到成功后在手机app云贝中心看不到对应得奖励数据以及记录,猜测该接口可能要废弃了。
+func (a *Api) SignIn(ctx context.Context, req *SignInReq) (*SignInResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/point/dailyTask"
-		reply YunBeiSignInResp
+		reply SignInResp
 	)
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type SignInProgressReq struct {
+	ModuleId string `json:"moduleId"`
+}
+
+type SignInProgressResp struct {
+	types.RespCommon[SignInProgressRespData]
+}
+
+type SignInProgressRespData struct {
+	// StartTime 时间戳 eg:1638806400000
+	StartTime int64 `json:"startTime"`
+	// EndTime 时间戳 eg:4102415999000
+	EndTime int64
+	// Records 记录 YunBeiSignIn(https://music.163.com/weapi/point/dailyTask) 签到信息情况
+	Records []struct {
+		// Day 签到日期 eg:2024-06-21
+		Day string `json:"day"`
+		// Signed true:已签到
+		Signed bool `json:"signed"`
+	} `json:"records"`
+	Stats []SignInProgressRespDataStats `json:"stats"`
+	// Today 今天签到情况
+	Today struct {
+		TodaySignedIn bool `json:"todaySignedIn"`
+		// TodayStats 里面包含不同类型的今日签到，连续签到情况，今日签到情况等等，也就是ACCUMULATE、CURRENT_INDEX、CONTINUOUS。
+		TodayStats []SignInProgressRespDataStats `json:"todayStats"`
+	} `json:"today"`
+}
+
+type SignInProgressRespDataStats struct {
+	// CalcType 计算方式 ACCUMULATE:累计签到 CURRENT_INDEX:本周/本月签到情况?待确定 CONTINUOUS:连续签到
+	CalcType            string                              `json:"calcType"`
+	CurrentProgress     int                                 `json:"currentProgress"`
+	CurrentSignDesc     interface{}                         `json:"currentSignDesc"`
+	Description         string                              `json:"description"`
+	EndTime             int64                               `json:"endTime"`
+	Id                  int                                 `json:"id"`
+	MaxProgressReachDay string                              `json:"maxProgressReachDay"`
+	MaxProgressReached  int                                 `json:"maxProgressReached"`
+	Prizes              []SignInProgressRespDataStatsPrizes `json:"prizes"`
+	RepeatType          string                              `json:"repeatType"` // RepeatType 重复类型 eg:FOUR_WEEKS、NEVER
+	StartDay            string                              `json:"startDay"`
+	StartTime           int64                               `json:"startTime"`
+}
+
+type SignInProgressRespDataStatsPrizes struct {
+	Amount           int    `json:"amount"`
+	Description      string `json:"description"`
+	Name             string `json:"name"`
+	Obtained         bool   `json:"obtained"`
+	ObtainedImageUrl string `json:"obtainedImageUrl"`
+	PrizeImageUrl    string `json:"prizeImageUrl"`
+	Progress         int    `json:"progress"`
+	Type             string `json:"type"`
+	Url              string `json:"url"`
+}
+
+// SignInProgress 获取签到进度
+// url:
+// needLogin: 是
+func (a *Api) SignInProgress(ctx context.Context, req *SignInProgressReq) (*SignInProgressResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/act/modules/signin/v2/progress"
+		reply SignInProgressResp
+	)
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type SignHappyInfoReq struct{}
+
+type SignHappyInfoResp struct {
+	types.RespCommon[any]
+}
+
+type SignHappyInfoRespData struct {
+	Info struct {
+		Author          string      `json:"author"`
+		BackColor       string      `json:"backColor"`
+		BtnPicUrl       interface{} `json:"btnPicUrl"`
+		CurrentUserName string      `json:"currentUserName"`
+		EndTime         int64       `json:"endTime"`
+		HotComments     []struct {
+			AuthorName string `json:"authorName"`
+			Content    string `json:"content"`
+		} `json:"hotComments"`
+		Id                int         `json:"id"`
+		JumpText          interface{} `json:"jumpText"`
+		JumpUrl           string      `json:"jumpUrl"`
+		MainText          string      `json:"mainText"`
+		NewPicUrl         string      `json:"newPicUrl"`
+		NewSharePicUrl    string      `json:"newSharePicUrl"`
+		Operator          interface{} `json:"operator"`
+		PicUrl            string      `json:"picUrl"`
+		QrCodeUrl         string      `json:"qrCodeUrl"`
+		QrCodeWithLogoUrl string      `json:"qrCodeWithLogoUrl"`
+		ResourceAuthor    string      `json:"resourceAuthor"`
+		ResourceCover     string      `json:"resourceCover"`
+		ResourceId        int         `json:"resourceId"`
+		ResourceName      string      `json:"resourceName"`
+		ResourceType      int         `json:"resourceType"`
+		ResourceUrl       string      `json:"resourceUrl"`
+		SharePicUrl       string      `json:"sharePicUrl"`
+		SpecialJumpUrl    interface{} `json:"specialJumpUrl"`
+		StartTime         int64       `json:"startTime"`
+		Status            int         `json:"status"`
+		Type              int         `json:"type"`
+		VideoHeight       int         `json:"videoHeight"`
+		VideoStrId        interface{} `json:"videoStrId"`
+		VideoWidth        int         `json:"videoWidth"`
+	} `json:"info"`
+}
+
+// SignInHappyInfo 乐签签到成功后返回的每日一言信息
+// url:
+// needLogin: 是
+// todo: 该接口应该是旧得签到信息,现在云贝中心里面看不到此信息了
+func (a *Api) SignInHappyInfo(ctx context.Context, req *SignHappyInfoReq) (*SignHappyInfoResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/sign/happy/info"
+		reply SignHappyInfoResp
+	)
+
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
@@ -142,24 +281,24 @@ func (a *Api) YunBeiUserInfo(ctx context.Context, req *YunBeiUserInfoReq) (*YunB
 	return &reply, nil
 }
 
-type YunBeiSignInV2Req struct{}
+type YunBeiSignInReq struct{}
 
-type YunBeiSignInV2Resp struct {
-	types.RespCommon[YunBeiSignInV2RespData]
+type YunBeiSignInResp struct {
+	types.RespCommon[YunBeiSignInRespData]
 }
 
-type YunBeiSignInV2RespData struct {
+type YunBeiSignInRespData struct {
 	// Sign 签到成功返回true
 	Sign bool `json:"sign"`
 }
 
-// YunBeiSignInV2 每日签到 TODO: 和 YunBeiSignIn() 有啥区别？
+// YunBeiSignIn 云贝中心每日签到 该接口应该新版本接口,该接口签到成功后可在云贝中心看到奖励,而 YunBeiSignIn() 签到成功后看不到奖励
 // url:
 // needLogin: 是
-func (a *Api) YunBeiSignInV2(ctx context.Context, req *YunBeiSignInV2Req) (*YunBeiSignInV2Resp, error) {
+func (a *Api) YunBeiSignIn(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSignInResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/pointmall/user/sign"
-		reply YunBeiSignInV2Resp
+		reply YunBeiSignInResp
 	)
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
