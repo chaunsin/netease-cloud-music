@@ -24,9 +24,14 @@
 package types
 
 type Quality struct {
-	Br   int     `json:"br"`
-	Fid  int     `json:"fid"`
-	Size int     `json:"size"`
-	Vd   float64 `json:"vd"`
-	Sr   int     `json:"sr"`
+	// Br(Bit Rate) 码率
+	Br int `json:"br"`
+	// Fid 貌似是对应网易云存储中得文件ID
+	Fid int `json:"fid"`
+	// Size 文件大小
+	Size int `json:"size"`
+	// Vd(Volume Delta) 音量增量
+	Vd float64 `json:"vd"`
+	// Sr(Sample Rate) 采样率
+	Sr int `json:"sr"`
 }

@@ -260,124 +260,77 @@ func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerReqV1) (*SongPlay
 	return &reply, nil
 }
 
-type V3SongDetailReq struct {
-	C []V3SongDetailReqList `json:"c"`
+type SongDetailReq struct {
+	C []SongDetailReqList `json:"c"`
 }
 
-type V3SongDetailReqList struct {
+type SongDetailReqList struct {
 	Id string `json:"id"`
 	V  int64  `json:"v"`
 }
 
-type v3SongDetailReq struct {
+type songDetailReq struct {
 	C string `json:"c"`
 }
 
-// V3SongDetailResp
-// see: https://github.com/Binaryify/NeteaseCloudMusicApi/issues/1121#issuecomment-774438040
-// name: String, 歌曲标题
-// id: u64, 歌曲ID
-// pst: 0，功能未知
-// t: enum,
-//
-//	0: 一般类型
-//	1: 通过云盘上传的音乐，网易云不存在公开对应
-//	  如果没有权限将不可用，除了歌曲长度以外大部分信息都为null。
-//	  可以通过 `/api/v1/playlist/manipulate/tracks` 接口添加到播放列表。
-//	  如果添加到“我喜欢的音乐”，则仅自己可见，除了长度意外各种信息均为未知，且无法播放。
-//	  如果添加到一般播放列表，虽然返回code 200，但是并没有效果。
-//	  网页端打开会看到404画面。
-//	  属于这种歌曲的例子: https://music.163.com/song/1345937107
-//	2: 通过云盘上传的音乐，网易云存在公开对应
-//	  如果没有权限则只能看到信息，但无法直接获取到文件。
-//	  可以通过 `/api/v1/playlist/manipulate/tracks` 接口添加到播放列表。
-//	  如果添加到“我喜欢的音乐”，则仅自己可见，且无法播放。
-//	  如果添加到一般播放列表，则自己会看到显示“云盘文件”，且云盘会多出其对应的网易云公开歌曲。其他人看到的是其对应的网易云公开歌曲。
-//	  网页端打开会看到404画面。
-//	  属于这种歌曲的例子: https://music.163.com/song/435005015
-//
-// ar: Vec<Artist>, 歌手列表
-// alia: Vec<String>,
-//
-//	别名列表，第一个别名会被显示作副标题
-//	例子: https://music.163.com/song/536623501
-//
-// pop: 小数，常取[0.0, 100.0]中离散的几个数值, 表示歌曲热度
-// st: 0: 功能未知
-// rt: Option<String>, None、空白字串、或者类似`600902000007902089`的字符串，功能未知
-// fee: enum,
-//
-//	0: 免费
-//	1: 2元购买单曲
-//	4: 购买专辑
-//	8: 低音质免费
-//
-// v: u64, 常为[1, ?]任意数字, 功能未知
-// crbt: Option<String>, None或字符串表示的十六进制，功能未知
-// cf: Option<String>, 空白字串或者None，功能未知
-// al: Album, 专辑，如果是DJ节目(dj_type != 0)或者无专辑信息(single == 1)，则专辑id为0
-// dt: u64, 功能未知
-// h: Option<Quality>, 高质量文件信息
-// m: Option<Quality>, 中质量文件信息
-// l: Option<Quality>, 低质量文件信息
-// a: Option<?>, 常为None, 功能未知
-// cd: Option<String>, None或如"04", "1/2", "3", "null"的字符串，表示歌曲属于专辑中第几张CD，对应音频文件的Tag
-// no: u32, 表示歌曲属于CD中第几曲，0表示没有这个字段，对应音频文件的Tag
-// rtUrl: Option<String(?)>, 常为None, 功能未知
-// rtUrls: Vec<String(?)>, 常为空列表, 功能未知
-// dj_id: u64,
-//
-//	0: 不是DJ节目
-//	其他：是DJ节目，表示DJ ID
-//
-// copyright: u32, 0, 1, 2: 功能未知
-// s_id: u64, 对于t == 2的歌曲，表示匹配到的公开版本歌曲ID
-// mark: u64, 功能未知
-// originCoverType: enum
-//
-//	0: 未知
-//	1: 原曲
-//	2: 翻唱
-//
-// originSongSimpleData: Option<SongSimpleData>, 对于翻唱曲，可选提供原曲简单格式的信息
-// single: enum,
-//
-//	0: 有专辑信息或者是DJ节目
-//	1: 未知专辑
-//
-// noCopyrightRcmd: Option<NoCopyrightRcmd>, None表示可以播，非空表示无版权
-// mv: u64, 非零表示有MV ID
-// rtype: 常为0，功能未知
-// rurl: Option<String(?)>, 常为None，功能未知
-// mst: u32, 偶尔为0, 常为9，功能未知
-// cp: u64, 功能未知
-// publish_time: i64, 毫秒为单位的Unix时间戳
-type V3SongDetailResp struct {
+// SongDetailResp .
+type SongDetailResp struct {
 	types.RespCommon[any]
-	Songs      []V3SongDetailRespSongs      `json:"songs"`
-	Privileges []V3SongDetailRespPrivileges `json:"privileges"`
+	Songs      []SongDetailRespSongs      `json:"songs"`
+	Privileges []SongDetailRespPrivileges `json:"privileges"`
 }
 
-type V3SongDetailRespSongs struct {
+// SongDetailRespSongs
+// see: https://github.com/Binaryify/NeteaseCloudMusicApi/issues/1121#issuecomment-774438040
+type SongDetailRespSongs struct {
+	// Name 歌曲标题
 	Name string `json:"name"`
-	Id   int    `json:"id"`
-	Pst  int    `json:"pst"`
-	T    int    `json:"t"`
-	Ar   []struct {
+	// Id 歌曲ID
+	Id int `json:"id"`
+	// Pst 功能未知
+	Pst int `json:"pst"`
+	// T
+	// 0: 一般类型
+	// 1: 通过云盘上传的音乐，网易云不存在公开对应
+	//  如果没有权限将不可用，除了歌曲长度以外大部分信息都为null。
+	//  可以通过 `/api/v1/playlist/manipulate/tracks` 接口添加到播放列表。
+	//  如果添加到“我喜欢的音乐”，则仅自己可见，除了长度意外各种信息均为未知，且无法播放。
+	//  如果添加到一般播放列表，虽然返回code 200，但是并没有效果。
+	//  网页端打开会看到404画面。
+	//  属于这种歌曲的例子: https://music.163.com/song/1345937107
+	// 2: 通过云盘上传的音乐，网易云存在公开对应
+	//  如果没有权限则只能看到信息，但无法直接获取到文件。
+	//	可以通过 `/api/v1/playlist/manipulate/tracks` 接口添加到播放列表。
+	//	如果添加到“我喜欢的音乐”，则仅自己可见，且无法播放。
+	//	如果添加到一般播放列表，则自己会看到显示“云盘文件”，且云盘会多出其对应的网易云公开歌曲。其他人看到的是其对应的网易云公开歌曲。
+	//	网页端打开会看到404画面。
+	//	属于这种歌曲的例子: https://music.163.com/song/435005015
+	T int `json:"t"`
+	// Ar 歌手列表
+	Ar []struct {
 		Id    int           `json:"id"`
 		Name  string        `json:"name"`
 		Tns   []interface{} `json:"tns"`
 		Alias []interface{} `json:"alias"`
 	} `json:"ar"`
+	// Alia 别名列表,第一个别名会被显示作副标题 例子: https://music.163.com/song/536623501
 	Alia []interface{} `json:"alia"`
-	Pop  float64       `json:"pop"`
-	St   int           `json:"st"`
-	Rt   string        `json:"rt"`
-	Fee  int           `json:"fee"`
-	V    int           `json:"v"`
-	Crbt interface{}   `json:"crbt"`
-	Cf   string        `json:"cf"`
-	Al   struct {
+	// Pop 小数，常取[0.0, 100.0]中离散的几个数值, 表示歌曲热度
+	Pop float64 `json:"pop"`
+	// St 未知
+	St int `json:"st"`
+	// Rt None、空白字串、或者类似`600902000007902089`的字符串，功能未知
+	Rt string `json:"rt"`
+	// Fee 费用情况 0:免费 1:2元购买单曲 4:购买专辑 8:低音质免费
+	Fee int `json:"fee"`
+	// V 常为[1, ?]任意数字, 功能未知
+	V int `json:"v"`
+	// Crbt None或字符串表示的十六进制，功能未知
+	Crbt interface{} `json:"crbt"`
+	// Cf 空白字串或者None，功能未知
+	Cf string `json:"cf"`
+	// Al Album, 专辑，如果是DJ节目(dj_type != 0)或者无专辑信息(single == 1)，则专辑id为0
+	Al struct {
 		Id     int           `json:"id"`
 		Name   string        `json:"name"`
 		PicUrl string        `json:"picUrl"`
@@ -385,41 +338,73 @@ type V3SongDetailRespSongs struct {
 		PicStr string        `json:"pic_str"`
 		Pic    int64         `json:"pic"`
 	} `json:"al"`
-	Dt                   int           `json:"dt"`
-	H                    types.Quality `json:"h"`
-	M                    types.Quality `json:"m"`
-	L                    types.Quality `json:"l"`
-	Sq                   types.Quality `json:"sq"`
-	Hr                   interface{}   `json:"hr"`
-	A                    interface{}   `json:"a"`
-	Cd                   string        `json:"cd"`
-	No                   int           `json:"no"`
-	RtUrl                interface{}   `json:"rtUrl"`
-	Ftype                int           `json:"ftype"`
-	RtUrls               []interface{} `json:"rtUrls"`
-	DjId                 int           `json:"djId"`
-	Copyright            int           `json:"copyright"`
-	SId                  int           `json:"s_id"`
-	Mark                 int           `json:"mark"`
-	OriginCoverType      int           `json:"originCoverType"`
-	OriginSongSimpleData interface{}   `json:"originSongSimpleData"`
-	TagPicList           interface{}   `json:"tagPicList"`
-	ResourceState        bool          `json:"resourceState"`
-	Version              int           `json:"version"`
-	SongJumpInfo         interface{}   `json:"songJumpInfo"`
-	EntertainmentTags    interface{}   `json:"entertainmentTags"`
-	AwardTags            interface{}   `json:"awardTags"`
-	Single               int           `json:"single"`
-	NoCopyrightRcmd      interface{}   `json:"noCopyrightRcmd"`
-	Mv                   int           `json:"mv"`
-	Rurl                 interface{}   `json:"rurl"`
-	Mst                  int           `json:"mst"`
-	Cp                   int           `json:"cp"`
-	Rtype                int           `json:"rtype"`
-	PublishTime          int           `json:"publishTime"`
+	// Dt 歌曲时长
+	Dt int `json:"dt"`
+	// H 级高质量文件信息
+	H types.Quality `json:"h"`
+	// M 中质量文件信息
+	M types.Quality `json:"m"`
+	// L 标准质量文件信息
+	L types.Quality `json:"l"`
+	// Sq 无损质量文件信息
+	Sq types.Quality `json:"sq"`
+	// Hr Hi-Res质量文件信息
+	Hr interface{} `json:"hr"`
+	// A 常为None，功能未知
+	A interface{} `json:"a"`
+	// Cd None或如"04", "1/2", "3", "null"的字符串，表示歌曲属于专辑中第几张CD，对应音频文件的Tag
+	Cd string `json:"cd"`
+	// No 表示歌曲属于CD中第几曲, 0表示没有这个字段, 对应音频文件的Tag
+	No int `json:"no"`
+	// RtUrl 常为None, 功能未知
+	RtUrl interface{} `json:"rtUrl"`
+	// Ftype 未知
+	Ftype int `json:"ftype"`
+	// RtUrls 常为空列表，功能未知
+	RtUrls []interface{} `json:"rtUrls"`
+	// DjId 0:不是DJ节目 其他:是DJ节目，表示DJ ID
+	DjId int `json:"djId"`
+	// Copyright 0, 1, 2: 功能未知
+	Copyright int `json:"copyright"`
+	// SId 对于t == 2的歌曲，表示匹配到的公开版本歌曲ID
+	SId int `json:"s_id"`
+	// Mark 功能未知
+	Mark int `json:"mark"`
+	// OriginCoverType 0:未知 1:原曲 2:翻唱
+	OriginCoverType int `json:"originCoverType"`
+	// OriginSongSimpleData 对于翻唱曲，可选提供原曲简单格式的信息
+	OriginSongSimpleData interface{} `json:"originSongSimpleData"`
+	// SongMeiZuData 功能未知
+	TagPicList interface{} `json:"tagPicList"`
+	// ResourceState 未知
+	ResourceState bool `json:"resourceState"`
+	// Version 什么版本？
+	Version int `json:"version"`
+	// SongJumpInfo 功能未知
+	SongJumpInfo interface{} `json:"songJumpInfo"`
+	// EntranceCrash 功能未知
+	EntertainmentTags interface{} `json:"entertainmentTags"`
+	// AwardTags 功能未知
+	AwardTags interface{} `json:"awardTags"`
+	// Single 0: 有专辑信息或者是DJ节目 1:未知专辑
+	Single int `json:"single"`
+	// NoCopyrightRcmd None表示可以播，非空表示无版权
+	NoCopyrightRcmd interface{} `json:"noCopyrightRcmd"`
+	// Mv 非零表示有MV ID
+	Mv int `json:"mv"`
+	// Rurl 常为None，功能未知
+	Rurl interface{} `json:"rurl"`
+	// Mst 偶尔为0, 常为9，功能未知
+	Mst int `json:"mst"`
+	// Cp 未知
+	Cp int `json:"cp"`
+	// Rtype 常为0，功能未知
+	Rtype int `json:"rtype"`
+	// PublishTime 毫秒为单位的Unix时间戳
+	PublishTime int `json:"publishTime"`
 }
 
-type V3SongDetailRespPrivileges struct {
+type SongDetailRespPrivileges struct {
 	Id                 int         `json:"id"`
 	Fee                int         `json:"fee"`
 	Payed              int         `json:"payed"`
@@ -460,13 +445,13 @@ type V3SongDetailRespPrivileges struct {
 	} `json:"chargeInfoList"`
 }
 
-// V3SongDetail todo: 歌单列表 应该是根据歌单ID获取
+// SongDetail 根据歌曲id获取歌曲详情
 // url: https://app.apifox.com/project/3870894 testdata/har/1.har
 // needLogin: 未知
-func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDetailResp, error) {
+func (a *Api) SongDetail(ctx context.Context, req *SongDetailReq) (*SongDetailResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/v3/song/detail"
-		reply V3SongDetailResp
+		reply SongDetailResp
 	)
 
 	// "[{\"id\":\"1974334953\",\"v\":0}]
@@ -475,7 +460,55 @@ func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDe
 		return nil, err
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", &v3SongDetailReq{C: string(data)}, &reply)
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", &songDetailReq{C: string(data)}, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type SongMusicQualityReq struct {
+	SongId string `json:"songId"`
+}
+
+type SongMusicQualityResp struct {
+	types.RespCommon[SongMusicQualityRespData]
+}
+
+type SongMusicQualityRespData struct {
+	// Db 未知通常为null
+	Db any `json:"db"`
+	// SongId 歌曲id
+	SongId int64 `json:"songId"`
+	// L 标准品质
+	L *types.Quality `json:"l"`
+	// M 貌似是高音质,通常客户端好像看不到这个音质了目前
+	M *types.Quality `json:"m"`
+	// H 极高品质
+	H *types.Quality `json:"h"`
+	// Sq 无损品质
+	Sq *types.Quality `json:"sq"`
+	// Hr Hi-Res品质
+	Hr *types.Quality `json:"hr"`
+	// Je 高清环绕声品质
+	Je *types.Quality `json:"je"`
+	// Sk 沉浸环绕声品质
+	Sk *types.Quality `json:"sk"`
+	// Jm 超清母带品质
+	Jm *types.Quality `json:"jm"`
+}
+
+// SongMusicQuality 根据歌曲id获取音质详情
+// url:
+// needLogin: 未知
+func (a *Api) SongMusicQuality(ctx context.Context, req *SongMusicQualityReq) (*SongMusicQualityResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/song/music/detail/get"
+		reply SongMusicQualityResp
+	)
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", &req, &reply)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
