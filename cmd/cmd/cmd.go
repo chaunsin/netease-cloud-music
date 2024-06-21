@@ -73,6 +73,7 @@ func New(cfg *config.Config, l *log.Logger) *Root {
 	c.Add(NewPartner(c, l).Command())
 	c.Add(NewCurl(c, l).Command())
 	c.Add(NewCloud(c, l).Command())
+	c.Add(NewTask(c, l).Command())
 	return c
 }
 
