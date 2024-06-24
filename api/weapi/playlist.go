@@ -38,6 +38,13 @@ type PlaylistReq struct {
 	Limit string `json:"limit"`
 }
 
+type PlaylistResp struct {
+	types.RespCommon[any]
+	Version  string             `json:"version"` // 时间戳1703557080686
+	More     bool               `json:"more"`
+	Playlist []PlaylistRespList `json:"playlist"`
+}
+
 type PlaylistRespList struct {
 	Subscribers []interface{} `json:"subscribers"`
 	Subscribed  bool          `json:"subscribed"`
@@ -121,13 +128,6 @@ type PlaylistRespList struct {
 	Copied                bool        `json:"copied"`
 }
 
-type PlaylistResp struct {
-	types.RespCommon[any]
-	Version  string             `json:"version"` // 时间戳1703557080686
-	More     bool               `json:"more"`
-	Playlist []PlaylistRespList `json:"playlist"`
-}
-
 // Playlist 歌单列表.其中包含用户创建得歌单+我喜欢得歌单
 // url: https://app.apifox.com/project/3870894 testdata/har/4.har
 // NeedLogin: 未知
@@ -149,7 +149,7 @@ func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, er
 }
 
 type PlaylistDetailReq struct {
-	Id string `json:"id"` // 歌单id 从接口中获取 eapi/user/playlist/
+	Id string `json:"id"` // 歌单id 从接口 Playlist() 中获取
 }
 
 type PlaylistDetailResp struct {
@@ -231,6 +231,7 @@ type PlaylistDetailResp struct {
 			Anchor             bool   `json:"anchor"`
 			AvatarImgIdStr1    string `json:"avatarImgId_str"`
 		} `json:"creator"`
+		// Tracks 只包含了10首歌曲详情信息,而 TrackIds 包含歌曲所有的信息id不包含歌曲详情因此需要配合详情接口查询
 		Tracks []struct {
 			Name string `json:"name"`
 			Id   int    `json:"id"`
@@ -378,13 +379,13 @@ type PlaylistDetailResp struct {
 // PlaylistDetail 歌单列表
 // url: testdata/har/7.har
 // needLogin: 不需要认证
-// https://music.163.com/api/v6/playlist/detail?id=9011496609
+// https://music.163.com/api/v6/playlist/detail?id=1981392816
 func (a *Api) PlaylistDetail(ctx context.Context, req *PlaylistDetailReq) (*PlaylistDetailResp, error) {
 	var (
-		url   = "https://music.163.com/weapi/v6/playlist/detail"
+		url   = "https://music.163.com/api/v6/playlist/detail?id=" + req.Id
 		reply PlaylistDetailResp
 	)
-	resp, err := a.client.Request(ctx, http.MethodGet, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "api", req, &reply)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

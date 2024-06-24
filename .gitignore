@@ -960,6 +960,6 @@ Temporary Items
 /example/qrcode.png
 /api/crypto_test.go
 /ncm
-/cmd/.ncm/
+/cmd/.ncmctl/
 !/pkg/log/
 /cmd/qrcode.png

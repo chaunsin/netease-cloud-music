@@ -293,6 +293,8 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 		if err != nil {
 			return nil, fmt.Errorf("LinuxApiEncrypt: %w", err)
 		}
+	case "api":
+		// tips: 不需要加密处理请求
 	default:
 		return nil, fmt.Errorf("%s crypto mode unknown", cryptoType)
 	}
@@ -306,13 +308,16 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 	default:
 		return nil, fmt.Errorf("%s not surpport http method", method)
 	}
-	log.Debug("response: %+v", string(response.Body()))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("do request: %w", err)
 	}
+	log.Debug("response: %+v", string(response.Body()))
 
 	var decryptData []byte
 	switch cryptoType {
+	case "api":
+		// tips: api接口返回数据是明文
+		fallthrough
 	case "eapi":
 		// 貌似eapi接口返回数据是明文
 		// decryptData, err = crypto.EApiDecrypt(string(response.Body()), "")
@@ -329,7 +334,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
 	}
-	log.Debug("decrypt body:%s", string(decryptData))
+	log.Debug("decrypt body: %s", string(decryptData))
 	if err := json.Unmarshal(decryptData, &resp); err != nil {
 		return nil, err
 	}
@@ -397,18 +402,18 @@ func (c *Client) Upload(ctx context.Context, url string, headers map[string]stri
 
 func contentEncoding(c *resty.Client, resp *resty.Response) error {
 	kind := resp.Header().Get("Content-Encoding")
-	log.Debug("Uncompressed: %v", resp.RawResponse.Uncompressed)
+	log.Debug("Content-Encoding:%s Uncompressed: %v", kind, resp.RawResponse.Uncompressed)
 	switch kind {
 	case "deflate":
 		// 为何使用zlib库: https://zlib.net/zlib_faq.html#faq39
 		data, err := zlib.NewReader(bytes.NewReader(resp.Body()))
 		if err != nil {
-			return err
+			return fmt.Errorf("zlib.NewReader: %w", err)
 		}
 		defer data.Close()
 		bodyBytes, err := io.ReadAll(data)
 		if err != nil {
-			return err
+			return fmt.Errorf("deflate.ReadAll: %w", err)
 		}
 		resp.SetBody(bodyBytes)
 		// reader:=flate.NewReader(bytes.NewReader(resp.Body()))
@@ -421,7 +426,7 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 	case "br":
 		bodyBytes, err := cbrotli.Decode(resp.Body())
 		if err != nil {
-			return err
+			return fmt.Errorf("cbrotli.Decode: %w", err)
 		}
 		resp.SetBody(bodyBytes)
 	case "gzip":

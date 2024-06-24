@@ -74,6 +74,7 @@ func New(cfg *config.Config, l *log.Logger) *Root {
 	c.Add(NewCurl(c, l).Command())
 	c.Add(NewCloud(c, l).Command())
 	c.Add(NewTask(c, l).Command())
+	c.Add(NewScrobble(c, l).Command())
 	return c
 }
 
