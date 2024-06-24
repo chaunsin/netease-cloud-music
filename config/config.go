@@ -1,7 +1,6 @@
 package config
 
 import (
-	"flag"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +9,7 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -24,7 +24,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	confPath = flag.String("f", "./config.yaml", "main -f ./.ncm/config.yaml")
+	confPath = pflag.String("f", "./config.yaml", "main -f ./.ncmctl/config.yaml")
 }
 
 type Config struct {
@@ -48,15 +48,15 @@ func New() *Config {
 
 	v := viper.New()
 	v.SetTypeByDefaultValue(true)
-	v.SetEnvPrefix("ncm")
+	v.SetEnvPrefix("ncmctl")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 	v.AllowEmptyEnv(true)
 	v.SetConfigType("yaml")
 	v.SetConfigName("config")
 	v.AddConfigPath(".")
-	v.AddConfigPath("./.ncm")
-	v.AddConfigPath(filepath.Join(home, ".ncm"))
+	v.AddConfigPath("./.ncmctl")
+	v.AddConfigPath(filepath.Join(home, ".ncmctl"))
 	v.AddConfigPath(filepath.Dir(*confPath))
 	// v.SetConfigFile(*confPath)
 	if err := v.ReadInConfig(); err != nil {

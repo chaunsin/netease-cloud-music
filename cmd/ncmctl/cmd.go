@@ -24,13 +24,13 @@
 package ncmctl
 
 import (
-	"flag"
 	"log/slog"
 
 	"github.com/chaunsin/netease-cloud-music/config"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 type RootOpts struct {
@@ -80,7 +80,7 @@ func New(cfg *config.Config, l *log.Logger) *Root {
 func (c *Root) addFlags() {
 	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "")
 	c.cmd.PersistentFlags().BoolVar(&c.Opts.Stdout, "stdout", false, "")
-	c.cmd.PersistentFlags().AddGoFlag(flag.Lookup("f")) // definition /config/config.go
+	c.cmd.PersistentFlags().AddFlag(pflag.Lookup("f")) // definition /config/config.go
 }
 
 func (c *Root) Version(version string) {

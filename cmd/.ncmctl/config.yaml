@@ -1,0 +1,20 @@
+version: 1.0
+log:
+  app: ncm
+  format: text
+  level: debug
+  stdout: true
+  rotate:
+    filename: "./.ncmctl/log/ncm.log"
+    maxsize: 100
+    maxage: 30
+    maxbackups: 10
+    localtime: true
+    compress: true
+network:
+  debug: true
+  timeout: 30s
+  retry: 3
+  cookie:
+    filepath: "./.ncmctl/cookie.json"
+    interval: 0s

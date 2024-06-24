@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/chaunsin/netease-cloud-music/api/types"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,7 +44,7 @@ func TestPartnerPeriod(t *testing.T) {
 }
 
 func TestPartnerPeriodUserinfo(t *testing.T) {
-	resp, err := cli.PartnerPeriodUserinfo(ctx, &PartnerPeriodUserinfoReq{})
+	resp, err := cli.PartnerUserinfo(ctx, &PartnerUserinfoReq{})
 	assert.NoError(t, err)
 	t.Logf("resp: %+v\n", resp)
 }
@@ -61,7 +62,7 @@ func TestPartnerHome(t *testing.T) {
 }
 
 func TestPartnerTask(t *testing.T) {
-	resp, err := cli.PartnerTask(ctx, &PartnerTaskReq{})
+	resp, err := cli.PartnerDailyTask(ctx, &PartnerTaskReq{})
 	assert.NoError(t, err)
 	t.Logf("resp: %+v\n", resp)
 }

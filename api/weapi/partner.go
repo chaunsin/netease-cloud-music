@@ -261,10 +261,12 @@ type PartnerPeriodRespData struct {
 		Name  string `json:"name"`
 		Cover string `json:"cover"`
 	} `json:"excellentPlaylists"`
+	// Status 状态 SETTLED: 可能是代表本期已经结算或者未满足320分失去测评资格了
 	Status            string      `json:"status"`
 	ResultConfigTitle interface{} `json:"resultConfigTitle"`
 	ConfigedAct       interface{} `json:"configedAct"`
-	Eliminated        bool        `json:"eliminated"`
+	// Eliminated 状态: true 可能是代表未满足320分失去测评资格了,很大概率是，它和Status状态二者必占其一
+	Eliminated bool `json:"eliminated"`
 }
 
 // PartnerPeriod 查询当前周期数据报告情况
@@ -286,27 +288,30 @@ func (a *Api) PartnerPeriod(ctx context.Context, req *PartnerPeriodReq) (*Partne
 	return &reply, nil
 }
 
-type PartnerPeriodUserinfoReq struct {
+type PartnerUserinfoReq struct {
 	types.ReqCommon
 }
 
-type PartnerPeriodUserinfoResp struct {
-	types.RespCommon[PartnerPeriodUserinfoRespData]
+// PartnerUserinfoResp
+// code:703 非音乐合伙人
+type PartnerUserinfoResp struct {
+	types.RespCommon[PartnerUserinfoRespData]
 }
 
-type PartnerPeriodUserinfoRespData struct {
-	UserId        int64         `json:"userId"`
-	NickName      string        `json:"nickName"`
-	AvatarUrl     string        `json:"avatarUrl"`
-	Number        int64         `json:"number"`
-	Title         string        `json:"title"`
-	Days          int64         `json:"days"`
-	Integral      int64         `json:"integral"`
-	EvaluateCount int64         `json:"evaluateCount"`
-	PickCount     int64         `json:"pickCount"`
-	Status        string        `json:"status"`
-	PickRights    []interface{} `json:"pickRights"`
-	TitleStats    []struct {
+type PartnerUserinfoRespData struct {
+	UserId        int64  `json:"userId"`
+	NickName      string `json:"nickName"`
+	AvatarUrl     string `json:"avatarUrl"`
+	Number        int64  `json:"number"`
+	Title         string `json:"title"`
+	Days          int64  `json:"days"`
+	Integral      int64  `json:"integral"`
+	EvaluateCount int64  `json:"evaluateCount"`
+	PickCount     int64  `json:"pickCount"`
+	// Status 状态: ELIMINATED: 可能是代表本期已经结算或者未满足320分失去测评资格了
+	Status     string        `json:"status"`
+	PickRights []interface{} `json:"pickRights"`
+	TitleStats []struct {
 		Title string `json:"title"`
 		Count int64  `json:"count"`
 	} `json:"titleStats"`
@@ -315,11 +320,11 @@ type PartnerPeriodUserinfoRespData struct {
 	RightType          int64       `json:"rightType"`
 }
 
-// PartnerPeriodUserinfo 查询当前用户数据
-func (a *Api) PartnerPeriodUserinfo(ctx context.Context, req *PartnerPeriodUserinfoReq) (*PartnerPeriodUserinfoResp, error) {
+// PartnerUserinfo 查询当前用户数据
+func (a *Api) PartnerUserinfo(ctx context.Context, req *PartnerUserinfoReq) (*PartnerUserinfoResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/user/info/get"
-		reply PartnerPeriodUserinfoResp
+		reply PartnerUserinfoResp
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -430,7 +435,8 @@ type PartnerTaskRespData struct {
 	CompletedCount int64       `json:"completedCount"`
 	Integral       int64       `json:"integral"`
 	TaskTitle      interface{} `json:"taskTitle"`
-	Works          []struct {
+	// Works 如果没有测评资格则该任务列表为空
+	Works []struct {
 		Work struct {
 			Id                int64  `json:"id"`
 			ResourceType      string `json:"resourceType"`
@@ -459,8 +465,8 @@ type PartnerTaskRespData struct {
 	Completed    bool  `json:"completed"`
 }
 
-// PartnerTask 查询当日任务情况
-func (a *Api) PartnerTask(ctx context.Context, req *PartnerTaskReq) (*PartnerTaskResp, error) {
+// PartnerDailyTask 查询当日任务情况
+func (a *Api) PartnerDailyTask(ctx context.Context, req *PartnerTaskReq) (*PartnerTaskResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/daily/task/get"
 		reply PartnerTaskResp
@@ -486,7 +492,7 @@ type PartnerPickRightResp struct {
 	types.RespCommon[[]PartnerPickRightRespData]
 }
 
-// TODO:待补充参数
+// PartnerPickRightRespData TODO:待补充参数
 type PartnerPickRightRespData struct {
 }
 
@@ -514,10 +520,10 @@ type PartnerNoticeReq struct {
 }
 
 type PartnerNoticeResp struct {
-	types.RespCommon[bool] // todo: 参数待确定
+	types.RespCommon[bool]
 }
 
-// PartnerNotice todo：通知？
+// PartnerNotice todo：是否开启通知？
 func (a *Api) PartnerNotice(ctx context.Context, req *PartnerNoticeReq) (*PartnerNoticeResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/daily/notice/switch/get"

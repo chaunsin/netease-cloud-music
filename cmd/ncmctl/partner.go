@@ -160,12 +160,25 @@ func (c *Partner) job(ctx context.Context) error {
 	}
 
 	// 判断是否有音乐合伙人资格
-	// todo:
+	info, err := request.PartnerUserinfo(ctx, &weapi.PartnerUserinfoReq{ReqCommon: types.ReqCommon{}})
+	if err != nil {
+		return fmt.Errorf("PartnerUserinfo: %w", err)
+	}
+	if info.Code == 703 {
+		return fmt.Errorf("您不是音乐合伙人不能进行测评 detail: %+v\n", info)
+	}
+	if info.Code != 200 {
+		return fmt.Errorf("PartnerUserinfo err: %+v\n", info)
+	}
+	// TODO:状态需要明确
+	if info.Data.Status == "ELIMINATED" {
+		return fmt.Errorf("您没有测评资格或失去测评资格 status: %s\n", info.Data.Status)
+	}
 
 	// 获取任务列表
-	task, err := request.PartnerTask(ctx, &weapi.PartnerTaskReq{ReqCommon: types.ReqCommon{}})
+	task, err := request.PartnerDailyTask(ctx, &weapi.PartnerTaskReq{ReqCommon: types.ReqCommon{}})
 	if err != nil {
-		return fmt.Errorf("PartnerTask: %w", err)
+		return fmt.Errorf("PartnerDailyTask: %w", err)
 	}
 	for _, work := range task.Data.Works {
 		_ = work.Work.ResourceId
