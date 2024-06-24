@@ -107,7 +107,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	}
 
 	var (
-		sum = 10
+		sum = 300
 		bar = pb.Full.Start64(int64(sum))
 	)
 
@@ -180,11 +180,13 @@ func (c *Scrobble) execute(ctx context.Context) error {
 
 		resp, err := request.WebLog(ctx, req)
 		if err != nil {
-			log.Error("WebLog: %w", err)
+			log.Error("[scrobble] WebLog: %w", err)
+			continue
 		}
 		if resp.Code != 200 {
-			log.Error("WebLog err: %+v\n", resp)
-			time.Sleep(time.Second * 3)
+			log.Error("[scrobble] WebLog err: %+v\n", resp)
+			time.Sleep(time.Second)
+			continue
 		}
 		if resp.Code == 200 {
 			total++
