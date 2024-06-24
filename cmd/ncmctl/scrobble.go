@@ -24,50 +24,69 @@
 package ncmctl
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/robfig/cron/v3"
 
 	"github.com/spf13/cobra"
 )
 
-type CryptoOpts struct {
-	Input  string // 加载文件路径,或文本内容
-	Output string // 生成文件路径
-	Kind   string // api类型
+type ScrobbleOpts struct {
+	Crontab string
+	Once    bool
+	// Tags    []string
 }
 
-type Crypto struct {
+type Scrobble struct {
 	root *Root
 	cmd  *cobra.Command
-	opts CryptoOpts
+	opts ScrobbleOpts
 	l    *log.Logger
 }
 
-func NewCrypto(root *Root, l *log.Logger) *Crypto {
-	c := &Crypto{
+func NewScrobble(root *Root, l *log.Logger) *Scrobble {
+	c := &Scrobble{
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "crypto",
-			Short:   "Crypto is a tool for encrypting and decrypting the http data",
-			Example: `  ncm crypto -h\n  ncm crypto decrypt -k eapi xxx`,
+			Use:     "scrobble",
+			Short:   "Scrobble async execute refresh 300 songs",
+			Example: `  ncm partner`,
 		},
 	}
 	c.addFlags()
-	c.Add(encrypt(c, l))
-	c.Add(decrypt(c, l))
+	c.cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return c.execute(cmd.Context())
+	}
 	return c
 }
 
-func (c *Crypto) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "*.har file path、text")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate decrypt file directory location")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "weapi|eapi|linux")
+func (c *Scrobble) addFlags() {
+	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "https://crontab.guru/")
+	c.cmd.PersistentFlags().BoolVarP(&c.opts.Once, "once", "", false, "real-time execution once")
 }
 
-func (c *Crypto) Add(command ...*cobra.Command) {
+func (c *Scrobble) validate() error {
+	if c.opts.Crontab == "" {
+		return fmt.Errorf("crontab is required")
+	}
+	_, err := cron.ParseStandard(c.opts.Crontab)
+	if err != nil {
+		return fmt.Errorf("ParseStandard: %w", err)
+	}
+	return nil
+}
+
+func (c *Scrobble) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
 }
 
-func (c *Crypto) Command() *cobra.Command {
+func (c *Scrobble) Command() *cobra.Command {
 	return c.cmd
+}
+
+func (c *Scrobble) execute(ctx context.Context) error {
+	return nil
 }

@@ -59,7 +59,7 @@ func decrypt(root *Crypto, l *log.Logger) *cobra.Command {
 	c.cmd = &cobra.Command{
 		Use:     "decrypt",
 		Short:   "Decrypt data",
-		Example: "  ncm crypto decrypt -k weapi -e base64 -c \"ciphertext\"\nncm decrypt -f example.har",
+		Example: "  ncm crypto decrypt -k weapi -e base64 -c \"ciphertext\"\n  ncm decrypt -f example.har",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context())
 		},

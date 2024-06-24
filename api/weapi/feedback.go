@@ -21,7 +21,7 @@ type ApiWebLogReqJson struct {
 	IsWebview int           `json:"is_webview"`
 }
 
-// WebLogReq .
+// ApiWebLogReq .
 // [{"action":"_pv","useForRefer":true,"json":{"_plist":[{"_oid":"page_web_register_login"},{"_oid":"page_h5_biz"}],"_elist":[],"_spm":"page_web_register_login|page_h5_biz","_scm":":::|::","_eventtime":1704464373629,"_sessid":"1704464373588#479","g_dprefer":"[F:1][1704464373588#479]","is_webview":1}}]
 type ApiWebLogReq struct {
 	CsrfToken   string           `json:"csrf_token"`
@@ -55,17 +55,16 @@ func (a *Api) ApiWebLog(ctx context.Context, req *ApiWebLogReq) (*ApiWebLogResp,
 	return &resp, nil
 }
 
-// WeApiWebLogReq
-//
-//	{
-//		"logs": "[{\"action\":\"mobile_monitor\",\"json\":{\"meta._ver\":2,\"meta._dataName\":\"pip_lyric_monitor\",\"action\":\"impress\",\"userAgent\":\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\",\"chromeVersion\":120,\"mainsite\":\"1\"}}]",
-//		"csrf_token": "9f6b902c3c811cd4d9f32ec9544c6747"
-//	}
+// WeApiWebLogReq .
 type WeApiWebLogReq struct {
 	CsrfToken string `json:"csrf_token"` // 可不用传递
 	Logs      string `json:"logs"`       // WeApiWebLogReqLog
 }
 
+//	{
+//		"logs": "[{\"action\":\"mobile_monitor\",\"json\":{\"meta._ver\":2,\"meta._dataName\":\"pip_lyric_monitor\",\"action\":\"impress\",\"userAgent\":\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\",\"chromeVersion\":120,\"mainsite\":\"1\"}}]",
+//		"csrf_token": "9f6b902c3c811cd4d9f32ec9544c6747"
+//	}
 type WeApiWebLogReqLog struct {
 	Action string `json:"action"`
 	Json   struct {
