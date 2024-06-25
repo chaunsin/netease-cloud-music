@@ -56,8 +56,8 @@ func NewScrobble(root *Root, l *log.Logger) *Scrobble {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "scrobble",
-			Short:   "Scrobble async execute refresh 300 songs",
-			Example: `  ncm partner`,
+			Short:   "Scrobble execute refresh 300 songs",
+			Example: `  ncm scrobble`,
 		},
 	}
 	c.addFlags()
@@ -216,7 +216,7 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api) ([]N
 				break
 			}
 			// 判断是否执行过
-			// todo: 待实现考虑采用文件系统例如sqllite
+			// todo: 待实现考虑采用文件系统例如sqlite
 			set[v.Id] = fmt.Sprintf("%d", sourceId)
 			req = append(req, weapi.SongDetailReqList{Id: fmt.Sprintf("%d", v.Id), V: 0})
 		}

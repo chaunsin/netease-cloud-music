@@ -75,6 +75,7 @@ func New(cfg *config.Config, l *log.Logger) *Root {
 	c.Add(NewCloud(c, l).Command())
 	c.Add(NewTask(c, l).Command())
 	c.Add(NewScrobble(c, l).Command())
+	c.Add(NewSignIn(c, l).Command())
 	return c
 }
 

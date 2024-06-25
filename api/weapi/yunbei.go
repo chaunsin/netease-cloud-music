@@ -291,7 +291,7 @@ type YunBeiSignInResp struct {
 }
 
 type YunBeiSignInRespData struct {
-	// Sign 签到成功返回true
+	// Sign 签到成功返回true重复签到则返回false
 	Sign bool `json:"sign"`
 }
 
@@ -494,9 +494,9 @@ func (a *Api) YunBeiTaskList(ctx context.Context, req *YunBeiTaskListReq) (*YunB
 	return &reply, nil
 }
 
-type YunBeiTaskListReqV3 struct{}
+type YunBeiTaskListV3Req struct{}
 
-type YunBeiTaskListRespV3 struct {
+type YunBeiTaskListV3Resp struct {
 	types.RespCommon[YunBeiTaskListRespV3Data]
 }
 
@@ -549,13 +549,13 @@ type YunBeiTaskListRespV3Data struct {
 	} `json:"normal"`
 }
 
-// YunBeiTaskListV3 获取用户云贝任务列表V3
+// YunBeiTaskListV3 获取用户云贝任务列表V3(任务中心)
 // url:
 // needLogin: 是
-func (a *Api) YunBeiTaskListV3(ctx context.Context, req *YunBeiTaskListReqV3) (*YunBeiTaskListRespV3, error) {
+func (a *Api) YunBeiTaskListV3(ctx context.Context, req *YunBeiTaskListV3Req) (*YunBeiTaskListV3Resp, error) {
 	var (
 		url   = "https://music.163.com/weapi/usertool/task/list/all/v3"
-		reply YunBeiTaskListRespV3
+		reply YunBeiTaskListV3Resp
 	)
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
@@ -587,7 +587,7 @@ type YunBeiTaskTodoRespData struct {
 	UserTaskId int64 `json:"userTaskId"`
 }
 
-// YunBeiTaskTodo 获取用户云贝todo任务列表
+// YunBeiTaskTodo 获取用户云贝todo任务列表,返回得列表中只包含未完成的任务。
 // url:
 // needLogin: 是
 func (a *Api) YunBeiTaskTodo(ctx context.Context, req *YunBeiTaskTodoReq) (*YunBeiTaskTodoResp, error) {
