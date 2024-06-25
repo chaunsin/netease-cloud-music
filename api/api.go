@@ -336,7 +336,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 	}
 	log.Debug("decrypt body: %s", string(decryptData))
 	if err := json.Unmarshal(decryptData, &resp); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
 	if response.StatusCode() != http.StatusOK {
 		return nil, fmt.Errorf("http status code: %d", response.StatusCode())
