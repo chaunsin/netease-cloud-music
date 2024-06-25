@@ -25,23 +25,22 @@ package ncmctl
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
-	"github.com/cheggaaa/pb/v3"
 
+	"github.com/cheggaaa/pb/v3"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 )
 
 type ScrobbleOpts struct {
-	Crontab    string
-	Once       bool
-	PlaylistId string
+	Crontab string
+	Once    bool
+	Num     int64
 }
 
 type Scrobble struct {
@@ -71,7 +70,7 @@ func NewScrobble(root *Root, l *log.Logger) *Scrobble {
 func (c *Scrobble) addFlags() {
 	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "https://crontab.guru/")
 	c.cmd.PersistentFlags().BoolVarP(&c.opts.Once, "once", "", false, "real-time execution once")
-	c.cmd.PersistentFlags().StringVar(&c.opts.PlaylistId, "id", "1981392816", "playlist id")
+	c.cmd.PersistentFlags().Int64VarP(&c.opts.Num, "num", "n", 300, "num of songs")
 }
 
 func (c *Scrobble) validate() error {
@@ -82,8 +81,8 @@ func (c *Scrobble) validate() error {
 	if err != nil {
 		return fmt.Errorf("ParseStandard: %w", err)
 	}
-	if c.opts.PlaylistId == "" {
-		return errors.New("playlist id is required")
+	if c.opts.Num <= 0 || c.opts.Num > 300 {
+		return fmt.Errorf("num <= 0 or > 300")
 	}
 	return nil
 }
@@ -106,10 +105,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 		c.root.Cfg.Network.Debug = true
 	}
 
-	var (
-		sum = 300
-		bar = pb.Full.Start64(int64(sum))
-	)
+	var bar = pb.Full.Start64(c.opts.Num)
 
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
@@ -123,43 +119,20 @@ func (c *Scrobble) execute(ctx context.Context) error {
 		return fmt.Errorf("need login")
 	}
 
-	// 获取一个歌单
-	info, err := request.PlaylistDetail(ctx, &weapi.PlaylistDetailReq{Id: c.opts.PlaylistId})
-	if err != nil {
-		return fmt.Errorf("PlaylistDetail: %w", err)
-	}
-	if info.Code != 200 {
-		return fmt.Errorf("PlaylistDetail err: %+v\n", info)
-	}
-	if count := len(info.Playlist.TrackIds); count < sum {
-		return fmt.Errorf("%v there are less than 300 songs in the playlist", count)
-	}
-	var ids = make([]weapi.SongDetailReqList, 0, 600)
-	for _, v := range info.Playlist.TrackIds {
-		if len(ids) >= 600 {
-			break
-		}
-		ids = append(ids, weapi.SongDetailReqList{Id: fmt.Sprintf("%d", v.Id), V: 0})
-	}
-
-	// 根据歌单id查询歌曲详情信息
-	list, err := request.SongDetail(ctx, &weapi.SongDetailReq{C: ids})
-	if err != nil {
-		return fmt.Errorf("SongDetail: %w", err)
-	}
-
 	var total int
 	defer func() {
 		log.Debug("scrobble success: %d", total)
 		bar.Finish()
 	}()
 
-	// 执行刷歌
-	for _, v := range list.Songs {
-		if total >= sum {
-			break
-		}
+	// 获取未听过歌曲
+	list, err := c.neverHeardSongs(ctx, request)
+	if err != nil {
+		return fmt.Errorf("neverHeardSongs: %w", err)
+	}
 
+	// 执行刷歌
+	for _, v := range list {
 		var req = &weapi.WebLogReq{CsrfToken: "", Logs: []map[string]interface{}{
 			{
 				"action": "play",
@@ -167,13 +140,13 @@ func (c *Scrobble) execute(ctx context.Context) error {
 					"type":     "song",
 					"wifi":     0,
 					"download": 0,
-					"id":       v.Id,                                   // 歌曲id
-					"time":     v.Dt / 1000,                            // 听歌消耗时间单位秒
-					"end":      "playend",                              // 何种方式结束听歌 eg:ui(在网页端播放完成之后的状态) playend:参考https://gitlab.com/Binaryify/neteasecloudmusicapi/-/blob/main/module/scrobble.js interrupt:播放中途切歌
-					"source":   "list",                                 // 播放歌曲资源来源 例如toplist等
-					"sourceId": info.Playlist.Id,                       // 歌单id或者专辑id
-					"mainsite": "1",                                    // 未知暂时为1
-					"content":  fmt.Sprintf("id=%d", info.Playlist.Id), // 格式 "id=1981392816" 其中id通常为歌单id也就是和sourceId一样
+					"id":       v.SongsId,                        // 歌曲id
+					"time":     v.SongsTime,                      // 听歌消耗时间单位秒
+					"end":      "playend",                        // 何种方式结束听歌 eg:ui(在网页端播放完成之后的状态) playend:参考https://gitlab.com/Binaryify/neteasecloudmusicapi/-/blob/main/module/scrobble.js interrupt:播放中途切歌
+					"source":   v.Source,                         // 播放歌曲资源来源 例如toplist等
+					"sourceId": v.SourceId,                       // [选填] 歌单id或者专辑id
+					"mainsite": "1",                              // 未知暂时为1
+					"content":  fmt.Sprintf("id=%d", v.SourceId), // 格式 "id=1981392816" 其中id通常为歌单id也就是和sourceId一样
 				},
 			},
 		}}
@@ -191,9 +164,81 @@ func (c *Scrobble) execute(ctx context.Context) error {
 		if resp.Code == 200 {
 			total++
 			bar.Increment()
-			time.Sleep(time.Millisecond * 500)
+			time.Sleep(time.Millisecond * 100)
 		}
 	}
 
 	return nil
+}
+
+type NeverHeardSongsList struct {
+	Source    string // 资源类型
+	SourceId  string // 歌单id
+	SongsId   string // 歌单歌曲id
+	SongsTime int64  // 歌曲时长
+}
+
+func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api) ([]NeverHeardSongsList, error) {
+	// 获取top歌单列表
+	tops, err := request.TopList(ctx, &weapi.TopListReq{})
+	if err != nil {
+		return nil, fmt.Errorf("TopList: %w", err)
+	}
+	if tops.Code != 200 {
+		return nil, fmt.Errorf("TopList err: %+v\n", tops)
+	}
+	if len(tops.List) <= 0 {
+		return nil, fmt.Errorf("TopList is empty")
+	}
+
+	// 根据歌单返回顺序顺次刷歌直到300首歌曲
+	var (
+		req = make([]weapi.SongDetailReqList, 0, c.opts.Num)
+		set = make(map[int64]string) // k:歌曲id v:歌单id
+	)
+	for _, list := range tops.List {
+		// 获取一个歌单
+		info, err := request.PlaylistDetail(ctx, &weapi.PlaylistDetailReq{Id: fmt.Sprintf("%v", list.Id)})
+		if err != nil {
+			return nil, fmt.Errorf("PlaylistDetail(%v): %w", list.Id, err)
+		}
+		if info.Code != 200 {
+			return nil, fmt.Errorf("PlaylistDetail(%v) err: %+v\n", list.Id, info)
+		}
+		if len(info.Playlist.TrackIds) <= 0 {
+			log.Warn("PlaylistDetail(%v) is empty", list.Id)
+			continue
+		}
+
+		var sourceId = list.Id
+		for _, v := range info.Playlist.TrackIds {
+			if int64(len(req)) >= c.opts.Num {
+				break
+			}
+			// 判断是否执行过
+			// todo: 待实现考虑采用文件系统例如sqllite
+			set[v.Id] = fmt.Sprintf("%d", sourceId)
+			req = append(req, weapi.SongDetailReqList{Id: fmt.Sprintf("%d", v.Id), V: 0})
+		}
+		if int64(len(req)) >= c.opts.Num {
+			break
+		}
+	}
+
+	// 根据歌单trickIds.Id查询歌曲详情信息
+	var resp = make([]NeverHeardSongsList, 0, c.opts.Num)
+	details, err := request.SongDetail(ctx, &weapi.SongDetailReq{C: req})
+	if err != nil {
+		return nil, fmt.Errorf("SongDetail: %w", err)
+	}
+	for _, v := range details.Songs {
+		resp = append(resp, NeverHeardSongsList{
+			Source:    "toplist",
+			SourceId:  set[v.Id],
+			SongsId:   fmt.Sprintf("%v", v.Id),
+			SongsTime: v.Dt / 1000, // 换成秒
+		})
+	}
+
+	return resp, nil
 }

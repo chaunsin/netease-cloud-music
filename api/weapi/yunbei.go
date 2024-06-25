@@ -65,7 +65,7 @@ func (a *Api) SignIn(ctx context.Context, req *SignInReq) (*SignInResp, error) {
 }
 
 type SignInProgressReq struct {
-	ModuleId string `json:"moduleId"`
+	ModuleId string `json:"moduleId"` // 默认: 1207signin-1207signin
 }
 
 type SignInProgressResp struct {
@@ -129,6 +129,9 @@ func (a *Api) SignInProgress(ctx context.Context, req *SignInProgressReq) (*Sign
 		url   = "https://music.163.com/weapi/act/modules/signin/v2/progress"
 		reply SignInProgressResp
 	)
+	if req.ModuleId == "" {
+		req.ModuleId = "1207signin-1207signin"
+	}
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
 	if err != nil {

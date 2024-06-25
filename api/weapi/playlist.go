@@ -297,7 +297,7 @@ type PlaylistDetailResp struct {
 		VideoIds interface{} `json:"videoIds"`
 		Videos   interface{} `json:"videos"`
 		TrackIds []struct {
-			Id         int         `json:"id"`
+			Id         int64       `json:"id"`
 			V          int         `json:"v"`
 			T          int         `json:"t"`
 			At         int64       `json:"at"`

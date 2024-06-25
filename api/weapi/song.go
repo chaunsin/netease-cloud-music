@@ -159,7 +159,7 @@ type SongDetailRespSongs struct {
 	// Name 歌曲标题
 	Name string `json:"name"`
 	// Id 歌曲ID
-	Id int `json:"id"`
+	Id int64 `json:"id"`
 	// Pst 功能未知
 	Pst int `json:"pst"`
 	// T
@@ -212,7 +212,7 @@ type SongDetailRespSongs struct {
 		Pic    int64         `json:"pic"`
 	} `json:"al"`
 	// Dt 歌曲时长
-	Dt int `json:"dt"`
+	Dt int64 `json:"dt"`
 	// H 级高质量文件信息
 	H types.Quality `json:"h"`
 	// M 中质量文件信息
