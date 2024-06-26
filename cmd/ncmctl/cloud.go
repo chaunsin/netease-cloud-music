@@ -93,7 +93,7 @@ func (c *Cloud) Command() *cobra.Command {
 	return c.cmd
 }
 
-func (c *Cloud) execute(ctx context.Context, filelist []string) error {
+func (c *Cloud) execute(ctx context.Context, fileList []string) error {
 	if c.opts.Parallel < 0 || c.opts.Parallel > 50 {
 		return fmt.Errorf("parallel must be between 0 and 50")
 	}
@@ -101,7 +101,7 @@ func (c *Cloud) execute(ctx context.Context, filelist []string) error {
 	var barSize int64
 
 	// 命令行指定文件上传检验处理
-	for _, file := range filelist {
+	for _, file := range fileList {
 		exist, isDir, err := utils.CheckPath(file)
 		if err != nil {
 			return fmt.Errorf("CheckPath: %w", err)
@@ -130,7 +130,7 @@ func (c *Cloud) execute(ctx context.Context, filelist []string) error {
 
 	// 目录上传检验处理
 	if c.opts.Input != "" {
-		minsize, err := utils.ParseBytes(c.opts.MinSize)
+		minSize, err := utils.ParseBytes(c.opts.MinSize)
 		if err != nil {
 			return fmt.Errorf("bytesize.Parse: %w", err)
 		}
@@ -144,7 +144,7 @@ func (c *Cloud) execute(ctx context.Context, filelist []string) error {
 				return nil
 			}
 
-			fileinfo, err := d.Info()
+			info, err := d.Info()
 			if err != nil {
 				return err
 			}
@@ -155,23 +155,23 @@ func (c *Cloud) execute(ctx context.Context, filelist []string) error {
 			}
 
 			// 忽略大于300M的文件、小于0字节的文件以及用户配置得忽略的最小文件大小
-			if fileinfo.Size() > maxSize || fileinfo.Size() <= 0 || fileinfo.Size() < minsize {
+			if info.Size() > maxSize || info.Size() <= 0 || info.Size() < minSize {
 				return nil
 			}
 
-			barSize += fileinfo.Size()
-			filelist = append(filelist, file)
+			barSize += info.Size()
+			fileList = append(fileList, file)
 			return nil
 		}); err != nil {
 			return fmt.Errorf("WalkDir: %w", err)
 		}
 	}
 
-	if len(filelist) <= 0 {
+	if len(fileList) <= 0 {
 		return errors.New("no input file or the file does not meet the upload conditions")
 	}
-	filelist = slices.Compact(filelist)
-	log.Debug("Ready to upload list: %v", filelist)
+	fileList = slices.Compact(fileList)
+	log.Debug("Ready to upload list: %v", fileList)
 
 	c.root.Cfg.Network.Debug = false
 	if c.root.Opts.Debug {
@@ -198,10 +198,10 @@ func (c *Cloud) execute(ctx context.Context, filelist []string) error {
 	)
 	defer func() {
 		bar.Finish()
-		c.cmd.Printf("upload success: %v failures: %v \n", int64(len(filelist))-fail, fail)
+		c.cmd.Printf("upload success: %v failures: %v \n", int64(len(fileList))-fail, fail)
 	}()
 
-	for _, v := range filelist {
+	for _, v := range fileList {
 		if err := sema.Acquire(ctx, 1); err != nil {
 			return fmt.Errorf("acquire: %w", err)
 		}
@@ -255,12 +255,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		return fmt.Errorf("Seek: %w", err)
 	}
 
-	// // 2.检查是否需要登录
-	// if api.NeedLogin(ctx) {
-	// 	t.Fatal("need login")
-	// }
-
-	// 3.检查此文件是否需要上传
+	// 2.检查此文件是否需要上传
 	var checkReq = weapi.CloudUploadCheckReq{
 		Bitrate: bitrate,
 		Ext:     ext,
@@ -278,7 +273,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		return fmt.Errorf("CloudUploadCheck resp: %+v\n", resp)
 	}
 
-	// 4.获取上传凭证
+	// 3.获取上传凭证
 	var allocReq = weapi.CloudTokenAllocReq{
 		Bucket:     "", // jd-musicrep-privatecloud-audio-public
 		Ext:        ext,
@@ -297,7 +292,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		return fmt.Errorf("CloudTokenAlloc resp: %+v\n", allocResp)
 	}
 
-	// 5.上传文件
+	// 4.上传文件
 	if resp.NeedUpload {
 		var uploadReq = weapi.CloudUploadReq{
 			Bucket:      allocResp.Bucket,
@@ -316,7 +311,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		}
 	}
 
-	// 6.上传歌曲相关信息
+	// 5.上传歌曲相关信息
 	metadata, err := tag.ReadFrom(file)
 	if err != nil {
 		return fmt.Errorf("ReadFrom: %w", err)
@@ -341,7 +336,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		return fmt.Errorf("CloudInfo: %+v", infoResp)
 	}
 
-	// 7.对上传得歌曲进行发布，和自己账户做关联,不然云盘列表看不到上传得歌曲信息
+	// 6.对上传得歌曲进行发布，和自己账户做关联,不然云盘列表看不到上传得歌曲信息
 	var publishReq = weapi.CloudPublishReq{
 		SongId: infoResp.SongId,
 	}

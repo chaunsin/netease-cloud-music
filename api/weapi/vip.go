@@ -68,6 +68,33 @@ func (a *Api) VipRewardGet(ctx context.Context, req *VipRewardGetReq) (*VipRewar
 	return &reply, nil
 }
 
+type VipRewardGetAllReq struct{}
+
+type VipRewardGetAllResp struct {
+	types.RespCommon[VipRewardGetAllRespData]
+}
+
+type VipRewardGetAllRespData struct {
+	Result bool `json:"result"`
+}
+
+// VipRewardGetAll 领取vip所有成长值
+// url:
+// needLogin: 未知
+func (a *Api) VipRewardGetAll(ctx context.Context, req *VipRewardGetAllReq) (*VipRewardGetAllResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/vipnewcenter/app/level/task/reward/getall"
+		reply VipRewardGetAllResp
+	)
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
 type VipTaskReq struct{}
 
 type VipTaskResp struct {

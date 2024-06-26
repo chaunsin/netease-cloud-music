@@ -339,7 +339,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
 	if response.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("http status code: %d", response.StatusCode())
+		return nil, fmt.Errorf("http status code: %d detail: %s", response.StatusCode(), string(decryptData))
 	}
 	return response, nil
 }
@@ -392,10 +392,10 @@ func (c *Client) Upload(ctx context.Context, url string, headers map[string]stri
 	}
 	log.Debug("response: %+v", string(response.Body()))
 	if err := json.Unmarshal(response.Body(), &resp); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
 	if response.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("http status code: %d", response.StatusCode())
+		return nil, fmt.Errorf("http status code: %d detail: %s", response.StatusCode(), string(response.Body()))
 	}
 	return response, nil
 }

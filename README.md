@@ -10,11 +10,13 @@
 
 # 功能
 
-### cmd
+### ncmctl
+
+命令行支持一下功能
 
 - [x] 支持接口参数加解密便于调试
 - [x] `curl`子命令调用网易云音乐接口,无需关心接口入参出参加解密问题便于调试
-  - [ ] 支持动态链接请求 
+    - [ ] 支持动态链接请求
 - [x] “音乐合伙人”自动测评
 - [x] 云盘上传
 - [x] 每日刷歌300首
@@ -22,7 +24,7 @@
 - [ ] 音乐下载
 - [ ] vip每日签到
 - [ ] vip日常任务完成(待考虑)
-- [ ] .ncm文件解析转换为.mp3
+- [ ] .ncm文件解析转换为.mp3/.flac
 
 ### api
 
@@ -48,3 +50,4 @@
 
 - https://github.com/Binaryify/NeteaseCloudMusicApi
 - https://github.com/mos9527/pyncm
+- https://github.com/naruto2o2o/musicdump
