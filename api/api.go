@@ -35,13 +35,11 @@ import (
 	"net/http"
 	"net/http/httputil"
 	neturl "net/url"
-	"os"
 	"time"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
-	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/go-resty/resty/v2"
@@ -298,7 +296,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 	default:
 		return nil, fmt.Errorf("%s crypto mode unknown", cryptoType)
 	}
-	log.Debug("request: %+v encrypt: %+v", req, encryptData)
+	log.Debug("[request]: %+v encrypt: %+v", req, encryptData)
 
 	switch method {
 	case http.MethodPost:
@@ -311,7 +309,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
 	}
-	log.Debug("response: %+v", string(response.Body()))
+	log.Debug("[response]: %+v", string(response.Body()))
 
 	var decryptData []byte
 	switch cryptoType {
@@ -334,7 +332,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
 	}
-	log.Debug("decrypt body: %s", string(decryptData))
+	log.Debug("[response.decrypt]: %s", string(decryptData))
 	if err := json.Unmarshal(decryptData, &resp); err != nil {
 		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
@@ -344,48 +342,20 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 	return response, nil
 }
 
-func (c *Client) Upload(ctx context.Context, url string, headers map[string]string, req, resp interface{}, bar *pb.ProgressBar) (*resty.Response, error) {
-	file, err := os.Open(req.(string))
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	stat, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		return nil, err
-	}
-
-	md5, err := utils.MD5Hex(data)
-	if err != nil {
-		return nil, fmt.Errorf("MD5Hex: %v", err)
-	}
-
-	var body any
+func (c *Client) Upload(ctx context.Context, url string, headers map[string]string, data io.Reader, resp interface{}, bar *pb.ProgressBar) (*resty.Response, error) {
+	var body any = data
 	if bar != nil {
-		body = bar.NewProxyReader(bytes.NewReader(data))
-	} else {
-		body = bytes.NewReader(data)
+		body = bar.NewProxyReader(data)
 	}
 
 	response, err := c.cli.R().
 		SetContext(ctx).
 		SetHeaders(headers).
-		SetHeader("Content-Length", fmt.Sprintf("%d", stat.Size())).
-		SetHeader("Content-Type", "audio/mpeg").
-		SetHeader("Content-Md5", md5).
-		SetHeader("Host", "music.163.com").
 		SetHeader("Connection", "keep-alive").
 		SetHeader("Accept", "*/*").
 		SetHeader("Referer", "https://music.163.com").
 		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034").
 		SetBody(body).
-		// SetFile("file", "").
 		Post(url)
 	if err != nil {
 		return nil, err
@@ -402,7 +372,7 @@ func (c *Client) Upload(ctx context.Context, url string, headers map[string]stri
 
 func contentEncoding(c *resty.Client, resp *resty.Response) error {
 	kind := resp.Header().Get("Content-Encoding")
-	log.Debug("Content-Encoding:%s Uncompressed: %v", kind, resp.RawResponse.Uncompressed)
+	// log.Debug("Content-Encoding: %s Uncompressed: %v", kind, resp.RawResponse.Uncompressed)
 	switch kind {
 	case "deflate":
 		// 为何使用zlib库: https://zlib.net/zlib_faq.html#faq39

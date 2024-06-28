@@ -169,5 +169,5 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("MarshalIndent: %w", err)
 	}
-	return writefile(c.cmd, c.opts.Output, binary)
+	return writeFile(c.cmd, c.opts.Output, binary)
 }

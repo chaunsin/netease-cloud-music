@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -144,4 +145,19 @@ var musicExts = map[string]struct{}{
 func IsMusicExt(ext string) bool {
 	_, exist := musicExts[filepath.Ext(ext)]
 	return exist
+}
+
+func DetectContentType(data []byte, ext string) string {
+	if ext == ".flac" {
+		return "audio/flac"
+	}
+
+	var (
+		ct = http.DetectContentType(data)
+		k  = strings.SplitN(ct, "/", 1)
+	)
+	if len(k) > 0 && k[0] != "audio" {
+		ct = "audio/mpeg"
+	}
+	return ct
 }

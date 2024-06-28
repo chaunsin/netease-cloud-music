@@ -32,6 +32,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"sync/atomic"
 
 	"github.com/chaunsin/netease-cloud-music/api"
@@ -223,9 +224,8 @@ func (c *Cloud) execute(ctx context.Context, fileList []string) error {
 func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, bar *pb.ProgressBar) error {
 	// 1.读取文件
 	var (
-		ext     = "mp3" // todo: 上传.m4a也能成功,另外bitrate值有何影响？
-		bitrate = "999000"
-		// bitrate = "128000"
+		ext     = filepath.Ext(filename)
+		bitrate = "999000" // todo: 另外bitrate值有何影响？
 	)
 
 	file, err := os.Open(filename)
@@ -250,8 +250,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 	}
 
 	// 重新设置文件指针到开头
-	_, err = file.Seek(0, io.SeekStart)
-	if err != nil {
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
 		return fmt.Errorf("Seek: %w", err)
 	}
 
@@ -294,6 +293,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 
 	// 4.上传文件
 	if resp.NeedUpload {
+		log.Info("[%s] need upload", filename)
 		var uploadReq = weapi.CloudUploadReq{
 			Bucket:      allocResp.Bucket,
 			ObjectKey:   allocResp.ObjectKey,
@@ -326,7 +326,10 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		Artist:     utils.Ternary(metadata.Artist() != "", metadata.Artist(), "未知艺术家"),
 		Bitrate:    bitrate,
 		ResourceId: allocResp.ResourceID,
+		// CoverId:    "",
+		// ObjectKey: allocResp.ObjectKey, // 不能穿入此值不然会报告 {"msg":"rep create failed","code":404}
 	}
+	log.Debug("CloudInfo req: %+v", InfoReq)
 	infoResp, err := client.CloudInfo(ctx, &InfoReq)
 	if err != nil {
 		return fmt.Errorf("CloudInfo: %w", err)
@@ -336,11 +339,16 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		return fmt.Errorf("CloudInfo: %+v", infoResp)
 	}
 
-	// 6.对上传得歌曲进行发布，和自己账户做关联,不然云盘列表看不到上传得歌曲信息
-	var publishReq = weapi.CloudPublishReq{
-		SongId: infoResp.SongId,
+	// todo: 此步骤貌似是判断上传文件转码状态,具体有待商榷
+	songId, _ := strconv.ParseInt(infoResp.SongId, 10, 64)
+	statusResp, err := client.CloudMusicStatus(ctx, &weapi.CloudMusicStatusReq{SongIds: []int64{songId}})
+	if err != nil {
+		return fmt.Errorf("CloudMusicStatus: %w", err)
 	}
-	publishResp, err := client.CloudPublish(ctx, &publishReq)
+	log.Info("CloudMusicStatus resp: %+v\n", statusResp)
+
+	// 6.对上传得歌曲进行发布，和自己账户做关联,不然云盘列表看不到上传得歌曲信息
+	publishResp, err := client.CloudPublish(ctx, &weapi.CloudPublishReq{SongId: infoResp.SongId})
 	if err != nil {
 		return fmt.Errorf("CloudPublish: %w", err)
 	}

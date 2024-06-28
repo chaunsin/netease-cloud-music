@@ -102,6 +102,7 @@ func (b *Batch) Parse() (*Batch, map[string]string) {
 }
 
 // NewBatch 新建 Batch 对象
+// url: testdata/har/12.har
 func NewBatch(apis ...BatchAPI) *Batch {
 	var b = &Batch{
 		API: make(map[string]interface{}),

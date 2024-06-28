@@ -34,7 +34,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func writefile(cmd *cobra.Command, out string, data []byte) error {
+func writeFile(cmd *cobra.Command, out string, data []byte) error {
 	if out == "" {
 		cmd.Println(string(data))
 		return nil

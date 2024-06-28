@@ -27,12 +27,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
 	"github.com/cheggaaa/pb/v3"
 )
@@ -260,11 +264,9 @@ type CloudUploadCheckResp struct {
 // CloudUploadCheck 获取上传云盘token
 // url:
 // needLogin: 未知
-// todo: 需要迁移到api包中
 func (a *Api) CloudUploadCheck(ctx context.Context, req *CloudUploadCheckReq) (*CloudUploadCheckResp, error) {
 	var (
-		url = "https://interface.music.163.com/weapi/cloud/upload/check"
-		// url   = "https://interface.music.163.com/api/cloud/upload/check" // TODO:原本url 考虑Request替换url
+		url   = "https://interface.music.163.com/weapi/cloud/upload/check"
 		reply CloudUploadCheckResp
 	)
 	if req.CSRFToken == "" {
@@ -292,10 +294,12 @@ type CloudUploadReq struct {
 type CloudUploadResp struct {
 	// types.RespCommon[any]
 	// ErrCode 为空则说明成功
-	ErrCode        string `json:"errCode,omitempty"`
-	ErrMsg         string `json:"errMsg,omitempty"`
-	RequestId      string `json:"requestId,omitempty"`
-	Offset         int64  `json:"offset,omitempty"`
+	ErrCode   string `json:"errCode,omitempty"`
+	ErrMsg    string `json:"errMsg,omitempty"`
+	RequestId string `json:"requestId,omitempty"`
+	// Offset 用于分片上传时使用
+	Offset int64 `json:"offset,omitempty"`
+	// Context 用于分片上传时使用,用于下一个请求携带
 	Context        string `json:"context,omitempty"`
 	CallbackRetMsg string `json:"callbackRetMsg,omitempty"`
 	DownloadUrl    string `json:"downloadUrl,omitempty"` // 为啥没有？
@@ -318,8 +322,9 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 
 	var (
 		addr      = fmt.Sprintf("https://wanproxy.127.net/lbs?version=1.0&bucketname=%s", req.Bucket)
-		urlFormat = "%s/%s/%s?offset=0&complete=true&version=1.0"
-		uploadUrl = fmt.Sprintf(urlFormat, "http://59.111.242.121", req.Bucket, objectKey)
+		urlFormat = "%s/%s/%s"
+		ip        = "http://59.111.242.121"
+		uploadUrl = fmt.Sprintf(urlFormat, ip, req.Bucket, objectKey)
 		reply     CloudUploadResp
 	)
 
@@ -339,36 +344,144 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 			log.Error("user default upload lbs node. Unmarshal %s error: %v", addr, err)
 		} else {
 			if len(lbs.Upload) > 0 {
-				uploadUrl = fmt.Sprintf(urlFormat, lbs.Upload[rand.Intn(len(lbs.Upload))], req.Bucket, objectKey)
+				ip = lbs.Upload[rand.Intn(len(lbs.Upload))]
+				uploadUrl = fmt.Sprintf(urlFormat, ip, req.Bucket, objectKey)
 			}
 		}
 	}
 
-	var headers = map[string]string{
-		"X-Nos-Token": req.Token,
+	// return uploadFile(ip, req.Filepath, objectKey, req.Token)
+
+	file, err := os.Open(req.Filepath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, err
 	}
 
-	resp, err = a.client.Upload(ctx, uploadUrl, headers, req.Filepath, &reply, req.ProgressBar)
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	md5, err := utils.MD5Hex(data)
+	if err != nil {
+		return nil, fmt.Errorf("MD5Hex: %v", err)
+	}
+
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return nil, fmt.Errorf("SeekStart: %v", err)
+	}
+
+	var (
+		ext         = filepath.Ext(req.Filepath)
+		totalSize   = stat.Size()
+		chunkSize   = utils.MB * 80
+		chunks      = int((totalSize + chunkSize - 1) / chunkSize)
+		nextContext = ""
+	)
+	uploadUrl = uploadUrl + "?offset=%d&complete=%v&version=1.0"
+
+	var headers = map[string]string{
+		"X-Nos-Token":    req.Token,
+		"Content-Length": fmt.Sprintf("%d", totalSize),
+		"Content-Md5":    md5,
+		"Content-Type":   utils.DetectContentType(data, ext),
+		// "x-nos-meta-origin-md5": md5,
+		// "x-nos-meta-origin-source": "A-cloudmusic-9.1.10", // 手机app版本
+		// "X-MAM-CustomMark": "okhttp",
+		// "Transfer-Encoding": "chunked", // 与Content-Length是互斥得
+		// "CMPageId": "UploadMusicActivity",
+	}
+	resp, err = a.client.Upload(ctx, fmt.Sprintf(uploadUrl, 0, true), headers, file, &reply, req.ProgressBar)
 	if err != nil {
 		return nil, fmt.Errorf("Upload: %w", err)
 	}
-	_ = resp
+	return &reply, nil
+
+	for i := 0; i < chunks; i++ {
+		var (
+			complete = i == chunks-1
+			start    = int64(i) * chunkSize
+			end      = start + chunkSize
+		)
+		if end > totalSize {
+			end = totalSize
+		}
+		// if i != 0 {
+		// 	start += 1
+		// }
+
+		// todo: 放到for 循环外面
+		if _, err := file.Seek(start, io.SeekStart); err != nil {
+			return nil, fmt.Errorf("SeekStart: %v", err)
+		}
+
+		var partData = make([]byte, end-start)
+		// if _, err := file.ReadAt(partData, start); err != nil {
+		// 	panic("ReadAt:" + err.Error())
+		// }
+		if _, err := io.ReadFull(file, partData); err != nil {
+			return nil, fmt.Errorf("ReadFull: %v", err)
+		}
+
+		// if i == chunks-1 {
+		// 	partData = append(partData, 0)
+		// }
+
+		_addr := fmt.Sprintf(uploadUrl, start, complete)
+		if nextContext != "" {
+			_addr += "&context=" + nextContext
+		}
+
+		var headers = map[string]string{
+			"X-Nos-Token":    req.Token,
+			"Content-Length": fmt.Sprintf("%d", stat.Size()),
+			"Content-Md5":    md5,
+			"Content-Type":   utils.DetectContentType(data, ext),
+		}
+
+		resp, err = a.client.Upload(ctx, _addr, headers, nil, &reply, req.ProgressBar)
+		log.Debug("upload addr: %s chunk %d/%d, offset: %d, complete: %v, resp: %+v",
+			addr, i+1, chunks, start, complete, reply.ErrCode)
+		if err != nil {
+			return nil, fmt.Errorf("Upload: %w", err)
+		}
+
+		nextContext = reply.Context
+		_ = resp
+	}
 	return &reply, nil
 }
 
 type CloudInfoReq struct {
 	types.ReqCommon
-	Md5      string `json:"md5,omitempty"`
-	SongId   string `json:"songid,omitempty"`
+	// Md5 文件md5
+	Md5 string `json:"md5,omitempty"`
+	// SongId 歌曲id 从 CloudUploadCheck() api/cloud/upload/check接口返回值中获取
+	SongId string `json:"songid,omitempty"`
+	// Filename 文件名
 	Filename string `json:"filename,omitempty"`
 	// Song 歌曲名称
 	Song string `json:"song,omitempty"`
 	// Album 专辑名称
 	Album string `json:"album,omitempty"`
 	// Artist 艺术家
-	Artist     string `json:"artist,omitempty"`
+	Artist string `json:"artist,omitempty"`
+	// Bitrate 比特率
 	Bitrate    string `json:"bitrate,omitempty"`
 	ResourceId int64  `json:"resourceId,omitempty"`
+	// CoverId 封面id
+	CoverId string `json:"coverid,omitempty"`
+	// ObjectKey 在windows抓包发现需要上传此内容。更奇怪的是上传没有发现调用上传接口,
+	// 而是有点像非秒传场景直接忽略了上传这个步骤，有一点可以确定的是,我上传的文件"检测文件接口"返回得是true。
+	// 如果我按照windows上传方式传入此ObjectKey,此值时则会报以下错误:{"msg":"rep create failed","code":404}
+	// 解决方案目前暂时不传值此值
+	ObjectKey string `json:"objectKey,omitempty"`
 }
 
 type CloudInfoResp struct {
@@ -481,9 +594,8 @@ type PrivateCloud struct {
 }
 
 // CloudInfo 上传信息歌曲信息
-// url:
+// url: /testdata/9.har
 // needLogin: 未知
-// todo: 需要迁移到合适的包中
 func (a *Api) CloudInfo(ctx context.Context, req *CloudInfoReq) (*CloudInfoResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/upload/cloud/info/v2" // 是api还是weapi？
@@ -495,6 +607,39 @@ func (a *Api) CloudInfo(ctx context.Context, req *CloudInfoReq) (*CloudInfoResp,
 	if req.Artist == "" {
 		req.Artist = "未知艺术家"
 	}
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type CloudMusicStatusReq struct {
+	SongIds types.IntsString `json:"songIds"`
+}
+
+type CloudMusicStatusResp struct {
+	types.RespCommon[any]
+	// Key为歌曲的id
+	Statuses map[string]CloudMusicStatusRespData `json:"statuses"`
+}
+
+type CloudMusicStatusRespData struct {
+	// 0:成功 9:待转码貌似
+	Status   int64 `json:"status"`
+	WaitTime int64 `json:"waitTime"`
+}
+
+// CloudMusicStatus 查询上传文件状态信息,此接口貌似是上传文件后查询文件转码状态
+// url: /testdata/10.har
+// needLogin: 未知
+func (a *Api) CloudMusicStatus(ctx context.Context, req *CloudMusicStatusReq) (*CloudMusicStatusResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/v1/cloud/music/status"
+		reply CloudMusicStatusResp
+	)
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
 	if err != nil {
@@ -516,12 +661,11 @@ type CloudPublishResp struct {
 }
 
 // CloudPublish 上传信息发布
-// url:
+// url: testdata/har/13.har
 // needLogin: 未知
-// todo: 需要迁移到合适的包中
 func (a *Api) CloudPublish(ctx context.Context, req *CloudPublishReq) (*CloudPublishResp, error) {
 	var (
-		url   = "https://interface.music.163.com/weapi/cloud/pub/v2" // 是api还是weapi
+		url   = "https://interface.music.163.com/weapi/cloud/pub/v2"
 		reply CloudPublishResp
 	)
 

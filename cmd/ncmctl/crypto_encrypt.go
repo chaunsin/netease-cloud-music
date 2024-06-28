@@ -123,5 +123,5 @@ func (c *cryptoCmd) execute(ctx context.Context) error {
 	default:
 		return fmt.Errorf("%s known kind", kind)
 	}
-	return writefile(c.cmd, opts.Output, data)
+	return writeFile(c.cmd, opts.Output, data)
 }
