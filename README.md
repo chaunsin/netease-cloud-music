@@ -2,7 +2,7 @@
 
 [![GoDoc](https://godoc.org/github.com/chaunsin/netease-cloud-music?status.svg)](https://godoc.org/github.com/chaunsin/netease-cloud-music) [![Go Report Card](https://goreportcard.com/badge/github.com/chaunsin/netease-cloud-music)](https://goreportcard.com/report/github.com/chaunsin/netease-cloud-music)
 
-网抑云音乐 Golang API 接口
+网易云音乐 Golang API 接口 + 命令行工具
 
 # 重要声明
 
@@ -12,7 +12,7 @@
 
 ### ncmctl
 
-命令行支持一下功能
+命令行支持以下功能
 
 - [x] 支持接口参数加解密便于调试
 - [x] `curl`子命令调用网易云音乐接口,无需关心接口入参出参加解密问题便于调试
@@ -20,7 +20,7 @@
 - [x] “音乐合伙人”自动测评
 - [x] 云盘上传
 - [x] 每日刷歌300首
-- [ ] 云贝每日签到
+- [x] 云贝每日签到
 - [ ] 音乐下载
 - [ ] vip每日签到
 - [ ] vip日常任务完成(待考虑)
@@ -29,7 +29,7 @@
 ### api
 
 - weapi 网页端、小程序使用
-- eapi PC端使用
+- eapi PC端、移动端使用
 
 待补充
 
