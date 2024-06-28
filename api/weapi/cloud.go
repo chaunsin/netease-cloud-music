@@ -24,6 +24,7 @@
 package weapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -255,6 +256,7 @@ type CloudUploadCheckReq struct {
 }
 
 type CloudUploadCheckResp struct {
+	// code 501:貌似上传得文件过大
 	types.RespCommon[any]
 	SongId string `json:"songId,omitempty"`
 	// NeedUpload 是否需要上传 true:需要上传说明网易云网盘没有此音乐文件
@@ -397,11 +399,11 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 		// "Transfer-Encoding": "chunked", // 与Content-Length是互斥得
 		// "CMPageId": "UploadMusicActivity",
 	}
-	resp, err = a.client.Upload(ctx, fmt.Sprintf(uploadUrl, 0, true), headers, file, &reply, req.ProgressBar)
-	if err != nil {
-		return nil, fmt.Errorf("Upload: %w", err)
-	}
-	return &reply, nil
+	// resp, err = a.client.Upload(ctx, fmt.Sprintf(uploadUrl, 0, true), headers, file, &reply, req.ProgressBar)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("Upload: %w", err)
+	// }
+	// return &reply, nil
 
 	for i := 0; i < chunks; i++ {
 		var (
@@ -412,40 +414,18 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 		if end > totalSize {
 			end = totalSize
 		}
-		// if i != 0 {
-		// 	start += 1
-		// }
-
-		// todo: 放到for 循环外面
-		if _, err := file.Seek(start, io.SeekStart); err != nil {
-			return nil, fmt.Errorf("SeekStart: %v", err)
-		}
-
-		var partData = make([]byte, end-start)
-		// if _, err := file.ReadAt(partData, start); err != nil {
-		// 	panic("ReadAt:" + err.Error())
-		// }
-		if _, err := io.ReadFull(file, partData); err != nil {
-			return nil, fmt.Errorf("ReadFull: %v", err)
-		}
-
-		// if i == chunks-1 {
-		// 	partData = append(partData, 0)
-		// }
 
 		_addr := fmt.Sprintf(uploadUrl, start, complete)
 		if nextContext != "" {
 			_addr += "&context=" + nextContext
 		}
 
-		var headers = map[string]string{
-			"X-Nos-Token":    req.Token,
-			"Content-Length": fmt.Sprintf("%d", stat.Size()),
-			"Content-Md5":    md5,
-			"Content-Type":   utils.DetectContentType(data, ext),
+		partData, err := splitFile(file, start, end)
+		if err != nil {
+			return nil, fmt.Errorf("splitFile: %w", err)
 		}
 
-		resp, err = a.client.Upload(ctx, _addr, headers, nil, &reply, req.ProgressBar)
+		resp, err = a.client.Upload(ctx, _addr, headers, bytes.NewReader(partData), &reply, req.ProgressBar)
 		log.Debug("upload addr: %s chunk %d/%d, offset: %d, complete: %v, resp: %+v",
 			addr, i+1, chunks, start, complete, reply.ErrCode)
 		if err != nil {
@@ -456,6 +436,15 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 		_ = resp
 	}
 	return &reply, nil
+}
+
+func splitFile(file *os.File, start, end int64) ([]byte, error) {
+	var buf = make([]byte, end-start)
+	_, err := file.ReadAt(buf, start)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	return buf, nil
 }
 
 type CloudInfoReq struct {
@@ -726,6 +715,36 @@ func (a *Api) CloudLyric(ctx context.Context, req *CloudLyricReq) (*CloudLyricRe
 	var (
 		url   = "https://music.163.com/weapi/cloud/lyric/get"
 		reply CloudLyricResp
+	)
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type CloudDelReq struct {
+	SongIds types.IntsString `json:"songIds"`
+}
+
+type CloudDelResp struct {
+	// Code 200:成功 404:删除失败(当重复删除同一个id时会出现)
+	types.RespCommon[any]
+	// FailIds 删除失败的歌曲id
+	FailIds []int64 `json:"failIds"`
+	// SuccIds 删除成功的歌曲id
+	SuccIds []int64 `json:"succIds"`
+}
+
+// CloudDel 云盘歌曲删除
+// url:
+// needLogin: 未知
+func (a *Api) CloudDel(ctx context.Context, req *CloudDelReq) (*CloudDelResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/cloud/del"
+		reply CloudDelResp
 	)
 
 	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)

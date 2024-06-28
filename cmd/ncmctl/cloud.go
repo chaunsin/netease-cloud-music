@@ -34,6 +34,7 @@ import (
 	"slices"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
@@ -46,7 +47,7 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-const maxSize = 300 * utils.MB
+const maxSize = 500 * utils.MB
 
 type CloudOpts struct {
 	Input    string // 加载文件路径
@@ -121,7 +122,7 @@ func (c *Cloud) execute(ctx context.Context, fileList []string) error {
 			return fmt.Errorf("%s stat: %w", file, err)
 		}
 		if stat.Size() > maxSize {
-			return fmt.Errorf("%s file size too large", file)
+			return fmt.Errorf("%s file size too large.limit %vkb", file, maxSize)
 		}
 		if stat.Size() <= 0 {
 			return fmt.Errorf("%s file size too small", file)
@@ -238,6 +239,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 	if err != nil {
 		return fmt.Errorf("Stat: %w", err)
 	}
+	var fileSize = stat.Size()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
@@ -258,7 +260,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 	var checkReq = weapi.CloudUploadCheckReq{
 		Bitrate: bitrate,
 		Ext:     ext,
-		Length:  fmt.Sprintf("%d", stat.Size()),
+		Length:  fmt.Sprintf("%d", fileSize),
 		Md5:     md5,
 		SongId:  "0",
 		Version: "1",
@@ -339,13 +341,27 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		return fmt.Errorf("CloudInfo: %+v", infoResp)
 	}
 
-	// todo: 此步骤貌似是判断上传文件转码状态,具体有待商榷
+	// todo: 此步骤貌似是判断上传文件转码状态,具体有待商榷,另外此处貌似不用进行重试处理？
+	var retryNum int64
+retry:
+	retryNum++
+	if retryNum > 3 {
+		return fmt.Errorf("CloudInfo retry too many times")
+	}
 	songId, _ := strconv.ParseInt(infoResp.SongId, 10, 64)
 	statusResp, err := client.CloudMusicStatus(ctx, &weapi.CloudMusicStatusReq{SongIds: []int64{songId}})
 	if err != nil {
 		return fmt.Errorf("CloudMusicStatus: %w", err)
 	}
-	log.Info("CloudMusicStatus resp: %+v\n", statusResp)
+	log.Debug("CloudMusicStatus #%v resp: %+v\n", retryNum, statusResp)
+	if statusResp.Code != 200 {
+		log.Error("CloudMusicStatus #%v resp: %+v\n", retryNum, statusResp)
+	}
+	if v, ok := statusResp.Statuses[infoResp.SongId]; ok && v.Status != 0 {
+		log.Warn("CloudMusicStatus status: %v retry #%v\n", statusResp.Statuses, retryNum)
+		time.Sleep(time.Second * 30)
+		goto retry
+	}
 
 	// 6.对上传得歌曲进行发布，和自己账户做关联,不然云盘列表看不到上传得歌曲信息
 	publishResp, err := client.CloudPublish(ctx, &weapi.CloudPublishReq{SongId: infoResp.SongId})
@@ -356,12 +372,12 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 	switch publishResp.Code {
 	case 200:
 		if !resp.NeedUpload {
-			bar.Add64(stat.Size())
+			bar.Add64(fileSize)
 		}
 		log.Debug("上传成功: %s", filename)
 	case 201:
 		if !resp.NeedUpload {
-			bar.Add64(stat.Size())
+			bar.Add64(fileSize)
 		}
 		log.Debug("重复上传: %s", filename)
 	default:

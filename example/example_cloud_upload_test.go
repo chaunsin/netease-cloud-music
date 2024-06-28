@@ -116,23 +116,8 @@ func TestCloudUpload(t *testing.T) {
 		t.Logf("CloudTokenAlloc resp: %+v\n", allocResp)
 	}
 
+	// 5.上传文件
 	if resp.NeedUpload {
-		// var allocReq2 = weapi.CloudTokenAllocReq{
-		// 	Bucket:     "jd-musicrep-privatecloud-audio-public",
-		// 	Ext:        ext,
-		// 	Filename:   filepath.Base(filename),
-		// 	Local:      "false",
-		// 	NosProduct: "3",
-		// 	Type:       "audio",
-		// 	Md5:        md5,
-		// }
-		// allocResp2, err := api.CloudTokenAlloc(ctx, &allocReq2)
-		// if err != nil {
-		// 	t.Fatalf("CloudTokenAlloc: %v", err)
-		// }
-		// t.Logf("CloudTokenAlloc resp2: %+v\n", allocResp2)
-
-		// 5.上传文件
 		var uploadReq = weapi.CloudUploadReq{
 			Bucket:    allocResp.Bucket,
 			ObjectKey: allocResp.ObjectKey,
