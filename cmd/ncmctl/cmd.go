@@ -76,6 +76,7 @@ func New(cfg *config.Config, l *log.Logger) *Root {
 	c.Add(NewTask(c, l).Command())
 	c.Add(NewScrobble(c, l).Command())
 	c.Add(NewSignIn(c, l).Command())
+	c.Add(NewNCM(c, l).Command())
 	return c
 }
 
