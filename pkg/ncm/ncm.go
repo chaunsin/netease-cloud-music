@@ -31,6 +31,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
+
+	"github.com/dhowden/tag"
 )
 
 type CoverType string
@@ -41,12 +44,29 @@ const (
 	CoverTypeJpeg    CoverType = "jpeg"
 )
 
+func (c CoverType) FileType() string {
+	return string(c)
+}
+
+func (c CoverType) MIME() string {
+	switch c {
+	case CoverTypeJpeg:
+		return "image/jpeg"
+	case CoverTypePng:
+		return "image/png"
+	case CoverTypeUnknown:
+		fallthrough
+	default:
+		return "unknown"
+	}
+}
+
 var (
 	pngPrefix  = []byte("\x89PNG\x0D\x0A\x1A\x0A")
 	jpegPrefix = []byte("\xFF\xD8\xFF")
 )
 
-func coverType(data []byte) CoverType {
+func DetectCoverType(data []byte) CoverType {
 	if bytes.HasPrefix(data, jpegPrefix) {
 		return CoverTypeJpeg
 	}
@@ -165,14 +185,21 @@ func DecodeMeta(rs io.ReadSeeker) (*Metadata, error) {
 		return nil, fmt.Errorf("readUint32.metaBuf: %w", err)
 	}
 
-	// metaLen <=0 说明没有音乐相关metadata数据
+	// metaLen <=0 that means no metadata
 	if metaLen <= 0 {
-		fmt.Println("metadata len <= 0")
-		// TODO(chaunsin): 此处是直接比较文件大小来判定文件格式待优化？
-		meta.Format = "flac"
-		// if info, err := rs.Stat(); err != nil && info.Size() < int64(math.Pow(1024, 2)*16) {
-		// 	meta.Format = "mp3"
-		// }
+		data, err := DecodeMusic(rs)
+		if err != nil {
+			return nil, fmt.Errorf("DecodeMusic: %w", err)
+		}
+
+		m, err := tag.ReadFrom(bytes.NewReader(data))
+		if err != nil {
+			return nil, fmt.Errorf("tag.ReadFrom: %w", err)
+		}
+		meta.Format = strings.ToLower(string(m.FileType()))
+		// Usually empty, try your best to get information
+		meta.Name = m.Title()
+		meta.Album = m.Album()
 		return &meta, nil
 	}
 
@@ -255,10 +282,10 @@ func DecodeCover(rs io.ReadSeeker) ([]byte, CoverType, error) {
 	if _, err = rs.Read(imgData); err != nil {
 		return nil, CoverTypeUnknown, fmt.Errorf("readUint32.imgData: %w", err)
 	}
-	return imgData, coverType(imgData), nil
+	return imgData, DetectCoverType(imgData), nil
 }
 
-func Decode(rs io.ReadSeeker) ([]byte, error) {
+func DecodeMusic(rs io.ReadSeeker) ([]byte, error) {
 	// detect whether ncm file
 	if err := IsNCMFile(rs); err != nil {
 		return nil, err
@@ -294,7 +321,8 @@ func decodeMusic(box []byte, rs io.ReadSeeker) ([]byte, error) {
 		}
 		for i := 0; i < n; i++ {
 			j := byte((i + 1) & 0xff)
-			tb[i] ^= box[(box[j]+box[(box[j]+j)&0xff])&0xff]
+			bj := box[j]
+			tb[i] ^= box[(bj+box[(bj+j)&0xff])&0xff]
 		}
 		if _, err := buf.Write(tb); err != nil {
 			return nil, err
@@ -323,9 +351,9 @@ func Open(filename string) (*NCM, error) {
 func NewReadSeeker(rs io.ReadSeeker) (*NCM, error) {
 	var ncm NCM
 
-	// 校验
+	// check file is ncm file
 	if err := IsNCMFile(rs); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("IsNCMFile: %w", err)
 	}
 
 	// jump over the gap(2).
@@ -333,69 +361,71 @@ func NewReadSeeker(rs io.ReadSeeker) (*NCM, error) {
 		return nil, err
 	}
 
-	// 解析出key
+	// decode music key
 	box, err := decodeKey(rs)
 	if err != nil {
 		return nil, fmt.Errorf("decodeKey: %w", err)
 	}
 
-	// === 解析metadata开始 ===
-	// get metadata length
-	var metaBuf = make([]byte, 4)
-	metaLen, err := readUint32(metaBuf, rs)
-	if err != nil {
-		return nil, err
+	// start decode metadata
+	{
+		// get metadata length
+		var metaBuf = make([]byte, 4)
+		metaLen, err := readUint32(metaBuf, rs)
+		if err != nil {
+			return nil, err
+		}
+
+		// read metadata
+		var metadata = make([]byte, metaLen)
+		if _, err = rs.Read(metadata); err != nil {
+			return nil, err
+		}
+		for i := range metadata {
+			metadata[i] ^= 0x63
+		}
+
+		// 22 = len(`163 key(Don't modify):`)
+		var modifyData = make([]byte, base64.StdEncoding.DecodedLen(len(metadata)-22))
+		if _, err = base64.StdEncoding.Decode(modifyData, metadata[22:]); err != nil {
+			return nil, err
+		}
+
+		meta, err := decryptAes128Ecb(aesModifyKey, fixBlockSize(modifyData))
+		if err != nil {
+			return nil, err
+		}
+		meta = meta[6:] // 6 = len("music:")
+
+		if err := json.Unmarshal(meta, &ncm.metadata); err != nil {
+			return nil, err
+		}
 	}
 
-	// read metadata
-	var metadata = make([]byte, metaLen)
-	if _, err = rs.Read(metadata); err != nil {
-		return nil, err
-	}
-	for i := range metadata {
-		metadata[i] ^= 0x63
+	// start decode cover
+	{
+		// 5 bytes gap + 4 bytes image crc
+		if _, err := rs.Seek(9, io.SeekCurrent); err != nil {
+			return nil, err
+		}
+
+		// get cover image length
+		var imgBuf = make([]byte, 4)
+		imgLen, err := readUint32(imgBuf, rs)
+		if err != nil {
+			return nil, err
+		}
+
+		// get cover image data
+		var imgData = make([]byte, imgLen)
+		if _, err = rs.Read(imgData); err != nil {
+			return nil, err
+		}
+		ncm.cover = imgData
+		ncm.coverType = DetectCoverType(imgData)
 	}
 
-	// 22 = len(`163 key(Don't modify):`)
-	var modifyData = make([]byte, base64.StdEncoding.DecodedLen(len(metadata)-22))
-	if _, err = base64.StdEncoding.Decode(modifyData, metadata[22:]); err != nil {
-		return nil, err
-	}
-
-	meta, err := decryptAes128Ecb(aesModifyKey, fixBlockSize(modifyData))
-	if err != nil {
-		return nil, err
-	}
-	meta = meta[6:] // 6 = len("music:")
-
-	if err := json.Unmarshal(meta, &ncm.metadata); err != nil {
-		return nil, err
-	}
-	// === 解析metadata结束 ===
-
-	// === 解析cover开始 ===
-	// 5 bytes gap + 4 bytes image crc
-	if _, err := rs.Seek(9, io.SeekCurrent); err != nil {
-		return nil, err
-	}
-
-	// get cover image length
-	var imgBuf = make([]byte, 4)
-	imgLen, err := readUint32(imgBuf, rs)
-	if err != nil {
-		return nil, err
-	}
-
-	// get cover image data
-	var imgData = make([]byte, imgLen)
-	if _, err = rs.Read(imgData); err != nil {
-		return nil, err
-	}
-	ncm.cover = imgData
-	ncm.coverType = coverType(imgData)
-	// === 解析cover结束 ===
-
-	// 解析出歌曲
+	// decode music data
 	ncm.music, err = decodeMusic(box, rs)
 	if err != nil {
 		return nil, fmt.Errorf("decodeMusic: %w", err)

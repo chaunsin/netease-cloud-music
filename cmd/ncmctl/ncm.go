@@ -28,12 +28,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 
-	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/ncm"
+	"github.com/chaunsin/netease-cloud-music/pkg/ncm/tag"
 	"github.com/spf13/cobra"
 )
 
@@ -55,9 +55,9 @@ func NewNCM(root *Root, l *log.Logger) *NCM {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "sign",
-			Short:   "Sign perform daily cloud shell check-in and vip check-in",
-			Example: `  ncm sign`,
+			Use:     "ncm",
+			Short:   "NCM used to parse.ncm music files",
+			Example: `  ncm -h`,
 		},
 	}
 	c.addFlags()
@@ -118,7 +118,7 @@ func (c *NCM) execute(ctx context.Context, args []string) error {
 		}
 
 		var file = filepath.Join(c.opts.Input, path)
-		if ok := utils.IsMusicExt(file); !ok {
+		if filepath.Ext(file) != ".ncm" {
 			return nil
 		}
 
@@ -131,6 +131,31 @@ func (c *NCM) execute(ctx context.Context, args []string) error {
 
 	if len(fileList) <= 0 {
 		return errors.New("no input file or the file does not meet the conditions")
+	}
+	log.Debug("filelist:%+v", fileList)
+
+	for _, f := range fileList {
+		n, err := ncm.Open(f)
+		if err != nil {
+			return fmt.Errorf("open: %w", err)
+		}
+
+		// todo: fix file ext
+		name := filepath.Base(f)
+		var ext = n.Metadata().Format
+		if n.Metadata().Format == "" {
+			ext = "mp3"
+		}
+
+		p := filepath.Join(c.opts.Output, name+"."+ext)
+
+		if err := os.WriteFile(p, n.Music(), 0644); err != nil {
+			return fmt.Errorf("writeFile: %w", err)
+		}
+
+		if err := tag.NewFromNCM(n, p); err != nil {
+			return fmt.Errorf("NewFromNCM: %w", err)
+		}
 	}
 
 	return nil

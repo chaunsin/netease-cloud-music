@@ -68,14 +68,14 @@ func writePNG(t *testing.T, data io.Reader, dest string) {
 	assert.NoError(t, err, "编码并写入PNG文件失败")
 }
 
-func TestDump(t *testing.T) {
+func TestDecodeMusic(t *testing.T) {
 	var name = ncmName + ".mp3"
 	_ = os.Remove(name)
 	file, err := os.Open(ncmName)
 	defer file.Close()
 	assert.NoError(t, err)
 
-	data, err := Decode(file)
+	data, err := DecodeMusic(file)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, data)
 

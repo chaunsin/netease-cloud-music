@@ -57,4 +57,5 @@ type Metadata struct {
 	TransNames    []interface{} `json:"transNames"`
 	Duration      int64         `json:"duration"` // 单位毫秒
 	Format        string        `json:"format"`   // eg: flac
+	Comment       string        `json:"comment"`  // TODO: 到底有没有？
 }
