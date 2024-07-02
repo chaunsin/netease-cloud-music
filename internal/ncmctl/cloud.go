@@ -68,8 +68,8 @@ func NewCloud(root *Root, l *log.Logger) *Cloud {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "cloud",
-			Short:   "Cloud is a tool for encrypting and decrypting the http data",
-			Example: "  ncm cloud -h\n  ncm cloud ./mymusic.mp3\n  ncm cloud -i ./my/music/",
+			Short:   "Used to upload music files to netease cloud disk",
+			Example: "  ncmctl cloud -h\n  ncmctl cloud ./mymusic.mp3\n  ncmctl cloud -i ./my/music/",
 			Args:    cobra.RangeArgs(0, 1),
 		},
 	}

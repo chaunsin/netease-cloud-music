@@ -60,8 +60,8 @@ func NewPartner(root *Root, l *log.Logger) *Partner {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "partner",
-			Short:   "Partner async execute music partner",
-			Example: `  ncm partner`,
+			Short:   "Executive music partner daily reviews",
+			Example: `  ncmctl partner`,
 		},
 	}
 	c.addFlags()
@@ -74,7 +74,7 @@ func NewPartner(root *Root, l *log.Logger) *Partner {
 }
 
 func (c *Partner) addFlags() {
-	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "https://crontab.guru/")
+	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "usage detail: https://crontab.guru/")
 	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.Star, "star", "s", []int64{3, 4}, "star level")
 	c.cmd.PersistentFlags().BoolVarP(&c.opts.Once, "once", "", false, "real-time execution once")
 	// c.cmd.PersistentFlags().StringSliceVarP(&c.opts.Tags, "tags", "t", []string{"情感到位", "有节奏感", "音色独特"}, "tags")

@@ -63,7 +63,7 @@ func NewCurl(root *Root, l *log.Logger) *Curl {
 		cmd: &cobra.Command{
 			Use:     "curl",
 			Short:   "Like curl invoke netease cloud music api",
-			Example: "  ncm curl -h\n  ncm curl -k weapi -i '{}' Ping",
+			Example: "  ncmctl curl -h\n  ncmctl curl -k weapi -i '{}' Ping",
 		},
 	}
 	c.addFlags()

@@ -63,7 +63,12 @@ type Config struct {
 	Rotate lumberjack.Logger `json:"rotate" yaml:"rotate"`
 }
 
+func (c *Config) Validate() error {
+	return nil
+}
+
 type Logger struct {
+	cfg   *Config
 	l     *slog.Logger
 	level *slog.LevelVar
 }
@@ -71,6 +76,9 @@ type Logger struct {
 func New(cfg *Config) *Logger {
 	if cfg == nil {
 		cfg = &defaultConfig
+	}
+	if err := cfg.Validate(); err != nil {
+		panic(fmt.Sprintf("config validate: %s", err))
 	}
 
 	var level slog.LevelVar
@@ -111,17 +119,25 @@ func New(cfg *Config) *Logger {
 	h = h.WithAttrs([]slog.Attr{slog.String("app", cfg.App)})
 
 	l := Logger{
+		cfg:   cfg,
 		l:     slog.New(h),
 		level: &level,
 	}
 	return &l
 }
 
-func (l Logger) Logger() *slog.Logger {
+func (l *Logger) Close() error {
+	if l == nil || l.cfg == nil {
+		return nil
+	}
+	return l.cfg.Rotate.Close()
+}
+
+func (l *Logger) Logger() *slog.Logger {
 	return l.l
 }
 
-func (l Logger) SetLevel(level slog.Level) {
+func (l *Logger) SetLevel(level slog.Level) {
 	l.level.Set(level)
 }
 

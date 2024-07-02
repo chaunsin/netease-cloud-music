@@ -9,14 +9,10 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
 	"github.com/mitchellh/mapstructure"
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
-var (
-	confPath *string
-	home     string
-)
+var home string
 
 func init() {
 	var err error
@@ -24,7 +20,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	confPath = pflag.String("f", "./config.yaml", "main -f ./.ncmctl/config.yaml")
 }
 
 type Config struct {
@@ -38,13 +33,17 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func New() *Config {
+func New(cfgPath ...string) *Config {
 	var (
 		conf Config
 		opts = func(m *mapstructure.DecoderConfig) {
 			m.TagName = "yaml"
 		}
+		_cfgPath string
 	)
+	if len(cfgPath) > 0 {
+		_cfgPath = cfgPath[0]
+	}
 
 	v := viper.New()
 	v.SetTypeByDefaultValue(true)
@@ -57,7 +56,7 @@ func New() *Config {
 	v.AddConfigPath(".")
 	v.AddConfigPath("./.ncmctl")
 	v.AddConfigPath(filepath.Join(home, ".ncmctl"))
-	v.AddConfigPath(filepath.Dir(*confPath))
+	v.AddConfigPath(filepath.Dir(_cfgPath))
 	// v.SetConfigFile(*confPath)
 	if err := v.ReadInConfig(); err != nil {
 		panic(err)

@@ -3,7 +3,10 @@ test:
 	go test -v ./..
 
 build:
-	go build -o ncmctl cmd/main.go
+	go build -o ncmctl cmd/ncmctl/main.go
 
-clean:
-	rm -rf ./mcmctl
+install:
+	cd cmd/ncmctl && go install .
+
+#uninstall:
+#	rm -rf ./mcmctl

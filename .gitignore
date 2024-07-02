@@ -965,3 +965,6 @@ Temporary Items
 /cmd/qrcode.png
 /pkg/ncm/testdata/BOE - 822.ncm.mp3
 /cmd/ncm/
+/ncmctl
+/ncmctl.exe
+/.ncmctl/

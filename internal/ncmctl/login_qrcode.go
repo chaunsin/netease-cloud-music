@@ -54,7 +54,7 @@ func qrcode(root *Login, l *log.Logger) *cobra.Command {
 	c.cmd = &cobra.Command{
 		Use:     "qrcode",
 		Short:   "use qrcode login",
-		Example: "  ncm login qrcode",
+		Example: "  ncmctl login qrcode",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := c.execute(cmd.Context()); err != nil {
 				cmd.Println(err)

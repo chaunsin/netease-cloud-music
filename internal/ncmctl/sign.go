@@ -54,7 +54,7 @@ func NewSignIn(root *Root, l *log.Logger) *SignIn {
 		cmd: &cobra.Command{
 			Use:     "sign",
 			Short:   "Sign perform daily cloud shell check-in and vip check-in",
-			Example: `  ncm sign`,
+			Example: `  ncmctl sign`,
 		},
 	}
 	c.addFlags()
@@ -65,7 +65,7 @@ func NewSignIn(root *Root, l *log.Logger) *SignIn {
 }
 
 func (c *SignIn) addFlags() {
-	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "https://crontab.guru/")
+	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "usage detail: https://crontab.guru/")
 	c.cmd.PersistentFlags().BoolVarP(&c.opts.Once, "once", "", false, "real-time execution once")
 }
 
@@ -116,7 +116,7 @@ func (c *SignIn) execute(ctx context.Context) error {
 		return fmt.Errorf("YunBeiSignIn: %w", err)
 	}
 	if resp.Code != 200 {
-		return fmt.Errorf("YunBeiSignIn: %s", resp.Msg)
+		return fmt.Errorf("YunBeiSignIn: %+v", resp)
 	}
 	if resp.Data.Sign {
 		c.cmd.Println("yunbei signed in success")

@@ -24,17 +24,11 @@
 package main
 
 import (
-	"flag"
-
-	"github.com/chaunsin/netease-cloud-music/cmd/ncmctl"
-	"github.com/chaunsin/netease-cloud-music/config"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/internal/ncmctl"
 )
 
 func main() {
-	flag.Parse()
-	cfg := config.New()
-	log.Default = log.New(cfg.Log)
-	c := ncmctl.New(cfg, log.Default)
+	c := ncmctl.New()
+	c.Version("v0.0.0")
 	c.Execute()
 }

@@ -24,13 +24,13 @@
 package ncmctl
 
 import (
-	"log/slog"
+	"fmt"
 
 	"github.com/chaunsin/netease-cloud-music/config"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 type RootOpts struct {
@@ -46,44 +46,60 @@ type Root struct {
 	l    *log.Logger
 }
 
-func New(cfg *config.Config, l *log.Logger) *Root {
+func New() *Root {
 	c := &Root{
-		Cfg: cfg,
-		l:   l,
 		cmd: &cobra.Command{
-			Use:   "ncm",
-			Short: "ncm is a toolbox for netease cloud music.",
-			Example: `  ncm -h
-  ncm crypto
-  ncm login
-  ncm curl
-  ncm partner`,
+			Use:   "ncmctl",
+			Short: "ncmctl command.",
+			Long:  `ncmctl is a toolbox for netease cloud music.`,
+			Example: `  ncmctl cloud
+  ncmctl crypto
+  ncmctl login
+  ncmctl curl
+  ncmctl partner`,
 		},
 	}
-	c.cmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
-		if c.Opts.Debug {
-			l.SetLevel(slog.LevelDebug)
-		} else {
-			l.SetLevel(slog.LevelInfo)
+	c.cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if c.Opts.Config == "" {
+			return fmt.Errorf("config file not specified")
 		}
+		if !utils.FileExists(c.Opts.Config) {
+			return fmt.Errorf("config file not exists: %s", c.Opts.Config)
+		}
+		c.Cfg = config.New(c.Opts.Config)
+
+		// 命令行开启了debug模式优先级大于配置文件中得优先级
+		if c.Opts.Debug {
+			c.Cfg.Log.Stdout = true
+			c.Cfg.Log.Level = "debug"
+		}
+
+		// 初始化日志
+		c.l = log.New(c.Cfg.Log)
+		log.Default = c.l
+		return nil
 	}
+	c.cmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
+		return c.l.Close()
+	}
+
 	c.addFlags()
-	c.Add(NewCrypto(c, l).Command())
-	c.Add(NewLogin(c, l).Command())
-	c.Add(NewPartner(c, l).Command())
-	c.Add(NewCurl(c, l).Command())
-	c.Add(NewCloud(c, l).Command())
-	c.Add(NewTask(c, l).Command())
-	c.Add(NewScrobble(c, l).Command())
-	c.Add(NewSignIn(c, l).Command())
-	c.Add(NewNCM(c, l).Command())
+	c.Add(NewCrypto(c, c.l).Command())
+	c.Add(NewLogin(c, c.l).Command())
+	c.Add(NewPartner(c, c.l).Command())
+	c.Add(NewCurl(c, c.l).Command())
+	c.Add(NewCloud(c, c.l).Command())
+	c.Add(NewTask(c, c.l).Command())
+	c.Add(NewScrobble(c, c.l).Command())
+	c.Add(NewSignIn(c, c.l).Command())
+	c.Add(NewNCM(c, c.l).Command())
 	return c
 }
 
 func (c *Root) addFlags() {
 	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "")
 	c.cmd.PersistentFlags().BoolVar(&c.Opts.Stdout, "stdout", false, "")
-	c.cmd.PersistentFlags().AddFlag(pflag.Lookup("f")) // definition /config/config.go
+	c.cmd.PersistentFlags().StringVarP(&c.Opts.Config, "config", "c", "./config.yaml", "")
 }
 
 func (c *Root) Version(version string) {

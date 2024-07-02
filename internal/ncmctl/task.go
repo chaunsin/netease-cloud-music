@@ -51,8 +51,8 @@ func NewTask(root *Root, l *log.Logger) *Task {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "task",
-			Short:   "Task async execute daily task",
-			Example: `  ncm task`,
+			Short:   "Task async execute daily task [partner、scrobble、sign]",
+			Example: `  ncmctl task`,
 		},
 	}
 	c.addFlags()
@@ -63,7 +63,7 @@ func NewTask(root *Root, l *log.Logger) *Task {
 }
 
 func (c *Task) addFlags() {
-	c.cmd.PersistentFlags().StringVar(&c.opts.PartnerOpts.Crontab, "partner.crontab", "* 18 * * *", "https://crontab.guru/")
+	c.cmd.PersistentFlags().StringVar(&c.opts.PartnerOpts.Crontab, "partner.crontab", "* 18 * * *", "usage detail: https://crontab.guru/")
 	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.PartnerOpts.Star, "partner.star", []int64{3, 4}, "star level")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.PartnerOpts.Once, "partner.once", false, "real-time execution once")
 }

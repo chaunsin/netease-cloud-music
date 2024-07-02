@@ -57,7 +57,7 @@ func NewScrobble(root *Root, l *log.Logger) *Scrobble {
 		cmd: &cobra.Command{
 			Use:     "scrobble",
 			Short:   "Scrobble execute refresh 300 songs",
-			Example: `  ncm scrobble`,
+			Example: `  ncmctl scrobble`,
 		},
 	}
 	c.addFlags()
@@ -68,7 +68,7 @@ func NewScrobble(root *Root, l *log.Logger) *Scrobble {
 }
 
 func (c *Scrobble) addFlags() {
-	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "https://crontab.guru/")
+	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "usage detail: https://crontab.guru/")
 	c.cmd.PersistentFlags().BoolVarP(&c.opts.Once, "once", "", false, "real-time execution once")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Num, "num", "n", 300, "num of songs")
 }
