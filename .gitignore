@@ -964,3 +964,4 @@ Temporary Items
 !/pkg/log/
 /cmd/qrcode.png
 /pkg/ncm/testdata/BOE - 822.ncm.mp3
+/cmd/ncm/

@@ -7,16 +7,17 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/ncm"
 )
 
+type Format string
+
 const (
-	audioFormatMp3  = "mp3"
-	audioFormatFlac = "flac"
-	audioFormatWav  = "wav"
+	FormatMp3  Format = "mp3"
+	FormatFlac Format = "flac"
+	FormatWav  Format = "wav"
 )
 
 // Tagger interface for both mp3 and flac
@@ -30,17 +31,17 @@ type Tagger interface {
 	Save() error // must be called
 }
 
-func New(input, format string) (Tagger, error) {
+func New(input string, format Format) (Tagger, error) {
 	var (
 		tagger Tagger
 		err    error
 	)
-	switch strings.ToLower(format) {
-	case audioFormatMp3:
+	switch format {
+	case FormatMp3:
 		tagger, err = NewMp3(input)
-	case audioFormatFlac:
+	case FormatFlac:
 		tagger, err = NewFlac(input)
-	case audioFormatWav:
+	case FormatWav:
 		tagger, err = NewWAV(input)
 	default:
 		err = errors.New(fmt.Sprintf("format: %s is not supportted", format))
@@ -48,19 +49,33 @@ func New(input, format string) (Tagger, error) {
 	return tagger, err
 }
 
-func NewFromNCM(ncm *ncm.NCM, input string) error {
-	tag, err := New(input, ncm.Metadata().Format)
+func NewFromNCM(_ncm *ncm.NCM, input string) error {
+	var (
+		meta     = _ncm.Metadata()
+		metadata *ncm.MetadataMusic
+		format   string
+	)
+	switch meta.GetType() {
+	case ncm.MetadataTypeMusic:
+		format = meta.GetMusic().Format
+		metadata = meta.GetMusic()
+	case ncm.MetadataTypeDJ:
+		format = meta.GetDJ().MainMusic.Format
+		metadata = &meta.GetDJ().MainMusic
+	}
+
+	tag, err := New(input, Format(format))
 	if err != nil {
 		return err
 	}
-	img, _ := ncm.Cover()
-	if err := SetMetadata(tag, img, ncm.Metadata()); err != nil {
+	img, _ := _ncm.Cover()
+	if err := SetMetadata(tag, img, metadata); err != nil {
 		return fmt.Errorf("SetMetadata: %w", err)
 	}
 	return nil
 }
 
-func SetMetadata(tag Tagger, imgData []byte, meta *ncm.Metadata) error {
+func SetMetadata(tag Tagger, imgData []byte, meta *ncm.MetadataMusic) error {
 	if imgData == nil && meta.AlbumPic != "" {
 		coverData, err := fetchUrl(meta.AlbumPic)
 		if err != nil {

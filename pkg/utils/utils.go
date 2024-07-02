@@ -68,11 +68,25 @@ func ParseBytes(input string) (int64, error) {
 	return value * multiplier, nil
 }
 
-func PathExists(path string) bool {
-	_, err := os.Stat(path)
-	return !os.IsNotExist(err)
+// FileExists 判断文件是否存在
+func FileExists(path string) bool {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return err == nil && !info.IsDir()
 }
 
+// DirExists 判断目录是否存在
+func DirExists(dirPath string) bool {
+	info, err := os.Stat(dirPath)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return err == nil && info.IsDir()
+}
+
+// IsFile 判断是否为文件
 func IsFile(path string) bool {
 	d, err := os.Stat(path)
 	if err != nil {

@@ -48,7 +48,7 @@ func writeFile(cmd *cobra.Command, out string, data []byte) error {
 			return err
 		}
 		file = filepath.Join(wd, out)
-		if !utils.PathExists(file) {
+		if !utils.DirExists(file) {
 			if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
 				return fmt.Errorf("MkdirAll: %w", err)
 			}

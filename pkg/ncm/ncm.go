@@ -28,6 +28,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -89,24 +90,6 @@ func IsNCMFile(rs io.ReadSeeker) error {
 	if _, err := rs.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
-
-	// var rBuf = make([]byte, 4)
-	// uLen, err := readUint32(rBuf, rs)
-	// if err != nil {
-	// 	return fmt.Errorf("readUint32.rBuf: %w", err)
-	// }
-	// if uLen != 0x4e455443 {
-	// 	return fmt.Errorf("isn't netease cloud music copyright file")
-	// }
-	//
-	// uLen, err = readUint32(rBuf, rs)
-	// if err != nil {
-	// 	return fmt.Errorf("readUint32.uLen: %w", err)
-	// }
-	// if uLen != 0x4d414446 {
-	// 	return fmt.Errorf("isn't netease cloud music copyright file")
-	// }
-
 	var header = make([]byte, 8)
 	if err := binary.Read(rs, binary.LittleEndian, &header); err != nil {
 		return fmt.Errorf("binary.Read: %w", err)
@@ -196,10 +179,13 @@ func DecodeMeta(rs io.ReadSeeker) (*Metadata, error) {
 		if err != nil {
 			return nil, fmt.Errorf("tag.ReadFrom: %w", err)
 		}
-		meta.Format = strings.ToLower(string(m.FileType()))
-		// Usually empty, try your best to get information
-		meta.Name = m.Title()
-		meta.Album = m.Album()
+
+		// no metadata see as a music type
+		meta.mt = "music"
+		meta.music.Format = strings.ToLower(string(m.FileType()))
+		// usually empty, try your best to get information
+		meta.music.Name = m.Title()
+		meta.music.Album = m.Album()
 		return &meta, nil
 	}
 
@@ -222,10 +208,21 @@ func DecodeMeta(rs io.ReadSeeker) (*Metadata, error) {
 		return nil, fmt.Errorf("decryptAes128Ecb: %w", err)
 	}
 
-	// 6 = len("music:")
-	data = data[6:]
-	if err := json.Unmarshal(data, &meta); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal: %w", err)
+	sep := bytes.IndexByte(data, ':')
+	if sep == -1 {
+		return nil, errors.New("invalid ncm meta file")
+	}
+
+	meta.mt = MetadataType(data[:sep])
+	switch meta.mt {
+	case "music":
+		if err := json.Unmarshal(data[sep+1:], &meta.music); err != nil {
+			return nil, fmt.Errorf("json.Unmarshal.music: %w", err)
+		}
+	case "dj":
+		if err := json.Unmarshal(data[sep+1:], &meta.dj); err != nil {
+			return nil, fmt.Errorf("json.Unmarshal.dj: %w", err)
+		}
 	}
 	return &meta, nil
 }
@@ -373,13 +370,13 @@ func NewReadSeeker(rs io.ReadSeeker) (*NCM, error) {
 		var metaBuf = make([]byte, 4)
 		metaLen, err := readUint32(metaBuf, rs)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("readUint32.metaBuf: %w", err)
 		}
 
 		// read metadata
 		var metadata = make([]byte, metaLen)
 		if _, err = rs.Read(metadata); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("metadata: %w", err)
 		}
 		for i := range metadata {
 			metadata[i] ^= 0x63
@@ -393,13 +390,27 @@ func NewReadSeeker(rs io.ReadSeeker) (*NCM, error) {
 
 		meta, err := decryptAes128Ecb(aesModifyKey, fixBlockSize(modifyData))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("decryptAes128Ecb: %w", err)
 		}
-		meta = meta[6:] // 6 = len("music:")
 
-		if err := json.Unmarshal(meta, &ncm.metadata); err != nil {
-			return nil, err
+		sep := bytes.IndexByte(meta, ':')
+		if sep == -1 {
+			return nil, errors.New("invalid ncm meta file")
 		}
+
+		var md = Metadata{mt: MetadataType(meta[:sep])}
+		switch md.mt {
+		case "music":
+			if err := json.Unmarshal(meta[sep+1:], &md.music); err != nil {
+				return nil, fmt.Errorf("json.Unmarshal.music: %w", err)
+			}
+		case "dj":
+			if err := json.Unmarshal(meta[sep+1:], &md.dj); err != nil {
+				return nil, fmt.Errorf("json.Unmarshal.dj: %w", err)
+			}
+		}
+		ncm.metadata = &md
+		// fmt.Printf("metadata: %+v\n", ncm.metadata)
 	}
 
 	// start decode cover
@@ -413,13 +424,13 @@ func NewReadSeeker(rs io.ReadSeeker) (*NCM, error) {
 		var imgBuf = make([]byte, 4)
 		imgLen, err := readUint32(imgBuf, rs)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("readUint32.imgBuf: %w", err)
 		}
 
 		// get cover image data
 		var imgData = make([]byte, imgLen)
 		if _, err = rs.Read(imgData); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("imgData: %w", err)
 		}
 		ncm.cover = imgData
 		ncm.coverType = DetectCoverType(imgData)

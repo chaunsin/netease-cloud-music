@@ -30,15 +30,21 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/ncm"
 	"github.com/chaunsin/netease-cloud-music/pkg/ncm/tag"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
+
+	"github.com/cheggaaa/pb/v3"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/semaphore"
 )
 
 type NCMOpts struct {
-	Input    string // 加载文件路径,或文本内容
+	Input    string // 加载文件路径
 	Output   string // 生成文件路径
 	Parallel int64
 }
@@ -68,8 +74,8 @@ func NewNCM(root *Root, l *log.Logger) *NCM {
 }
 
 func (c *NCM) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "./", "input music dir")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./", "output music dir")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "input music dir")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./ncm", "output music dir")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "concurrent decrypt count")
 }
 
@@ -88,7 +94,7 @@ func (c *NCM) Command() *cobra.Command {
 	return c.cmd
 }
 
-func (c *NCM) execute(ctx context.Context, args []string) error {
+func (c *NCM) execute(ctx context.Context, fileList []string) error {
 	if err := c.validate(); err != nil {
 		return fmt.Errorf("validate: %w", err)
 	}
@@ -98,65 +104,131 @@ func (c *NCM) execute(ctx context.Context, args []string) error {
 		c.root.Cfg.Network.Debug = true
 	}
 
-	var (
-		barSize  int64
-		fileList []string
-	)
-
-	if err := fs.WalkDir(os.DirFS(c.opts.Input), ".", func(path string, d fs.DirEntry, err error) error {
+	// 命令行指定文件上传检验处理
+	for _, file := range fileList {
+		exist, isDir, err := utils.CheckPath(file)
 		if err != nil {
-			return err
+			return fmt.Errorf("CheckPath: %w", err)
 		}
-
-		if d.IsDir() {
-			return nil
+		if !exist {
+			return fmt.Errorf("%s not found", file)
 		}
-
-		info, err := d.Info()
-		if err != nil {
-			return err
+		if isDir {
+			return fmt.Errorf("%s is directory need file", file)
 		}
-
-		var file = filepath.Join(c.opts.Input, path)
 		if filepath.Ext(file) != ".ncm" {
-			return nil
+			return fmt.Errorf("%s is not .ncm file", file)
 		}
-
-		barSize += info.Size()
-		fileList = append(fileList, file)
-		return nil
-	}); err != nil {
-		return fmt.Errorf("WalkDir: %w", err)
 	}
 
+	// 指定目录处理
+	if c.opts.Input != "" {
+		if err := fs.WalkDir(os.DirFS(c.opts.Input), ".", func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if d.IsDir() {
+				return nil
+			}
+
+			var file = filepath.Join(c.opts.Input, path)
+			if filepath.Ext(file) != ".ncm" {
+				return nil
+			}
+			fileList = append(fileList, file)
+			return nil
+		}); err != nil {
+			return fmt.Errorf("WalkDir: %w", err)
+		}
+	}
+
+	fileList = slices.Compact(fileList)
 	if len(fileList) <= 0 {
 		return errors.New("no input file or the file does not meet the conditions")
 	}
-	log.Debug("filelist:%+v", fileList)
+	log.Debug("filelist: %+v", fileList)
 
-	for _, f := range fileList {
-		n, err := ncm.Open(f)
-		if err != nil {
-			return fmt.Errorf("open: %w", err)
-		}
-
-		// todo: fix file ext
-		name := filepath.Base(f)
-		var ext = n.Metadata().Format
-		if n.Metadata().Format == "" {
-			ext = "mp3"
-		}
-
-		p := filepath.Join(c.opts.Output, name+"."+ext)
-
-		if err := os.WriteFile(p, n.Music(), 0644); err != nil {
-			return fmt.Errorf("writeFile: %w", err)
-		}
-
-		if err := tag.NewFromNCM(n, p); err != nil {
-			return fmt.Errorf("NewFromNCM: %w", err)
-		}
+	if err := os.MkdirAll(c.opts.Output, 0755); err != nil {
+		return fmt.Errorf("mkdir: %w", err)
 	}
 
+	var (
+		sema = semaphore.NewWeighted(c.opts.Parallel)
+		bar  = pb.Full.Start64(int64(len(fileList)))
+	)
+	defer bar.Finish()
+
+	for _, f := range fileList {
+		if err := sema.Acquire(ctx, 1); err != nil {
+			return fmt.Errorf("acquire: %w", err)
+		}
+		go func(file string) {
+			defer sema.Release(1)
+			if err := c.decode(file); err != nil {
+				c.cmd.Printf("decode[%s]: %v\n", file, err)
+				log.Error("decode[%s]: %v", file, err)
+				// return fmt.Errorf("decode: %w", err)
+				return
+			}
+			bar.Increment()
+		}(f)
+	}
+	if err := sema.Acquire(ctx, c.opts.Parallel); err != nil {
+		return fmt.Errorf("wait: %w", err)
+	}
+	return nil
+}
+
+func (c *NCM) decode(path string) error {
+	_ncm, err := ncm.Open(path)
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+
+	var (
+		meta   = _ncm.Metadata()
+		format string
+	)
+	switch meta.GetType() {
+	case ncm.MetadataTypeMusic:
+		format = meta.GetMusic().Format
+	case ncm.MetadataTypeDJ:
+		format = meta.GetDJ().MainMusic.Format
+	}
+
+	var (
+		filename = filepath.Base(path)
+		ext      = filepath.Ext(filename)
+		name     = filename[:len(filename)-len(ext)]
+		extend   = utils.Ternary(format == "", strings.TrimPrefix(ext, "."), format)
+		dest     = filepath.Join(c.opts.Output, name+"."+extend)
+	)
+
+	tmp, err := os.CreateTemp(os.TempDir(), fmt.Sprintf("tmp-ncm-*-%s.%s", name, extend))
+	if err != nil {
+		return fmt.Errorf("createTemp: %w", err)
+	}
+	defer tmp.Close()
+	log.Debug("tempdir: %s", tmp.Name())
+
+	if _, err := tmp.Write(_ncm.Music()); err != nil {
+		_ = os.Remove(tmp.Name())
+		return fmt.Errorf("writeTemp: %w", err)
+	}
+
+	if err := tag.NewFromNCM(_ncm, tmp.Name()); err != nil {
+		_ = os.Remove(tmp.Name())
+		return fmt.Errorf("NewFromNCM: %w", err)
+	}
+
+	for i := 1; utils.FileExists(dest); i++ {
+		dest = filepath.Join(c.opts.Output, fmt.Sprintf("%s(%d).%s", name, i, extend))
+	}
+
+	if err := os.Rename(tmp.Name(), dest); err != nil {
+		_ = os.Remove(tmp.Name())
+		return fmt.Errorf("rename: %w", err)
+	}
 	return nil
 }
