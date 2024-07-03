@@ -162,7 +162,7 @@ func (c *Task) execute(ctx context.Context, args []string) error {
 	var (
 		job     = cron.New(cron.WithLocation(time.Local))
 		partner = func() error {
-			log.Info("[partner] task start")
+			log.Info("[partner] task register")
 			partner := NewPartner(c.root, c.l)
 			partner.cmd.DisableFlagParsing = true // 关闭子命令解析比如出现unknown flag错误
 			partner.opts = c.opts.PartnerOpts
@@ -184,7 +184,7 @@ func (c *Task) execute(ctx context.Context, args []string) error {
 			return nil
 		}
 		scrobble = func() error {
-			log.Info("[scrobble] task start")
+			log.Info("[scrobble] task register")
 			s := NewScrobble(c.root, c.l)
 			s.cmd.DisableFlagParsing = true
 			s.opts = c.opts.ScrobbleOpts
@@ -206,7 +206,7 @@ func (c *Task) execute(ctx context.Context, args []string) error {
 			return nil
 		}
 		signIn = func() error {
-			log.Info("[sign] task start")
+			log.Info("[sign] task register")
 			signIn := NewSignIn(c.root, c.l)
 			signIn.cmd.DisableFlagParsing = true
 			signIn.opts = c.opts.SignInOpts
