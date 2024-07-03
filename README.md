@@ -93,7 +93,7 @@ ncmctl task --scrobble.cron "0 20 * * *"
 提示:
 
 - 需要登录
-- 本命令会`task`以守护进程方式运行
+- 本命令`task`会以守护进程方式运行
 - `ncmctl` 采用标准的[crontab](https://zh.wikipedia.org/wiki/Cron)表达式进行管理。crontab表达式编写工具[>>>点我<<<](https://crontab.guru/)
 
 **三、云盘上传**
