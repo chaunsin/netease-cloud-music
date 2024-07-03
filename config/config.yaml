@@ -1,0 +1,40 @@
+# 配置文件版本
+version: 1.0
+# log 日志模块配置
+log:
+  # 应用名称
+  app: ncm
+  # 日志输出格式 text json
+  format: text
+  # 日志级别 debug < info < warn < error
+  level: debug
+  # 日志是否输出到标准输出
+  stdout: false
+  # 滚动日志配置
+  rotate:
+    # 日志文件保存路径
+    filename: "${HOME}/.ncmctl/log/ncm.log"
+    # 单个日志文件最大大小,单位MB
+    maxsize: 100
+    # 日志文件保留天数
+    maxage: 7
+    # 日志文件保留最大数量
+    maxbackups: 3
+    # 日志打印是否使用本地时间
+    localtime: true
+    # 日志文件是否压缩
+    compress: true
+# 网络模块配置
+network:
+  # 是否开启调试模式
+  debug: true
+  # 请求超时时间
+  timeout: 60s
+  # 当网络出现问题重试次数
+  retry: 3
+  # cookie 配置用于保存登录相关信息
+  cookie:
+    # cookie 文件保存路径
+    filepath: "${HOME}/.ncmctl/cookie.json"
+    # cookie 值刷盘间隔,如果间隔过大当程序崩溃或退出,可能导致cookie值不能刷到磁盘中.如果间隔过小,会导致频繁刷盘,影响性能.
+    interval: 1s

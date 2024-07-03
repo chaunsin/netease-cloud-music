@@ -1,6 +1,7 @@
 package config
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"strings"
@@ -10,15 +11,29 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 var HomeDir string
+
+var (
+	//go:embed config.yaml
+	defaultConfigByte []byte
+	defaultConfig     *Config
+)
 
 func init() {
 	var err error
 	HomeDir, err = os.UserHomeDir()
 	if err != nil {
 		panic(err)
+	}
+	if err := yaml.Unmarshal(defaultConfigByte, &defaultConfig); err != nil {
+		panic(fmt.Sprintf("defaultConfig.Unmarshal: %s", err))
+	}
+	defaultConfig.ReplaceMagicVariables("HOME", HomeDir)
+	if err := defaultConfig.Validate(); err != nil {
+		panic(fmt.Sprintf("defaultConfig.Validate: %s", err))
 	}
 }
 
@@ -31,6 +46,10 @@ type Config struct {
 
 func (c *Config) Validate() error {
 	return nil
+}
+
+func GetDefault() *Config {
+	return defaultConfig
 }
 
 func New(cfgPath ...string) (*Config, error) {
@@ -63,4 +82,18 @@ func New(cfgPath ...string) (*Config, error) {
 		return nil, err
 	}
 	return &conf, nil
+}
+
+func (c *Config) ReplaceMagicVariables(name, value string) *Config {
+	var mapping = func(name string) string {
+		switch name {
+		case "HOME":
+			return value
+		}
+		return ""
+	}
+
+	c.Log.Rotate.Filename = os.Expand(c.Log.Rotate.Filename, mapping)
+	c.Network.Cookie.Filepath = os.Expand(c.Network.Cookie.Filepath, mapping)
+	return c
 }

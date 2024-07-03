@@ -29,12 +29,14 @@ import (
 	"github.com/chaunsin/netease-cloud-music/config"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
+
 	"github.com/spf13/cobra"
 )
 
 type RootOpts struct {
 	Debug  bool   // 是否开启命令行debug模式
 	Config string // 配置文件路径
+	Home   string
 }
 
 type Root struct {
@@ -58,19 +60,24 @@ func New() *Root {
 		},
 	}
 	c.cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		var (
-			defaultCfg = "./config.yaml"
-			err        error
-		)
+		var path = c.Opts.Config
 		if c.Opts.Config != "" {
+			var err error
 			if !utils.FileExists(c.Opts.Config) {
 				return fmt.Errorf("config file not exists: %s", c.Opts.Config)
 			}
-			defaultCfg = c.Opts.Config
+			c.Cfg, err = config.New(c.Opts.Config)
+			if err != nil {
+				return fmt.Errorf("init config error: %s", err)
+			}
+		} else {
+			path = "default"
+			c.Cfg = config.GetDefault()
 		}
-		c.Cfg, err = config.New(defaultCfg)
-		if err != nil {
-			return fmt.Errorf("init config error: %s", err)
+
+		c.Cfg.ReplaceMagicVariables("home", utils.Ternary(c.Opts.Home != "", c.Opts.Home, config.HomeDir))
+		if err := c.Cfg.Validate(); err != nil {
+			return fmt.Errorf("config validate error: %s", err)
 		}
 
 		// 命令行开启了debug模式优先级大于配置文件中得优先级
@@ -82,6 +89,7 @@ func New() *Root {
 		// init logger
 		c.l = log.New(c.Cfg.Log)
 		log.Default = c.l
+		log.Debug("[config] init log path:%s, log:%+v, network:%+v", path, c.Cfg.Log, c.Cfg.Network)
 		return nil
 	}
 	c.cmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
@@ -106,6 +114,7 @@ func New() *Root {
 func (c *Root) addFlags() {
 	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "run in debug mode")
 	c.cmd.PersistentFlags().StringVarP(&c.Opts.Config, "config", "c", "", "configuration file path")
+	c.cmd.PersistentFlags().StringVar(&c.Opts.Home, "home", config.HomeDir, "configuration home path. the home path is used to store running information")
 }
 
 func (c *Root) Version(version string) {
