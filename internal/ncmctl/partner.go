@@ -55,7 +55,7 @@ func NewPartner(root *Root, l *log.Logger) *Partner {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "partner",
-			Short:   "Executive music partner daily reviews",
+			Short:   "[need login] Executive music partner daily reviews",
 			Example: `  ncmctl partner`,
 		},
 	}

@@ -53,7 +53,7 @@ func NewScrobble(root *Root, l *log.Logger) *Scrobble {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "scrobble",
-			Short:   "Scrobble execute refresh 300 songs",
+			Short:   "[need login] Scrobble execute refresh 300 songs",
 			Example: `  ncmctl scrobble`,
 		},
 	}

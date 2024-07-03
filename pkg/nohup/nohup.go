@@ -25,7 +25,7 @@ func Daemon(close ...Close) {
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Program run directory: %s", path)
+	log.Printf("ncmctl run directory: %s", path)
 
 	fd, err := os.Create("./pid")
 	if err != nil {

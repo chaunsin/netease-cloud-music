@@ -68,7 +68,7 @@ func NewCloud(root *Root, l *log.Logger) *Cloud {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "cloud",
-			Short:   "Used to upload music files to netease cloud disk",
+			Short:   "[need login] Used to upload music files to netease cloud disk",
 			Example: "  ncmctl cloud -h\n  ncmctl cloud ./mymusic.mp3\n  ncmctl cloud -i ./my/music/",
 			Args:    cobra.RangeArgs(0, 1),
 		},

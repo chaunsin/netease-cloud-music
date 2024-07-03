@@ -49,7 +49,7 @@ func NewSignIn(root *Root, l *log.Logger) *SignIn {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "sign",
-			Short:   "Sign perform daily cloud shell check-in and vip check-in",
+			Short:   "[need login] Sign perform daily cloud shell check-in and vip check-in",
 			Example: `  ncmctl sign`,
 		},
 	}
