@@ -171,6 +171,7 @@ func (c *Task) execute(ctx context.Context, args []string) error {
 			}
 
 			id, err := job.AddFunc(c.opts.PartnerOptsCrontab, func() {
+				log.Info("[partner] task start")
 				if err := partner.Command().ExecuteContext(ctx); err != nil {
 					log.Error("[partner] execute err: %s", err)
 					return
@@ -193,6 +194,7 @@ func (c *Task) execute(ctx context.Context, args []string) error {
 			}
 
 			id, err := job.AddFunc(c.opts.ScrobbleOptsCrontab, func() {
+				log.Info("[scrobble] task start")
 				if err := s.Command().ExecuteContext(ctx); err != nil {
 					log.Error("[scrobble] execute err: %s", err)
 					return
@@ -215,6 +217,7 @@ func (c *Task) execute(ctx context.Context, args []string) error {
 			}
 
 			id, err := job.AddFunc(c.opts.SignInOptsCrontab, func() {
+				log.Info("[sign] task start")
 				if err := signIn.Command().ExecuteContext(ctx); err != nil {
 					log.Error("[sign] execute err: %s", err)
 					return
