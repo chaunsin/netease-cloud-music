@@ -69,12 +69,12 @@ func NewPartner(root *Root, l *log.Logger) *Partner {
 }
 
 func (c *Partner) addFlags() {
-	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.Star, "star", "s", []int64{3, 4}, "star level")
+	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.Star, "star", "s", []int64{3, 4}, "star level range 1-5")
 }
 
 func (c *Partner) validate() error {
 	if len(c.opts.Star) == 0 || len(c.opts.Star) > 5 {
-		return fmt.Errorf("star level must be 1-5")
+		return fmt.Errorf("star level must be range 1-5")
 	}
 	if !utils.IsUnique(c.opts.Star) {
 		return fmt.Errorf("star level must be unique")

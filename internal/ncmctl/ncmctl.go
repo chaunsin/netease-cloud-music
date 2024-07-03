@@ -29,7 +29,6 @@ import (
 	"github.com/chaunsin/netease-cloud-music/config"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
 	"github.com/spf13/cobra"
 )
 
@@ -59,13 +58,20 @@ func New() *Root {
 		},
 	}
 	c.cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if c.Opts.Config == "" {
-			return fmt.Errorf("config file not specified")
+		var (
+			defaultCfg = "./config.yaml"
+			err        error
+		)
+		if c.Opts.Config != "" {
+			if !utils.FileExists(c.Opts.Config) {
+				return fmt.Errorf("config file not exists: %s", c.Opts.Config)
+			}
+			defaultCfg = c.Opts.Config
 		}
-		if !utils.FileExists(c.Opts.Config) {
-			return fmt.Errorf("config file not exists: %s", c.Opts.Config)
+		c.Cfg, err = config.New(defaultCfg)
+		if err != nil {
+			return fmt.Errorf("init config error: %s", err)
 		}
-		c.Cfg = config.New(c.Opts.Config)
 
 		// 命令行开启了debug模式优先级大于配置文件中得优先级
 		if c.Opts.Debug {
@@ -98,8 +104,8 @@ func New() *Root {
 }
 
 func (c *Root) addFlags() {
-	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "")
-	c.cmd.PersistentFlags().StringVarP(&c.Opts.Config, "config", "c", "./config.yaml", "")
+	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "run in debug mode")
+	c.cmd.PersistentFlags().StringVarP(&c.Opts.Config, "config", "c", "", "configuration file path")
 }
 
 func (c *Root) Version(version string) {

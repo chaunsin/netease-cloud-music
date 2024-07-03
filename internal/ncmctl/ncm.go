@@ -62,7 +62,7 @@ func NewNCM(root *Root, l *log.Logger) *NCM {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "ncm",
-			Short:   "Parse .ncm files as mp3/flac",
+			Short:   "Automatically parses .ncm to mp3/flac",
 			Example: `  ncmctl -h`,
 		},
 	}

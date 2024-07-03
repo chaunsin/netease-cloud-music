@@ -1,8 +1,8 @@
 package config
 
 import (
+	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/chaunsin/netease-cloud-music/api"
@@ -12,11 +12,11 @@ import (
 	"github.com/spf13/viper"
 )
 
-var home string
+var HomeDir string
 
 func init() {
 	var err error
-	home, err = os.UserHomeDir()
+	HomeDir, err = os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
@@ -33,7 +33,7 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func New(cfgPath ...string) *Config {
+func New(cfgPath ...string) (*Config, error) {
 	var (
 		conf Config
 		opts = func(m *mapstructure.DecoderConfig) {
@@ -52,20 +52,15 @@ func New(cfgPath ...string) *Config {
 	v.AutomaticEnv()
 	v.AllowEmptyEnv(true)
 	v.SetConfigType("yaml")
-	v.SetConfigName("config")
-	v.AddConfigPath(".")
-	v.AddConfigPath("./.ncmctl")
-	v.AddConfigPath(filepath.Join(home, ".ncmctl"))
-	v.AddConfigPath(filepath.Dir(_cfgPath))
-	// v.SetConfigFile(*confPath)
+	v.SetConfigFile(_cfgPath)
 	if err := v.ReadInConfig(); err != nil {
-		panic(err)
+		return nil, fmt.Errorf("ReadInConfig: %w", err)
 	}
 	if err := v.UnmarshalExact(&conf, opts); err != nil {
-		panic(err)
+		return nil, fmt.Errorf("UnmarshalExact: %w", err)
 	}
 	if err := conf.Validate(); err != nil {
-		panic(err)
+		return nil, err
 	}
-	return &conf
+	return &conf, nil
 }

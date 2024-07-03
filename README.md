@@ -38,11 +38,9 @@
 - golang >= 1.21
 - git (可选)
 
-# 使用示例
+# ncmctl
 
-## ncmctl
-
-### 安装
+## 安装
 
 ```shell
 go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
@@ -57,7 +55,7 @@ make install
 
 提示: 会安装到`$GOPATH/bin`下
 
-### 使用
+## 使用
 
 **一、登录**
 
@@ -94,9 +92,9 @@ ncmctl task --scrobble.cron "0 20 * * *"
 
 提示:
 
-1. 需要登录
-2. 本命令会以守护进程方式运行
-3. `ncmctl` 采用标准的[crontab](https://zh.wikipedia.org/wiki/Cron)表达式进行管理。crontab表达式编写工具[>>>点我<<<](https://crontab.guru/)
+- 需要登录
+- 本命令会以守护进程方式运行
+- `ncmctl` 采用标准的[crontab](https://zh.wikipedia.org/wiki/Cron)表达式进行管理。crontab表达式编写工具[>>>点我<<<](https://crontab.guru/)
 
 **三、云盘上传**
 
@@ -121,7 +119,7 @@ ncmctl ncm -i '/Users/chaunsin/Music/' -o ./ncm
 **五、其他命令**
 
 ```shell
-ncmctl -h
+./ncmctl -h
 ncmctl is a toolbox for netease cloud music.
 
 Usage:
@@ -135,20 +133,20 @@ Examples:
   ncmctl partner
 
 Available Commands:
-  cloud       Used to upload music files to netease cloud disk
+  cloud       [need login] Used to upload music files to netease cloud disk
   completion  Generate the autocompletion script for the specified shell
   crypto      Crypto is a tool for encrypting and decrypting the http data
   curl        Like curl invoke netease cloud music api
   help        Help about any command
   login       Login netease cloud music
-  ncm         Parse .ncm files as mp3/flac
-  partner     Executive music partner daily reviews
-  scrobble    Scrobble execute refresh 300 songs
-  sign        Sign perform daily cloud shell check-in and vip check-in
-  task        Task async execute daily task [partner、scrobble、sign]
+  ncm         Automatically parses .ncm to mp3/flac
+  partner     [need login] Executive music partner daily reviews
+  scrobble    [need login] Scrobble execute refresh 300 songs
+  sign        [need login] Sign perform daily cloud shell check-in and vip check-in
+  task        [need login] Daily tasks are executed asynchronously [partner、scrobble、sign]
 
 Flags:
-  -c, --config string    (default "./config.yaml")
+  -c, --config string   configuration file path
       --debug           
   -h, --help            help for ncmctl
   -v, --version         version for ncmctl
@@ -156,7 +154,7 @@ Flags:
 Use "ncmctl [command] --help" for more information about a command.
 ```
 
-## api
+# api
 
 参考如下
 

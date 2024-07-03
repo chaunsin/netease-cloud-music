@@ -80,15 +80,15 @@ func (c *Task) addFlags() {
 	c.cmd.PersistentFlags().BoolVar(&c.opts.RunAll, "runAll", false, "default enabled all task")
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Partner, "partner", false, "enabled partner task")
-	c.cmd.PersistentFlags().StringVar(&c.opts.PartnerOptsCrontab, "partner.cron", "* 18 * * *", "partner crontab expression. usage detail: https://crontab.guru")
-	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.PartnerOpts.Star, "partner.star", []int64{3, 4}, "star level")
+	c.cmd.PersistentFlags().StringVar(&c.opts.PartnerOptsCrontab, "partner.cron", "0 18 * * *", "partner crontab expression. usage detail: https://crontab.guru")
+	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.PartnerOpts.Star, "partner.star", []int64{3, 4}, "star level range 1-5")
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Scrobble, "scrobble", false, "enabled scrobble task")
-	c.cmd.PersistentFlags().StringVar(&c.opts.ScrobbleOptsCrontab, "scrobble.cron", "* 18 * * *", "scrobble crontab expression. usage detail: https://crontab.guru")
+	c.cmd.PersistentFlags().StringVar(&c.opts.ScrobbleOptsCrontab, "scrobble.cron", "0 18 * * *", "scrobble crontab expression. usage detail: https://crontab.guru")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.ScrobbleOpts.Num, "scrobble.num", "n", 300, "scrobble num of songs")
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.SignIn, "sign", false, "enabled sign task")
-	c.cmd.PersistentFlags().StringVar(&c.opts.SignInOptsCrontab, "sign.cron", "* 10 * * *", "sign crontab expression. usage detail: https://crontab.guru")
+	c.cmd.PersistentFlags().StringVar(&c.opts.SignInOptsCrontab, "sign.cron", "0 10 * * *", "sign crontab expression. usage detail: https://crontab.guru")
 }
 
 func (c *Task) validate() error {
