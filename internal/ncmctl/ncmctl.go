@@ -35,7 +35,6 @@ import (
 
 type RootOpts struct {
 	Debug  bool   // 是否开启命令行debug模式
-	Stdout bool   // 生成内容是否打印到标准数据中
 	Config string // 配置文件路径
 }
 
@@ -74,7 +73,7 @@ func New() *Root {
 			c.Cfg.Log.Level = "debug"
 		}
 
-		// 初始化日志
+		// init logger
 		c.l = log.New(c.Cfg.Log)
 		log.Default = c.l
 		return nil
@@ -84,6 +83,8 @@ func New() *Root {
 	}
 
 	c.addFlags()
+
+	// add sub commands
 	c.Add(NewCrypto(c, c.l).Command())
 	c.Add(NewLogin(c, c.l).Command())
 	c.Add(NewPartner(c, c.l).Command())
@@ -98,7 +99,6 @@ func New() *Root {
 
 func (c *Root) addFlags() {
 	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "")
-	c.cmd.PersistentFlags().BoolVar(&c.Opts.Stdout, "stdout", false, "")
 	c.cmd.PersistentFlags().StringVarP(&c.Opts.Config, "config", "c", "./config.yaml", "")
 }
 

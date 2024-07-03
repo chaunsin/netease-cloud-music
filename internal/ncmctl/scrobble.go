@@ -33,14 +33,11 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
 	"github.com/cheggaaa/pb/v3"
-	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 )
 
 type ScrobbleOpts struct {
-	Crontab string
-	Once    bool
-	Num     int64
+	Num int64
 }
 
 type Scrobble struct {
@@ -68,19 +65,10 @@ func NewScrobble(root *Root, l *log.Logger) *Scrobble {
 }
 
 func (c *Scrobble) addFlags() {
-	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "usage detail: https://crontab.guru/")
-	c.cmd.PersistentFlags().BoolVarP(&c.opts.Once, "once", "", false, "real-time execution once")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Num, "num", "n", 300, "num of songs")
 }
 
 func (c *Scrobble) validate() error {
-	if c.opts.Crontab == "" {
-		return fmt.Errorf("crontab is required")
-	}
-	_, err := cron.ParseStandard(c.opts.Crontab)
-	if err != nil {
-		return fmt.Errorf("ParseStandard: %w", err)
-	}
 	if c.opts.Num <= 0 || c.opts.Num > 300 {
 		return fmt.Errorf("num <= 0 or > 300")
 	}

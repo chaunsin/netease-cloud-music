@@ -31,14 +31,10 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
-	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 )
 
-type SignInOpts struct {
-	Crontab string
-	Once    bool
-}
+type SignInOpts struct{}
 
 type SignIn struct {
 	root *Root
@@ -64,19 +60,9 @@ func NewSignIn(root *Root, l *log.Logger) *SignIn {
 	return c
 }
 
-func (c *SignIn) addFlags() {
-	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "usage detail: https://crontab.guru/")
-	c.cmd.PersistentFlags().BoolVarP(&c.opts.Once, "once", "", false, "real-time execution once")
-}
+func (c *SignIn) addFlags() {}
 
 func (c *SignIn) validate() error {
-	if c.opts.Crontab == "" {
-		return fmt.Errorf("crontab is required")
-	}
-	_, err := cron.ParseStandard(c.opts.Crontab)
-	if err != nil {
-		return fmt.Errorf("ParseStandard: %w", err)
-	}
 	return nil
 }
 

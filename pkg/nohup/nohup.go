@@ -20,7 +20,7 @@ func (f CloseHook) Close(ctx context.Context) error {
 	return f(ctx)
 }
 
-func Run(close ...Close) {
+func Daemon(close ...Close) {
 	path, err := os.Executable()
 	if err != nil {
 		panic(err)

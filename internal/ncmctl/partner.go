@@ -33,18 +33,13 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
-	"github.com/chaunsin/netease-cloud-music/pkg/nohup"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
-	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 )
 
 type PartnerOpts struct {
-	Crontab string
-	Star    []int64
-	Once    bool
-	// Tags    []string
+	Star []int64
 }
 
 type Partner struct {
@@ -74,20 +69,10 @@ func NewPartner(root *Root, l *log.Logger) *Partner {
 }
 
 func (c *Partner) addFlags() {
-	c.cmd.PersistentFlags().StringVar(&c.opts.Crontab, "crontab", "* 18 * * *", "usage detail: https://crontab.guru/")
 	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.Star, "star", "s", []int64{3, 4}, "star level")
-	c.cmd.PersistentFlags().BoolVarP(&c.opts.Once, "once", "", false, "real-time execution once")
-	// c.cmd.PersistentFlags().StringSliceVarP(&c.opts.Tags, "tags", "t", []string{"情感到位", "有节奏感", "音色独特"}, "tags")
 }
 
 func (c *Partner) validate() error {
-	if c.opts.Crontab == "" {
-		return fmt.Errorf("crontab is required")
-	}
-	_, err := cron.ParseStandard(c.opts.Crontab)
-	if err != nil {
-		return fmt.Errorf("ParseStandard: %w", err)
-	}
 	if len(c.opts.Star) == 0 || len(c.opts.Star) > 5 {
 		return fmt.Errorf("star level must be 1-5")
 	}
@@ -110,38 +95,15 @@ func (c *Partner) execute(ctx context.Context) error {
 		return fmt.Errorf("validate: %w", err)
 	}
 
-	if c.opts.Once {
-		if err := c.job(c.cmd.Context()); err != nil {
-			c.cmd.Println("job:", err)
-			return err
-		}
-		c.cmd.Printf("%s execute success\n", time.Now())
-		return nil
+	if err := c.do(ctx); err != nil {
+		c.cmd.Println("job:", err)
+		return err
 	}
-
-	cr := cron.New(cron.WithLocation(time.Local))
-	id, err := cr.AddFunc(c.opts.Crontab, func() {
-		if err := c.job(c.cmd.Context()); err != nil {
-			log.Error("err:", err)
-			return
-		}
-		log.Info("execute success ", time.Now())
-	})
-	if err != nil {
-		return fmt.Errorf("crontab error: %v", err)
-	}
-	cr.Start()
-
-	log.Info("Next execute: ", cr.Entry(id).Schedule.Next(time.Now()))
-
-	nohup.Run(nohup.CloseHook(func(ctx context.Context) error {
-		cr.Stop()
-		return nil
-	}))
+	c.cmd.Printf("%s execute success\n", time.Now())
 	return nil
 }
 
-func (c *Partner) job(ctx context.Context) error {
+func (c *Partner) do(ctx context.Context) error {
 	c.root.Cfg.Network.Debug = false
 	if c.root.Opts.Debug {
 		c.root.Cfg.Network.Debug = true
