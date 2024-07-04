@@ -7,7 +7,7 @@ log:
   # 日志输出格式 text json
   format: text
   # 日志级别 debug < info < warn < error
-  level: debug
+  level: info
   # 日志是否输出到标准输出
   stdout: false
   # 滚动日志配置
@@ -27,7 +27,7 @@ log:
 # 网络模块配置
 network:
   # 是否开启调试模式
-  debug: true
+  debug: info
   # 请求超时时间
   timeout: 60s
   # 当网络出现问题重试次数
