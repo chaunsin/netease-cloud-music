@@ -83,7 +83,7 @@ func NewCloud(root *Root, l *log.Logger) *Cloud {
 
 func (c *Cloud) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "music file path")
-	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "concurrent upload count")
+	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 3, "concurrent upload count")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.MinSize, "minsize", "m", "500kb", "upload music minimum file size limit. supporting unit:b、k/kb/KB、m/mb/MB")
 }
 
@@ -96,8 +96,8 @@ func (c *Cloud) Command() *cobra.Command {
 }
 
 func (c *Cloud) execute(ctx context.Context, fileList []string) error {
-	if c.opts.Parallel < 0 || c.opts.Parallel > 50 {
-		return fmt.Errorf("parallel must be between 0 and 50")
+	if c.opts.Parallel < 0 || c.opts.Parallel > 10 {
+		return fmt.Errorf("parallel must be between 1 and 10")
 	}
 
 	var barSize int64
@@ -174,11 +174,6 @@ func (c *Cloud) execute(ctx context.Context, fileList []string) error {
 	}
 	fileList = slices.Compact(fileList)
 	log.Debug("Ready to upload list: %v", fileList)
-
-	c.root.Cfg.Network.Debug = false
-	if c.root.Opts.Debug {
-		c.root.Cfg.Network.Debug = true
-	}
 
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {

@@ -2,7 +2,6 @@ package nohup
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -26,15 +25,6 @@ func Daemon(close ...Close) {
 		panic(err)
 	}
 	log.Printf("ncmctl run directory: %s", path)
-
-	fd, err := os.Create("./pid")
-	if err != nil {
-		panic(err)
-	}
-	defer fd.Close()
-	if _, err := fd.WriteString(fmt.Sprintf("%d", os.Getpid())); err != nil {
-		panic(err)
-	}
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)

@@ -37,7 +37,8 @@ import (
 )
 
 type TaskOpts struct {
-	RunAll bool
+	Location string
+	RunAll   bool
 
 	Partner            bool
 	PartnerOptsCrontab string
@@ -77,6 +78,7 @@ func NewTask(root *Root, l *log.Logger) *Task {
 }
 
 func (c *Task) addFlags() {
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Location, "location", "l", "Asia/Shanghai", "crontab time zone setting")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.RunAll, "runAll", false, "default enabled all task")
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Partner, "partner", false, "enabled partner task")
@@ -159,8 +161,13 @@ func (c *Task) execute(ctx context.Context, args []string) error {
 	}
 	log.Debug("task args: %+v", c.opts)
 
+	local, err := time.LoadLocation(c.opts.Location)
+	if err != nil {
+		return fmt.Errorf("wrong time zone: %w", err)
+	}
+
 	var (
-		job     = cron.New(cron.WithLocation(time.Local))
+		job     = cron.New(cron.WithLocation(local))
 		partner = func() error {
 			log.Info("[partner] task register")
 			partner := NewPartner(c.root, c.l)

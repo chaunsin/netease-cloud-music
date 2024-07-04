@@ -71,12 +71,6 @@ func (c *loginQrcodeCmd) addFlags() {
 }
 
 func (c *loginQrcodeCmd) execute(ctx context.Context) error {
-	if c.root.root.Opts.Debug {
-		c.root.root.Cfg.Network.Debug = true
-	} else {
-		c.root.root.Cfg.Network.Debug = false
-	}
-
 	cli, err := api.NewClient(c.root.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)

@@ -50,11 +50,11 @@ type CloudListReq struct {
 
 type CloudListResp struct {
 	types.RespCommon[[]CloudListRespData]
-	HasMore     bool
-	UpgradeSign int64
-	MaxSize     string
-	Size        string
-	Count       int64
+	HasMore     bool   // 用于分页
+	UpgradeSign int64  // 目前未知
+	MaxSize     string // 网盘总共空间
+	Size        string // 当前已经使用得空间
+	Count       int64  // 歌曲总数量
 }
 
 type CloudListRespData struct {
@@ -167,7 +167,7 @@ type CloudListRespDataSimpleSong struct {
 	} `json:"privilege"`
 }
 
-// CloudList 查询云盘列表
+// CloudList 查询云盘列表,包含云盘空间大小、已用空间数
 func (a *Api) CloudList(ctx context.Context, req *CloudListReq) (*CloudListResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/v1/cloud/get"

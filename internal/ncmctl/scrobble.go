@@ -88,11 +88,6 @@ func (c *Scrobble) execute(ctx context.Context) error {
 		return fmt.Errorf("validate: %w", err)
 	}
 
-	c.root.Cfg.Network.Debug = false
-	if c.root.Opts.Debug {
-		c.root.Cfg.Network.Debug = true
-	}
-
 	var bar = pb.Full.Start64(c.opts.Num)
 
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
@@ -118,6 +113,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("neverHeardSongs: %w", err)
 	}
+	log.Debug("ready execute num(%d)", len(list))
 
 	// 执行刷歌
 	for _, v := range list {
@@ -203,12 +199,18 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api) ([]N
 			if int64(len(req)) >= c.opts.Num {
 				break
 			}
+
+			// 由于同一首歌可能会在不同得歌单中存在因此需要去重
+			if _, ok := set[v.Id]; !ok {
+				set[v.Id] = fmt.Sprintf("%d", sourceId)
+				req = append(req, weapi.SongDetailReqList{Id: fmt.Sprintf("%d", v.Id), V: 0})
+			}
+
 			// 判断是否执行过
 			// todo: 待实现考虑采用文件系统例如sqlite
-			set[v.Id] = fmt.Sprintf("%d", sourceId)
-			req = append(req, weapi.SongDetailReqList{Id: fmt.Sprintf("%d", v.Id), V: 0})
 		}
 		if int64(len(req)) >= c.opts.Num {
+			log.Debug("SongDetailReqList num(%d)", len(req))
 			break
 		}
 	}

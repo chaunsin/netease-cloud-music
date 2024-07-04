@@ -99,11 +99,6 @@ func (c *NCM) execute(ctx context.Context, fileList []string) error {
 		return fmt.Errorf("validate: %w", err)
 	}
 
-	c.root.Cfg.Network.Debug = false
-	if c.root.Opts.Debug {
-		c.root.Cfg.Network.Debug = true
-	}
-
 	// 命令行指定文件上传检验处理
 	for _, file := range fileList {
 		exist, isDir, err := utils.CheckPath(file)

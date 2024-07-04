@@ -102,12 +102,6 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 		return fmt.Errorf("method is required")
 	}
 
-	if c.root.Opts.Debug {
-		c.root.Cfg.Network.Debug = true
-	} else {
-		c.root.Cfg.Network.Debug = false
-	}
-
 	cli, err := client.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)

@@ -32,107 +32,6 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
-// Level 音乐品质
-type Level string
-
-const (
-	// LevelStandard 标准品质
-	LevelStandard Level = "standard"
-	// LevelHigher 较高品质
-	LevelHigher Level = "higher"
-	// LevelExhigh 极高品质
-	LevelExhigh Level = "exhigh"
-	// LevelLossless 无损品质
-	LevelLossless Level = "lossless"
-	// LevelHires Hi-Res品质
-	LevelHires Level = "hires"
-	// LevelJyeffect 高清环绕声品质
-	LevelJyeffect Level = "jyeffect"
-	// LevelSky 沉浸环绕声品质
-	LevelSky Level = "sky"
-	// LevelJymaster 超清母带品质
-	LevelJymaster Level = "jymaster"
-)
-
-type SongPlayerReqV1 struct {
-	types.ReqCommon
-	Ids         types.IntsString `json:"ids"`         // 歌曲id eg: 2016588459_1289504343 下滑线前位歌曲id, todo: 后位目前未知,不过不传下划线后面的内容也是可以正方返回得
-	Level       Level            `json:"level"`       // 音乐质量 Level
-	EncodeType  string           `json:"encodeType"`  // 音乐格式 eg: mp3
-	ImmerseType string           `json:"immerseType"` // 只有Level为sky时生效
-}
-
-type SongPlayerRespV1 struct {
-	types.RespCommon[[]SongPlayerRespV1Data]
-}
-
-type SongPlayerRespV1Data struct {
-	Id                 int         `json:"id"`   // 歌曲id
-	Url                string      `json:"url"`  // 歌曲资源url有时效性
-	Br                 int         `json:"br"`   // 码率
-	Size               int         `json:"size"` // 文件大小单位字节
-	Md5                string      `json:"md5"`  // 文件MD5值
-	Code               int         `json:"code"` // 状态码
-	Expi               int         `json:"expi"` // 可访问url的过期时间,目前为1200秒
-	Type               string      `json:"type"` // 类型eg: mp3、FLAC
-	Gain               float64     `json:"gain"`
-	Peak               float64     `json:"peak"`
-	Fee                int         `json:"fee"`
-	Uf                 interface{} `json:"uf"`
-	Payed              int         `json:"payed"`
-	Flag               int         `json:"flag"`
-	CanExtend          bool        `json:"canExtend"`
-	FreeTrialInfo      interface{} `json:"freeTrialInfo"`
-	Level              string      `json:"level"`      // 音质水平 eg: standard、exhigh、higher、lossless、hires
-	EncodeType         string      `json:"encodeType"` // eg: mp3
-	ChannelLayout      interface{} `json:"channelLayout"`
-	FreeTrialPrivilege struct {
-		ResConsumable      bool        `json:"resConsumable"`
-		UserConsumable     bool        `json:"userConsumable"`
-		ListenType         interface{} `json:"listenType"`
-		CannotListenReason interface{} `json:"cannotListenReason"`
-		PlayReason         interface{} `json:"playReason"`
-	} `json:"freeTrialPrivilege"`
-	FreeTimeTrialPrivilege struct {
-		ResConsumable  bool `json:"resConsumable"`
-		UserConsumable bool `json:"userConsumable"`
-		Type           int  `json:"type"`
-		RemainTime     int  `json:"remainTime"`
-	} `json:"freeTimeTrialPrivilege"`
-	UrlSource    int         `json:"urlSource"`
-	RightSource  int         `json:"rightSource"`
-	PodcastCtrp  interface{} `json:"podcastCtrp"`
-	EffectTypes  interface{} `json:"effectTypes"`
-	Time         int         `json:"time"` // 音乐时长,单位毫秒
-	Message      interface{} `json:"message"`
-	LevelConfuse interface{} `json:"levelConfuse"`
-}
-
-// SongPlayerV1 音乐播放详情
-// url: testdata/har/6.har
-// needLogin: 未知
-// 提示: 获取的歌曲url有时效性,失效时间目前测试为20分钟,过期访问则会出现403错误
-func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerReqV1) (*SongPlayerRespV1, error) {
-	var (
-		url   = "https://music.163.com/weapi/song/enhance/player/url/v1"
-		reply SongPlayerRespV1
-	)
-	if req.CSRFToken == "" {
-		csrf, _ := a.client.GetCSRF(url)
-		req.CSRFToken = csrf
-	}
-	if req.Level == LevelSky {
-		req.ImmerseType = "c51"
-	}
-
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
-	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
-	}
-	_ = resp
-	return &reply, nil
-}
-
 type SongDetailReq struct {
 	C []SongDetailReqList `json:"c"`
 }
@@ -161,7 +60,7 @@ type SongDetailRespSongs struct {
 	// Id 歌曲ID
 	Id int64 `json:"id"`
 	// Pst 功能未知
-	Pst int `json:"pst"`
+	Pst int64 `json:"pst"`
 	// T
 	// 0: 一般类型
 	// 1: 通过云盘上传的音乐，网易云不存在公开对应
@@ -178,10 +77,10 @@ type SongDetailRespSongs struct {
 	//	如果添加到一般播放列表，则自己会看到显示“云盘文件”，且云盘会多出其对应的网易云公开歌曲。其他人看到的是其对应的网易云公开歌曲。
 	//	网页端打开会看到404画面。
 	//	属于这种歌曲的例子: https://music.163.com/song/435005015
-	T int `json:"t"`
+	T int64 `json:"t"`
 	// Ar 歌手列表
 	Ar []struct {
-		Id    int           `json:"id"`
+		Id    int64         `json:"id"`
 		Name  string        `json:"name"`
 		Tns   []interface{} `json:"tns"`
 		Alias []interface{} `json:"alias"`
@@ -191,20 +90,20 @@ type SongDetailRespSongs struct {
 	// Pop 小数，常取[0.0, 100.0]中离散的几个数值, 表示歌曲热度
 	Pop float64 `json:"pop"`
 	// St 未知
-	St int `json:"st"`
+	St int64 `json:"st"`
 	// Rt None、空白字串、或者类似`600902000007902089`的字符串，功能未知
 	Rt string `json:"rt"`
-	// Fee 费用情况 0:免费 1:2元购买单曲 4:购买专辑 8:低音质免费
-	Fee int `json:"fee"`
+	// Fee 费用情况 0:免费 1:二元购买单曲 4:购买专辑 8:低音质免费
+	Fee int64 `json:"fee"`
 	// V 常为[1, ?]任意数字, 功能未知
-	V int `json:"v"`
+	V int64 `json:"v"`
 	// Crbt None或字符串表示的十六进制，功能未知
 	Crbt interface{} `json:"crbt"`
 	// Cf 空白字串或者None，功能未知
 	Cf string `json:"cf"`
 	// Al Album, 专辑，如果是DJ节目(dj_type != 0)或者无专辑信息(single == 1)，则专辑id为0
 	Al struct {
-		Id     int           `json:"id"`
+		Id     int64         `json:"id"`
 		Name   string        `json:"name"`
 		PicUrl string        `json:"picUrl"`
 		Tns    []interface{} `json:"tns"`
@@ -228,23 +127,23 @@ type SongDetailRespSongs struct {
 	// Cd None或如"04", "1/2", "3", "null"的字符串，表示歌曲属于专辑中第几张CD，对应音频文件的Tag
 	Cd string `json:"cd"`
 	// No 表示歌曲属于CD中第几曲, 0表示没有这个字段, 对应音频文件的Tag
-	No int `json:"no"`
+	No int64 `json:"no"`
 	// RtUrl 常为None, 功能未知
 	RtUrl interface{} `json:"rtUrl"`
 	// Ftype 未知
-	Ftype int `json:"ftype"`
+	Ftype int64 `json:"ftype"`
 	// RtUrls 常为空列表，功能未知
 	RtUrls []interface{} `json:"rtUrls"`
 	// DjId 0:不是DJ节目 其他:是DJ节目，表示DJ ID
-	DjId int `json:"djId"`
+	DjId int64 `json:"djId"`
 	// Copyright 0, 1, 2: 功能未知
-	Copyright int `json:"copyright"`
+	Copyright int64 `json:"copyright"`
 	// SId 对于t == 2的歌曲，表示匹配到的公开版本歌曲ID
-	SId int `json:"s_id"`
+	SId int64 `json:"s_id"`
 	// Mark 功能未知
-	Mark int `json:"mark"`
+	Mark int64 `json:"mark"`
 	// OriginCoverType 0:未知 1:原曲 2:翻唱
-	OriginCoverType int `json:"originCoverType"`
+	OriginCoverType int64 `json:"originCoverType"`
 	// OriginSongSimpleData 对于翻唱曲，可选提供原曲简单格式的信息
 	OriginSongSimpleData interface{} `json:"originSongSimpleData"`
 	// SongMeiZuData 功能未知
@@ -252,48 +151,48 @@ type SongDetailRespSongs struct {
 	// ResourceState 未知
 	ResourceState bool `json:"resourceState"`
 	// Version 什么版本？
-	Version int `json:"version"`
+	Version int64 `json:"version"`
 	// SongJumpInfo 功能未知
 	SongJumpInfo interface{} `json:"songJumpInfo"`
 	// EntranceCrash 功能未知
 	EntertainmentTags interface{} `json:"entertainmentTags"`
 	// AwardTags 功能未知
 	AwardTags interface{} `json:"awardTags"`
-	// Single 0: 有专辑信息或者是DJ节目 1:未知专辑
-	Single int `json:"single"`
+	// Single 0:有专辑信息或者是DJ节目 1:未知专辑
+	Single int64 `json:"single"`
 	// NoCopyrightRcmd None表示可以播，非空表示无版权
 	NoCopyrightRcmd interface{} `json:"noCopyrightRcmd"`
 	// Mv 非零表示有MV ID
-	Mv int `json:"mv"`
+	Mv int64 `json:"mv"`
 	// Rurl 常为None，功能未知
 	Rurl interface{} `json:"rurl"`
 	// Mst 偶尔为0, 常为9，功能未知
-	Mst int `json:"mst"`
+	Mst int64 `json:"mst"`
 	// Cp 未知
-	Cp int `json:"cp"`
+	Cp int64 `json:"cp"`
 	// Rtype 常为0，功能未知
-	Rtype int `json:"rtype"`
+	Rtype int64 `json:"rtype"`
 	// PublishTime 毫秒为单位的Unix时间戳
-	PublishTime int `json:"publishTime"`
+	PublishTime int64 `json:"publishTime"`
 }
 
 type SongDetailRespPrivileges struct {
-	Id                 int         `json:"id"`
-	Fee                int         `json:"fee"`
-	Payed              int         `json:"payed"`
-	St                 int         `json:"st"`
-	Pl                 int         `json:"pl"`
-	Dl                 int         `json:"dl"`
-	Sp                 int         `json:"sp"`
-	Cp                 int         `json:"cp"`
-	Subp               int         `json:"subp"`
+	Id                 int64       `json:"id"`
+	Fee                int64       `json:"fee"`
+	Payed              int64       `json:"payed"`
+	St                 int64       `json:"st"`
+	Pl                 int64       `json:"pl"`
+	Dl                 int64       `json:"dl"`
+	Sp                 int64       `json:"sp"`
+	Cp                 int64       `json:"cp"`
+	Subp               int64       `json:"subp"`
 	Cs                 bool        `json:"cs"`
-	Maxbr              int         `json:"maxbr"`
-	Fl                 int         `json:"fl"`
+	Maxbr              int64       `json:"maxbr"`
+	Fl                 int64       `json:"fl"`
 	Toast              bool        `json:"toast"`
-	Flag               int         `json:"flag"`
+	Flag               int64       `json:"flag"`
 	PreSell            bool        `json:"preSell"`
-	PlayMaxbr          int         `json:"playMaxbr"`
+	PlayMaxbr          int64       `json:"playMaxbr"`
 	DownloadMaxbr      int         `json:"downloadMaxbr"`
 	MaxBrLevel         string      `json:"maxBrLevel"`
 	PlayMaxBrLevel     string      `json:"playMaxBrLevel"`
@@ -309,12 +208,12 @@ type SongDetailRespPrivileges struct {
 		CannotListenReason interface{} `json:"cannotListenReason"`
 		PlayReason         interface{} `json:"playReason"`
 	} `json:"freeTrialPrivilege"`
-	RightSource    int `json:"rightSource"`
+	RightSource    int64 `json:"rightSource"`
 	ChargeInfoList []struct {
-		Rate          int         `json:"rate"`
+		Rate          int64       `json:"rate"`
 		ChargeUrl     interface{} `json:"chargeUrl"`
 		ChargeMessage interface{} `json:"chargeMessage"`
-		ChargeType    int         `json:"chargeType"`
+		ChargeType    int64       `json:"chargeType"`
 	} `json:"chargeInfoList"`
 }
 
@@ -356,7 +255,7 @@ type SongMusicQualityRespData struct {
 	SongId int64 `json:"songId"`
 	// L 标准品质
 	L *types.Quality `json:"l"`
-	// M 貌似是高音质,通常客户端好像看不到这个音质了目前
+	// M 高品质音质,通常客户端好像看不到这个音质了目前
 	M *types.Quality `json:"m"`
 	// H 极高品质
 	H *types.Quality `json:"h"`
@@ -372,7 +271,7 @@ type SongMusicQualityRespData struct {
 	Jm *types.Quality `json:"jm"`
 }
 
-// SongMusicQuality 根据歌曲id获取音质详情
+// SongMusicQuality 根据歌曲id获取支持哪些音质.其中types.Quality部位nil得则代表支持得品质
 // url:
 // needLogin: 未知
 func (a *Api) SongMusicQuality(ctx context.Context, req *SongMusicQualityReq) (*SongMusicQualityResp, error) {
@@ -407,20 +306,20 @@ type SongPlayerResp struct {
 }
 
 type SongPlayerReqData struct {
-	Id                 int         `json:"id"`
+	Id                 int64       `json:"id"`
 	Url                string      `json:"url"`
-	Br                 int         `json:"br"`
-	Size               int         `json:"size"`
+	Br                 int64       `json:"br"`
+	Size               int64       `json:"size"`
 	Md5                string      `json:"md5"`
-	Code               int         `json:"code"`
-	Expi               int         `json:"expi"`
+	Code               int64       `json:"code"`
+	Expi               int64       `json:"expi"`
 	Type               string      `json:"type"` // 类型eg: mp3、FLAC
 	Gain               float64     `json:"gain"`
 	Peak               float64     `json:"peak"`
-	Fee                int         `json:"fee"`
+	Fee                int64       `json:"fee"`
 	Uf                 interface{} `json:"uf"`
-	Payed              int         `json:"payed"`
-	Flag               int         `json:"flag"`
+	Payed              int64       `json:"payed"`
+	Flag               int64       `json:"flag"`
 	CanExtend          bool        `json:"canExtend"`
 	FreeTrialInfo      interface{} `json:"freeTrialInfo"`
 	Level              string      `json:"level"` // 通常所说的音质水平 eg: standard、exhigh、higher、lossless、hires
@@ -434,16 +333,16 @@ type SongPlayerReqData struct {
 		PlayReason         interface{} `json:"playReason"`
 	} `json:"freeTrialPrivilege"`
 	FreeTimeTrialPrivilege struct {
-		ResConsumable  bool `json:"resConsumable"`
-		UserConsumable bool `json:"userConsumable"`
-		Type           int  `json:"type"`
-		RemainTime     int  `json:"remainTime"`
+		ResConsumable  bool  `json:"resConsumable"`
+		UserConsumable bool  `json:"userConsumable"`
+		Type           int64 `json:"type"`
+		RemainTime     int64 `json:"remainTime"`
 	} `json:"freeTimeTrialPrivilege"`
-	UrlSource   int         `json:"urlSource"`
-	RightSource int         `json:"rightSource"`
+	UrlSource   int64       `json:"urlSource"`
+	RightSource int64       `json:"rightSource"`
 	PodcastCtrp interface{} `json:"podcastCtrp"`
 	EffectTypes interface{} `json:"effectTypes"`
-	Time        int         `json:"time"` // 音乐时长,单位毫秒
+	Time        int64       `json:"time"` // 音乐时长,单位毫秒
 	Message     interface{} `json:"message"`
 }
 
@@ -469,6 +368,85 @@ func (a *Api) SongPlayer(ctx context.Context, req *SongPlayerReq) (*SongPlayerRe
 	return &reply, nil
 }
 
+type SongPlayerReqV1 struct {
+	types.ReqCommon
+	Ids         types.IntsString `json:"ids"`         // 歌曲id eg: 2016588459_1289504343 下滑线前位歌曲id, todo: 后位目前未知,不过不传下划线后面的内容也是可以正常返回得
+	Level       types.Level      `json:"level"`       // 音乐质量
+	EncodeType  string           `json:"encodeType"`  // 音乐格式 eg: mp3
+	ImmerseType string           `json:"immerseType"` // 只有Level为sky时生效
+}
+
+type SongPlayerRespV1 struct {
+	types.RespCommon[[]SongPlayerRespV1Data]
+}
+
+type SongPlayerRespV1Data struct {
+	Id                 int64       `json:"id"`   // 歌曲id
+	Url                string      `json:"url"`  // 歌曲资源url有时效性
+	Br                 int64       `json:"br"`   // 码率
+	Size               int64       `json:"size"` // 文件大小单位字节
+	Md5                string      `json:"md5"`  // 文件MD5值
+	Code               int64       `json:"code"` // 状态码
+	Expi               int64       `json:"expi"` // 可访问url的过期时间,目前为1200秒
+	Type               string      `json:"type"` // 类型eg: mp3、FLAC
+	Gain               float64     `json:"gain"`
+	Peak               float64     `json:"peak"`
+	Fee                int64       `json:"fee"`
+	Uf                 interface{} `json:"uf"`
+	Payed              int64       `json:"payed"`
+	Flag               int64       `json:"flag"`
+	CanExtend          bool        `json:"canExtend"`
+	FreeTrialInfo      interface{} `json:"freeTrialInfo"`
+	Level              string      `json:"level"`      // 音质水平 see: types.Level
+	EncodeType         string      `json:"encodeType"` // eg: mp3
+	ChannelLayout      interface{} `json:"channelLayout"`
+	FreeTrialPrivilege struct {
+		ResConsumable      bool        `json:"resConsumable"`
+		UserConsumable     bool        `json:"userConsumable"`
+		ListenType         interface{} `json:"listenType"`
+		CannotListenReason interface{} `json:"cannotListenReason"`
+		PlayReason         interface{} `json:"playReason"`
+	} `json:"freeTrialPrivilege"`
+	FreeTimeTrialPrivilege struct {
+		ResConsumable  bool  `json:"resConsumable"`
+		UserConsumable bool  `json:"userConsumable"`
+		Type           int64 `json:"type"`
+		RemainTime     int64 `json:"remainTime"`
+	} `json:"freeTimeTrialPrivilege"`
+	UrlSource    int64       `json:"urlSource"`
+	RightSource  int64       `json:"rightSource"`
+	PodcastCtrp  interface{} `json:"podcastCtrp"`
+	EffectTypes  interface{} `json:"effectTypes"`
+	Time         int64       `json:"time"` // 音乐时长,单位毫秒
+	Message      interface{} `json:"message"`
+	LevelConfuse interface{} `json:"levelConfuse"`
+}
+
+// SongPlayerV1 音乐播放详情
+// url: testdata/har/6.har
+// needLogin: 未知
+// 提示: 获取的歌曲url有时效性,失效时间目前测试为20分钟,过期访问则会出现403错误
+func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerReqV1) (*SongPlayerRespV1, error) {
+	var (
+		url   = "https://music.163.com/weapi/song/enhance/player/url/v1"
+		reply SongPlayerRespV1
+	)
+	if req.CSRFToken == "" {
+		csrf, _ := a.client.GetCSRF(url)
+		req.CSRFToken = csrf
+	}
+	if req.Level == types.LevelSky {
+		req.ImmerseType = "c51"
+	}
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
 type SongDownloadUrlReq struct {
 	Id string `json:"id"`
 	Br string `json:"br"`
@@ -479,20 +457,20 @@ type SongDownloadUrlResp struct {
 }
 
 type SongDownloadUrlRespData struct {
-	Br                     int         `json:"br"`
+	Br                     int64       `json:"br"`
 	CanExtend              bool        `json:"canExtend"`
 	ChannelLayout          interface{} `json:"channelLayout"`
-	Code                   int         `json:"code"`
+	Code                   int64       `json:"code"`
 	EffectTypes            interface{} `json:"effectTypes"`
 	EncodeType             string      `json:"encodeType"`
-	Expi                   int         `json:"expi"`
-	Fee                    int         `json:"fee"`
-	Flag                   int         `json:"flag"`
+	Expi                   int64       `json:"expi"`
+	Fee                    int64       `json:"fee"`
+	Flag                   int64       `json:"flag"`
 	FreeTimeTrialPrivilege struct {
-		RemainTime     int  `json:"remainTime"`
-		ResConsumable  bool `json:"resConsumable"`
-		Type           int  `json:"type"`
-		UserConsumable bool `json:"userConsumable"`
+		RemainTime     int64 `json:"remainTime"`
+		ResConsumable  bool  `json:"resConsumable"`
+		Type           int64 `json:"type"`
+		UserConsumable bool  `json:"userConsumable"`
 	} `json:"freeTimeTrialPrivilege"`
 	FreeTrialInfo      interface{} `json:"freeTrialInfo"`
 	FreeTrialPrivilege struct {
@@ -503,27 +481,28 @@ type SongDownloadUrlRespData struct {
 		UserConsumable     bool        `json:"userConsumable"`
 	} `json:"freeTrialPrivilege"`
 	Gain         float64     `json:"gain"`
-	Id           int         `json:"id"`
+	Id           int64       `json:"id"`
 	Level        string      `json:"level"`
 	LevelConfuse interface{} `json:"levelConfuse"`
 	Md5          string      `json:"md5"`
 	Message      interface{} `json:"message"`
-	Payed        int         `json:"payed"`
+	Payed        int64       `json:"payed"`
 	Peak         float64     `json:"peak"`
 	PodcastCtrp  interface{} `json:"podcastCtrp"`
-	RightSource  int         `json:"rightSource"`
-	Size         int         `json:"size"`
-	Time         int         `json:"time"`
+	RightSource  int64       `json:"rightSource"`
+	Size         int64       `json:"size"`
+	Time         int64       `json:"time"`
 	Type         string      `json:"type"`
 	Uf           interface{} `json:"uf"`
 	Url          string      `json:"url"`
-	UrlSource    int         `json:"urlSource"`
+	UrlSource    int64       `json:"urlSource"`
 }
 
 // SongDownloadUrl 根据歌曲id获取下载链接
 // url:
 // needLogin: 未知
-// 说明: 使用 SongPlayer(song/enhance/player/url) 接口获取的是歌曲试听 url, 但存在部分歌曲在非 VIP 账号上可以下载无损音质而不能试听无损音质, 使用此接口可使非 VIP 账号获取这些歌曲的无损音频
+// 说明: 使用 SongPlayer(song/enhance/player/url) 接口获取的是歌曲试听url,
+// 但存在部分歌曲在非 VIP 账号上可以下载无损音质而不能试听无损音质, 使用此接口可使非VIP账号获取这些歌曲的无损音频
 // see: https://gitlab.com/Binaryify/neteasecloudmusicapi/-/blob/main/public/docs/home.md?ref_type=heads#%E8%8E%B7%E5%8F%96%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%AD%8C%E6%9B%B2%E4%B8%8B%E8%BD%BD-url
 func (a *Api) SongDownloadUrl(ctx context.Context, req *SongDownloadUrlReq) (*SongDownloadUrlResp, error) {
 	var (

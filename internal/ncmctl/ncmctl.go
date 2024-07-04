@@ -80,16 +80,19 @@ func New() *Root {
 			return fmt.Errorf("config validate error: %s", err)
 		}
 
+		// todo: 暂时关闭debug模式,api中得resty日志需要统一输出本库中得logger里
+		c.Cfg.Network.Debug = false
 		// 命令行开启了debug模式优先级大于配置文件中得优先级
 		if c.Opts.Debug {
 			c.Cfg.Log.Stdout = true
 			c.Cfg.Log.Level = "debug"
+			c.Cfg.Network.Debug = true
 		}
 
 		// init logger
 		c.l = log.New(c.Cfg.Log)
 		log.Default = c.l
-		log.Debug("[config] init log path:%s, log:%+v, network:%+v", path, c.Cfg.Log, c.Cfg.Network)
+		log.Debug("[config] init log path=%s log=%+v network=%+v", path, c.Cfg.Log, c.Cfg.Network)
 		return nil
 	}
 	c.cmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
@@ -108,6 +111,7 @@ func New() *Root {
 	c.Add(NewScrobble(c, c.l).Command())
 	c.Add(NewSignIn(c, c.l).Command())
 	c.Add(NewNCM(c, c.l).Command())
+	c.Add(NewDownload(c, c.l).Command())
 	return c
 }
 

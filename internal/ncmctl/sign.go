@@ -79,11 +79,6 @@ func (c *SignIn) execute(ctx context.Context) error {
 		return fmt.Errorf("validate: %w", err)
 	}
 
-	c.root.Cfg.Network.Debug = false
-	if c.root.Opts.Debug {
-		c.root.Cfg.Network.Debug = true
-	}
-
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)

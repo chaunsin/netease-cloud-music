@@ -23,6 +23,39 @@
 
 package types
 
+// Level 音乐品质
+type Level string
+
+const (
+	// LevelStandard 标准品质 128000
+	LevelStandard Level = "standard"
+	// LevelHigher 较高品质 192000
+	LevelHigher Level = "higher"
+	// LevelExhigh 极高品质 320000
+	LevelExhigh Level = "exhigh"
+	// LevelLossless 无损品质
+	LevelLossless Level = "lossless"
+	// LevelHires Hi-Res品质
+	LevelHires Level = "hires"
+	// LevelJyeffect 高清环绕声品质
+	LevelJyeffect Level = "jyeffect"
+	// LevelSky 沉浸环绕声品质
+	LevelSky Level = "sky"
+	// LevelJymaster 超清母带品质
+	LevelJymaster Level = "jymaster"
+)
+
+var LevelString = map[Level]string{
+	LevelStandard: "标准品质",
+	LevelHigher:   "较高品质",
+	LevelExhigh:   "极高品质",
+	LevelLossless: "无损品质",
+	LevelHires:    "Hi-Res品质",
+	LevelJyeffect: "高清环绕声品质",
+	LevelSky:      "沉浸环绕声品质",
+	LevelJymaster: "超清母带品质",
+}
+
 type Quality struct {
 	// Br(Bit Rate) 码率
 	Br int `json:"br"`
