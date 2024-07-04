@@ -112,6 +112,7 @@ func New() *Root {
 	c.Add(NewSignIn(c, c.l).Command())
 	c.Add(NewNCM(c, c.l).Command())
 	c.Add(NewDownload(c, c.l).Command())
+	c.Add(NewExit(c, c.l).Command())
 	return c
 }
 
