@@ -35,23 +35,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type ExitOpts struct{}
+type LogoutOpts struct{}
 
-type Exit struct {
+type Logout struct {
 	root *Root
 	cmd  *cobra.Command
-	opts ExitOpts
+	opts LogoutOpts
 	l    *log.Logger
 }
 
-func NewExit(root *Root, l *log.Logger) *Exit {
-	c := &Exit{
+func NewLogout(root *Root, l *log.Logger) *Logout {
+	c := &Logout{
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "exit",
-			Short:   "Exit netease cloud music",
-			Example: "  ncmctl exit",
+			Use:     "logout",
+			Short:   "Logout netease cloud music",
+			Example: "  ncmctl logout",
 		},
 	}
 	c.addFlags()
@@ -62,35 +62,35 @@ func NewExit(root *Root, l *log.Logger) *Exit {
 	return c
 }
 
-func (c *Exit) addFlags() {}
+func (c *Logout) addFlags() {}
 
-func (c *Exit) Add(command ...*cobra.Command) {
+func (c *Logout) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
 }
 
-func (c *Exit) Command() *cobra.Command {
+func (c *Logout) Command() *cobra.Command {
 	return c.cmd
 }
 
-func (c *Exit) execute(ctx context.Context, args []string) error {
+func (c *Logout) execute(ctx context.Context, args []string) error {
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
 	defer cli.Close(ctx)
-	request := weapi.New(cli)
 
+	request := weapi.New(cli)
 	resp, err := request.Layout(ctx, &weapi.LayoutReq{})
 	if err != nil {
-		return fmt.Errorf("Layout: %w", err)
+		return fmt.Errorf("layout: %w", err)
 	}
 	if resp.Code != 200 {
-		return fmt.Errorf("Layout: %+v", resp)
+		return fmt.Errorf("layout: %+v", resp)
 	}
 
 	// 只清理默认目录下得文件
 	if err := os.Remove(c.root.Opts.Home + "/.ncmctl/cookie.json"); err != nil {
-		log.Warn("remove cookie.json: %w", err)
+		log.Debug("remove cookie.json: %w", err)
 	}
 	c.cmd.Println("Logout success")
 	return nil

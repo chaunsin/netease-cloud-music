@@ -27,7 +27,7 @@ log:
 # 网络模块配置
 network:
   # 是否开启调试模式
-  debug: info
+  debug: false
   # 请求超时时间
   timeout: 60s
   # 当网络出现问题重试次数
@@ -36,5 +36,5 @@ network:
   cookie:
     # cookie 文件保存路径
     filepath: "${HOME}/.ncmctl/cookie.json"
-    # cookie 值刷盘间隔,如果间隔过大当程序崩溃或退出,可能导致cookie值不能刷到磁盘中.如果间隔过小,会导致频繁刷盘,影响性能.
-    interval: 1s
+    # cookie 刷盘间隔,如果间隔过大当程序崩溃或退出,可能导致cookie值不能刷到磁盘中.如果间隔过小,会导致频繁刷盘,影响性能.
+    interval: 3s

@@ -86,6 +86,9 @@ func (c *PersistentJar) Cookies(u *url.URL) []*http.Cookie {
 func (c *PersistentJar) Close(ctx context.Context) error {
 	c.closeOnce.Do(func() {
 		close(c.done)
+		if err := c.export(); err != nil {
+			log.Printf("cookie export err: %s", err)
+		}
 	})
 	return nil
 }
@@ -101,6 +104,7 @@ func (c *PersistentJar) sync() {
 			}
 		case <-c.done:
 			tick.Stop()
+			return
 		}
 	}
 }

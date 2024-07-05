@@ -104,6 +104,7 @@ func New() *Root {
 	// add sub commands
 	c.Add(NewCrypto(c, c.l).Command())
 	c.Add(NewLogin(c, c.l).Command())
+	c.Add(NewLogout(c, c.l).Command())
 	c.Add(NewPartner(c, c.l).Command())
 	c.Add(NewCurl(c, c.l).Command())
 	c.Add(NewCloud(c, c.l).Command())
@@ -112,7 +113,6 @@ func New() *Root {
 	c.Add(NewSignIn(c, c.l).Command())
 	c.Add(NewNCM(c, c.l).Command())
 	c.Add(NewDownload(c, c.l).Command())
-	c.Add(NewExit(c, c.l).Command())
 	return c
 }
 
