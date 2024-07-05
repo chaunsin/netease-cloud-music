@@ -200,6 +200,9 @@ func (c *NCM) decode(path string) error {
 		dest     = filepath.Join(c.opts.Output, name+"."+extend)
 	)
 
+	if err := utils.MkdirIfNotExist(c.opts.Output, 755); err != nil {
+		return fmt.Errorf("MkdirIfNotExist: %w", err)
+	}
 	tmp, err := os.CreateTemp(os.TempDir(), fmt.Sprintf("tmp-ncm-*-%s.%s", name, extend))
 	if err != nil {
 		return fmt.Errorf("createTemp: %w", err)

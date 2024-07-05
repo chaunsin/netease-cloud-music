@@ -98,6 +98,13 @@ func IsFile(path string) bool {
 	return true
 }
 
+func MkdirIfNotExist(path string, perm os.FileMode) error {
+	if !DirExists(path) {
+		return os.MkdirAll(path, perm)
+	}
+	return nil
+}
+
 func CheckPath(path string) (exists bool, isDir bool, err error) {
 	stat, err := os.Stat(path)
 	if err != nil {

@@ -100,23 +100,23 @@ type CloudListRespDataSimpleSong struct {
 		PicStr string        `json:"pic_str,omitempty"`
 		Pic    int64         `json:"pic"`
 	} `json:"al"`
-	Dt                   int           `json:"dt"`
-	H                    types.Quality `json:"h"`
-	M                    types.Quality `json:"m"`
-	L                    types.Quality `json:"l"`
-	A                    interface{}   `json:"a"`
-	Cd                   string        `json:"cd"`
-	No                   int           `json:"no"`
-	RtUrl                interface{}   `json:"rtUrl"`
-	Ftype                int           `json:"ftype"`
-	RtUrls               []interface{} `json:"rtUrls"`
-	DjId                 int           `json:"djId"`
-	Copyright            int           `json:"copyright"`
-	SId                  int           `json:"s_id"`
-	Mark                 int64         `json:"mark"`
-	OriginCoverType      int           `json:"originCoverType"`
-	OriginSongSimpleData interface{}   `json:"originSongSimpleData"`
-	Single               int           `json:"single"`
+	Dt                   int            `json:"dt"`
+	H                    *types.Quality `json:"h"`
+	M                    *types.Quality `json:"m"`
+	L                    *types.Quality `json:"l"`
+	A                    interface{}    `json:"a"`
+	Cd                   string         `json:"cd"`
+	No                   int            `json:"no"`
+	RtUrl                interface{}    `json:"rtUrl"`
+	Ftype                int            `json:"ftype"`
+	RtUrls               []interface{}  `json:"rtUrls"`
+	DjId                 int            `json:"djId"`
+	Copyright            int            `json:"copyright"`
+	SId                  int            `json:"s_id"`
+	Mark                 int64          `json:"mark"`
+	OriginCoverType      int            `json:"originCoverType"`
+	OriginSongSimpleData interface{}    `json:"originSongSimpleData"`
+	Single               int            `json:"single"`
 	NoCopyrightRcmd      struct {
 		Type     int         `json:"type"`
 		TypeDesc string      `json:"typeDesc"`

@@ -112,16 +112,17 @@ type SongDetailRespSongs struct {
 	} `json:"al"`
 	// Dt 歌曲时长
 	Dt int64 `json:"dt"`
-	// H 级高质量文件信息
-	H types.Quality `json:"h"`
-	// M 中质量文件信息
-	M types.Quality `json:"m"`
-	// L 标准质量文件信息
-	L types.Quality `json:"l"`
-	// Sq 无损质量文件信息
-	Sq types.Quality `json:"sq"`
-	// Hr Hi-Res质量文件信息
-	Hr interface{} `json:"hr"`
+	types.Qualities
+	// // H 级高质量文件信息
+	// H *types.Quality `json:"h"`
+	// // M 中质量文件信息
+	// M *types.Quality `json:"m"`
+	// // L 标准质量文件信息
+	// L *types.Quality `json:"l"`
+	// // Sq 无损质量文件信息
+	// Sq *types.Quality `json:"sq"`
+	// // Hr Hi-Res质量文件信息
+	// Hr *types.Quality `json:"hr"`
 	// A 常为None，功能未知
 	A interface{} `json:"a"`
 	// Cd None或如"04", "1/2", "3", "null"的字符串，表示歌曲属于专辑中第几张CD，对应音频文件的Tag
@@ -253,22 +254,23 @@ type SongMusicQualityRespData struct {
 	Db any `json:"db"`
 	// SongId 歌曲id
 	SongId int64 `json:"songId"`
-	// L 标准品质
-	L *types.Quality `json:"l"`
-	// M 高品质音质,通常客户端好像看不到这个音质了目前
-	M *types.Quality `json:"m"`
-	// H 极高品质
-	H *types.Quality `json:"h"`
-	// Sq 无损品质
-	Sq *types.Quality `json:"sq"`
-	// Hr Hi-Res品质
-	Hr *types.Quality `json:"hr"`
-	// Je 高清环绕声品质
-	Je *types.Quality `json:"je"`
-	// Sk 沉浸环绕声品质
-	Sk *types.Quality `json:"sk"`
-	// Jm 超清母带品质
-	Jm *types.Quality `json:"jm"`
+	types.Qualities
+	// // L 标准品质
+	// L *types.Quality `json:"l"`
+	// // M 高品质音质,通常客户端好像看不到这个音质了目前
+	// M *types.Quality `json:"m"`
+	// // H 极高品质
+	// H *types.Quality `json:"h"`
+	// // Sq 无损品质
+	// Sq *types.Quality `json:"sq"`
+	// // Hr Hi-Res品质
+	// Hr *types.Quality `json:"hr"`
+	// // Je 高清环绕声品质
+	// Je *types.Quality `json:"je"`
+	// // Sk 沉浸环绕声品质
+	// Sk *types.Quality `json:"sk"`
+	// // Jm 超清母带品质
+	// Jm *types.Quality `json:"jm"`
 }
 
 // SongMusicQuality 根据歌曲id获取支持哪些音质.其中types.Quality部位nil得则代表支持得品质

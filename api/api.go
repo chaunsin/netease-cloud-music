@@ -315,14 +315,14 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 	switch cryptoType {
 	case "api":
 		// tips: api接口返回数据是明文
-		fallthrough
+		decryptData = response.Body()
 	case "eapi":
 		// 貌似eapi接口返回数据是明文
 		// decryptData, err = crypto.EApiDecrypt(string(response.Body()), "")
 		// if err != nil {
 		// 	return nil, fmt.Errorf("EApiDecrypt: %w", err)
 		// }
-		fallthrough
+		decryptData = response.Body()
 	case "weapi":
 		// tips: weapi接口返回数据是明文
 		decryptData = response.Body()
@@ -331,6 +331,8 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 		if err != nil {
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
+	default:
+		return nil, fmt.Errorf("%s crypto mode unknown", cryptoType)
 	}
 	log.Debug("[response.decrypt]: %s", string(decryptData))
 	if err := json.Unmarshal(decryptData, &resp); err != nil {
@@ -370,8 +372,45 @@ func (c *Client) Upload(ctx context.Context, url string, headers map[string]stri
 	return response, nil
 }
 
+func (c *Client) Download(ctx context.Context, url string, headers map[string]string, reqBody io.Reader, resp io.Writer, bar *pb.ProgressBar) (*http.Response, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("NewRequestWithContext: %w", err)
+	}
+	request.Header.Set("Connection", "keep-alive")
+	request.Header.Set("Accept", "*/*")
+	request.Header.Set("Referer", "https://music.163.com")
+	request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034")
+	for k, v := range headers {
+		request.Header.Set(k, v)
+	}
+
+	response, err := c.cli.GetClient().Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("http status code: %d", response.StatusCode)
+	}
+
+	var body io.Reader = response.Body
+	if bar != nil {
+		body = bar.NewProxyReader(response.Body)
+	}
+	n, err := io.Copy(resp, body)
+	if err != nil {
+		return nil, err
+	}
+	if n != response.ContentLength {
+		return nil, errors.New("file transfer interrupted")
+	}
+	return response, nil
+}
+
 func contentEncoding(c *resty.Client, resp *resty.Response) error {
-	kind := resp.Header().Get("Content-Encoding")
+	var kind = resp.Header().Get("Content-Encoding")
 	// log.Debug("Content-Encoding: %s Uncompressed: %v", kind, resp.RawResponse.Uncompressed)
 	switch kind {
 	case "deflate":
@@ -386,13 +425,6 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 			return fmt.Errorf("deflate.ReadAll: %w", err)
 		}
 		resp.SetBody(bodyBytes)
-		// reader:=flate.NewReader(bytes.NewReader(resp.Body()))
-		// defer reader.Close()
-		// bodyBytes, err := io.ReadAll(reader)
-		// if err != nil {
-		// 	return err
-		// }
-		// resp.SetBody(bodyBytes)
 	case "br":
 		bodyBytes, err := cbrotli.Decode(resp.Body())
 		if err != nil {
@@ -401,16 +433,6 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 		resp.SetBody(bodyBytes)
 	case "gzip":
 		// tips: restry 自身已经实现gzip解压缩
-		// reader, err := gzip.NewReader(bytes.NewReader(resp.Body()))
-		// if err != nil {
-		// 	return err
-		// }
-		// defer reader.Close()
-		// bodyBytes, err := io.ReadAll(reader)
-		// if err != nil {
-		// 	return err
-		// }
-		// resp.SetBody(bodyBytes)
 	case "":
 		// 空则代表是gzip,golang底层会做相应得解压缩处理,为空得原因是,
 		// 收到请求后进行解压, 同时删除 Content-Encoding: gzip请求头。
