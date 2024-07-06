@@ -48,6 +48,7 @@ type DownloadOpts struct {
 	Level    string // 歌曲品质 types.Level
 	Strict   bool   // 严格模式。当开起时指定的歌曲品质不符合要求,则不进行下载
 	Tag      bool
+	Replace  bool
 }
 
 type Download struct {
@@ -81,6 +82,7 @@ func (c *Download) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Level, "level", "l", string(types.LevelLossless), "num of songs")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Strict, "strict", false, "strict mode. When the downloaded song does not find the corresponding quality, it will not be downloaded.")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", true, "whether to set song tag information,default set")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Replace, "replace", true, "whether replace exist music")
 }
 
 func (c *Download) validate() error {
@@ -195,7 +197,8 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 	if qualityResp.Code != 200 {
 		return fmt.Errorf("SongMusicQuality(%v) err: %+v", songId, qualityResp)
 	}
-	quality, ok := qualityResp.Data.Qualities.FindBetter(types.Level(c.opts.Level))
+	quality, level, ok := qualityResp.Data.Qualities.FindBetter(types.Level(c.opts.Level))
+	log.Debug("SongMusicQuality(%v) quality level=%s info=%+v", songId, types.LevelString[level], quality)
 	if !ok && c.opts.Strict {
 		return fmt.Errorf("SongMusicQuality(%v) not support %v", songId, types.Level(c.opts.Level))
 	}
@@ -225,15 +228,15 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 	var (
 		drd      = downResp.Data
 		artist   = strings.Join(artistList, ",")
-		dest     = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s.%s", artist, songDetail.Name, drd.EncodeType))
+		dest     = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s.%s", artist, songDetail.Name, drd.Type))
 		tmpDir   = os.TempDir()
 		tempName = fmt.Sprintf("ncmctl-*-%s.tmp", songDetail.Name)
 	)
-	log.Debug("SongDownloadUrl id=%v downloadUrl=%v outDir=%s tempDir=%s%s br=%v encodeType=%v type=%v",
+	log.Debug("id=%v downloadUrl=%v outDir=%s tempDir=%s%s br=%v encodeType=%v type=%v",
 		drd.Id, drd.Url, dest, tmpDir, tempName, drd.Br, drd.EncodeType, drd.Type)
 
 	// 创建临时文件以及下载目录
-	if err := utils.MkdirIfNotExist(c.opts.Output, 766); err != nil {
+	if err := utils.MkdirIfNotExist(c.opts.Output, 0755); err != nil {
 		return fmt.Errorf("MkdirIfNotExist: %w", err)
 	}
 	file, err := os.CreateTemp(tmpDir, tempName)
@@ -260,10 +263,16 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 		// todo:
 	}
 
-	// todo:重名文件检测
+	// TODO: 处理是否覆盖文件
 
+	for i := 1; utils.FileExists(dest); i++ {
+		dest = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s(%d).%s", artist, songDetail.Name, i, drd.Type))
+	}
 	if err := os.Rename(file.Name(), dest); err != nil {
 		return fmt.Errorf("rename: %w", err)
+	}
+	if err := os.Chmod(dest, 0644); err != nil {
+		return fmt.Errorf("chmod: %w", err)
 	}
 
 	c.cmd.Printf("download success\n")

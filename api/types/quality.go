@@ -96,57 +96,57 @@ type Qualities struct {
 
 // FindBetter 根据指定l获取音质信息,如果找到则返回对应级别得音乐信息并返回true，
 // 如果找不到则降级返回最接近得音质信息，并返回false
-func (q Qualities) FindBetter(l Level) (*Quality, bool) {
+func (q Qualities) FindBetter(l Level) (*Quality, Level, bool) {
 	var match = true
 	switch l {
 	case LevelJymaster:
 		if q.M != nil {
-			return q.M, true
+			return q.M, LevelJyeffect, true
 		}
 		match = false
 		fallthrough
 	case LevelSky:
 		if q.Sk != nil {
-			return q.Sk, match
+			return q.Sk, LevelSky, match
 		}
 		match = false
 		fallthrough
 	case LevelJyeffect:
 		if q.Je != nil {
-			return q.Je, match
+			return q.Je, LevelJyeffect, match
 		}
 		match = false
 		fallthrough
 	case LevelHires:
 		if q.Hr != nil {
-			return q.Hr, match
+			return q.Hr, LevelHires, match
 		}
 		match = false
 		fallthrough
 	case LevelLossless:
 		if q.Sq != nil {
-			return q.Sq, match
+			return q.Sq, LevelLossless, match
 		}
 		match = false
 		fallthrough
 	case LevelExhigh:
 		if q.H != nil {
-			return q.H, match
+			return q.H, LevelExhigh, match
 		}
 		match = false
 		fallthrough
 	case LevelHigher:
 		if q.M != nil {
-			return q.M, match
+			return q.M, LevelHigher, match
 		}
 		match = false
 		fallthrough
 	case LevelStandard:
 		if q.L != nil {
-			return q.L, match
+			return q.L, LevelStandard, match
 		}
 		fallthrough
 	default:
-		return q.L, false
+		return q.L, LevelStandard, false
 	}
 }
