@@ -67,22 +67,21 @@ var (
 	reg        = regexp.MustCompile(urlPattern)
 )
 
-func ParseUrl(url string) (string, int64, error) {
-	matched, ok := reg.FindStringSubmatch(url), reg.MatchString(url)
-	if !ok || len(matched) < 3 {
-		return "", 0, fmt.Errorf("could not parse the url: %s", url)
+func Parse(source string) (string, int64, error) {
+	// 歌曲id
+	id, err := strconv.ParseInt(source, 10, 64)
+	if err == nil {
+		return "song", id, nil
 	}
 
-	id, err := strconv.ParseInt(matched[2], 10, 64)
+	matched, ok := reg.FindStringSubmatch(source), reg.MatchString(source)
+	if !ok || len(matched) < 3 {
+		return "", 0, fmt.Errorf("could not parse the url: %s", source)
+	}
+
+	id, err = strconv.ParseInt(matched[2], 10, 64)
 	if err != nil {
 		return "", 0, err
-	}
-
-	switch matched[1] {
-	case "song":
-	case "artist":
-	case "album":
-	case "playlist":
 	}
 	return matched[1], id, nil
 }

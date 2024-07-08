@@ -97,29 +97,29 @@ type PlaylistRespList struct {
 		Alg     string `json:"alg"`
 		LogInfo string `json:"logInfo"`
 	} `json:"recommendInfo"`
-	SubscribedCount       int         `json:"subscribedCount"`
-	CloudTrackCount       int         `json:"cloudTrackCount"`
-	UserId                int         `json:"userId"`
-	TotalDuration         int         `json:"totalDuration"`
+	SubscribedCount       int64       `json:"subscribedCount"`
+	CloudTrackCount       int64       `json:"cloudTrackCount"`
+	UserId                int64       `json:"userId"`
+	TotalDuration         int64       `json:"totalDuration"`
 	CoverImgId            int64       `json:"coverImgId"`
-	Privacy               int         `json:"privacy"`
+	Privacy               int64       `json:"privacy"`
 	TrackUpdateTime       int64       `json:"trackUpdateTime"`
-	TrackCount            int         `json:"trackCount"`
+	TrackCount            int64       `json:"trackCount"`
 	UpdateTime            int64       `json:"updateTime"`
 	CommentThreadId       string      `json:"commentThreadId"`
 	CoverImgUrl           string      `json:"coverImgUrl"`
-	SpecialType           int         `json:"specialType"`
+	SpecialType           int64       `json:"specialType"`
 	Anonimous             bool        `json:"anonimous"`
 	CreateTime            int64       `json:"createTime"`
 	HighQuality           bool        `json:"highQuality"`
 	NewImported           bool        `json:"newImported"`
 	TrackNumberUpdateTime int64       `json:"trackNumberUpdateTime"`
 	PlayCount             int64       `json:"playCount"`
-	AdType                int         `json:"adType"`
+	AdType                int64       `json:"adType"`
 	Description           *string     `json:"description"`
 	Tags                  []string    `json:"tags"`
 	Ordered               bool        `json:"ordered"`
-	Status                int         `json:"status"`
+	Status                int64       `json:"status"`
 	Name                  string      `json:"name"`
 	Id                    int64       `json:"id"`
 	CoverImgIdStr         *string     `json:"coverImgId_str"`
@@ -161,37 +161,37 @@ type PlaylistDetailResp struct {
 		CoverImgId            int64         `json:"coverImgId"`
 		CoverImgUrl           string        `json:"coverImgUrl"`
 		CoverImgIdStr         string        `json:"coverImgId_str"`
-		AdType                int           `json:"adType"`
-		UserId                int           `json:"userId"`
+		AdType                int64         `json:"adType"`
+		UserId                int64         `json:"userId"`
 		CreateTime            int64         `json:"createTime"`
-		Status                int           `json:"status"`
+		Status                int64         `json:"status"`
 		OpRecommend           bool          `json:"opRecommend"`
 		HighQuality           bool          `json:"highQuality"`
 		NewImported           bool          `json:"newImported"`
 		UpdateTime            int64         `json:"updateTime"`
-		TrackCount            int           `json:"trackCount"`
-		SpecialType           int           `json:"specialType"`
-		Privacy               int           `json:"privacy"`
+		TrackCount            int64         `json:"trackCount"`
+		SpecialType           int64         `json:"specialType"`
+		Privacy               int64         `json:"privacy"`
 		TrackUpdateTime       int64         `json:"trackUpdateTime"`
 		CommentThreadId       string        `json:"commentThreadId"`
-		PlayCount             int           `json:"playCount"`
+		PlayCount             int64         `json:"playCount"`
 		TrackNumberUpdateTime int64         `json:"trackNumberUpdateTime"`
-		SubscribedCount       int           `json:"subscribedCount"`
-		CloudTrackCount       int           `json:"cloudTrackCount"`
+		SubscribedCount       int64         `json:"subscribedCount"`
+		CloudTrackCount       int64         `json:"cloudTrackCount"`
 		Ordered               bool          `json:"ordered"`
 		Description           string        `json:"description"`
 		Tags                  []interface{} `json:"tags"`
 		UpdateFrequency       interface{}   `json:"updateFrequency"`
-		BackgroundCoverId     int           `json:"backgroundCoverId"`
+		BackgroundCoverId     int64         `json:"backgroundCoverId"`
 		BackgroundCoverUrl    interface{}   `json:"backgroundCoverUrl"`
-		TitleImage            int           `json:"titleImage"`
+		TitleImage            int64         `json:"titleImage"`
 		TitleImageUrl         interface{}   `json:"titleImageUrl"`
 		DetailPageTitle       interface{}   `json:"detailPageTitle"`
 		EnglishTitle          interface{}   `json:"englishTitle"`
 		OfficialPlaylistType  interface{}   `json:"officialPlaylistType"`
 		Copied                bool          `json:"copied"`
 		RelateResType         interface{}   `json:"relateResType"`
-		CoverStatus           int           `json:"coverStatus"`
+		CoverStatus           int64         `json:"coverStatus"`
 		Subscribers           []interface{} `json:"subscribers"`
 		Subscribed            interface{}   `json:"subscribed"`
 		Creator               struct {
@@ -234,9 +234,9 @@ type PlaylistDetailResp struct {
 		// Tracks 只包含了10首歌曲详情信息,而 TrackIds 包含歌曲所有的信息id不包含歌曲详情因此需要配合详情接口查询
 		Tracks []struct {
 			Name string `json:"name"`
-			Id   int    `json:"id"`
-			Pst  int    `json:"pst"`
-			T    int    `json:"t"`
+			Id   int64  `json:"id"`
+			Pst  int64  `json:"pst"`
+			T    int64  `json:"t"`
 			Ar   []struct {
 				Id    int           `json:"id"`
 				Name  string        `json:"name"`
@@ -245,10 +245,10 @@ type PlaylistDetailResp struct {
 			} `json:"ar"`
 			Alia []interface{} `json:"alia"`
 			Pop  float64       `json:"pop"`
-			St   int           `json:"st"`
+			St   int64         `json:"st"`
 			Rt   *string       `json:"rt"`
-			Fee  int           `json:"fee"`
-			V    int           `json:"v"`
+			Fee  int64         `json:"fee"`
+			V    int64         `json:"v"`
 			Crbt interface{}   `json:"crbt"`
 			Cf   string        `json:"cf"`
 			Al   struct {
@@ -259,7 +259,7 @@ type PlaylistDetailResp struct {
 				PicStr string        `json:"pic_str,omitempty"`
 				Pic    int64         `json:"pic"`
 			} `json:"al"`
-			Dt                   int           `json:"dt"`
+			Dt                   int64         `json:"dt"`
 			H                    types.Quality `json:"h"`
 			M                    types.Quality `json:"m"`
 			L                    types.Quality `json:"l"`
@@ -267,31 +267,31 @@ type PlaylistDetailResp struct {
 			Hr                   types.Quality `json:"hr"`
 			A                    interface{}   `json:"a"`
 			Cd                   string        `json:"cd"`
-			No                   int           `json:"no"`
+			No                   int64         `json:"no"`
 			RtUrl                interface{}   `json:"rtUrl"`
-			Ftype                int           `json:"ftype"`
+			Ftype                int64         `json:"ftype"`
 			RtUrls               []interface{} `json:"rtUrls"`
-			DjId                 int           `json:"djId"`
-			Copyright            int           `json:"copyright"`
-			SId                  int           `json:"s_id"`
+			DjId                 int64         `json:"djId"`
+			Copyright            int64         `json:"copyright"`
+			SId                  int64         `json:"s_id"`
 			Mark                 int64         `json:"mark"`
-			OriginCoverType      int           `json:"originCoverType"`
+			OriginCoverType      int64         `json:"originCoverType"`
 			OriginSongSimpleData interface{}   `json:"originSongSimpleData"`
 			TagPicList           interface{}   `json:"tagPicList"`
 			ResourceState        bool          `json:"resourceState"`
-			Version              int           `json:"version"`
+			Version              int64         `json:"version"`
 			SongJumpInfo         interface{}   `json:"songJumpInfo"`
 			EntertainmentTags    interface{}   `json:"entertainmentTags"`
 			AwardTags            interface{}   `json:"awardTags"`
-			Single               int           `json:"single"`
+			Single               int64         `json:"single"`
 			NoCopyrightRcmd      interface{}   `json:"noCopyrightRcmd"`
 			Alg                  interface{}   `json:"alg"`
 			DisplayReason        interface{}   `json:"displayReason"`
-			Rtype                int           `json:"rtype"`
+			Rtype                int64         `json:"rtype"`
 			Rurl                 interface{}   `json:"rurl"`
-			Mst                  int           `json:"mst"`
-			Cp                   int           `json:"cp"`
-			Mv                   int           `json:"mv"`
+			Mst                  int64         `json:"mst"`
+			Cp                   int64         `json:"cp"`
+			Mv                   int64         `json:"mv"`
 			PublishTime          int64         `json:"publishTime"`
 		} `json:"tracks"`
 		VideoIds interface{} `json:"videoIds"`
@@ -311,8 +311,8 @@ type PlaylistDetailResp struct {
 		} `json:"trackIds"`
 		BannedTrackIds          interface{}   `json:"bannedTrackIds"`
 		MvResourceInfos         interface{}   `json:"mvResourceInfos"`
-		ShareCount              int           `json:"shareCount"`
-		CommentCount            int           `json:"commentCount"`
+		ShareCount              int64         `json:"shareCount"`
+		CommentCount            int64         `json:"commentCount"`
 		RemixVideo              interface{}   `json:"remixVideo"`
 		NewDetailPageRemixVideo interface{}   `json:"newDetailPageRemixVideo"`
 		SharedUsers             interface{}   `json:"sharedUsers"`
@@ -321,7 +321,7 @@ type PlaylistDetailResp struct {
 		Score                   interface{}   `json:"score"`
 		AlgTags                 interface{}   `json:"algTags"`
 		DistributeTags          []interface{} `json:"distributeTags"`
-		TrialMode               int           `json:"trialMode"`
+		TrialMode               int64         `json:"trialMode"`
 		DisplayTags             interface{}   `json:"displayTags"`
 		PlaylistType            string        `json:"playlistType"`
 	} `json:"playlist"`
@@ -372,7 +372,7 @@ type PlaylistDetailResp struct {
 	SharedPrivilege interface{} `json:"sharedPrivilege"`
 	ResEntrance     interface{} `json:"resEntrance"`
 	FromUsers       interface{} `json:"fromUsers"`
-	FromUserCount   int         `json:"fromUserCount"`
+	FromUserCount   int64       `json:"fromUserCount"`
 	SongFromUsers   interface{} `json:"songFromUsers"`
 }
 

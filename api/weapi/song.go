@@ -54,6 +54,7 @@ type SongDetailResp struct {
 
 // SongDetailRespSongs
 // see: https://github.com/Binaryify/NeteaseCloudMusicApi/issues/1121#issuecomment-774438040
+// https://docs-neteasecloudmusicapi.vercel.app/docs/#/?id=%e8%8e%b7%e5%8f%96%e6%ad%8c%e6%9b%b2%e8%af%a6%e6%83%85
 type SongDetailRespSongs struct {
 	// Name 歌曲标题
 	Name string `json:"name"`
@@ -93,9 +94,9 @@ type SongDetailRespSongs struct {
 	St int64 `json:"st"`
 	// Rt None、空白字串、或者类似`600902000007902089`的字符串，功能未知
 	Rt string `json:"rt"`
-	// Fee 费用情况 0:免费 1:二元购买单曲 4:购买专辑 8:低音质免费
+	// Fee 费用情况 0:免费 1:二元购买单曲 4:购买专辑 8:低音质免费 fee为1或8的歌曲均可单独购买2元单曲
 	Fee int64 `json:"fee"`
-	// V 常为[1, ?]任意数字, 功能未知
+	// V 常为[1, ?]任意数字, 代表歌曲当前信息版本
 	V int64 `json:"v"`
 	// Crbt None或字符串表示的十六进制，功能未知
 	Crbt interface{} `json:"crbt"`
@@ -137,11 +138,12 @@ type SongDetailRespSongs struct {
 	RtUrls []interface{} `json:"rtUrls"`
 	// DjId 0:不是DJ节目 其他:是DJ节目，表示DJ ID
 	DjId int64 `json:"djId"`
-	// Copyright 0, 1, 2: 功能未知
+	// Copyright 0, 1, 2 功能未知
 	Copyright int64 `json:"copyright"`
 	// SId 对于t == 2的歌曲，表示匹配到的公开版本歌曲ID
 	SId int64 `json:"s_id"`
-	// Mark 功能未知
+	// Mark 一些歌曲属性，用按位与操作获取对应位置的值 8192:立体声?(不是很确定) 131072:纯音乐 1048576:脏标E 其他未知，理论上有从1到2^63共64种不同的信息
+	// 专辑信息的mark字段也同理 例子:id 1859245776和1859306637为同一首歌，前者 mark & 1048576 == 1048576,后者 mark & 1048576 == 0，因此前者是脏版
 	Mark int64 `json:"mark"`
 	// OriginCoverType 0:未知 1:原曲 2:翻唱
 	OriginCoverType int64 `json:"originCoverType"`
@@ -161,7 +163,7 @@ type SongDetailRespSongs struct {
 	AwardTags interface{} `json:"awardTags"`
 	// Single 0:有专辑信息或者是DJ节目 1:未知专辑
 	Single int64 `json:"single"`
-	// NoCopyrightRcmd None表示可以播，非空表示无版权
+	// NoCopyrightRcmd 不能判断出歌曲有无版权
 	NoCopyrightRcmd interface{} `json:"noCopyrightRcmd"`
 	// Mv 非零表示有MV ID
 	Mv int64 `json:"mv"`
@@ -178,28 +180,35 @@ type SongDetailRespSongs struct {
 }
 
 type SongDetailRespPrivileges struct {
-	Id                 int64       `json:"id"`
-	Fee                int64       `json:"fee"`
-	Payed              int64       `json:"payed"`
-	St                 int64       `json:"st"`
-	Pl                 int64       `json:"pl"`
-	Dl                 int64       `json:"dl"`
-	Sp                 int64       `json:"sp"`
-	Cp                 int64       `json:"cp"`
-	Subp               int64       `json:"subp"`
-	Cs                 bool        `json:"cs"`
-	Maxbr              int64       `json:"maxbr"`
-	Fl                 int64       `json:"fl"`
-	Toast              bool        `json:"toast"`
-	Flag               int64       `json:"flag"`
-	PreSell            bool        `json:"preSell"`
-	PlayMaxbr          int64       `json:"playMaxbr"`
-	DownloadMaxbr      int         `json:"downloadMaxbr"`
-	MaxBrLevel         string      `json:"maxBrLevel"`
-	PlayMaxBrLevel     string      `json:"playMaxBrLevel"`
-	DownloadMaxBrLevel string      `json:"downloadMaxBrLevel"`
-	PlLevel            string      `json:"plLevel"`
-	DlLevel            string      `json:"dlLevel"`
+	Id    int64 `json:"id"`
+	Fee   int64 `json:"fee"`
+	Payed int64 `json:"payed"`
+	// St 小于0时为灰色歌曲, 使用上传云盘的方法解灰后 st == 0
+	St   int64 `json:"st"`
+	Pl   int64 `json:"pl"`
+	Dl   int64 `json:"dl"`
+	Sp   int64 `json:"sp"`
+	Cp   int64 `json:"cp"`
+	Subp int64 `json:"subp"`
+	// Cs 是否为云盘歌曲
+	Cs    bool  `json:"cs"`
+	Maxbr int64 `json:"maxbr"`
+	Fl    int64 `json:"fl"`
+	// Toast 是否「由于版权保护，您所在的地区暂时无法使用。」
+	Toast         bool  `json:"toast"`
+	Flag          int64 `json:"flag"`
+	PreSell       bool  `json:"preSell"`
+	PlayMaxbr     int64 `json:"playMaxbr"`
+	DownloadMaxbr int   `json:"downloadMaxbr"`
+	// MaxBrLevel 歌曲最高音质
+	MaxBrLevel         string `json:"maxBrLevel"`
+	PlayMaxBrLevel     string `json:"playMaxBrLevel"`
+	DownloadMaxBrLevel string `json:"downloadMaxBrLevel"`
+	// PlLevel 当前用户的该歌曲最高试听音质
+	PlLevel string `json:"plLevel"`
+	// DlLevel 当前用户的该歌曲最高下载音质
+	DlLevel string `json:"dlLevel"`
+	// FlLevel 免费用户的该歌曲播放音质
 	FlLevel            string      `json:"flLevel"`
 	Rscl               interface{} `json:"rscl"`
 	FreeTrialPrivilege struct {

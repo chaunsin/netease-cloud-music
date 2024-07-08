@@ -29,6 +29,7 @@ import (
 	"net/http/httputil"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -135,11 +136,12 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 
 	// 支持交互式输入搜索歌名、歌手、专辑、歌单进行下载
 
-	// // 解析输入入得内容是什么类型
-	// kind, id, err := ParseUrl(c.opts.Input)
-	// if err != nil {
-	// 	return fmt.Errorf("ParseUrl: %w", err)
-	// }
+	// 解析处理输入的资源类型
+	list, err := c.inputParse(ctx, args, request)
+	if err != nil {
+		return fmt.Errorf("inputParse: %w", err)
+	}
+	_ = list
 
 	var songIdStr = c.opts.Input
 	// 查询歌曲相关信息,下载地址等
@@ -277,4 +279,101 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 
 	c.cmd.Printf("download success\n")
 	return nil
+}
+
+func (c *Download) inputParse(ctx context.Context, args []string, request *weapi.Api) ([]int64, error) {
+	var (
+		source = make(map[string][]int64)
+		list   []int64
+	)
+	for _, arg := range args {
+		// todo: 考虑歌手所有专辑?例如 https://music.163.com/#/artist/album?id=4941
+		kind, id, err := Parse(arg)
+		if err != nil {
+			return nil, fmt.Errorf("ParseUrl: %w", err)
+		}
+		if v, ok := source[kind]; ok {
+			source[kind] = append(v, id)
+		} else {
+			source[kind] = []int64{id}
+		}
+	}
+
+	for k, ids := range source {
+		switch k {
+		case "song":
+			list = append(list, ids...)
+		case "artist":
+			for _, id := range ids {
+				artist, err := request.ArtistSongs(ctx, &weapi.ArtistSongsReq{
+					Id:           id,
+					PrivateCloud: "true",
+					WorkType:     1,
+					Order:        "hot",
+					Offset:       0, // TODO: offset
+					Limit:        100,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("ArtistSongs(%v): %w", id, err)
+				}
+				if artist.Code != 200 {
+					log.Error("ArtistSongs(%v) err: %+v", id, artist)
+					continue
+				}
+				if len(artist.Songs) <= 0 {
+					log.Warn("ArtistSongs(%v) songs is empty", id)
+					continue
+				}
+				for _, v := range artist.Songs {
+					list = append(list, v.Id)
+				}
+				// todo: 处理版权,状态等有效性校验
+			}
+		case "album":
+			for _, id := range ids {
+				album, err := request.Album(ctx, &weapi.AlbumReq{Id: fmt.Sprintf("%d", id)})
+				if err != nil {
+					return nil, fmt.Errorf("Album(%v): %w", id, err)
+				}
+				if album.Code != 200 {
+					log.Error("Album(%v) err: %+v", id, album)
+					continue
+				}
+				if len(album.Songs) <= 0 {
+					log.Warn("Album(%v) Songs is empty", id)
+					continue
+				}
+				for _, v := range album.Songs {
+					list = append(list, v.Id)
+				}
+				// todo: 处理版权,状态等有效性校验
+			}
+		case "playlist":
+			for _, id := range ids {
+				playlist, err := request.PlaylistDetail(ctx, &weapi.PlaylistDetailReq{Id: fmt.Sprintf("%d", id)})
+				if err != nil {
+					return nil, fmt.Errorf("PlaylistDetail(%v): %w", id, err)
+				}
+				if playlist.Code != 200 {
+					log.Error("PlaylistDetail(%v) err: %+v", id, playlist)
+					continue
+				}
+				if playlist.Playlist.TrackIds == nil {
+					log.Warn("PlaylistDetail(%v) Tracks is nil", id)
+					continue
+				}
+				for _, v := range playlist.Playlist.TrackIds {
+					list = append(list, v.Id)
+				}
+				// todo: 处理版权,状态等有效性校验
+			}
+		default:
+			return nil, fmt.Errorf("[%s] is not support", k)
+		}
+	}
+	list = slices.Compact(list)
+	if len(list) <= 0 {
+		return nil, fmt.Errorf("the input resource is empty or invalid")
+	}
+	return list, nil
 }
