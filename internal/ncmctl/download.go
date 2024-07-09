@@ -29,7 +29,6 @@ import (
 	"net/http/httputil"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -281,10 +280,11 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 	return nil
 }
 
-func (c *Download) inputParse(ctx context.Context, args []string, request *weapi.Api) ([]int64, error) {
+func (c *Download) inputParse(ctx context.Context, args []string, request *weapi.Api) ([]Music, error) {
 	var (
 		source = make(map[string][]int64)
-		list   []int64
+		set    = make(map[int64]struct{})
+		list   []Music
 	)
 	for _, arg := range args {
 		// todo: 考虑歌手所有专辑?例如 https://music.163.com/#/artist/album?id=4941
@@ -302,7 +302,47 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 	for k, ids := range source {
 		switch k {
 		case "song":
-			list = append(list, ids...)
+			{
+				var tmp = make([]int64, 0, len(ids))
+				for _, id := range ids {
+					if _, ok := set[id]; ok {
+						continue
+					}
+					set[id] = struct{}{}
+					tmp = append(tmp, id)
+				}
+
+				// 分页处理
+				pages, _ := utils.SplitSlice(tmp, 500)
+				for _, p := range pages {
+					var c = make([]weapi.SongDetailReqList, 0, len(p))
+					for _, v := range p {
+						c = append(c, weapi.SongDetailReqList{Id: fmt.Sprintf("%v", v), V: 0})
+					}
+					resp, err := request.SongDetail(ctx, &weapi.SongDetailReq{C: c})
+					if err != nil {
+						return nil, fmt.Errorf("SongDetail: %w", err)
+					}
+					if resp.Code != 200 {
+						log.Error("SongDetail err: %+v", resp)
+						continue
+					}
+					if len(resp.Songs) <= 0 {
+						log.Warn("SongDetail() Songs is empty")
+						continue
+					}
+					for _, v := range resp.Songs {
+						list = append(list, Music{
+							Id:     v.Id,
+							Name:   v.Name,
+							Artist: v.Ar,
+							Album:  v.Al,
+							Time:   v.Dt,
+						})
+					}
+					// todo: 处理版权,状态等有效性校验
+				}
+			}
 		case "artist":
 			for _, id := range ids {
 				for i := 1; ; i++ {
@@ -330,7 +370,17 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 						break
 					}
 					for _, v := range artist.Songs {
-						list = append(list, v.Id)
+						if _, ok := set[v.Id]; ok {
+							continue
+						}
+						set[id] = struct{}{}
+						list = append(list, Music{
+							Id:     v.Id,
+							Name:   v.Name,
+							Artist: v.Ar,
+							Album:  v.Al,
+							Time:   v.Dt,
+						})
 					}
 					// todo: 处理版权,状态等有效性校验
 				}
@@ -350,7 +400,17 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 					continue
 				}
 				for _, v := range album.Songs {
-					list = append(list, v.Id)
+					if _, ok := set[v.Id]; ok {
+						continue
+					}
+					set[id] = struct{}{}
+					list = append(list, Music{
+						Id:     v.Id,
+						Name:   v.Name,
+						Artist: v.Ar,
+						Album:  v.Al,
+						Time:   v.Dt,
+					})
 				}
 				// todo: 处理版权,状态等有效性校验
 			}
@@ -368,18 +428,61 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 					log.Warn("PlaylistDetail(%v) Tracks is nil", id)
 					continue
 				}
+				var tmp = make([]int64, 0, len(playlist.Playlist.TrackIds))
 				for _, v := range playlist.Playlist.TrackIds {
-					list = append(list, v.Id)
+					if _, ok := set[v.Id]; ok {
+						continue
+					}
+					set[id] = struct{}{}
+					tmp = append(tmp, v.Id)
 				}
-				// todo: 处理版权,状态等有效性校验
+
+				// 分页处理
+				pages, _ := utils.SplitSlice(tmp, 500)
+				for _, p := range pages {
+					var c = make([]weapi.SongDetailReqList, 0, len(p))
+					for _, v := range p {
+						c = append(c, weapi.SongDetailReqList{Id: fmt.Sprintf("%v", v), V: 0})
+					}
+					resp, err := request.SongDetail(ctx, &weapi.SongDetailReq{C: c})
+					if err != nil {
+						return nil, fmt.Errorf("SongDetail: %w", err)
+					}
+					if resp.Code != 200 {
+						log.Error("SongDetail err: %+v", resp)
+						continue
+					}
+					if len(resp.Songs) <= 0 {
+						log.Warn("SongDetail Songs is empty")
+						continue
+					}
+					for _, v := range resp.Songs {
+						list = append(list, Music{
+							Id:     v.Id,
+							Name:   v.Name,
+							Artist: v.Ar,
+							Album:  v.Al,
+							Time:   v.Dt,
+						})
+					}
+					// todo: 处理版权,状态等有效性校验
+				}
 			}
 		default:
 			return nil, fmt.Errorf("[%s] is not support", k)
 		}
 	}
-	list = slices.Compact(list)
 	if len(list) <= 0 {
 		return nil, fmt.Errorf("the input resource is empty or invalid")
 	}
 	return list, nil
+}
+
+type Music struct {
+	Id       int64
+	Name     string
+	Artist   []types.Artist
+	Album    types.Album
+	Time     int64
+	CoverUrl string
 }

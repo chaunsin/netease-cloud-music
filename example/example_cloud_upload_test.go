@@ -36,6 +36,7 @@ import (
 	"github.com/dhowden/tag"
 )
 
+// TestCloudUpload 云盘上传.执行之前需要执行一次登录example_login_test.go
 func TestCloudUpload(t *testing.T) {
 	api := weapi.New(cli)
 

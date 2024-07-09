@@ -176,15 +176,33 @@ func (c *Client) GetCSRF(url string) (string, bool) {
 
 // NeedLogin 是否需要登录
 func (c *Client) NeedLogin(ctx context.Context) bool {
-	var need = true
 	u, _ := neturl.Parse("https://music.163.com")
-	for _, c := range c.cli.GetClient().Jar.Cookies(u) {
-		if c.Name == "MUSIC_U" && c.Expires.Before(time.Now()) {
-			need = false
-			break
+	for _, ck := range c.cli.GetClient().Jar.Cookies(u) {
+		// 判断用户是否有登录信息,如果有登录信息,还需要调用接口进行判断,单纯的判断cookie过期时间是不行的
+		if ck.Name == "MUSIC_U" && ck.Expires.Before(time.Now()) {
+			var (
+				url   = "https://music.163.com/weapi/w/nuser/account/get"
+				req   = map[string]any{}
+				reply struct {
+					Code    int `json:"code"`
+					Account any `json:"account"`
+					Profile any `json:"profile"`
+				}
+			)
+			// see: weapi.GetUserInfo()
+			resp, err := c.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+			if err != nil {
+				return true
+			}
+			_ = resp
+			if reply.Code != 200 || reply.Account == nil || reply.Profile == nil {
+				return true
+			}
+			log.Debug("NeedLogin: %+v", resp)
+			return false
 		}
 	}
-	return need
+	return true
 }
 
 // UserInfo 获取用户信息

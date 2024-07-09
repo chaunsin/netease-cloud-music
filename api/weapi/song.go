@@ -204,22 +204,6 @@ type SongMusicQualityRespData struct {
 	// SongId 歌曲id
 	SongId int64 `json:"songId"`
 	types.Qualities
-	// // L 标准品质
-	// L *types.Quality `json:"l"`
-	// // M 高品质音质,通常客户端好像看不到这个音质了目前
-	// M *types.Quality `json:"m"`
-	// // H 极高品质
-	// H *types.Quality `json:"h"`
-	// // Sq 无损品质
-	// Sq *types.Quality `json:"sq"`
-	// // Hr Hi-Res品质
-	// Hr *types.Quality `json:"hr"`
-	// // Je 高清环绕声品质
-	// Je *types.Quality `json:"je"`
-	// // Sk 沉浸环绕声品质
-	// Sk *types.Quality `json:"sk"`
-	// // Jm 超清母带品质
-	// Jm *types.Quality `json:"jm"`
 }
 
 // SongMusicQuality 根据歌曲id获取支持哪些音质.其中types.Quality部位nil得则代表支持得品质
@@ -312,8 +296,8 @@ type SongPlayerReqV1 struct {
 	types.ReqCommon
 	Ids         types.IntsString `json:"ids"`         // 歌曲id eg: 2016588459_1289504343 下滑线前位歌曲id, todo: 后位目前未知,不过不传下划线后面的内容也是可以正常返回得
 	Level       types.Level      `json:"level"`       // 音乐质量
-	EncodeType  string           `json:"encodeType"`  // 音乐格式 eg: mp3
-	ImmerseType string           `json:"immerseType"` // 只有Level为sky时生效
+	EncodeType  string           `json:"encodeType"`  // 音乐格式 eg: mp3(可能还有其他类型)
+	ImmerseType string           `json:"immerseType"` // 只有Level为sky时生效(可能还有其他类型)
 }
 
 type SongPlayerRespV1 struct {

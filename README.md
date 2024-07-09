@@ -94,7 +94,8 @@ ncmctl task --scrobble.cron "0 20 * * *"
 
 - 需要登录
 - 本命令会一直持续运行,如要退出,请使用`ctrl+c`退出。
-- `ncmctl` 采用标准的[crontab](https://zh.wikipedia.org/wiki/Cron)表达式进行管理。crontab表达式编写工具[>>>点我<<<](https://crontab.guru/)
+- `ncmctl` 采用标准的[crontab](https://zh.wikipedia.org/wiki/Cron)
+  表达式进行管理。crontab表达式编写工具[>>>点我<<<](https://crontab.guru/)
 
 **三、云盘上传**
 
@@ -159,7 +160,8 @@ Use "ncmctl [command] --help" for more information about a command.
 参考如下
 
 - [登录](example%2Fexample_login_test.go)
-- [云盘上传](example%2Fexample_cloud_upload_test.go)
+- [云盘上传](example%2Fexample_cloud_upload_test.go)(需要登录)
+- [音乐下载](example%2Fexample_download_test.go)(需要登录)
 
 # 鸣谢
 

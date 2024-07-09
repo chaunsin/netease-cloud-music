@@ -23,10 +23,10 @@
 
 package types
 
-// Level 音乐品质
+// Level 音乐品质级别
 type Level string
 
-// 音质从低到高排序
+// 音质从低到高排序(其中jyeffect、sky、杜比、jymaster高低有待确认)
 const (
 	// LevelStandard 标准品质 128000
 	LevelStandard Level = "standard"
@@ -60,6 +60,7 @@ var LevelString = map[Level]string{
 	// LevelDolby: "杜比全景声(Dolby Atmos)",
 }
 
+// Quality 音质信息
 type Quality struct {
 	// Br(Bit Rate) 码率
 	Br int64 `json:"br"`

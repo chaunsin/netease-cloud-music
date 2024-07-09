@@ -40,11 +40,11 @@ var (
 
 func TestMain(t *testing.M) {
 	log.Default = log.New(&log.Config{
-		Level:  "debug",
+		Level:  "info",
 		Stdout: true,
 	})
 	cfg := api.Config{
-		Debug:   true,
+		Debug:   false,
 		Timeout: 0,
 		Retry:   0,
 		Cookie: cookie.PersistentJarConfig{

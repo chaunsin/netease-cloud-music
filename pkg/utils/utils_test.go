@@ -24,6 +24,7 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -140,4 +141,61 @@ func TestMd5Hex(t *testing.T) {
 	assert.NoError(t, err)
 	t.Logf("md5:%s", md5)
 	assert.Equal(t, "afc48be2ca7c8afc38fbcb67ed7ff610", md5)
+}
+
+func TestSplitSlice(t *testing.T) {
+	type args[T any] struct {
+		input     []T
+		chunkSize int
+	}
+	type testCase[T any] struct {
+		name    string
+		args    args[T]
+		want    [][]T
+		wantErr assert.ErrorAssertionFunc
+	}
+	tests := []testCase[int64]{
+		{
+			name: "ok",
+			args: args[int64]{input: []int64{1, 2, 3, 4, 5, 6, 7, 8}, chunkSize: 3},
+			want: [][]int64{{1, 2, 3}, {4, 5, 6}, {7, 8}},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name: "chunk>len",
+			args: args[int64]{input: []int64{1, 2, 3}, chunkSize: 4},
+			want: [][]int64{{1, 2, 3}},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name: "len<=0",
+			args: args[int64]{input: []int64{1, 2, 3}, chunkSize: 0},
+			want: [][]int64{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					return false
+				}
+				return true
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := SplitSlice(tt.args.input, tt.args.chunkSize)
+			if !tt.wantErr(t, err, fmt.Sprintf("SplitSlice(%v, %v)", tt.args.input, tt.args.chunkSize)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "SplitSlice(%v, %v)", tt.args.input, tt.args.chunkSize)
+		})
+	}
 }

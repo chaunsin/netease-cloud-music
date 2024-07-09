@@ -182,3 +182,19 @@ func DetectContentType(data []byte, ext string) string {
 	}
 	return ct
 }
+
+func SplitSlice[T any](input []T, chunkSize int) ([][]T, error) {
+	if chunkSize <= 0 {
+		return nil, fmt.Errorf("chunkSize must be greater than 0")
+	}
+
+	var result [][]T
+	for i := 0; i < len(input); i += chunkSize {
+		end := i + chunkSize
+		if end > len(input) {
+			end = len(input)
+		}
+		result = append(result, input[i:end])
+	}
+	return result, nil
+}

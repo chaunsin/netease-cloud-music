@@ -23,16 +23,23 @@
 
 package types
 
+// Artist 歌手信息
 type Artist struct {
-	Id    int64         `json:"id"`
+	// Id 歌手id
+	Id int64 `json:"id"`
+	// Name 歌手名
 	Name  string        `json:"name"`
 	Tns   []interface{} `json:"tns"`
 	Alias []interface{} `json:"alias"`
 }
 
+// Album 专辑信息
 type Album struct {
-	Id     int64         `json:"id"`
-	Name   string        `json:"name"`
+	// Id 专辑id
+	Id int64 `json:"id"`
+	// Name 专辑名
+	Name string `json:"name"`
+	// PicUrl 专辑图片
 	PicUrl string        `json:"picUrl"`
 	Tns    []interface{} `json:"tns"`
 	PicStr string        `json:"pic_str"`
