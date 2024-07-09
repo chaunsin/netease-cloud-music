@@ -233,66 +233,54 @@ type PlaylistDetailResp struct {
 		} `json:"creator"`
 		// Tracks 只包含了10首歌曲详情信息,而 TrackIds 包含歌曲所有的信息id不包含歌曲详情因此需要配合详情接口查询
 		Tracks []struct {
-			Name string `json:"name"`
-			Id   int64  `json:"id"`
-			Pst  int64  `json:"pst"`
-			T    int64  `json:"t"`
-			Ar   []struct {
-				Id    int           `json:"id"`
-				Name  string        `json:"name"`
-				Tns   []interface{} `json:"tns"`
-				Alias []interface{} `json:"alias"`
-			} `json:"ar"`
-			Alia []interface{} `json:"alia"`
-			Pop  float64       `json:"pop"`
-			St   int64         `json:"st"`
-			Rt   *string       `json:"rt"`
-			Fee  int64         `json:"fee"`
-			V    int64         `json:"v"`
-			Crbt interface{}   `json:"crbt"`
-			Cf   string        `json:"cf"`
-			Al   struct {
-				Id     int           `json:"id"`
-				Name   string        `json:"name"`
-				PicUrl string        `json:"picUrl"`
-				Tns    []interface{} `json:"tns"`
-				PicStr string        `json:"pic_str,omitempty"`
-				Pic    int64         `json:"pic"`
-			} `json:"al"`
-			Dt                   int64         `json:"dt"`
-			H                    types.Quality `json:"h"`
-			M                    types.Quality `json:"m"`
-			L                    types.Quality `json:"l"`
-			Sq                   types.Quality `json:"sq"`
-			Hr                   types.Quality `json:"hr"`
-			A                    interface{}   `json:"a"`
-			Cd                   string        `json:"cd"`
-			No                   int64         `json:"no"`
-			RtUrl                interface{}   `json:"rtUrl"`
-			Ftype                int64         `json:"ftype"`
-			RtUrls               []interface{} `json:"rtUrls"`
-			DjId                 int64         `json:"djId"`
-			Copyright            int64         `json:"copyright"`
-			SId                  int64         `json:"s_id"`
-			Mark                 int64         `json:"mark"`
-			OriginCoverType      int64         `json:"originCoverType"`
-			OriginSongSimpleData interface{}   `json:"originSongSimpleData"`
-			TagPicList           interface{}   `json:"tagPicList"`
-			ResourceState        bool          `json:"resourceState"`
-			Version              int64         `json:"version"`
-			SongJumpInfo         interface{}   `json:"songJumpInfo"`
-			EntertainmentTags    interface{}   `json:"entertainmentTags"`
-			AwardTags            interface{}   `json:"awardTags"`
-			Single               int64         `json:"single"`
-			NoCopyrightRcmd      interface{}   `json:"noCopyrightRcmd"`
-			Alg                  interface{}   `json:"alg"`
-			DisplayReason        interface{}   `json:"displayReason"`
-			Rtype                int64         `json:"rtype"`
-			Rurl                 interface{}   `json:"rurl"`
-			Mst                  int64         `json:"mst"`
-			Cp                   int64         `json:"cp"`
-			Mv                   int64         `json:"mv"`
-			PublishTime          int64         `json:"publishTime"`
+			Name                 string         `json:"name"`
+			Id                   int64          `json:"id"`
+			Pst                  int64          `json:"pst"`
+			T                    int64          `json:"t"`
+			Ar                   []types.Artist `json:"ar"`
+			Alia                 []interface{}  `json:"alia"`
+			Pop                  float64        `json:"pop"`
+			St                   int64          `json:"st"`
+			Rt                   *string        `json:"rt"`
+			Fee                  int64          `json:"fee"`
+			V                    int64          `json:"v"`
+			Crbt                 interface{}    `json:"crbt"`
+			Cf                   string         `json:"cf"`
+			Al                   types.Album    `json:"al"`
+			Dt                   int64          `json:"dt"`
+			H                    types.Quality  `json:"h"`
+			M                    types.Quality  `json:"m"`
+			L                    types.Quality  `json:"l"`
+			Sq                   types.Quality  `json:"sq"`
+			Hr                   types.Quality  `json:"hr"`
+			A                    interface{}    `json:"a"`
+			Cd                   string         `json:"cd"`
+			No                   int64          `json:"no"`
+			RtUrl                interface{}    `json:"rtUrl"`
+			Ftype                int64          `json:"ftype"`
+			RtUrls               []interface{}  `json:"rtUrls"`
+			DjId                 int64          `json:"djId"`
+			Copyright            int64          `json:"copyright"`
+			SId                  int64          `json:"s_id"`
+			Mark                 int64          `json:"mark"`
+			OriginCoverType      int64          `json:"originCoverType"`
+			OriginSongSimpleData interface{}    `json:"originSongSimpleData"`
+			TagPicList           interface{}    `json:"tagPicList"`
+			ResourceState        bool           `json:"resourceState"`
+			Version              int64          `json:"version"`
+			SongJumpInfo         interface{}    `json:"songJumpInfo"`
+			EntertainmentTags    interface{}    `json:"entertainmentTags"`
+			AwardTags            interface{}    `json:"awardTags"`
+			Single               int64          `json:"single"`
+			NoCopyrightRcmd      interface{}    `json:"noCopyrightRcmd"`
+			Alg                  interface{}    `json:"alg"`
+			DisplayReason        interface{}    `json:"displayReason"`
+			Rtype                int64          `json:"rtype"`
+			Rurl                 interface{}    `json:"rurl"`
+			Mst                  int64          `json:"mst"`
+			Cp                   int64          `json:"cp"`
+			Mv                   int64          `json:"mv"`
+			PublishTime          int64          `json:"publishTime"`
 		} `json:"tracks"`
 		VideoIds interface{} `json:"videoIds"`
 		Videos   interface{} `json:"videos"`
@@ -325,55 +313,13 @@ type PlaylistDetailResp struct {
 		DisplayTags             interface{}   `json:"displayTags"`
 		PlaylistType            string        `json:"playlistType"`
 	} `json:"playlist"`
-	Urls       interface{} `json:"urls"`
-	Privileges []struct {
-		Id                 int         `json:"id"`
-		Fee                int         `json:"fee"`
-		Payed              int         `json:"payed"`
-		RealPayed          int         `json:"realPayed"`
-		St                 int         `json:"st"`
-		Pl                 int         `json:"pl"`
-		Dl                 int         `json:"dl"`
-		Sp                 int         `json:"sp"`
-		Cp                 int         `json:"cp"`
-		Subp               int         `json:"subp"`
-		Cs                 bool        `json:"cs"`
-		Maxbr              int         `json:"maxbr"`
-		Fl                 int         `json:"fl"`
-		Pc                 interface{} `json:"pc"`
-		Toast              bool        `json:"toast"`
-		Flag               int         `json:"flag"`
-		PaidBigBang        bool        `json:"paidBigBang"`
-		PreSell            bool        `json:"preSell"`
-		PlayMaxbr          int         `json:"playMaxbr"`
-		DownloadMaxbr      int         `json:"downloadMaxbr"`
-		MaxBrLevel         string      `json:"maxBrLevel"`
-		PlayMaxBrLevel     string      `json:"playMaxBrLevel"`
-		DownloadMaxBrLevel string      `json:"downloadMaxBrLevel"`
-		PlLevel            string      `json:"plLevel"`
-		DlLevel            string      `json:"dlLevel"`
-		FlLevel            string      `json:"flLevel"`
-		Rscl               interface{} `json:"rscl"`
-		FreeTrialPrivilege struct {
-			ResConsumable      bool        `json:"resConsumable"`
-			UserConsumable     bool        `json:"userConsumable"`
-			ListenType         interface{} `json:"listenType"`
-			CannotListenReason *int        `json:"cannotListenReason"`
-			PlayReason         interface{} `json:"playReason"`
-		} `json:"freeTrialPrivilege"`
-		RightSource    int `json:"rightSource"`
-		ChargeInfoList []struct {
-			Rate          int         `json:"rate"`
-			ChargeUrl     interface{} `json:"chargeUrl"`
-			ChargeMessage interface{} `json:"chargeMessage"`
-			ChargeType    int         `json:"chargeType"`
-		} `json:"chargeInfoList"`
-	} `json:"privileges"`
-	SharedPrivilege interface{} `json:"sharedPrivilege"`
-	ResEntrance     interface{} `json:"resEntrance"`
-	FromUsers       interface{} `json:"fromUsers"`
-	FromUserCount   int64       `json:"fromUserCount"`
-	SongFromUsers   interface{} `json:"songFromUsers"`
+	Urls            interface{}        `json:"urls"`
+	Privileges      []types.Privileges `json:"privileges"`
+	SharedPrivilege interface{}        `json:"sharedPrivilege"`
+	ResEntrance     interface{}        `json:"resEntrance"`
+	FromUsers       interface{}        `json:"fromUsers"`
+	FromUserCount   int64              `json:"fromUserCount"`
+	SongFromUsers   interface{}        `json:"songFromUsers"`
 }
 
 // PlaylistDetail 歌单列表

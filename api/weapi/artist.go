@@ -36,8 +36,8 @@ type ArtistSongsReq struct {
 	PrivateCloud string `json:"private_cloud"` // boolean
 	WorkType     int64  `json:"work_type"`     // 通常为1
 	Order        string `json:"order"`         // hot,time
-	Offset       int64  `json:"offset"`
-	Limit        int64  `json:"limit"`
+	Offset       int64  `json:"offset"`        // 第几页
+	Limit        int64  `json:"limit"`         // 每页条数
 }
 
 type ArtistSongsResp struct {
@@ -48,92 +48,46 @@ type ArtistSongsResp struct {
 }
 
 type ArtistSongsRespSongs struct {
-	A  interface{} `json:"a"`
-	Al struct {
-		Id     int    `json:"id"`
-		Name   string `json:"name"`
-		Pic    int64  `json:"pic"`
-		PicUrl string `json:"picUrl"`
-		PicStr string `json:"pic_str"`
-	} `json:"al"`
-	Alia []string `json:"alia"`
-	Ar   []struct {
-		Id   int    `json:"id"`
-		Name string `json:"name"`
-	} `json:"ar"`
+	Id              int64          `json:"id"`
+	A               interface{}    `json:"a"`
+	Al              types.Album    `json:"al"`
+	Alia            []string       `json:"alia"`
+	Ar              []types.Artist `json:"ar"`
 	Cd              string         `json:"cd"`
 	Cf              string         `json:"cf"`
-	Cp              int            `json:"cp"`
+	Cp              int64          `json:"cp"`
 	Crbt            interface{}    `json:"crbt"`
-	DjId            int            `json:"djId"`
-	Dt              int            `json:"dt"`
-	Fee             int            `json:"fee"`
-	Ftype           int            `json:"ftype"`
+	DjId            int64          `json:"djId"`
+	Dt              int64          `json:"dt"`
+	Fee             int64          `json:"fee"`
+	Ftype           int64          `json:"ftype"`
 	H               *types.Quality `json:"h"`
 	Hr              *types.Quality `json:"hr"`
-	Id              int64          `json:"id"`
 	L               *types.Quality `json:"l"`
 	M               *types.Quality `json:"m"`
-	Mst             int            `json:"mst"`
-	Mv              int            `json:"mv"`
+	Sq              *types.Quality `json:"sq"`
+	Mst             int64          `json:"mst"`
+	Mv              int64          `json:"mv"`
 	Name            string         `json:"name"`
-	No              int            `json:"no"`
+	No              int64          `json:"no"`
 	NoCopyrightRcmd interface{}    `json:"noCopyrightRcmd"`
-	Pop             int            `json:"pop"`
+	Pop             float64        `json:"pop"`
+	Pst             int64          `json:"pst"`
+	Rt              string         `json:"rt"`
+	RtUrl           interface{}    `json:"rtUrl"`
+	RtUrls          []interface{}  `json:"rtUrls"`
+	Rtype           int64          `json:"rtype"`
+	Rurl            interface{}    `json:"rurl"`
+	SongJumpInfo    interface{}    `json:"songJumpInfo"`
+	St              int64          `json:"st"`
+	T               int64          `json:"t"`
+	V               int64          `json:"v"`
+	Tns             []string       `json:"tns,omitempty"`
 	Privilege       struct {
-		ChargeInfoList []struct {
-			ChargeMessage interface{} `json:"chargeMessage"`
-			ChargeType    int         `json:"chargeType"`
-			ChargeUrl     interface{} `json:"chargeUrl"`
-			Rate          int         `json:"rate"`
-		} `json:"chargeInfoList"`
-		Code               int    `json:"code"`
-		Cp                 int    `json:"cp"`
-		Cs                 bool   `json:"cs"`
-		Dl                 int    `json:"dl"`
-		DlLevel            string `json:"dlLevel"`
-		DownloadMaxBrLevel string `json:"downloadMaxBrLevel"`
-		DownloadMaxbr      int    `json:"downloadMaxbr"`
-		Fee                int    `json:"fee"`
-		Fl                 int    `json:"fl"`
-		FlLevel            string `json:"flLevel"`
-		Flag               int    `json:"flag"`
-		FreeTrialPrivilege struct {
-			CannotListenReason interface{} `json:"cannotListenReason"`
-			ListenType         interface{} `json:"listenType"`
-			PlayReason         interface{} `json:"playReason"`
-			ResConsumable      bool        `json:"resConsumable"`
-			UserConsumable     bool        `json:"userConsumable"`
-		} `json:"freeTrialPrivilege"`
-		Id             int64       `json:"id"`
-		MaxBrLevel     string      `json:"maxBrLevel"`
-		Maxbr          int         `json:"maxbr"`
-		Message        interface{} `json:"message"`
-		Payed          int         `json:"payed"`
-		Pl             int         `json:"pl"`
-		PlLevel        string      `json:"plLevel"`
-		PlayMaxBrLevel string      `json:"playMaxBrLevel"`
-		PlayMaxbr      int         `json:"playMaxbr"`
-		PreSell        bool        `json:"preSell"`
-		RightSource    int         `json:"rightSource"`
-		Rscl           interface{} `json:"rscl"`
-		Sp             int         `json:"sp"`
-		St             int         `json:"st"`
-		Subp           int         `json:"subp"`
-		Toast          bool        `json:"toast"`
+		types.Privileges
+		Code    int         `json:"code"`
+		Message interface{} `json:"message"`
 	} `json:"privilege"`
-	Pst          int            `json:"pst"`
-	Rt           string         `json:"rt"`
-	RtUrl        interface{}    `json:"rtUrl"`
-	RtUrls       []interface{}  `json:"rtUrls"`
-	Rtype        int            `json:"rtype"`
-	Rurl         interface{}    `json:"rurl"`
-	SongJumpInfo interface{}    `json:"songJumpInfo"`
-	Sq           *types.Quality `json:"sq"`
-	St           int            `json:"st"`
-	T            int            `json:"t"`
-	V            int            `json:"v"`
-	Tns          []string       `json:"tns,omitempty"`
 }
 
 // ArtistSongs 歌手所有歌曲

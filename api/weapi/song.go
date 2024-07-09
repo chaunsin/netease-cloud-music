@@ -48,8 +48,8 @@ type songDetailReq struct {
 // SongDetailResp .
 type SongDetailResp struct {
 	types.RespCommon[any]
-	Songs      []SongDetailRespSongs      `json:"songs"`
-	Privileges []SongDetailRespPrivileges `json:"privileges"`
+	Songs      []SongDetailRespSongs `json:"songs"`
+	Privileges []types.Privileges    `json:"privileges"`
 }
 
 // SongDetailRespSongs
@@ -80,12 +80,7 @@ type SongDetailRespSongs struct {
 	//	属于这种歌曲的例子: https://music.163.com/song/435005015
 	T int64 `json:"t"`
 	// Ar 歌手列表
-	Ar []struct {
-		Id    int64         `json:"id"`
-		Name  string        `json:"name"`
-		Tns   []interface{} `json:"tns"`
-		Alias []interface{} `json:"alias"`
-	} `json:"ar"`
+	Ar []types.Artist `json:"ar"`
 	// Alia 别名列表,第一个别名会被显示作副标题 例子: https://music.163.com/song/536623501
 	Alia []interface{} `json:"alia"`
 	// Pop 小数，常取[0.0, 100.0]中离散的几个数值, 表示歌曲热度
@@ -103,14 +98,7 @@ type SongDetailRespSongs struct {
 	// Cf 空白字串或者None，功能未知
 	Cf string `json:"cf"`
 	// Al Album, 专辑，如果是DJ节目(dj_type != 0)或者无专辑信息(single == 1)，则专辑id为0
-	Al struct {
-		Id     int64         `json:"id"`
-		Name   string        `json:"name"`
-		PicUrl string        `json:"picUrl"`
-		Tns    []interface{} `json:"tns"`
-		PicStr string        `json:"pic_str"`
-		Pic    int64         `json:"pic"`
-	} `json:"al"`
+	Al types.Album `json:"al"`
 	// Dt 歌曲时长
 	Dt int64 `json:"dt"`
 	types.Qualities
@@ -177,54 +165,6 @@ type SongDetailRespSongs struct {
 	Rtype int64 `json:"rtype"`
 	// PublishTime 毫秒为单位的Unix时间戳
 	PublishTime int64 `json:"publishTime"`
-}
-
-type SongDetailRespPrivileges struct {
-	Id    int64 `json:"id"`
-	Fee   int64 `json:"fee"`
-	Payed int64 `json:"payed"`
-	// St 小于0时为灰色歌曲, 使用上传云盘的方法解灰后 st == 0
-	St   int64 `json:"st"`
-	Pl   int64 `json:"pl"`
-	Dl   int64 `json:"dl"`
-	Sp   int64 `json:"sp"`
-	Cp   int64 `json:"cp"`
-	Subp int64 `json:"subp"`
-	// Cs 是否为云盘歌曲
-	Cs    bool  `json:"cs"`
-	Maxbr int64 `json:"maxbr"`
-	Fl    int64 `json:"fl"`
-	// Toast 是否「由于版权保护，您所在的地区暂时无法使用。」
-	Toast         bool  `json:"toast"`
-	Flag          int64 `json:"flag"`
-	PreSell       bool  `json:"preSell"`
-	PlayMaxbr     int64 `json:"playMaxbr"`
-	DownloadMaxbr int   `json:"downloadMaxbr"`
-	// MaxBrLevel 歌曲最高音质
-	MaxBrLevel         string `json:"maxBrLevel"`
-	PlayMaxBrLevel     string `json:"playMaxBrLevel"`
-	DownloadMaxBrLevel string `json:"downloadMaxBrLevel"`
-	// PlLevel 当前用户的该歌曲最高试听音质
-	PlLevel string `json:"plLevel"`
-	// DlLevel 当前用户的该歌曲最高下载音质
-	DlLevel string `json:"dlLevel"`
-	// FlLevel 免费用户的该歌曲播放音质
-	FlLevel            string      `json:"flLevel"`
-	Rscl               interface{} `json:"rscl"`
-	FreeTrialPrivilege struct {
-		ResConsumable      bool        `json:"resConsumable"`
-		UserConsumable     bool        `json:"userConsumable"`
-		ListenType         interface{} `json:"listenType"`
-		CannotListenReason interface{} `json:"cannotListenReason"`
-		PlayReason         interface{} `json:"playReason"`
-	} `json:"freeTrialPrivilege"`
-	RightSource    int64 `json:"rightSource"`
-	ChargeInfoList []struct {
-		Rate          int64       `json:"rate"`
-		ChargeUrl     interface{} `json:"chargeUrl"`
-		ChargeMessage interface{} `json:"chargeMessage"`
-		ChargeType    int64       `json:"chargeType"`
-	} `json:"chargeInfoList"`
 }
 
 // SongDetail 根据歌曲id获取歌曲详情
@@ -317,44 +257,33 @@ type SongPlayerResp struct {
 }
 
 type SongPlayerReqData struct {
-	Id                 int64       `json:"id"`
-	Url                string      `json:"url"`
-	Br                 int64       `json:"br"`
-	Size               int64       `json:"size"`
-	Md5                string      `json:"md5"`
-	Code               int64       `json:"code"`
-	Expi               int64       `json:"expi"`
-	Type               string      `json:"type"` // 类型eg: mp3、FLAC
-	Gain               float64     `json:"gain"`
-	Peak               float64     `json:"peak"`
-	Fee                int64       `json:"fee"`
-	Uf                 interface{} `json:"uf"`
-	Payed              int64       `json:"payed"`
-	Flag               int64       `json:"flag"`
-	CanExtend          bool        `json:"canExtend"`
-	FreeTrialInfo      interface{} `json:"freeTrialInfo"`
-	Level              string      `json:"level"` // 通常所说的音质水平 eg: standard、exhigh、higher、lossless、hires
-	EncodeType         string      `json:"encodeType"`
-	ChannelLayout      interface{} `json:"channelLayout"`
-	FreeTrialPrivilege struct {
-		ResConsumable      bool        `json:"resConsumable"`
-		UserConsumable     bool        `json:"userConsumable"`
-		ListenType         interface{} `json:"listenType"`
-		CannotListenReason interface{} `json:"cannotListenReason"`
-		PlayReason         interface{} `json:"playReason"`
-	} `json:"freeTrialPrivilege"`
-	FreeTimeTrialPrivilege struct {
-		ResConsumable  bool  `json:"resConsumable"`
-		UserConsumable bool  `json:"userConsumable"`
-		Type           int64 `json:"type"`
-		RemainTime     int64 `json:"remainTime"`
-	} `json:"freeTimeTrialPrivilege"`
-	UrlSource   int64       `json:"urlSource"`
-	RightSource int64       `json:"rightSource"`
-	PodcastCtrp interface{} `json:"podcastCtrp"`
-	EffectTypes interface{} `json:"effectTypes"`
-	Time        int64       `json:"time"` // 音乐时长,单位毫秒
-	Message     interface{} `json:"message"`
+	Id                     int64                        `json:"id"`
+	Url                    string                       `json:"url"`
+	Br                     int64                        `json:"br"`
+	Size                   int64                        `json:"size"`
+	Md5                    string                       `json:"md5"`
+	Code                   int64                        `json:"code"`
+	Expi                   int64                        `json:"expi"`
+	Type                   string                       `json:"type"` // 类型eg: mp3、FLAC
+	Gain                   float64                      `json:"gain"`
+	Peak                   float64                      `json:"peak"`
+	Fee                    int64                        `json:"fee"`
+	Uf                     interface{}                  `json:"uf"`
+	Payed                  int64                        `json:"payed"`
+	Flag                   int64                        `json:"flag"`
+	CanExtend              bool                         `json:"canExtend"`
+	FreeTrialInfo          interface{}                  `json:"freeTrialInfo"`
+	Level                  string                       `json:"level"` // 通常所说的音质水平 eg: standard、exhigh、higher、lossless、hires
+	EncodeType             string                       `json:"encodeType"`
+	ChannelLayout          interface{}                  `json:"channelLayout"`
+	FreeTrialPrivilege     types.FreeTrialPrivilege     `json:"freeTrialPrivilege"`
+	FreeTimeTrialPrivilege types.FreeTimeTrialPrivilege `json:"freeTimeTrialPrivilege"`
+	UrlSource              int64                        `json:"urlSource"`
+	RightSource            int64                        `json:"rightSource"`
+	PodcastCtrp            interface{}                  `json:"podcastCtrp"`
+	EffectTypes            interface{}                  `json:"effectTypes"`
+	Time                   int64                        `json:"time"` // 音乐时长,单位毫秒
+	Message                interface{}                  `json:"message"`
 }
 
 // SongPlayer 音乐播放详情
@@ -392,45 +321,34 @@ type SongPlayerRespV1 struct {
 }
 
 type SongPlayerRespV1Data struct {
-	Id                 int64       `json:"id"`   // 歌曲id
-	Url                string      `json:"url"`  // 歌曲资源url有时效性
-	Br                 int64       `json:"br"`   // 码率
-	Size               int64       `json:"size"` // 文件大小单位字节
-	Md5                string      `json:"md5"`  // 文件MD5值
-	Code               int64       `json:"code"` // 状态码
-	Expi               int64       `json:"expi"` // 可访问url的过期时间,目前为1200秒
-	Type               string      `json:"type"` // 类型eg: mp3、FLAC
-	Gain               float64     `json:"gain"`
-	Peak               float64     `json:"peak"`
-	Fee                int64       `json:"fee"`
-	Uf                 interface{} `json:"uf"`
-	Payed              int64       `json:"payed"`
-	Flag               int64       `json:"flag"`
-	CanExtend          bool        `json:"canExtend"`
-	FreeTrialInfo      interface{} `json:"freeTrialInfo"`
-	Level              string      `json:"level"`      // 音质水平 see: types.Level
-	EncodeType         string      `json:"encodeType"` // eg: mp3
-	ChannelLayout      interface{} `json:"channelLayout"`
-	FreeTrialPrivilege struct {
-		ResConsumable      bool        `json:"resConsumable"`
-		UserConsumable     bool        `json:"userConsumable"`
-		ListenType         interface{} `json:"listenType"`
-		CannotListenReason interface{} `json:"cannotListenReason"`
-		PlayReason         interface{} `json:"playReason"`
-	} `json:"freeTrialPrivilege"`
-	FreeTimeTrialPrivilege struct {
-		ResConsumable  bool  `json:"resConsumable"`
-		UserConsumable bool  `json:"userConsumable"`
-		Type           int64 `json:"type"`
-		RemainTime     int64 `json:"remainTime"`
-	} `json:"freeTimeTrialPrivilege"`
-	UrlSource    int64       `json:"urlSource"`
-	RightSource  int64       `json:"rightSource"`
-	PodcastCtrp  interface{} `json:"podcastCtrp"`
-	EffectTypes  interface{} `json:"effectTypes"`
-	Time         int64       `json:"time"` // 音乐时长,单位毫秒
-	Message      interface{} `json:"message"`
-	LevelConfuse interface{} `json:"levelConfuse"`
+	Id                     int64                        `json:"id"`   // 歌曲id
+	Url                    string                       `json:"url"`  // 歌曲资源url有时效性
+	Br                     int64                        `json:"br"`   // 码率
+	Size                   int64                        `json:"size"` // 文件大小单位字节
+	Md5                    string                       `json:"md5"`  // 文件MD5值
+	Code                   int64                        `json:"code"` // 状态码
+	Expi                   int64                        `json:"expi"` // 可访问url的过期时间,目前为1200秒
+	Type                   string                       `json:"type"` // 类型eg: mp3、FLAC
+	Gain                   float64                      `json:"gain"`
+	Peak                   float64                      `json:"peak"`
+	Fee                    int64                        `json:"fee"`
+	Uf                     interface{}                  `json:"uf"`
+	Payed                  int64                        `json:"payed"`
+	Flag                   int64                        `json:"flag"`
+	CanExtend              bool                         `json:"canExtend"`
+	FreeTrialInfo          interface{}                  `json:"freeTrialInfo"`
+	Level                  string                       `json:"level"`      // 音质水平 see: types.Level
+	EncodeType             string                       `json:"encodeType"` // eg: mp3
+	ChannelLayout          interface{}                  `json:"channelLayout"`
+	FreeTrialPrivilege     types.FreeTrialPrivilege     `json:"freeTrialPrivilege"`
+	FreeTimeTrialPrivilege types.FreeTimeTrialPrivilege `json:"freeTimeTrialPrivilege"`
+	UrlSource              int64                        `json:"urlSource"`
+	RightSource            int64                        `json:"rightSource"`
+	PodcastCtrp            interface{}                  `json:"podcastCtrp"`
+	EffectTypes            interface{}                  `json:"effectTypes"`
+	Time                   int64                        `json:"time"` // 音乐时长,单位毫秒
+	Message                interface{}                  `json:"message"`
+	LevelConfuse           interface{}                  `json:"levelConfuse"`
 }
 
 // SongPlayerV1 音乐播放详情
@@ -468,45 +386,34 @@ type SongDownloadUrlResp struct {
 }
 
 type SongDownloadUrlRespData struct {
-	Br                     int64       `json:"br"`
-	CanExtend              bool        `json:"canExtend"`
-	ChannelLayout          interface{} `json:"channelLayout"`
-	Code                   int64       `json:"code"`
-	EffectTypes            interface{} `json:"effectTypes"`
-	EncodeType             string      `json:"encodeType"`
-	Expi                   int64       `json:"expi"`
-	Fee                    int64       `json:"fee"`
-	Flag                   int64       `json:"flag"`
-	FreeTimeTrialPrivilege struct {
-		RemainTime     int64 `json:"remainTime"`
-		ResConsumable  bool  `json:"resConsumable"`
-		Type           int64 `json:"type"`
-		UserConsumable bool  `json:"userConsumable"`
-	} `json:"freeTimeTrialPrivilege"`
-	FreeTrialInfo      interface{} `json:"freeTrialInfo"`
-	FreeTrialPrivilege struct {
-		CannotListenReason interface{} `json:"cannotListenReason"`
-		ListenType         interface{} `json:"listenType"`
-		PlayReason         interface{} `json:"playReason"`
-		ResConsumable      bool        `json:"resConsumable"`
-		UserConsumable     bool        `json:"userConsumable"`
-	} `json:"freeTrialPrivilege"`
-	Gain         float64     `json:"gain"`
-	Id           int64       `json:"id"`
-	Level        string      `json:"level"`
-	LevelConfuse interface{} `json:"levelConfuse"`
-	Md5          string      `json:"md5"`
-	Message      interface{} `json:"message"`
-	Payed        int64       `json:"payed"`
-	Peak         float64     `json:"peak"`
-	PodcastCtrp  interface{} `json:"podcastCtrp"`
-	RightSource  int64       `json:"rightSource"`
-	Size         int64       `json:"size"`
-	Time         int64       `json:"time"`
-	Type         string      `json:"type"`
-	Uf           interface{} `json:"uf"`
-	Url          string      `json:"url"`
-	UrlSource    int64       `json:"urlSource"`
+	Br                     int64                        `json:"br"`
+	CanExtend              bool                         `json:"canExtend"`
+	ChannelLayout          interface{}                  `json:"channelLayout"`
+	Code                   int64                        `json:"code"`
+	EffectTypes            interface{}                  `json:"effectTypes"`
+	EncodeType             string                       `json:"encodeType"`
+	Expi                   int64                        `json:"expi"`
+	Fee                    int64                        `json:"fee"`
+	Flag                   int64                        `json:"flag"`
+	FreeTimeTrialPrivilege types.FreeTimeTrialPrivilege `json:"freeTimeTrialPrivilege"`
+	FreeTrialInfo          interface{}                  `json:"freeTrialInfo"`
+	FreeTrialPrivilege     types.FreeTrialPrivilege     `json:"freeTrialPrivilege"`
+	Gain                   float64                      `json:"gain"`
+	Id                     int64                        `json:"id"`
+	Level                  string                       `json:"level"`
+	LevelConfuse           interface{}                  `json:"levelConfuse"`
+	Md5                    string                       `json:"md5"`
+	Message                interface{}                  `json:"message"`
+	Payed                  int64                        `json:"payed"`
+	Peak                   float64                      `json:"peak"`
+	PodcastCtrp            interface{}                  `json:"podcastCtrp"`
+	RightSource            int64                        `json:"rightSource"`
+	Size                   int64                        `json:"size"`
+	Time                   int64                        `json:"time"`
+	Type                   string                       `json:"type"`
+	Uf                     interface{}                  `json:"uf"`
+	Url                    string                       `json:"url"`
+	UrlSource              int64                        `json:"urlSource"`
 }
 
 // SongDownloadUrl 根据歌曲id获取下载链接

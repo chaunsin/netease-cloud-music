@@ -305,29 +305,35 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 			list = append(list, ids...)
 		case "artist":
 			for _, id := range ids {
-				artist, err := request.ArtistSongs(ctx, &weapi.ArtistSongsReq{
-					Id:           id,
-					PrivateCloud: "true",
-					WorkType:     1,
-					Order:        "hot",
-					Offset:       0, // TODO: offset
-					Limit:        100,
-				})
-				if err != nil {
-					return nil, fmt.Errorf("ArtistSongs(%v): %w", id, err)
+				for i := 1; ; i++ {
+					artist, err := request.ArtistSongs(ctx, &weapi.ArtistSongsReq{
+						Id:           id,
+						PrivateCloud: "true",
+						WorkType:     1,
+						Order:        "hot",
+						Offset:       int64(i),
+						Limit:        500,
+					})
+					if err != nil {
+						log.Error("ArtistSongs(%v): %w", id, err)
+						break
+					}
+					if artist.Code != 200 {
+						log.Error("ArtistSongs(%v) err: %+v", id, artist)
+						break
+					}
+					if len(artist.Songs) <= 0 {
+						log.Warn("ArtistSongs(%v) songs is empty", id)
+						break
+					}
+					if !artist.More {
+						break
+					}
+					for _, v := range artist.Songs {
+						list = append(list, v.Id)
+					}
+					// todo: 处理版权,状态等有效性校验
 				}
-				if artist.Code != 200 {
-					log.Error("ArtistSongs(%v) err: %+v", id, artist)
-					continue
-				}
-				if len(artist.Songs) <= 0 {
-					log.Warn("ArtistSongs(%v) songs is empty", id)
-					continue
-				}
-				for _, v := range artist.Songs {
-					list = append(list, v.Id)
-				}
-				// todo: 处理版权,状态等有效性校验
 			}
 		case "album":
 			for _, id := range ids {
