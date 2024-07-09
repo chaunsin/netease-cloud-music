@@ -246,7 +246,7 @@ type SongPlayerReqData struct {
 	Br                     int64                        `json:"br"`
 	Size                   int64                        `json:"size"`
 	Md5                    string                       `json:"md5"`
-	Code                   int64                        `json:"code"`
+	Code                   int64                        `json:"code"` // 歌曲状态 200:正常 404:歌曲下架(也就是变灰歌曲)
 	Expi                   int64                        `json:"expi"`
 	Type                   string                       `json:"type"` // 类型eg: mp3、FLAC
 	Gain                   float64                      `json:"gain"`
@@ -310,7 +310,7 @@ type SongPlayerRespV1Data struct {
 	Br                     int64                        `json:"br"`   // 码率
 	Size                   int64                        `json:"size"` // 文件大小单位字节
 	Md5                    string                       `json:"md5"`  // 文件MD5值
-	Code                   int64                        `json:"code"` // 状态码
+	Code                   int64                        `json:"code"` // 歌曲状态 200:正常 404:歌曲下架(也就是变灰歌曲)
 	Expi                   int64                        `json:"expi"` // 可访问url的过期时间,目前为1200秒
 	Type                   string                       `json:"type"` // 类型eg: mp3、FLAC
 	Gain                   float64                      `json:"gain"`
@@ -373,7 +373,7 @@ type SongDownloadUrlRespData struct {
 	Br                     int64                        `json:"br"`
 	CanExtend              bool                         `json:"canExtend"`
 	ChannelLayout          interface{}                  `json:"channelLayout"`
-	Code                   int64                        `json:"code"`
+	Code                   int64                        `json:"code"` // 状态码 200:正常 -110:变灰歌曲不能下载播放
 	EffectTypes            interface{}                  `json:"effectTypes"`
 	EncodeType             string                       `json:"encodeType"`
 	Expi                   int64                        `json:"expi"`

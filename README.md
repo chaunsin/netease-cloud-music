@@ -21,7 +21,7 @@
 - [x] 支持接口参数加解密便于调试
 - [x] `curl`子命令调用网易云音乐API,无需关心出入参数加解密问题便于调试
     - [ ] 支持动态链接请求
-- [ ] 音乐下载
+- [x] 音乐下载
 - [ ] vip每日签到
 - [ ] vip日常任务完成(待考虑)
 
@@ -120,7 +120,6 @@ ncmctl ncm -i '/Users/chaunsin/Music/' -o ./ncm
 **五、其他命令**
 
 ```shell
-./ncmctl -h
 ncmctl is a toolbox for netease cloud music.
 
 Usage:
@@ -138,8 +137,10 @@ Available Commands:
   completion  Generate the autocompletion script for the specified shell
   crypto      Crypto is a tool for encrypting and decrypting the http data
   curl        Like curl invoke netease cloud music api
+  download    [need login] Download songs
   help        Help about any command
   login       Login netease cloud music
+  logout      Logout netease cloud music
   ncm         Automatically parses .ncm to mp3/flac
   partner     [need login] Executive music partner daily reviews
   scrobble    [need login] Scrobble execute refresh 300 songs
@@ -148,11 +149,13 @@ Available Commands:
 
 Flags:
   -c, --config string   configuration file path
-      --debug           
+      --debug           run in debug mode
   -h, --help            help for ncmctl
+      --home string     configuration home path. the home path is used to store running information (default "/Users/chaunsin")
   -v, --version         version for ncmctl
 
 Use "ncmctl [command] --help" for more information about a command.
+
 ```
 
 # api

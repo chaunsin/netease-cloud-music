@@ -47,7 +47,6 @@ type NCMOpts struct {
 	Input    string // 加载文件路径
 	Output   string // 生成文件路径
 	Parallel int64
-	Replace  bool
 }
 
 type NCM struct {
@@ -78,7 +77,6 @@ func (c *NCM) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "input music dir")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./ncm", "output music dir")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "concurrent decrypt count")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Replace, "replace", true, "whether replace exist music")
 }
 
 func (c *NCM) validate() error {
@@ -165,7 +163,6 @@ func (c *NCM) execute(ctx context.Context, fileList []string) error {
 			if err := c.decode(file); err != nil {
 				c.cmd.Printf("decode[%s]: %v\n", file, err)
 				log.Error("decode[%s]: %v", file, err)
-				// return fmt.Errorf("decode: %w", err)
 				return
 			}
 			bar.Increment()
@@ -221,13 +218,6 @@ func (c *NCM) decode(path string) error {
 		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("NewFromNCM: %w", err)
 	}
-
-	// // todo: 处理是否覆盖旧文件
-	// if !c.opts.Replace {
-	// 	if utils.FileExists(dest) {
-	// 		return nil
-	// 	}
-	// }
 
 	for i := 1; utils.FileExists(dest); i++ {
 		dest = filepath.Join(c.opts.Output, fmt.Sprintf("%s(%d).%s", name, i, extend))

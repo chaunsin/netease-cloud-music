@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
@@ -72,6 +73,10 @@ func Parse(source string) (string, int64, error) {
 	id, err := strconv.ParseInt(source, 10, 64)
 	if err == nil {
 		return "song", id, nil
+	}
+
+	if !strings.Contains(source, "music.163.com") {
+		return "", 0, fmt.Errorf("could not parse the url: %s", source)
 	}
 
 	matched, ok := reg.FindStringSubmatch(source), reg.MatchString(source)

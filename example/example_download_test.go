@@ -120,8 +120,9 @@ func TestDownload(t *testing.T) {
 	if downResp.Code != 200 {
 		t.Fatalf("SongDownloadUrl(%v) err: %+v", songId, downResp)
 	}
-	if downResp.Data.Url == "" {
-		t.Fatalf("SongDownloadUrl(%v) url is empty", songId)
+	// 歌曲变灰则不能下载
+	if downResp.Data.Code != 200 || downResp.Data.Url == "" {
+		t.Fatalf("资源已下架或无版权(%v) code: %v", songId, downResp.Data.Code)
 	}
 
 	var artistList = make([]string, 0, len(songDetail.Ar))
@@ -160,6 +161,7 @@ func TestDownload(t *testing.T) {
 	// }
 	// t.Logf("Download DumpResponse: %s", dump)
 
+	// 避免文件重名
 	for i := 1; utils.FileExists(dest); i++ {
 		dest = filepath.Join(output, fmt.Sprintf("%s - %s(%d).%s", artist, songDetail.Name, i, drd.Type))
 	}

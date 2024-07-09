@@ -189,13 +189,14 @@ func (c *Cloud) execute(ctx context.Context, fileList []string) error {
 
 	// 执行目录文件上传
 	var (
-		fail int64
-		sema = semaphore.NewWeighted(c.opts.Parallel)
-		bar  = pb.Full.Start64(barSize)
+		total = int64(len(fileList))
+		fail  atomic.Int64
+		sema  = semaphore.NewWeighted(c.opts.Parallel)
+		bar   = pb.Full.Start64(barSize)
 	)
 	defer func() {
 		bar.Finish()
-		c.cmd.Printf("upload success: %v failures: %v \n", int64(len(fileList))-fail, fail)
+		c.cmd.Printf("report total: %v success: %v failed: %v\n", total, total-fail.Load(), fail.Load())
 	}()
 
 	for _, v := range fileList {
@@ -205,7 +206,7 @@ func (c *Cloud) execute(ctx context.Context, fileList []string) error {
 		go func(filename string) {
 			defer sema.Release(1)
 			if err := c.upload(ctx, request, filename, bar); err != nil {
-				atomic.AddInt64(&fail, 1)
+				fail.Add(1)
 				log.Error("upload(%s): %s", filename, err)
 			}
 		}(v)
