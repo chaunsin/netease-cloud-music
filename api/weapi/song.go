@@ -215,7 +215,7 @@ func (a *Api) SongMusicQuality(ctx context.Context, req *SongMusicQualityReq) (*
 		reply SongMusicQualityResp
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", &req, &reply)
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -292,15 +292,15 @@ func (a *Api) SongPlayer(ctx context.Context, req *SongPlayerReq) (*SongPlayerRe
 	return &reply, nil
 }
 
-type SongPlayerReqV1 struct {
+type SongPlayerV1Req struct {
 	types.ReqCommon
 	Ids         types.IntsString `json:"ids"`         // 歌曲id eg: 2016588459_1289504343 下滑线前位歌曲id, todo: 后位目前未知,不过不传下划线后面的内容也是可以正常返回得
 	Level       types.Level      `json:"level"`       // 音乐质量
-	EncodeType  string           `json:"encodeType"`  // 音乐格式 eg: mp3(可能还有其他类型)
+	EncodeType  string           `json:"encodeType"`  // 音乐格式 eg: mp3、flac(可能还有其他类型) 作用未知
 	ImmerseType string           `json:"immerseType"` // 只有Level为sky时生效(可能还有其他类型)
 }
 
-type SongPlayerRespV1 struct {
+type SongPlayerV1Resp struct {
 	types.RespCommon[[]SongPlayerRespV1Data]
 }
 
@@ -339,10 +339,10 @@ type SongPlayerRespV1Data struct {
 // url: testdata/har/6.har
 // needLogin: 未知
 // 提示: 获取的歌曲url有时效性,失效时间目前测试为20分钟,过期访问则会出现403错误
-func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerReqV1) (*SongPlayerRespV1, error) {
+func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerV1Req) (*SongPlayerV1Resp, error) {
 	var (
 		url   = "https://music.163.com/weapi/song/enhance/player/url/v1"
-		reply SongPlayerRespV1
+		reply SongPlayerV1Resp
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)

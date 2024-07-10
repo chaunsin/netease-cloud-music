@@ -25,6 +25,7 @@ package ncmctl
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/chaunsin/netease-cloud-music/config"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
@@ -60,7 +61,10 @@ func New() *Root {
 		},
 	}
 	c.cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		var path = c.Opts.Config
+		var (
+			cfgPath = c.Opts.Config
+			home    = filepath.Clean(utils.Ternary(c.Opts.Home != "", c.Opts.Home, config.HomeDir))
+		)
 		if c.Opts.Config != "" {
 			var err error
 			if !utils.FileExists(c.Opts.Config) {
@@ -71,11 +75,11 @@ func New() *Root {
 				return fmt.Errorf("init config error: %s", err)
 			}
 		} else {
-			path = "default"
+			cfgPath = "default"
 			c.Cfg = config.GetDefault()
 		}
 
-		c.Cfg.ReplaceMagicVariables("home", utils.Ternary(c.Opts.Home != "", c.Opts.Home, config.HomeDir))
+		c.Cfg.ReplaceMagicVariables("HOME", home)
 		if err := c.Cfg.Validate(); err != nil {
 			return fmt.Errorf("config validate error: %s", err)
 		}
@@ -92,7 +96,7 @@ func New() *Root {
 		// init logger
 		c.l = log.New(c.Cfg.Log)
 		log.Default = c.l
-		log.Debug("[config] init log path=%s log=%+v network=%+v", path, c.Cfg.Log, c.Cfg.Network)
+		log.Debug("[config] init home=%s path=%s log=%+v network=%+v", home, cfgPath, c.Cfg.Log, c.Cfg.Network)
 		return nil
 	}
 	c.cmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {

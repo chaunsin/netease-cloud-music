@@ -34,11 +34,11 @@ import (
 	"regexp"
 	"strings"
 
-	har "github.com/chaunsin/go-har"
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
+	har "github.com/chaunsin/go-har"
 	"github.com/spf13/cobra"
 )
 
@@ -59,9 +59,9 @@ func decrypt(root *Crypto, l *log.Logger) *cobra.Command {
 	c.cmd = &cobra.Command{
 		Use:     "decrypt",
 		Short:   "Decrypt data",
-		Example: "  ncmctl crypto decrypt -k weapi -e base64 -c \"ciphertext\"\n  ncmctl decrypt example.har",
+		Example: "  ncmctl crypto decrypt -k weapi -e base64 -i \"ciphertext\"\n  ncmctl decrypt -i example.har",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return c.execute(cmd.Context())
+			return c.execute(cmd.Context(), args)
 		},
 	}
 	c.addFlags()
@@ -73,7 +73,7 @@ func (c *decryptCmd) addFlags() {
 	c.cmd.Flags().StringVarP(&c.url, "url", "u", "*", "routing address matching example: https://music.163.com/*")
 }
 
-func (c *decryptCmd) execute(ctx context.Context) error {
+func (c *decryptCmd) execute(ctx context.Context, args []string) error {
 	var opts = c.root.opts
 	if c.encode != "string" && c.encode != "base64" && c.encode != "hex" {
 		return fmt.Errorf("%s is unknown encode", c.encode)

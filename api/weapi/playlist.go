@@ -150,6 +150,8 @@ func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, er
 
 type PlaylistDetailReq struct {
 	Id string `json:"id"` // 歌单id 从接口 Playlist() 中获取
+	N  string `json:"n"`  // 数值类型，未知通常可以为0
+	S  string `json:"s"`  // 数值类型，歌单最近得S个收藏者 see: https://docs-neteasecloudmusicapi.vercel.app/docs/#/?id=%e8%8e%b7%e5%8f%96%e6%ad%8c%e5%8d%95%e8%af%a6%e6%83%85
 }
 
 type PlaylistDetailResp struct {

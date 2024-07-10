@@ -31,7 +31,7 @@ func init() {
 	if err := yaml.Unmarshal(defaultConfigByte, &defaultConfig); err != nil {
 		panic(fmt.Sprintf("defaultConfig.Unmarshal: %s", err))
 	}
-	defaultConfig.ReplaceMagicVariables("HOME", HomeDir)
+	// defaultConfig.ReplaceMagicVariables("HOME", HomeDir)
 	if err := defaultConfig.Validate(); err != nil {
 		panic(fmt.Sprintf("defaultConfig.Validate: %s", err))
 	}
@@ -84,16 +84,22 @@ func New(cfgPath ...string) (*Config, error) {
 	return &conf, nil
 }
 
-func (c *Config) ReplaceMagicVariables(name, value string) *Config {
-	var mapping = func(name string) string {
-		switch name {
-		case "HOME":
-			return value
+// ReplaceMagicVariables 替换配置文件中的魔法变量。注意该方法只能调用一次再次调用则不会生效
+func (c *Config) ReplaceMagicVariables(name, value string) (*Config, bool) {
+
+	var (
+		isset   bool
+		mapping = func(k string) string {
+			switch k {
+			case name:
+				isset = true
+				return value
+			}
+			return ""
 		}
-		return ""
-	}
+	)
 
 	c.Log.Rotate.Filename = os.Expand(c.Log.Rotate.Filename, mapping)
 	c.Network.Cookie.Filepath = os.Expand(c.Network.Cookie.Filepath, mapping)
-	return c
+	return c, isset
 }

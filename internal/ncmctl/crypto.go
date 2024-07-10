@@ -49,7 +49,7 @@ func NewCrypto(root *Root, l *log.Logger) *Crypto {
 		cmd: &cobra.Command{
 			Use:     "crypto",
 			Short:   "Crypto is a tool for encrypting and decrypting the http data",
-			Example: `  ncmctl crypto -h\n  ncmctl crypto decrypt -k eapi xxx`,
+			Example: `  ncmctl crypto -h\n  ncmctl crypto decrypt -k eapi -i xxx`,
 		},
 	}
 	c.addFlags()

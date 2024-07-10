@@ -21,17 +21,21 @@
 - [x] 支持接口参数加解密便于调试
 - [x] `curl`子命令调用网易云音乐API,无需关心出入参数加解密问题便于调试
     - [ ] 支持动态链接请求
-- [x] 音乐下载
+- [x] 音乐下载，支持标准、高品质、极高(HQ)、无损(SQ)、Hi-Res品质音乐下载
 - [ ] vip每日签到
 - [ ] vip日常任务完成(待考虑)
+- [ ] “音乐人”任务自动完成(待考虑)
+- [ ] proxy 代理
 
 ## api
 
 - weapi 网页端、小程序使用
 - eapi PC端、移动端使用
 
+目前由于本人时间精力有限,暂未书写文档,不过可以参考实际的代码,代码通俗易懂,可参考`api`目录下得实际代码，
+
 **提示:**
-由于时间精力有限,目前主要实现了weapi也推荐使用weapi,接口相对较全。
+目前主要实现了weapi也推荐使用weapi,接口相对较全，如需要其他接口可提 [issue](https://github.com/chaunsin/netease-cloud-music/issues)。
 
 # 要求
 
@@ -57,7 +61,7 @@ make install
 
 ## 使用
 
-**一、登录**
+**一、二维码登录**
 
 ```shell
 ncmctl login qrcode
@@ -97,7 +101,53 @@ ncmctl task --scrobble.cron "0 20 * * *"
 - `ncmctl` 采用标准的[crontab](https://zh.wikipedia.org/wiki/Cron)
   表达式进行管理。crontab表达式编写工具[>>>点我<<<](https://crontab.guru/)
 
-**三、云盘上传**
+**三、音乐下载**
+
+1. 下载Hi-Res品质音乐
+
+```shell
+# 指定歌曲分享链接
+ncmctl download -l hires 'https://music.163.com/song?id=1820944399'
+# 指定歌曲id
+ncmctl download -l hires '1820944399'
+```
+
+**提示:** url地址获取方式可以从分享中获取。如果知道歌曲id可以省略url地址，目前id仅支持歌曲id，不支持其他例如歌手、专辑、歌单id等。
+
+2. 下载无损品质(SQ)音乐,到当前`download`目录下
+
+```shell
+ncmctl download -l SQ 'https://music.163.com/song?id=1820944399 -o ./download/' 
+```
+
+**提示:** 支持得音质有(从低到高) `standard/128 < higher/192 < exhigh/HQ/320 < lossless/SQ < hires/HR`
+
+3. 下载某一张专辑所有音乐,批量下载数量5(最大值20)
+
+```shell
+ncmctl download -p 5 'https://music.163.com/#/album?id=34608111'
+```
+
+**提示:** 默认批量下载到当前`download`目录下面，音质为无损(SQ)
+
+4. 下载某一歌手的所有音乐
+
+```shell
+ncmctl download --strict 'https://music.163.com/#/artist?id=33400892'
+```
+
+**提示:** `--strict`为严格默认,当歌曲没有对应品质的音乐时则会忽略下载,如果不指定`--strict`则默认下载次一级的音乐品质。
+
+5. 下载某一歌单
+
+```shell
+# web端
+ncmctl download 'https://music.163.com/#/my/m/music/playlist?id=593617579'
+# pc端 
+ncmctl download 'https://music.163.com/playlist?id=593617579'
+```
+
+**四、云盘上传**
 
 指定目录上传(批量上传)
 
@@ -111,15 +161,16 @@ ncmctl cloud -i '/Users/chaunsin/Music/'
 ncmctl cloud '/Users/chaunsin/Music/谁为我停留 - 田震.mp3' 
 ```
 
-**四、.ncm文件解析**
+**五、.ncm文件解析**
 
 ```shell
 ncmctl ncm -i '/Users/chaunsin/Music/' -o ./ncm
 ```
 
-**五、其他命令**
+**六、其他命令**
 
 ```shell
+$ ncmctl --help
 ncmctl is a toolbox for netease cloud music.
 
 Usage:
@@ -158,6 +209,8 @@ Use "ncmctl [command] --help" for more information about a command.
 
 ```
 
+**提示:** 内容以实际命令行为准
+
 # api
 
 参考如下
@@ -165,6 +218,12 @@ Use "ncmctl [command] --help" for more information about a command.
 - [登录](example%2Fexample_login_test.go)
 - [云盘上传](example%2Fexample_cloud_upload_test.go)(需要登录)
 - [音乐下载](example%2Fexample_download_test.go)(需要登录)
+
+# 已知问题
+
+### 下载音乐品质不准确
+
+当使用`ncmctl`下载无损音乐时`-l lossless`会存在下载Hi-Res品质音乐情况,如果歌曲不支持Hi-Res品质音乐时,则正常下载无损音乐.
 
 # 鸣谢
 
