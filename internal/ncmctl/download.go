@@ -25,10 +25,14 @@ package ncmctl
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http/httputil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -80,15 +84,30 @@ func (c *Download) addFlags() {
 	// c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "music file path")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./download", "music file output path")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 5, "concurrent upload count")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Level, "level", "l", string(types.LevelLossless), "num of songs")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Level, "level", "l", string(types.LevelLossless), "song quality level. support: standard/128,higher/192,exhigh/HQ/320,lossless/SQ,hires/HR")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Strict, "strict", false, "strict mode. when the downloaded song does not find the corresponding quality, it will not be downloaded.")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", true, "whether to set song tag information,default set")
 }
 
 func (c *Download) validate() error {
-	if c.opts.Parallel <= 0 || c.opts.Parallel > 10 {
+	if c.opts.Parallel <= 0 || c.opts.Parallel > 20 {
 		return fmt.Errorf("parallel <= 0 or > 10")
 	}
+
+	lv, err := strconv.ParseInt(c.opts.Level, 10, 64)
+	if err == nil {
+		switch lv {
+		case 128:
+			c.opts.Level = string(types.LevelStandard)
+		case 192:
+			c.opts.Level = string(types.LevelHigher)
+		case 320:
+			c.opts.Level = string(types.LevelExhigh)
+		default:
+			return fmt.Errorf("%v level is not support", lv)
+		}
+	}
+
 	switch types.Level(c.opts.Level) {
 	case "":
 		return fmt.Errorf("level is empty")
@@ -96,12 +115,22 @@ func (c *Download) validate() error {
 		types.LevelHigher,
 		types.LevelExhigh,
 		types.LevelLossless,
-		types.LevelHires,
-		types.LevelJyeffect,
-		types.LevelSky,
-		types.LevelJymaster:
+		types.LevelHires:
+		// types.LevelJyeffect,
+		// types.LevelSky,
+		// types.LevelJymaster:
+		// validate ok
 	default:
-		return fmt.Errorf("[%s] quality is not support", c.opts.Level)
+		switch strings.ToUpper(c.opts.Level) {
+		case "HQ":
+			c.opts.Level = string(types.LevelExhigh)
+		case "SQ":
+			c.opts.Level = string(types.LevelLossless)
+		case "HR":
+			c.opts.Level = string(types.LevelHires)
+		default:
+			return fmt.Errorf("[%s] quality is not support", c.opts.Level)
+		}
 	}
 	return nil
 }
@@ -365,36 +394,6 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 	return list, nil
 }
 
-type Music struct {
-	Id     int64
-	Name   string
-	Artist []types.Artist
-	Album  types.Album
-	Time   int64
-}
-
-func (m Music) ArtistString() string {
-	if len(m.Artist) <= 0 {
-		return ""
-	}
-	var artistList = make([]string, 0, len(m.Artist))
-	for _, ar := range m.Artist {
-		artistList = append(artistList, strings.TrimSpace(ar.Name))
-	}
-	return strings.Join(artistList, ",")
-}
-
-func (m Music) String() string {
-	var (
-		seconds = m.Time / 1000 // 毫秒换成秒
-		hours   = seconds / 3600
-		minutes = (seconds % 3600) / 60
-		secs    = seconds % 60
-		format  = fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
-	)
-	return fmt.Sprintf("%s-%s(%v)[%s]", m.ArtistString(), m.Name, m.Id, format)
-}
-
 func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi.Api, music *Music) error {
 	var (
 		songId    = music.Id
@@ -432,17 +431,55 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 		return fmt.Errorf("资源已下架或无版权(%v) code: %v", songId, downResp.Data.Code)
 	}
 
+	// var downReq = &weapi.SongPlayerReq{
+	// 	Ids: []int64{songId},
+	// 	Br:  fmt.Sprintf("%d", quality.Br),
+	// }
+	// downResp, err := request.SongPlayer(ctx, downReq)
+	// if err != nil {
+	// 	return fmt.Errorf("SongPlayer(%v): %w", songId, err)
+	// }
+	// if downResp.Code != 200 {
+	// 	return fmt.Errorf("SongPlayer(%v) err: %+v", songId, downResp)
+	// }
+	// if len(downResp.Data) <= 0 {
+	// 	return fmt.Errorf("SongPlayer(%v) is empty: %+v", songId, downResp)
+	// }
+	// // 歌曲变灰则不能下载
+	// if downResp.Data[0].Code != 200 || downResp.Data[0].Url == "" {
+	// 	return fmt.Errorf("资源已下架或无版权(%v) code: %v", songId, downResp.Data[0].Code)
+	// }
+
+	// var downReq = &weapi.SongPlayerV1Req{
+	// 	Ids:         []int64{songId},
+	// 	Level:       types.Level(c.opts.Level),
+	// 	EncodeType:  "flac",
+	// 	ImmerseType: "",
+	// }
+	// downResp, err := request.SongPlayerV1(ctx, downReq)
+	// if err != nil {
+	// 	return fmt.Errorf("SongPlayerV1(%v): %w", songId, err)
+	// }
+	// if downResp.Code != 200 {
+	// 	return fmt.Errorf("SongPlayerV1(%v) err: %+v", songId, downResp)
+	// }
+	// if len(downResp.Data) <= 0 {
+	// 	return fmt.Errorf("SongPlayerV1(%v) is empty: %+v", songId, downResp)
+	// }
+	// // 歌曲变灰则不能下载
+	// if downResp.Data[0].Code != 200 || downResp.Data[0].Url == "" {
+	// 	return fmt.Errorf("资源已下架或无版权(%v) code: %v", songId, downResp.Data[0].Code)
+	// }
+
 	var (
+		// drd      = downResp.Data[0]
 		drd      = downResp.Data
 		dest     = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s.%s", music.ArtistString(), music.Name, drd.Type))
-		tmpDir   = os.TempDir()
 		tempName = fmt.Sprintf("ncmctl-*-%s.tmp", music.Name)
 	)
-	log.Debug("id=%v downloadUrl=%v tempDir=%s%s outDir=%s br=%v encodeType=%v type=%v",
-		drd.Id, drd.Url, tmpDir, tempName, dest, drd.Br, drd.EncodeType, drd.Type)
 
 	// 创建临时文件
-	file, err := os.CreateTemp(tmpDir, tempName)
+	file, err := os.CreateTemp(os.TempDir(), tempName)
 	if err != nil {
 		return fmt.Errorf("CreateTemp: %w", err)
 	}
@@ -463,6 +500,25 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 		}
 	}
 
+	size, _ := strconv.ParseFloat(resp.Header.Get("Content-Length"), 10)
+	log.Debug("id=%v downloadUrl=%v wantLevel=%v-%v realLevel=%v-%v encodeType=%v type=%v size=%0.2fM,%vKB free=%v tempFile=%s outDir=%s",
+		drd.Id, drd.Url, c.opts.Level, quality.Br, drd.Level, drd.Br, drd.EncodeType, drd.Type, size/float64(utils.MB), int64(size), types.Free(drd.Fee), file.Name(), dest)
+
+	// 校验md5文件完整性
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		_ = os.Remove(file.Name())
+		return fmt.Errorf("Seek: %w", err)
+	}
+	var m = md5.New()
+	if _, err := io.Copy(m, file); err != nil {
+		_ = os.Remove(file.Name())
+		return err
+	}
+	if m := hex.EncodeToString(m.Sum(nil)); m != drd.Md5 {
+		_ = os.Remove(file.Name())
+		return fmt.Errorf("md5 not match, want=%s, got=%s", drd.Md5, m)
+	}
+
 	// 设置歌曲tag值
 	if c.opts.Tag {
 		// todo:
@@ -481,4 +537,34 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 		return fmt.Errorf("chmod: %w", err)
 	}
 	return nil
+}
+
+type Music struct {
+	Id     int64
+	Name   string
+	Artist []types.Artist
+	Album  types.Album
+	Time   int64
+}
+
+func (m Music) ArtistString() string {
+	if len(m.Artist) <= 0 {
+		return ""
+	}
+	var artistList = make([]string, 0, len(m.Artist))
+	for _, ar := range m.Artist {
+		artistList = append(artistList, strings.TrimSpace(ar.Name))
+	}
+	return strings.Join(artistList, ",")
+}
+
+func (m Music) String() string {
+	var (
+		seconds = m.Time / 1000 // 毫秒换成秒
+		hours   = seconds / 3600
+		minutes = (seconds % 3600) / 60
+		secs    = seconds % 60
+		format  = fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
+	)
+	return fmt.Sprintf("%s-%s(%v)[%s]", m.ArtistString(), m.Name, m.Id, format)
 }

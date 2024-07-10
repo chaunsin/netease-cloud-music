@@ -335,7 +335,8 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 		// tips: api接口返回数据是明文
 		decryptData = response.Body()
 	case "eapi":
-		// 貌似eapi接口返回数据是明文
+		// TODO: 貌似eapi接口返回数据是否是是明文,跟传入参数有关系e_r: true有关true为加密，false为铭文。采用反射处理。
+		// see: https://gitlab.com/Binaryify/neteasecloudmusicapi/-/commit/58e9865b70e41197c2ab75c46a775fc45d6efa6e
 		// decryptData, err = crypto.EApiDecrypt(string(response.Body()), "")
 		// if err != nil {
 		// 	return nil, fmt.Errorf("EApiDecrypt: %w", err)
@@ -398,7 +399,10 @@ func (c *Client) Download(ctx context.Context, url string, headers map[string]st
 	request.Header.Set("Connection", "keep-alive")
 	request.Header.Set("Accept", "*/*")
 	request.Header.Set("Referer", "https://music.163.com")
+	request.Header.Set("Accept-Encoding", "gzip")
+	request.Header.Set("Accept-Language", "zh-CN,zh-Hans;q=0.9")
 	request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034")
+	request.Header.Set("Range", "bytes=0-")
 	for k, v := range headers {
 		request.Header.Set(k, v)
 	}
@@ -409,7 +413,7 @@ func (c *Client) Download(ctx context.Context, url string, headers map[string]st
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != http.StatusOK {
+	if response.StatusCode/100 != 2 {
 		return nil, fmt.Errorf("http status code: %d", response.StatusCode)
 	}
 

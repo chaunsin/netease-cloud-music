@@ -55,7 +55,7 @@ func TestDownload(t *testing.T) {
 		t.Fatal("need login")
 	}
 
-	// var playReq = &weapi.SongPlayerReqV1{
+	// var playReq = &weapi.SongPlayerV1Req{
 	// 	Ids:         []int64{songId},
 	// 	Level:       level,
 	// 	EncodeType:  "mp3",

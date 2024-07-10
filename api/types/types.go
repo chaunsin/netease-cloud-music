@@ -45,7 +45,7 @@ type ApiRespCommon[T any] struct {
 // 	Header    string `json:"header"`    // Header
 // 	CtCode    string `json:"ctcode"`    // 国家码
 // 	VerifyId  int    `json:"verifyId"`  //
-// 	ER        bool   `json:"e_r"`       //
+// 	ER        bool   `json:"e_r"`       // 控制相应返回值是否加密，true为加密，false为明文。
 // }
 //
 // // SendSMSReqHeader .

@@ -23,6 +23,8 @@
 
 package types
 
+import "fmt"
+
 // Artist 歌手信息
 type Artist struct {
 	// Id 歌手id
@@ -103,4 +105,21 @@ type Privileges struct {
 	FreeTrialPrivilege FreeTrialPrivilege `json:"freeTrialPrivilege"`
 	RightSource        int64              `json:"rightSource"`
 	ChargeInfoList     []ChargeInfo       `json:"chargeInfoList"`
+}
+
+type Free int64
+
+func (f Free) String() string {
+	switch f {
+	case 0:
+		return "0:免费或无版权"
+	case 1:
+		return "1:VIP歌曲"
+	case 4:
+		return "4:购买专辑"
+	case 8:
+		return "8:非会员可免费播放低音质，会员可播放高音质及下载"
+	default:
+		return fmt.Sprintf("%d:未知", f)
+	}
 }

@@ -102,7 +102,7 @@ func (q Qualities) FindBetter(l Level) (*Quality, Level, bool) {
 	switch l {
 	case LevelJymaster:
 		if q.M != nil {
-			return q.M, LevelJyeffect, true
+			return q.M, LevelJymaster, true
 		}
 		match = false
 		fallthrough
