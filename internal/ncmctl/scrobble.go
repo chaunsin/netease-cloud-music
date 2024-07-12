@@ -185,11 +185,11 @@ func (c *Scrobble) execute(ctx context.Context) error {
 		}
 		if resp.Code == 200 {
 			if err := db.Set(ctx, scrobbleRecordKey(uid, v.SongsId), fmt.Sprintf("%v", time.Now().UnixMilli())); err != nil {
-				log.Warn("scrobble set %v record err: %w", v.SongsId, err)
+				log.Warn("[scrobble] set %v record err: %w", v.SongsId, err)
 			}
 			_, err := db.Increment(ctx, scrobbleTodayNumKey(uid), 1)
 			if err != nil {
-				log.Warn("scrobble set %v record err: %w", v.SongsId, err)
+				log.Warn("[scrobble] set %v record err: %w", v.SongsId, err)
 			}
 			total++
 			bar.Increment()

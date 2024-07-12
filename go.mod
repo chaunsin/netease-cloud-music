@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/bogem/id3v2 v1.2.0
-	github.com/chaunsin/go-har v0.0.0-20240605180008-edcaba908e26
+	github.com/chaunsin/go-har v0.0.0-20240705050726-f8bbdb8ce245
 	github.com/cheggaaa/pb/v3 v3.1.5
 	github.com/dgraph-io/badger/v4 v4.2.0
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8

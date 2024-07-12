@@ -11,6 +11,8 @@ github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj
 github.com/cespare/xxhash/v2 v2.2.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/chaunsin/go-har v0.0.0-20240605180008-edcaba908e26 h1:Kf+8RmQWcpM2FCGsYQhM2oETXwU2tGHChE6ibbh4Yh0=
 github.com/chaunsin/go-har v0.0.0-20240605180008-edcaba908e26/go.mod h1:XY6oTgSoZHbxHCxZqUe8Vv4OnViyZ8I29kEjvM3i+2U=
+github.com/chaunsin/go-har v0.0.0-20240705050726-f8bbdb8ce245 h1:hCdFdLHv+w2NySQD2Y6qwto1QmWNalYAKC8rKH/EskY=
+github.com/chaunsin/go-har v0.0.0-20240705050726-f8bbdb8ce245/go.mod h1:XY6oTgSoZHbxHCxZqUe8Vv4OnViyZ8I29kEjvM3i+2U=
 github.com/cheggaaa/pb/v3 v3.1.5 h1:QuuUzeM2WsAqG2gMqtzaWithDJv0i+i6UlnwSCI4QLk=
 github.com/cheggaaa/pb/v3 v3.1.5/go.mod h1:CrxkeghYTXi1lQBEI7jSn+3svI3cuc19haAj6jM60XI=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
