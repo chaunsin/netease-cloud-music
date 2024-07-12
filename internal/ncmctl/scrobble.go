@@ -26,11 +26,15 @@ package ncmctl
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
+	"github.com/chaunsin/netease-cloud-music/pkg/database"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/spf13/cobra"
@@ -88,32 +92,66 @@ func (c *Scrobble) execute(ctx context.Context) error {
 		return fmt.Errorf("validate: %w", err)
 	}
 
-	var bar = pb.Full.Start64(c.opts.Num)
-
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
 	defer cli.Close(ctx)
-	request := weapi.New(cli)
+	var request = weapi.New(cli)
 
-	// 判断是否需要登录
-	if cli.NeedLogin(ctx) {
+	// 获取用户id
+	user, err := request.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
+	if err != nil {
+		return fmt.Errorf("UserInfo: %w", err)
+	}
+	if user.Code != 200 || user.Profile == nil || user.Account == nil {
 		return fmt.Errorf("need login")
 	}
+	var uid = fmt.Sprintf("%v", user.Account.Id)
+
+	// 初始化数据库如果文件不存在则直接创建
+	db, err := database.New(c.root.Cfg.Database)
+	if err != nil {
+		return fmt.Errorf("database: %w", err)
+	}
+	defer db.Close(ctx)
+
+	// 判断今日是刷歌数量
+	record, err := db.Get(ctx, scrobbleTodayNumKey(uid))
+	if err != nil {
+		if strings.Contains(err.Error(), "Key not found") {
+			record = "0"
+		} else {
+			return fmt.Errorf("get scrobble today num: %w", err)
+		}
+	}
+	finish, err := strconv.ParseInt(record, 10, 64)
+	if err != nil {
+		return fmt.Errorf("ParseInt(%v): %w", record, err)
+	}
+	if finish >= 300 {
+		c.cmd.Println("today scrobble 300 completed")
+		return nil
+	}
+
+	var (
+		left = 300 - finish
+		num  = utils.Ternary(left > c.opts.Num, c.opts.Num, left)
+		bar  = pb.Full.Start64(num)
+	)
+
+	// 获取未听过得歌曲
+	list, err := c.neverHeardSongs(ctx, request, db, uid, num)
+	if err != nil {
+		return fmt.Errorf("neverHeardSongs: %w", err)
+	}
+	log.Debug("ready execute num(%d)", len(list))
 
 	var total int
 	defer func() {
 		log.Debug("scrobble success: %d", total)
 		bar.Finish()
 	}()
-
-	// 获取未听过歌曲
-	list, err := c.neverHeardSongs(ctx, request)
-	if err != nil {
-		return fmt.Errorf("neverHeardSongs: %w", err)
-	}
-	log.Debug("ready execute num(%d)", len(list))
 
 	// 执行刷歌
 	for _, v := range list {
@@ -130,7 +168,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 					"source":   v.Source,                         // 播放歌曲资源来源 例如toplist等
 					"sourceId": v.SourceId,                       // [选填] 歌单id或者专辑id
 					"mainsite": "1",                              // 未知暂时为1
-					"content":  fmt.Sprintf("id=%d", v.SourceId), // 格式 "id=1981392816" 其中id通常为歌单id也就是和sourceId一样
+					"content":  fmt.Sprintf("id=%v", v.SourceId), // 格式 "id=1981392816" 其中id通常为歌单id也就是和sourceId一样
 				},
 			},
 		}}
@@ -146,12 +184,18 @@ func (c *Scrobble) execute(ctx context.Context) error {
 			continue
 		}
 		if resp.Code == 200 {
+			if err := db.Set(ctx, scrobbleRecordKey(uid, v.SongsId), fmt.Sprintf("%v", time.Now().UnixMilli())); err != nil {
+				log.Warn("scrobble set %v record err: %w", v.SongsId, err)
+			}
+			_, err := db.Increment(ctx, scrobbleTodayNumKey(uid), 1)
+			if err != nil {
+				log.Warn("scrobble set %v record err: %w", v.SongsId, err)
+			}
 			total++
 			bar.Increment()
 			time.Sleep(time.Millisecond * 100)
 		}
 	}
-
 	return nil
 }
 
@@ -162,7 +206,7 @@ type NeverHeardSongsList struct {
 	SongsTime int64  // 歌曲时长
 }
 
-func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api) ([]NeverHeardSongsList, error) {
+func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api, db database.Database, uid string, num int64) ([]NeverHeardSongsList, error) {
 	// 获取top歌单列表
 	tops, err := request.TopList(ctx, &weapi.TopListReq{})
 	if err != nil {
@@ -177,7 +221,7 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api) ([]N
 
 	// 根据歌单返回顺序顺次刷歌直到300首歌曲
 	var (
-		req = make([]weapi.SongDetailReqList, 0, c.opts.Num)
+		req = make([]weapi.SongDetailReqList, 0, num)
 		set = make(map[int64]string) // k:歌曲id v:歌单id
 	)
 	for _, list := range tops.List {
@@ -196,8 +240,14 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api) ([]N
 
 		var sourceId = list.Id
 		for _, v := range info.Playlist.TrackIds {
-			if int64(len(req)) >= c.opts.Num {
+			if int64(len(req)) >= num {
 				break
+			}
+
+			// 判断是否执行过
+			exist, err := db.Exists(ctx, scrobbleRecordKey(uid, fmt.Sprintf("%d", v.Id)))
+			if err != nil || exist {
+				continue
 			}
 
 			// 由于同一首歌可能会在不同得歌单中存在因此需要去重
@@ -205,18 +255,15 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api) ([]N
 				set[v.Id] = fmt.Sprintf("%d", sourceId)
 				req = append(req, weapi.SongDetailReqList{Id: fmt.Sprintf("%d", v.Id), V: 0})
 			}
-
-			// 判断是否执行过
-			// todo: 待实现考虑采用文件系统例如sqlite
 		}
-		if int64(len(req)) >= c.opts.Num {
+		if int64(len(req)) >= num {
 			log.Debug("SongDetailReqList num(%d)", len(req))
 			break
 		}
 	}
 
 	// 根据歌单trickIds.Id查询歌曲详情信息
-	var resp = make([]NeverHeardSongsList, 0, c.opts.Num)
+	var resp = make([]NeverHeardSongsList, 0, num)
 	details, err := request.SongDetail(ctx, &weapi.SongDetailReq{C: req})
 	if err != nil {
 		return nil, fmt.Errorf("SongDetail: %w", err)
@@ -231,4 +278,12 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api) ([]N
 	}
 
 	return resp, nil
+}
+
+func scrobbleRecordKey(uid string, songId string) string {
+	return fmt.Sprintf("scrobble:record:%v:%v", uid, songId)
+}
+
+func scrobbleTodayNumKey(uid string) string {
+	return fmt.Sprintf("scrobble:today:%v", uid)
 }

@@ -21,41 +21,42 @@
 // SOFTWARE.
 //
 
-package weapi
+package database
 
 import (
 	"context"
-	neturl "net/url"
+	"fmt"
 	"time"
 
-	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/database/badger"
 )
 
-type Api struct {
-	client *api.Client
+type Database interface {
+	Get(ctx context.Context, key string) (string, error)
+	Set(ctx context.Context, key string, value string, ttl ...time.Duration) error
+	Exists(ctx context.Context, key string) (bool, error)
+	Increment(ctx context.Context, key string, value int64, ttl ...time.Duration) (int64, error)
+	Close(ctx context.Context) error
 }
 
-func New(client *api.Client) *Api {
-	a := Api{client: client}
-	return &a
+type Config struct {
+	Driver string
+	Path   string
 }
 
-func (a *Api) NeedLogin(ctx context.Context) bool {
-	u, _ := neturl.Parse("https://music.163.com")
-	for _, ck := range a.client.GetClient().Jar.Cookies(u) {
-		// 判断用户是否有登录信息,如果有登录信息,还需要调用接口进行判断,单纯的判断cookie过期时间是不行的
-		if ck.Name == "MUSIC_U" && ck.Expires.Before(time.Now()) {
-			reply, err := a.GetUserInfo(ctx, &GetUserInfoReq{})
-			if err != nil {
-				return true
-			}
-			log.Debug("NeedLogin: %+v", reply)
-			if reply.Code != 200 || reply.Account == nil || reply.Profile == nil {
-				return true
-			}
-			return false
-		}
+func New(cfg *Config) (Database, error) {
+	var (
+		db  Database
+		err error
+	)
+	switch cfg.Driver {
+	case "", "badger":
+		db, err = badger.New(cfg.Path)
+	default:
+		return nil, fmt.Errorf("unsupported database driver: %s", cfg.Driver)
 	}
-	return true
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
 }

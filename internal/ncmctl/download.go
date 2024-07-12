@@ -156,7 +156,7 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 	request := weapi.New(cli)
 
 	// 判断是否需要登录
-	if cli.NeedLogin(ctx) {
+	if request.NeedLogin(ctx) {
 		return fmt.Errorf("need login")
 	}
 
