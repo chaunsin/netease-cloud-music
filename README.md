@@ -13,7 +13,7 @@
 ## 命令行 (ncmctl)
 
 - [x] 一键每日任务完成(音乐合伙人、云贝签到、刷歌300首)
-- [x] 每日签到(云贝签到)
+- [x] 每日签到(云贝签到,连续签到奖励目前需要手动领取)
 - [x] “音乐合伙人”自动测评
 - [x] 每日刷歌300首(带去重功能)
 - [x] 云盘上传(支持并行批量上传)
@@ -21,7 +21,7 @@
 - [x] 支持接口参数加解密便于调试
 - [x] `curl`子命令调用网易云音乐API,无需关心出入参数加解密问题便于调试
     - [ ] 支持动态链接请求
-- [x] 音乐下载，支持标准、高品质、极高(HQ)、无损(SQ)、Hi-Res品质音乐下载
+- [x] 音乐下载，支持标准、高品质、极高(HQ)、无损(SQ)、Hi-Res品质下载
 - [ ] vip每日签到
 - [ ] vip日常任务完成(待考虑)
 - [ ] “音乐人”任务自动完成(待考虑)
@@ -32,9 +32,9 @@
 - weapi 网页端、小程序使用
 - eapi PC端、移动端使用
 
-目前由于本人时间精力有限,暂未书写文档,不过可以参考实际的代码,代码通俗易懂,可参考`api`目录下得实际代码，
+目前由于本人时间精力有限,暂未书写文档,不过可以参考`api`目录下代码,代码通俗易懂,且有注释.
 
-**提示:**
+_**提示:**
 目前主要实现了weapi也推荐使用weapi,接口相对较全，如需要其他接口可提 [issue](https://github.com/chaunsin/netease-cloud-music/issues)。
 
 # 要求
@@ -57,7 +57,7 @@ git clone https://github.com/chaunsin/netease-cloud-music.git
 make install
 ```
 
-提示: 会安装到`$GOPATH/bin`下
+**提示:** 默认会安装到`$GOPATH/bin`下
 
 ## 使用
 
@@ -155,6 +155,8 @@ ncmctl download 'https://music.163.com/playlist?id=593617579'
 ncmctl cloud -i '/Users/chaunsin/Music/' 
 ```
 
+**提示:** 默认批量上传数为3,最大为10,可指定`-p`参数设置数量。
+
 指定文件上传
 
 ```shell
@@ -163,9 +165,13 @@ ncmctl cloud '/Users/chaunsin/Music/谁为我停留 - 田震.mp3'
 
 **五、.ncm文件解析**
 
+批量解析`/Users/chaunsin/Music/`目录输出到`./ncm`目录下
+
 ```shell
 ncmctl ncm -i '/Users/chaunsin/Music/' -o ./ncm
 ```
+
+**提示:** 支持批量解析,默认参数为10，可以指定`-p`参数设置数量。
 
 **六、其他命令**
 
@@ -221,9 +227,9 @@ Use "ncmctl [command] --help" for more information about a command.
 
 # 已知问题
 
-### 下载音乐品质不准确
+### 下载无损音乐品质不准确
 
-当使用`ncmctl`下载无损音乐时`-l lossless`会存在下载Hi-Res品质音乐情况,如果歌曲不支持Hi-Res品质音乐时,则正常下载无损音乐.
+当使用`ncmctl`下载无损音乐指定`-l lossless`时,会存在下载Hi-Res品质音乐情况,如果歌曲不支持Hi-Res品质音乐,同时有无损音乐则正常下载无损音乐,问题还需要排查。
 
 # 鸣谢
 
