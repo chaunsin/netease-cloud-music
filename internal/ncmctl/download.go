@@ -75,6 +75,9 @@ func NewDownload(root *Root, l *log.Logger) *Download {
 	}
 	c.addFlags()
 	c.cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("input is empty, please enter the song id or song link")
+		}
 		return c.execute(cmd.Context(), args)
 	}
 	return c
@@ -156,7 +159,7 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 	request := weapi.New(cli)
 
 	// 判断是否需要登录
-	if cli.NeedLogin(ctx) {
+	if request.NeedLogin(ctx) {
 		return fmt.Errorf("need login")
 	}
 
@@ -389,7 +392,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 		}
 	}
 	if len(list) <= 0 {
-		return nil, fmt.Errorf("the input resource is empty or invalid")
+		return nil, fmt.Errorf("input resource is empty or the song is copyrighted")
 	}
 	return list, nil
 }
@@ -428,7 +431,8 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	}
 	// 歌曲变灰则不能下载
 	if downResp.Data.Code != 200 || downResp.Data.Url == "" {
-		return fmt.Errorf("资源已下架或无版权(%v) code: %v", songId, downResp.Data.Code)
+		log.Warn("资源已下架或无版权(%v) detail: %+v", songId, downResp)
+		return fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
 	}
 
 	// var downReq = &weapi.SongPlayerReq{
@@ -566,5 +570,5 @@ func (m Music) String() string {
 		secs    = seconds % 60
 		format  = fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
 	)
-	return fmt.Sprintf("%s-%s(%v)[%s]", m.ArtistString(), m.Name, m.Id, format)
+	return fmt.Sprintf("%s-%s(%v) [%s]", m.ArtistString(), m.Name, m.Id, format)
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/pkg/database"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
 	"github.com/mitchellh/mapstructure"
@@ -38,10 +39,11 @@ func init() {
 }
 
 type Config struct {
-	v       *viper.Viper
-	Version string      `json:"version" yaml:"version"`
-	Log     *log.Config `json:"log" yaml:"log"`
-	Network *api.Config `json:"network" yaml:"network"`
+	v        *viper.Viper
+	Version  string           `json:"version" yaml:"version"`
+	Log      *log.Config      `json:"log" yaml:"log"`
+	Network  *api.Config      `json:"network" yaml:"network"`
+	Database *database.Config `json:"database" yaml:"database"`
 }
 
 func (c *Config) Validate() error {
@@ -101,5 +103,6 @@ func (c *Config) ReplaceMagicVariables(name, value string) (*Config, bool) {
 
 	c.Log.Rotate.Filename = os.Expand(c.Log.Rotate.Filename, mapping)
 	c.Network.Cookie.Filepath = os.Expand(c.Network.Cookie.Filepath, mapping)
+	c.Database.Path = os.Expand(c.Database.Path, mapping)
 	return c, isset
 }

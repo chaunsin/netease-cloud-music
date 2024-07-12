@@ -38,3 +38,9 @@ network:
     filepath: "${HOME}/.ncmctl/cookie.json"
     # cookie 刷盘间隔,如果间隔过大当程序崩溃或退出,可能导致cookie值不能刷到磁盘中.如果间隔过小,会导致频繁刷盘,影响性能.
     interval: 3s
+# 数据缓存配置
+database:
+  # 缓存驱动,目前支持badger
+  driver: badger
+  # 缓存目录
+  path: "${HOME}/.ncmctl/database/badger/"

@@ -51,7 +51,7 @@ func TestDownload(t *testing.T) {
 		request = weapi.New(cli)
 	)
 
-	if cli.NeedLogin(ctx) {
+	if request.NeedLogin(ctx) {
 		t.Fatal("need login")
 	}
 

@@ -133,6 +133,14 @@ func (c *Client) Close(ctx context.Context) error {
 	return c.cookie.Close(ctx)
 }
 
+func (c *Client) NewRequest() *resty.Request {
+	return c.cli.NewRequest()
+}
+
+func (c *Client) GetClient() *http.Client {
+	return c.cli.GetClient()
+}
+
 // Cookie 根据url和cookie name获取cookie
 func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 	uri, err := neturl.Parse(url)
@@ -172,47 +180,6 @@ func (c *Client) GetCSRF(url string) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-// NeedLogin 是否需要登录
-func (c *Client) NeedLogin(ctx context.Context) bool {
-	u, _ := neturl.Parse("https://music.163.com")
-	for _, ck := range c.cli.GetClient().Jar.Cookies(u) {
-		// 判断用户是否有登录信息,如果有登录信息,还需要调用接口进行判断,单纯的判断cookie过期时间是不行的
-		if ck.Name == "MUSIC_U" && ck.Expires.Before(time.Now()) {
-			var (
-				url   = "https://music.163.com/weapi/w/nuser/account/get"
-				req   = map[string]any{}
-				reply struct {
-					Code    int `json:"code"`
-					Account any `json:"account"`
-					Profile any `json:"profile"`
-				}
-			)
-			// see: weapi.GetUserInfo()
-			resp, err := c.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
-			if err != nil {
-				return true
-			}
-			_ = resp
-			if reply.Code != 200 || reply.Account == nil || reply.Profile == nil {
-				return true
-			}
-			log.Debug("NeedLogin: %+v", resp)
-			return false
-		}
-	}
-	return true
-}
-
-// UserInfo 获取用户信息
-func (c *Client) UserInfo() interface{} {
-	// todo:
-	return nil
-}
-
-func (c *Client) NewRequest() *resty.Request {
-	return c.cli.NewRequest()
 }
 
 // Request 接口请求

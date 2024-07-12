@@ -87,7 +87,7 @@ func (c *SignIn) execute(ctx context.Context) error {
 	request := weapi.New(cli)
 
 	// 判断是否需要登录
-	if cli.NeedLogin(ctx) {
+	if request.NeedLogin(ctx) {
 		return fmt.Errorf("need login")
 	}
 
