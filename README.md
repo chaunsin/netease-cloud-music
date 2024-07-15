@@ -168,7 +168,7 @@ ncmctl cloud '/Users/chaunsin/Music/谁为我停留 - 田震.mp3'
 批量解析`/Users/chaunsin/Music/`目录输出到`./ncm`目录下
 
 ```shell
-ncmctl ncm -i '/Users/chaunsin/Music/' -o ./ncm
+ncmctl ncm '/Users/chaunsin/Music/' -o ./ncm
 ```
 
 **提示:** 支持批量解析,默认参数为10，可以指定`-p`参数设置数量。
