@@ -36,6 +36,7 @@ type Database interface {
 	Set(ctx context.Context, key string, value string, ttl ...time.Duration) error
 	Exists(ctx context.Context, key string) (bool, error)
 	Increment(ctx context.Context, key string, value int64, ttl ...time.Duration) (int64, error)
+	Del(ctx context.Context, key string) error
 	Close(ctx context.Context) error
 }
 

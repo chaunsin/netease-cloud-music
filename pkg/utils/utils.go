@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -197,4 +198,25 @@ func SplitSlice[T any](input []T, chunkSize int) ([][]T, error) {
 		result = append(result, input[i:end])
 	}
 	return result, nil
+}
+
+// TimeUntilMidnight 计算当前时间到明天零点的时间差
+func TimeUntilMidnight(timeZone string) (time.Duration, error) {
+	var (
+		loc *time.Location
+		err error
+	)
+
+	// Get the time zone location
+	if timeZone == "" {
+		loc = time.Local
+	} else {
+		loc, err = time.LoadLocation(timeZone)
+		if err != nil {
+			return 0, fmt.Errorf("invalid time zone: %v", err)
+		}
+	}
+	now := time.Now().In(loc)
+	midnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
+	return midnight.Sub(now), nil
 }

@@ -125,3 +125,9 @@ func (b *Badger) Increment(ctx context.Context, key string, value int64, ttl ...
 	})
 	return oldValue, err
 }
+
+func (b *Badger) Del(ctx context.Context, key string) error {
+	return b.db.Update(func(txn *badger.Txn) error {
+		return txn.Delete([]byte(key))
+	})
+}

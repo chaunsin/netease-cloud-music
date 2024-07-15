@@ -153,6 +153,11 @@ func (c *Scrobble) execute(ctx context.Context) error {
 		bar.Finish()
 	}()
 
+	expire, err := utils.TimeUntilMidnight("Asia/Shanghai")
+	if err != nil {
+		return fmt.Errorf("TimeUntilMidnight: %w", err)
+	}
+
 	// 执行刷歌
 	for _, v := range list {
 		var req = &weapi.WebLogReq{CsrfToken: "", Logs: []map[string]interface{}{
@@ -187,7 +192,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 			if err := db.Set(ctx, scrobbleRecordKey(uid, v.SongsId), fmt.Sprintf("%v", time.Now().UnixMilli())); err != nil {
 				log.Warn("[scrobble] set %v record err: %w", v.SongsId, err)
 			}
-			_, err := db.Increment(ctx, scrobbleTodayNumKey(uid), 1)
+			_, err := db.Increment(ctx, scrobbleTodayNumKey(uid), 1, expire)
 			if err != nil {
 				log.Warn("[scrobble] set %v record err: %w", v.SongsId, err)
 			}
