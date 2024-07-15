@@ -44,7 +44,6 @@ import (
 )
 
 type NCMOpts struct {
-	Input    string // 加载文件路径
 	Output   string // 生成文件路径
 	Parallel int64
 }
@@ -63,7 +62,7 @@ func NewNCM(root *Root, l *log.Logger) *NCM {
 		cmd: &cobra.Command{
 			Use:     "ncm",
 			Short:   "Automatically parses .ncm to mp3/flac",
-			Example: `  ncmctl -h`,
+			Example: `  ncmctl /music/Hello - Adele.ncm -o ./ncm`,
 		},
 	}
 	c.addFlags()
@@ -74,7 +73,6 @@ func NewNCM(root *Root, l *log.Logger) *NCM {
 }
 
 func (c *NCM) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "input music dir")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./ncm", "output music dir")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "concurrent decrypt count")
 }
@@ -94,31 +92,38 @@ func (c *NCM) Command() *cobra.Command {
 	return c.cmd
 }
 
-func (c *NCM) execute(ctx context.Context, fileList []string) error {
+func (c *NCM) execute(ctx context.Context, input []string) error {
 	if err := c.validate(); err != nil {
 		return fmt.Errorf("validate: %w", err)
 	}
+	if len(input) <= 0 {
+		c.cmd.Printf("nothing was entered")
+		return nil
+	}
+	var fileList = make([]string, 0, len(input))
 
-	// 命令行指定文件上传检验处理
-	for _, file := range fileList {
+	// 处理命令行输入的内容
+	for _, file := range slices.Compact(input) {
 		exist, isDir, err := utils.CheckPath(file)
 		if err != nil {
 			return fmt.Errorf("CheckPath: %w", err)
 		}
 		if !exist {
-			return fmt.Errorf("%s not found", file)
+			c.cmd.Printf("%s not found", file)
+			return nil
 		}
-		if isDir {
-			return fmt.Errorf("%s is directory need file", file)
-		}
-		if filepath.Ext(file) != ".ncm" {
-			return fmt.Errorf("%s is not .ncm file", file)
-		}
-	}
 
-	// 指定目录处理
-	if c.opts.Input != "" {
-		if err := fs.WalkDir(os.DirFS(c.opts.Input), ".", func(path string, d fs.DirEntry, err error) error {
+		// 文件
+		if !isDir {
+			if filepath.Ext(file) != ".ncm" {
+				return fmt.Errorf("%s is not .ncm file", file)
+			}
+			fileList = append(fileList, file)
+			continue
+		}
+
+		// 目录处理
+		if err := fs.WalkDir(os.DirFS(file), ".", func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -127,11 +132,11 @@ func (c *NCM) execute(ctx context.Context, fileList []string) error {
 				return nil
 			}
 
-			var file = filepath.Join(c.opts.Input, path)
-			if filepath.Ext(file) != ".ncm" {
+			var f = filepath.Join(file, path)
+			if filepath.Ext(f) != ".ncm" {
 				return nil
 			}
-			fileList = append(fileList, file)
+			fileList = append(fileList, f)
 			return nil
 		}); err != nil {
 			return fmt.Errorf("WalkDir: %w", err)
