@@ -55,10 +55,8 @@ func qrcode(root *Login, l *log.Logger) *cobra.Command {
 		Use:     "qrcode",
 		Short:   "use qrcode login",
 		Example: "  ncmctl login qrcode",
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := c.execute(cmd.Context()); err != nil {
-				cmd.Println(err)
-			}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return c.execute(cmd.Context(), args)
 		},
 	}
 	c.addFlags()
@@ -70,7 +68,7 @@ func (c *loginQrcodeCmd) addFlags() {
 	c.cmd.Flags().StringVarP(&c.dir, "dir", "d", "./", "./")
 }
 
-func (c *loginQrcodeCmd) execute(ctx context.Context) error {
+func (c *loginQrcodeCmd) execute(ctx context.Context, args []string) error {
 	cli, err := api.NewClient(c.root.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)

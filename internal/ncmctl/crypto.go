@@ -30,7 +30,6 @@ import (
 )
 
 type CryptoOpts struct {
-	Input  string // 加载文件路径,或文本内容
 	Output string // 生成文件路径
 	Kind   string // api类型
 }
@@ -59,7 +58,6 @@ func NewCrypto(root *Root, l *log.Logger) *Crypto {
 }
 
 func (c *Crypto) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "*.har file path、text")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate decrypt file directory location")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "weapi|eapi|linux")
 }

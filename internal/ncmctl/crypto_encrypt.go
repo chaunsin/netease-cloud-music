@@ -43,7 +43,6 @@ type cryptoCmd struct {
 	l    *log.Logger
 
 	url string
-	// encode string
 }
 
 func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
@@ -56,7 +55,7 @@ func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
 		Short:   "Encrypt data",
 		Example: "  ncmctl crypto encrypt -k weapi -u /eapi/sms/captcha/sent",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return c.execute(cmd.Context())
+			return c.execute(cmd.Context(), args)
 		},
 	}
 	c.addFlags()
@@ -65,27 +64,28 @@ func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
 
 func (c *cryptoCmd) addFlags() {
 	c.cmd.Flags().StringVarP(&c.url, "url", "u", "", "url params value")
-	// c.cmd.Flags().StringVarP(&c.encode, "encode", "e", "hex", "string|hex|base64")
 }
 
-func (c *cryptoCmd) execute(ctx context.Context) error {
-	var opts = c.root.opts
-	// if c.encode != "string" && c.encode != "base64" && c.encode != "hex" {
-	// 	return fmt.Errorf("%s is unknown encode", c.encode)
-	// }
-	if opts.Input == "" {
+func (c *cryptoCmd) execute(ctx context.Context, args []string) error {
+	var (
+		opts  = c.root.opts
+		input string
+	)
+	if len(args) <= 0 {
 		return fmt.Errorf("nothing was entered")
 	}
-	if utils.IsFile(opts.Input) {
-		data, err := os.ReadFile(opts.Input)
+	input = args[0]
+
+	if utils.IsFile(input) {
+		data, err := os.ReadFile(input)
 		if err != nil {
 			return fmt.Errorf("ReadFile: %w", err)
 		}
-		opts.Input = string(data)
+		input = string(data)
 	}
 
 	var payload map[string]interface{}
-	if err := json.Unmarshal([]byte(opts.Input), &payload); err != nil {
+	if err := json.Unmarshal([]byte(input), &payload); err != nil {
 		return fmt.Errorf("Unmarshal: %w", err)
 	}
 

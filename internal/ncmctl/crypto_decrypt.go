@@ -59,7 +59,7 @@ func decrypt(root *Crypto, l *log.Logger) *cobra.Command {
 	c.cmd = &cobra.Command{
 		Use:     "decrypt",
 		Short:   "Decrypt data",
-		Example: "  ncmctl crypto decrypt -k weapi -e base64 -i \"ciphertext\"\n  ncmctl decrypt -i example.har",
+		Example: "  ncmctl crypto decrypt -k weapi -e base64 \"ciphertext\"\n  ncmctl decrypt example.har",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
 		},
@@ -74,20 +74,24 @@ func (c *decryptCmd) addFlags() {
 }
 
 func (c *decryptCmd) execute(ctx context.Context, args []string) error {
-	var opts = c.root.opts
+	var (
+		opts  = c.root.opts
+		input string
+	)
 	if c.encode != "string" && c.encode != "base64" && c.encode != "hex" {
 		return fmt.Errorf("%s is unknown encode", c.encode)
 	}
-	if opts.Input == "" {
+	if len(args) <= 0 {
 		return fmt.Errorf("nothing was entered")
 	}
+	input = args[0]
 
-	if utils.IsFile(opts.Input) {
-		data, err := os.ReadFile(opts.Input)
+	if utils.IsFile(input) {
+		data, err := os.ReadFile(input)
 		if err != nil {
 			return fmt.Errorf("ReadFile: %w", err)
 		}
-		if filepath.Ext(opts.Input) == ".har" {
+		if filepath.Ext(input) == ".har" {
 			list, err := c.parseHar(data)
 			if err != nil {
 				return fmt.Errorf("parseHar: %w", err)
@@ -107,14 +111,14 @@ func (c *decryptCmd) execute(ctx context.Context, args []string) error {
 			}
 			return writeFile(c.cmd, opts.Output, content)
 		}
-		opts.Input = string(data)
+		input = string(data)
 	}
 
 	var payload = &Payload{
 		Kind:   opts.Kind,
 		Status: "ok",
 		Request: Request{
-			Ciphertext: opts.Input,
+			Ciphertext: input,
 		},
 		// Response: Response{
 		// 	Ciphertext: ciphertext,
@@ -124,7 +128,7 @@ func (c *decryptCmd) execute(ctx context.Context, args []string) error {
 	if err := c.decryptReq(payload, c.encode); err != nil {
 		return fmt.Errorf("decryptReq: %w", err)
 	}
-	// c.decryptResp(ciphertext, c.encode)
+	// c.decryptRes(ciphertext, c.encode)
 
 	content, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
