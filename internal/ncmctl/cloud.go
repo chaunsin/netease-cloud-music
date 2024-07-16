@@ -25,12 +25,12 @@ package ncmctl
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"sync/atomic"
@@ -50,9 +50,9 @@ import (
 const maxSize = 500 * utils.MB
 
 type CloudOpts struct {
-	Input    string // 加载文件路径
 	Parallel int64  // 并发上传文件数量
 	MinSize  string // 上传文件最低大小限制
+	Regexp   string // 上传过滤正则表达式
 }
 
 type Cloud struct {
@@ -69,7 +69,7 @@ func NewCloud(root *Root, l *log.Logger) *Cloud {
 		cmd: &cobra.Command{
 			Use:     "cloud",
 			Short:   "[need login] Used to upload music files to netease cloud disk",
-			Example: "  ncmctl cloud -h\n  ncmctl cloud ./mymusic.mp3\n  ncmctl cloud -i ./my/music/",
+			Example: "  ncmctl cloud -h\n  ncmctl cloud ./mymusic.mp3\n  ncmctl cloud ./my/music/",
 			Args:    cobra.RangeArgs(0, 1),
 		},
 	}
@@ -82,9 +82,9 @@ func NewCloud(root *Root, l *log.Logger) *Cloud {
 }
 
 func (c *Cloud) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "music file path")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 3, "concurrent upload count")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.MinSize, "minsize", "m", "500kb", "upload music minimum file size limit. supporting unit:b、k/kb/KB、m/mb/MB")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.MinSize, "minsize", "m", "", "upload music minimum file size limit. supporting unit:b、k/kb/KB、m/mb/MB")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Regexp, "regexp", "r", "", "upload music file filter regular expression")
 }
 
 func (c *Cloud) Add(command ...*cobra.Command) {
@@ -95,15 +95,40 @@ func (c *Cloud) Command() *cobra.Command {
 	return c.cmd
 }
 
-func (c *Cloud) execute(ctx context.Context, fileList []string) error {
+func (c *Cloud) execute(ctx context.Context, input []string) error {
 	if c.opts.Parallel < 0 || c.opts.Parallel > 10 {
 		return fmt.Errorf("parallel must be between 1 and 10")
 	}
+	if len(input) <= 0 {
+		c.cmd.Printf("nothing was entered")
+		return nil
+	}
+	var (
+		fileList = make([]string, 0, len(input))
+		barSize  int64
+		minSize  *int64
+		skip     atomic.Int64
+		fail     atomic.Int64
+		reg      *regexp.Regexp
+	)
 
-	var barSize int64
+	if c.opts.MinSize != "" {
+		size, err := utils.ParseBytes(c.opts.MinSize)
+		if err != nil {
+			return fmt.Errorf("bytesize.Parse: %w", err)
+		}
+		minSize = &size
+	}
+	if c.opts.Regexp != "" {
+		var err error
+		reg, err = regexp.Compile(c.opts.Regexp)
+		if err != nil {
+			return fmt.Errorf("regexp.Compile: %w", err)
+		}
+	}
 
 	// 命令行指定文件上传检验处理
-	for _, file := range fileList {
+	for _, file := range slices.Compact(input) {
 		exist, isDir, err := utils.CheckPath(file)
 		if err != nil {
 			return fmt.Errorf("CheckPath: %w", err)
@@ -111,33 +136,37 @@ func (c *Cloud) execute(ctx context.Context, fileList []string) error {
 		if !exist {
 			return fmt.Errorf("%s not found", file)
 		}
-		if isDir {
-			return fmt.Errorf("%s is directory need file", file)
+		// 文件处理
+		if !isDir {
+			if ok := utils.IsMusicExt(file); !ok {
+				return fmt.Errorf("%s is not music file", file)
+			}
+			stat, err := os.Stat(file)
+			if err != nil {
+				return fmt.Errorf("%s stat: %w", file, err)
+			}
+			if stat.Size() > maxSize {
+				c.cmd.Printf("%s file size too large. limit %vMB", file, maxSize)
+				skip.Add(1)
+				continue
+			}
+			if stat.Size() <= 0 || (minSize != nil && stat.Size() < *minSize) {
+				c.cmd.Printf("%s file size too samll %vKB", file, stat.Size())
+				skip.Add(1)
+				continue
+			}
+			if reg != nil && reg.MatchString(file) {
+				c.cmd.Printf("%s file name does not match the regular expression %s", file, c.opts.Regexp)
+				skip.Add(1)
+				continue
+			}
+			// todo:
+			barSize += stat.Size()
+			fileList = append(fileList, file)
+			continue
 		}
-		if ok := utils.IsMusicExt(file); !ok {
-			return fmt.Errorf("%s is not music file", file)
-		}
-		stat, err := os.Stat(file)
-		if err != nil {
-			return fmt.Errorf("%s stat: %w", file, err)
-		}
-		if stat.Size() > maxSize {
-			return fmt.Errorf("%s file size too large.limit %vkb", file, maxSize)
-		}
-		if stat.Size() <= 0 {
-			return fmt.Errorf("%s file size too small", file)
-		}
-		barSize += stat.Size()
-	}
-
-	// 目录上传检验处理
-	if c.opts.Input != "" {
-		minSize, err := utils.ParseBytes(c.opts.MinSize)
-		if err != nil {
-			return fmt.Errorf("bytesize.Parse: %w", err)
-		}
-
-		if err := fs.WalkDir(os.DirFS(c.opts.Input), ".", func(path string, d fs.DirEntry, err error) error {
+		// 目录处理
+		if err := fs.WalkDir(os.DirFS(file), ".", func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -151,29 +180,42 @@ func (c *Cloud) execute(ctx context.Context, fileList []string) error {
 				return err
 			}
 
-			var file = filepath.Join(c.opts.Input, path)
-			if ok := utils.IsMusicExt(file); !ok {
+			var f = filepath.Join(file, path)
+			if ok := utils.IsMusicExt(f); !ok {
 				return nil
 			}
 
-			// 忽略大于300M的文件、小于0字节的文件以及用户配置得忽略的最小文件大小
-			if info.Size() > maxSize || info.Size() <= 0 || info.Size() < minSize {
+			// 忽略大文件的文件、小于0字节的文件以及用户配置得忽略的最小文件大小
+			if info.Size() > maxSize {
+				c.cmd.Printf("%s file size too large. limit %vMB", file, maxSize)
+				skip.Add(1)
+				return nil
+			}
+			if info.Size() <= 0 || (minSize != nil && info.Size() < *minSize) {
+				skip.Add(1)
+				c.cmd.Printf("%s file size too samll %vKB", file, info.Size())
 				return nil
 			}
 
 			barSize += info.Size()
-			fileList = append(fileList, file)
+			fileList = append(fileList, f)
 			return nil
 		}); err != nil {
 			return fmt.Errorf("WalkDir: %w", err)
 		}
 	}
 
-	if len(fileList) <= 0 {
-		return errors.New("no input file or the file does not meet the upload conditions")
-	}
 	fileList = slices.Compact(fileList)
 	log.Debug("Ready to upload list: %v", fileList)
+	var total = int64(len(fileList))
+	defer func() {
+		c.cmd.Printf("report total: %v success: %v failed: %v skip: %v\n",
+			total, total-fail.Load(), fail.Load(), skip.Load())
+	}()
+	if total <= 0 {
+		c.cmd.Printf("no input file or the file does not meet the upload conditions\n")
+		return nil
+	}
 
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
@@ -189,14 +231,11 @@ func (c *Cloud) execute(ctx context.Context, fileList []string) error {
 
 	// 执行目录文件上传
 	var (
-		total = int64(len(fileList))
-		fail  atomic.Int64
-		sema  = semaphore.NewWeighted(c.opts.Parallel)
-		bar   = pb.Full.Start64(barSize)
+		sema = semaphore.NewWeighted(c.opts.Parallel)
+		bar  = pb.Full.Start64(barSize)
 	)
 	defer func() {
 		bar.Finish()
-		c.cmd.Printf("report total: %v success: %v failed: %v\n", total, total-fail.Load(), fail.Load())
 	}()
 
 	for _, v := range fileList {
