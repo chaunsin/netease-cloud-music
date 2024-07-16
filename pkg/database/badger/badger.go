@@ -27,6 +27,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -50,6 +51,13 @@ func New(path string) (*Badger, error) {
 		path: path,
 		db:   db,
 	}
+	go func() {
+		if err := db.RunValueLogGC(0.5); err != nil {
+			if !errors.Is(err, badger.ErrNoRewrite) {
+				log.Printf("[badger] RunValueLogGC: %s\n", err)
+			}
+		}
+	}()
 	return b, nil
 }
 
@@ -95,13 +103,16 @@ func (b *Badger) Exists(ctx context.Context, key string) (bool, error) {
 	return true, nil
 }
 
+// Increment 实现类似于redis中Incr命令
+// TODO:
+// 1.目前badger得过期时间是使用本地时区时间,因此上游设置时间同样也需要使用本地时区时间,不然会造成不符合预期结果。
+// 2.由于badger支持有限,因此在设置过期时间后,更新操作需要每次自己计算过期时间,如果不指定过期时间则相当移除了过期时间。
+// 3.是否存在并发问题有待商榷
 func (b *Badger) Increment(ctx context.Context, key string, value int64, ttl ...time.Duration) (int64, error) {
 	var oldValue int64
 	err := b.db.Update(func(txn *badger.Txn) error {
-		var found = true
 		item, err := txn.Get([]byte(key))
 		if errors.Is(err, badger.ErrKeyNotFound) {
-			found = false
 			// continue
 		} else if err != nil {
 			return err
@@ -118,7 +129,7 @@ func (b *Badger) Increment(ctx context.Context, key string, value int64, ttl ...
 		}
 
 		var entry = badger.NewEntry([]byte(key), []byte(fmt.Sprintf("%v", value)))
-		if len(ttl) > 0 && ttl[0] > 0 && !found {
+		if len(ttl) > 0 && ttl[0] > 0 {
 			entry.WithTTL(ttl[0])
 		}
 		return txn.SetEntry(entry)

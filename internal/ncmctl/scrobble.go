@@ -116,6 +116,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	}
 	defer db.Close(ctx)
 
+	// return db.Del(ctx, scrobbleTodayNumKey(uid))
 	// 判断今日是刷歌数量
 	record, err := db.Get(ctx, scrobbleTodayNumKey(uid))
 	if err != nil {
@@ -153,7 +154,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 		bar.Finish()
 	}()
 
-	expire, err := utils.TimeUntilMidnight("Asia/Shanghai")
+	expire, err := utils.TimeUntilMidnight("Local") // Warning: 目前由于badger过期时间使用得是本地时间因此此处也使用本地时间
 	if err != nil {
 		return fmt.Errorf("TimeUntilMidnight: %w", err)
 	}

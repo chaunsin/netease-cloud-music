@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -196,6 +197,72 @@ func TestSplitSlice(t *testing.T) {
 				return
 			}
 			assert.Equalf(t, tt.want, got, "SplitSlice(%v, %v)", tt.args.input, tt.args.chunkSize)
+		})
+	}
+}
+
+func calculateTime(t *testing.T, zone string) int64 {
+	if zone == "" {
+		zone = "Local"
+	}
+	l, err := time.LoadLocation(zone)
+	assert.NoError(t, err)
+	now := time.Now().In(l)
+	will := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, l)
+	return int64(will.Sub(now).Seconds())
+}
+
+func TestTimeUntilMidnight(t *testing.T) {
+	type args struct {
+		timeZone string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    int64
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "cst",
+			args: args{timeZone: "Asia/Shanghai"},
+			want: calculateTime(t, "Asia/Shanghai"), // 由于时间获取在方法内部，此处构造的时间和待测试得基本雷同,允许时间误差在1秒之内。
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name: "local",
+			args: args{timeZone: ""},
+			want: calculateTime(t, ""), // 由于时间获取在方法内部，此处构造的时间和待测试得基本雷同,允许时间误差在1秒之内。
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name: "UTC",
+			args: args{timeZone: "UTC"},
+			want: calculateTime(t, "UTC"), // 由于时间获取在方法内部，此处构造的时间和待测试得基本雷同,允许时间误差在1秒之内。
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					return false
+				}
+				return true
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := TimeUntilMidnight(tt.args.timeZone)
+			if !tt.wantErr(t, err, fmt.Sprintf("TimeUntilMidnight(%v)", tt.args.timeZone)) {
+				return
+			}
+			assert.Equalf(t, tt.want, int64(got.Seconds()), "TimeUntilMidnight(%v)", tt.args.timeZone)
 		})
 	}
 }
