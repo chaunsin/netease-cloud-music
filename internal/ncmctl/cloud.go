@@ -155,15 +155,19 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 				skip.Add(1)
 				continue
 			}
-			if reg != nil && reg.MatchString(file) {
-				c.cmd.Printf("%s file name does not match the regular expression %s", file, c.opts.Regexp)
+			if reg != nil {
+				if reg.MatchString(file) {
+					barSize += stat.Size()
+					fileList = append(fileList, file)
+					continue
+				}
 				skip.Add(1)
+				c.cmd.Printf("%s file name does not match the regular expression %s", file, c.opts.Regexp)
+			} else {
+				barSize += stat.Size()
+				fileList = append(fileList, file)
 				continue
 			}
-			// todo:
-			barSize += stat.Size()
-			fileList = append(fileList, file)
-			continue
 		}
 		// 目录处理
 		if err := fs.WalkDir(os.DirFS(file), ".", func(path string, d fs.DirEntry, err error) error {
@@ -172,6 +176,9 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 			}
 
 			if d.IsDir() {
+				if depth := len(filepath.SplitList(path)); depth > 3 {
+					return fmt.Errorf("maximum supported directory depth is 3: %s", path)
+				}
 				return nil
 			}
 
@@ -197,9 +204,20 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 				return nil
 			}
 
-			barSize += info.Size()
-			fileList = append(fileList, f)
-			return nil
+			if reg != nil {
+				if reg.MatchString(file) {
+					barSize += info.Size()
+					fileList = append(fileList, file)
+					return nil
+				}
+				skip.Add(1)
+				c.cmd.Printf("%s file name does not match the regular expression %s", file, c.opts.Regexp)
+				return nil
+			} else {
+				barSize += info.Size()
+				fileList = append(fileList, f)
+				return nil
+			}
 		}); err != nil {
 			return fmt.Errorf("WalkDir: %w", err)
 		}

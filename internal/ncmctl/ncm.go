@@ -129,6 +129,9 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 			}
 
 			if d.IsDir() {
+				if depth := len(filepath.SplitList(path)); depth > 3 {
+					return fmt.Errorf("maximum supported directory depth is 3: %s", path)
+				}
 				return nil
 			}
 

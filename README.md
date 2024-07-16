@@ -149,19 +149,19 @@ ncmctl download 'https://music.163.com/playlist?id=593617579'
 
 **四、云盘上传**
 
-指定目录上传(批量上传)
-
-```shell
-ncmctl cloud -i '/Users/chaunsin/Music/' 
-```
-
-**提示:** 默认批量上传数为3,最大为10,可指定`-p`参数设置数量。
-
 指定文件上传
 
 ```shell
 ncmctl cloud '/Users/chaunsin/Music/谁为我停留 - 田震.mp3' 
 ```
+
+指定目录上传(批量上传)
+
+```shell
+ncmctl cloud '/Users/chaunsin/Music/' 
+```
+
+**提示:** 默认批量上传数为3,最大为10,可指定`-p`参数设置数量。另外输入的目录深度不能超过3层。
 
 **五、.ncm文件解析**
 
@@ -171,7 +171,7 @@ ncmctl cloud '/Users/chaunsin/Music/谁为我停留 - 田震.mp3'
 ncmctl ncm '/Users/chaunsin/Music/' -o ./ncm
 ```
 
-**提示:** 支持批量解析,默认参数为10，可以指定`-p`参数设置数量。
+**提示:** 支持批量解析,默认参数为10，可以指定`-p`参数设置数量。另外输入的目录深度不能超过3层。
 
 **六、其他命令**
 
