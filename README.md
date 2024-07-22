@@ -34,7 +34,7 @@
 
 目前由于本人时间精力有限,暂未书写文档,不过可以参考`api`目录下代码,代码通俗易懂,且有注释.
 
-_**提示:**
+**提示:**
 目前主要实现了weapi也推荐使用weapi,接口相对较全，如需要其他接口可提 [issue](https://github.com/chaunsin/netease-cloud-music/issues)。
 
 # 要求
