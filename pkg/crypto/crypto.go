@@ -78,7 +78,7 @@ func aesEncrypt(text, key, iv, mode, format string) (string, error) {
 	case "HEX":
 		return strings.ToUpper(hex.EncodeToString(cipherText)), nil
 	default:
-		return "", fmt.Errorf("%s unknown formate", format)
+		return "", fmt.Errorf("%s unknown format", format)
 	}
 }
 
@@ -179,7 +179,7 @@ func rsaEncrypt(ciphertext, key string) (string, error) {
 		return "", errors.New("failed to parse DER encoded public key")
 	}
 
-	// 使用noPadding方式填充,golang标准库中没有此方法
+	// 使用noPadding方式填充
 	c := new(big.Int).SetBytes([]byte(ciphertext))
 	encryptedBytes := c.Exp(c, big.NewInt(int64(pubKey.E)), pubKey.N).Bytes()
 	return hex.EncodeToString(encryptedBytes), nil
@@ -254,7 +254,7 @@ func LinuxApiDecrypt(cipherText string) ([]byte, error) {
 }
 
 // EApiEncrypt 加密
-// 目前所知在PC端中有使用，MAC中。windows、android、ios中均未知
+// 通常在MAC、windows、android、ios中使用
 func EApiEncrypt(url string, object interface{}) (map[string]string, error) {
 	// 需要替换路由地址,不然会出现接口未找到错误
 	url = strings.Replace(url, "eapi", "api", 1)

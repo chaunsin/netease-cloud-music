@@ -295,7 +295,7 @@ type YunBeiSignInRespData struct {
 	Sign bool `json:"sign"`
 }
 
-// YunBeiSignIn 云贝中心每日签到 该接口应该新版本接口,该接口签到成功后可在云贝中心看到奖励,而 YunBeiSignIn() 签到成功后看不到奖励
+// YunBeiSignIn 云贝中心每日签到 该接口应该新版本接口,该接口签到成功后可在云贝中心看到奖励,而 SignIn() 签到成功后看不到奖励
 // url:
 // needLogin: 是
 func (a *Api) YunBeiSignIn(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSignInResp, error) {
