@@ -46,6 +46,7 @@ import (
 type NCMOpts struct {
 	Output   string // 生成文件路径
 	Parallel int64
+	Tag      bool
 }
 
 type NCM struct {
@@ -75,6 +76,7 @@ func NewNCM(root *Root, l *log.Logger) *NCM {
 func (c *NCM) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./ncm", "output music dir")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "concurrent decrypt count")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", false, "disable set a music tag")
 }
 
 func (c *NCM) validate() error {
@@ -213,7 +215,7 @@ func (c *NCM) decode(path string) error {
 	}
 	tmp, err := os.CreateTemp(os.TempDir(), fmt.Sprintf("tmp-ncm-*-%s.%s", name, extend))
 	if err != nil {
-		return fmt.Errorf("createTemp: %w", err)
+		return fmt.Errorf("CreateTemp: %w", err)
 	}
 	defer tmp.Close()
 	log.Debug("tempdir: %s", tmp.Name())
@@ -223,9 +225,12 @@ func (c *NCM) decode(path string) error {
 		return fmt.Errorf("DecodeMusic: %w", err)
 	}
 
-	if err := tag.NewFromNCM(_ncm.NCM, tmp.Name()); err != nil {
-		_ = os.Remove(tmp.Name())
-		return fmt.Errorf("NewFromNCM: %w", err)
+	// 设置歌曲tag相关信息
+	if !c.opts.Tag {
+		if err := tag.NewFromNCM(_ncm.NCM, tmp.Name()); err != nil {
+			_ = os.Remove(tmp.Name())
+			return fmt.Errorf("NewFromNCM: %w", err)
+		}
 	}
 
 	for i := 1; utils.FileExists(dest); i++ {
@@ -238,7 +243,6 @@ func (c *NCM) decode(path string) error {
 	}
 
 	if err := os.Chmod(dest, 0644); err != nil {
-		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("chmod: %w", err)
 	}
 	return nil

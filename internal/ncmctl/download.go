@@ -537,7 +537,6 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 		return fmt.Errorf("rename: %w", err)
 	}
 	if err := os.Chmod(dest, 0644); err != nil {
-		_ = os.Remove(file.Name())
 		return fmt.Errorf("chmod: %w", err)
 	}
 	return nil
