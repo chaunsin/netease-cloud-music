@@ -231,6 +231,15 @@ Use "ncmctl [command] --help" for more information about a command.
 
 当使用`ncmctl`下载无损音乐指定`-l lossless`时,会存在下载Hi-Res品质音乐情况,如果歌曲不支持Hi-Res品质音乐,同时有无损音乐则正常下载无损音乐,问题还需要排查。
 
+### 每日刷歌300首为啥达不到300首
+
+`scrobble`是支持去重功能的,会在`$HOME/.ncmctl/database/`记录听过哪些歌曲记录的，但是目前没有找到这样的一个接口,判断当前账户听过哪些歌曲,因此这就会造成每日听歌达不到300首的情况。
+
+举个例子,在使用本程序之前,你听过某一首歌曲比如`反方向的钟 - 周杰伦`
+,由于此歌曲没有记录到数据库中,即视为未听过歌曲,这就造成了重复播放,进而导致不满足300首。
+
+综上所述强烈建议***不要清理`$HOME/.ncmctl/database/`目录下的文件数据***,除非你知道你在干什么。
+
 # 鸣谢
 
 - https://github.com/Binaryify/NeteaseCloudMusicApi

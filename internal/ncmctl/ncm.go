@@ -187,6 +187,7 @@ func (c *NCM) decode(path string) error {
 	if err != nil {
 		return fmt.Errorf("open: %w", err)
 	}
+	defer _ncm.Close()
 
 	var (
 		meta   = _ncm.Metadata()
@@ -217,12 +218,12 @@ func (c *NCM) decode(path string) error {
 	defer tmp.Close()
 	log.Debug("tempdir: %s", tmp.Name())
 
-	if _, err := tmp.Write(_ncm.Music()); err != nil {
+	if err := _ncm.DecodeMusic(tmp); err != nil {
 		_ = os.Remove(tmp.Name())
-		return fmt.Errorf("writeTemp: %w", err)
+		return fmt.Errorf("DecodeMusic: %w", err)
 	}
 
-	if err := tag.NewFromNCM(_ncm, tmp.Name()); err != nil {
+	if err := tag.NewFromNCM(_ncm.NCM, tmp.Name()); err != nil {
 		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("NewFromNCM: %w", err)
 	}

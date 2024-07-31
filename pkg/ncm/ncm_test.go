@@ -31,11 +31,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/dhowden/tag"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	ncmName = "./testdata/BOE - 822.ncm"
+	ncmFileName = "../testdata/BOE - 822.ncm"
 )
 
 func writeJPG(t *testing.T, data io.Reader, dest string) {
@@ -64,57 +65,28 @@ func writePNG(t *testing.T, data io.Reader, dest string) {
 	defer outputFile.Close()
 
 	// 编码并写入PNG文件
-	err = png.Encode(outputFile, image)
-	assert.NoError(t, err, "编码并写入PNG文件失败")
-}
-
-func TestDecodeMusic(t *testing.T) {
-	var name = ncmName + ".mp3"
-	_ = os.Remove(name)
-	file, err := os.Open(ncmName)
-	defer file.Close()
-	assert.NoError(t, err)
-
-	data, err := DecodeMusic(file)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, data)
-
-	assert.NoError(t, os.WriteFile(name, data, 0644))
+	assert.NoError(t, png.Encode(outputFile, image), "编码并写入PNG文件失败")
 }
 
 func TestIsNCMFile(t *testing.T) {
-	file, err := os.Open(ncmName)
+	file, err := os.Open(ncmFileName)
 	defer file.Close()
 	assert.NoError(t, err)
 	assert.NoError(t, IsNCMFile(file), "判断文件是否是NCM文件失败")
 }
 
-func TestCover(t *testing.T) {
-	var (
-		pngFile  = "../../testdata/test_cover.png"
-		jpegFile = "../../testdata/test_cover.jpeg"
-	)
-
-	_ = os.Remove(pngFile)
-	_ = os.Remove(jpegFile)
-	file, err := os.Open(ncmName)
+func TestDecodeKey(t *testing.T) {
+	file, err := os.Open(ncmFileName)
 	defer file.Close()
 	assert.NoError(t, err)
 
-	data, kind, err := DecodeCover(file)
+	key, err := DecodeKey(file)
 	assert.NoError(t, err)
-	switch kind {
-	case CoverTypeJpeg:
-		writeJPG(t, bytes.NewReader(data), jpegFile)
-	case CoverTypePng:
-		writePNG(t, bytes.NewReader(data), pngFile)
-	default:
-		assert.Fail(t, "不支持的图片格式")
-	}
+	assert.NotZero(t, key)
 }
 
 func TestMeta(t *testing.T) {
-	file, err := os.Open(ncmName)
+	file, err := os.Open(ncmFileName)
 	defer file.Close()
 	assert.NoError(t, err)
 
@@ -124,33 +96,118 @@ func TestMeta(t *testing.T) {
 	t.Logf("data:%+v\n", data)
 }
 
-func TestDecodeKey(t *testing.T) {
-	file, err := os.Open(ncmName)
+func TestDecodeCoverType(t *testing.T) {
+	file, err := os.Open(ncmFileName)
 	defer file.Close()
 	assert.NoError(t, err)
 
-	key, err := DecodeKey(file)
-	assert.NoError(t, err)
-	assert.NotZero(t, key)
+	kind, err := DecodeCoverType(file)
+	assert.Contains(t, []CoverType{CoverTypeJpeg, CoverTypePng}, kind)
 }
 
-func TestNewReadSeeker(t *testing.T) {
-	file, err := os.Open(ncmName)
+func TestDecodeCover(t *testing.T) {
+	var (
+		pngFile  = ncmFileName + ".png"
+		jpegFile = ncmFileName + ".jpeg"
+	)
+
+	_ = os.Remove(pngFile)
+	_ = os.Remove(jpegFile)
+	file, err := os.Open(ncmFileName)
 	defer file.Close()
 	assert.NoError(t, err)
 
-	ncm, err := NewReadSeeker(file)
+	var data = new(bytes.Buffer)
+	assert.NoError(t, DecodeCover(file, data))
+	kind, err := DecodeCoverType(file)
+	switch kind {
+	case CoverTypeJpeg:
+		writeJPG(t, data, jpegFile)
+	case CoverTypePng:
+		writePNG(t, data, pngFile)
+	default:
+		assert.Fail(t, "不支持的图片格式")
+	}
+}
+
+func TestDecodeMusic(t *testing.T) {
+	var name = ncmFileName + ".mp3"
+	_ = os.Remove(name)
+	file, err := os.Open(ncmFileName)
+	defer file.Close()
+	assert.NoError(t, err)
+
+	dest, err := os.Create(name)
+	defer dest.Close()
+	assert.NoError(t, err)
+
+	assert.NoError(t, DecodeMusic(file, dest))
+}
+
+func TestFromReadSeeker(t *testing.T) {
+	file, err := os.Open(ncmFileName)
+	defer file.Close()
+	assert.NoError(t, err)
+
+	ncm, err := FromReadSeeker(file)
 	assert.NoError(t, err)
 	assert.NotZero(t, ncm)
 }
 
 func TestOpen(t *testing.T) {
-	file, err := Open(ncmName)
+	var (
+		pngFile  = ncmFileName + "_open.png"
+		jpegFile = ncmFileName + "_open.jpeg"
+		name     = ncmFileName + "_open.mp3"
+	)
+
+	_ = os.Remove(pngFile)
+	_ = os.Remove(jpegFile)
+	_ = os.Remove(name)
+
+	file, err := Open(ncmFileName)
+	defer file.Close()
 	assert.NoError(t, err)
 
-	img, kind := file.Cover()
-	assert.NotZero(t, img)
-	assert.Contains(t, []CoverType{CoverTypeJpeg, CoverTypePng}, kind)
+	// handler music metadata
 	assert.NotZero(t, file.Metadata())
-	assert.NotZero(t, file.Music())
+
+	// handler cover image
+	var img = new(bytes.Buffer)
+	assert.NoError(t, file.DecodeCover(img))
+	assert.NotZero(t, img.Bytes())
+	ct, err := file.DecodeCoverType()
+	assert.NoError(t, err)
+	assert.Contains(t, []CoverType{CoverTypeJpeg, CoverTypePng}, ct)
+	switch ct {
+	case CoverTypeJpeg:
+		writeJPG(t, img, jpegFile)
+	case CoverTypePng:
+		writePNG(t, img, pngFile)
+	}
+
+	// handler music
+	var data = new(bytes.Buffer)
+	dest, err := os.Create(name)
+	defer dest.Close()
+	assert.NoError(t, err)
+	assert.NoError(t, file.DecodeMusic(data))
+	assert.NotZero(t, data.Bytes())
+	n, err := dest.Write(data.Bytes())
+	assert.NoError(t, err)
+	assert.Greater(t, n, 0)
+}
+
+func TestMusicDetect(t *testing.T) {
+	file, err := os.Open(ncmFileName)
+	defer file.Close()
+	assert.NoError(t, err)
+
+	var data = new(bytes.Buffer)
+	assert.NoError(t, DecodeMusic(file, data))
+
+	m, err := tag.ReadFrom(bytes.NewReader(data.Bytes()))
+	assert.NoError(t, err)
+
+	t.Logf("format=%v, name=%v, album=%v", m.FileType(), m.Title(), m.Album())
 }

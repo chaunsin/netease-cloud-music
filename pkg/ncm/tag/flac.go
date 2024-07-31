@@ -1,54 +1,80 @@
+// MIT License
+//
+// Copyright (c) 2024 chaunsin
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+
 package tag
 
 import (
+	"fmt"
+
 	"github.com/go-flac/flacpicture"
 	"github.com/go-flac/flacvorbis"
 	"github.com/go-flac/go-flac"
 )
 
 type Flac struct {
-	path string
-	file *flac.File
-	cmts *flacvorbis.MetaDataBlockVorbisComment
+	path    string
+	file    *flac.File
+	comment *flacvorbis.MetaDataBlockVorbisComment
 }
 
 func NewFlac(path string) (*Flac, error) {
 	// already read and closed
-	f, err := flac.ParseFile(path)
+	file, err := flac.ParseFile(path)
 	if err != nil {
 		return nil, err
 	}
 
 	// find the vorbisComment
 	var block *flac.MetaDataBlock
-	for _, m := range f.Meta {
+	for _, m := range file.Meta {
 		if m.Type == flac.VorbisComment {
 			block = m
 			break
 		}
 	}
-	var cmts *flacvorbis.MetaDataBlockVorbisComment
+	var comment *flacvorbis.MetaDataBlockVorbisComment
 	if block != nil {
-		cmts, err = flacvorbis.ParseFromMetaDataBlock(*block)
+		comment, err = flacvorbis.ParseFromMetaDataBlock(*block)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("ParseFromMetaDataBlock: %w", err)
 		}
 	} else {
-		cmts = flacvorbis.New()
+		comment = flacvorbis.New()
 	}
 
-	tagger := Flac{
-		path: path,
-		file: f,
-		cmts: cmts,
+	f := Flac{
+		path:    path,
+		file:    file,
+		comment: comment,
 	}
-	return &tagger, nil
+	return &f, nil
 }
 
+// SetCover sets the cover image. mime supported: image/jpeg, image/png
 func (f *Flac) SetCover(buf []byte, mime string) error {
 	picture, err := flacpicture.NewFromImageData(flacpicture.PictureTypeFrontCover, "Front cover", buf, mime)
 	if err != nil {
-		return err
+		return fmt.Errorf("NewFromImageData: %w", err)
 	}
 
 	data := picture.Marshal()
@@ -69,13 +95,13 @@ func (f *Flac) SetCoverUrl(coverUrl string) error {
 }
 
 func (f *Flac) addTag(key string, values ...string) error {
-	old, err := f.cmts.Get(key)
+	old, err := f.comment.Get(key)
 	if err != nil {
 		return err
 	}
 	if len(old) == 0 {
 		for _, val := range values {
-			if err = f.cmts.Add(key, val); err != nil {
+			if err = f.comment.Add(key, val); err != nil {
 				return err
 			}
 		}
@@ -116,7 +142,7 @@ func (f *Flac) setVorbisCommentMeta(block *flac.MetaDataBlock) {
 }
 
 func (f *Flac) Save() error {
-	block := f.cmts.Marshal()
+	block := f.comment.Marshal()
 	f.setVorbisCommentMeta(&block)
 	return f.file.Save(f.path)
 }

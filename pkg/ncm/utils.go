@@ -24,23 +24,55 @@
 package ncm
 
 import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
 	"io"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
-func Benchmark_Open(b *testing.B) {
-	b.ReportAllocs()
-	var ncmName = "./testdata/BOE - 822.ncm"
-	for i := 0; i < b.N; i++ {
-		func() {
-			file, err := Open(ncmName)
-			defer file.Close()
-			assert.NoError(b, err)
-			assert.NoError(b, file.DecodeCover(io.Discard))
-			assert.NoError(b, file.DecodeMusic(io.Discard))
-			assert.NoError(b, file.DecodeCover(io.Discard))
-		}()
+type CoverType string
+
+const (
+	CoverTypeUnknown CoverType = "unknown"
+	CoverTypePng     CoverType = "png"
+	CoverTypeJpeg    CoverType = "jpeg"
+)
+
+func (c CoverType) FileType() string {
+	return string(c)
+}
+
+func (c CoverType) MIME() string {
+	switch c {
+	case CoverTypeJpeg:
+		return "image/jpeg"
+	case CoverTypePng:
+		return "image/png"
+	case CoverTypeUnknown:
+		fallthrough
+	default:
+		return "unknown"
 	}
+}
+
+var (
+	pngPrefix  = []byte("\x89PNG\x0D\x0A\x1A\x0A")
+	jpegPrefix = []byte("\xFF\xD8\xFF")
+)
+
+func DetectCoverType(data []byte) CoverType {
+	if bytes.HasPrefix(data, jpegPrefix) {
+		return CoverTypeJpeg
+	}
+	if bytes.HasPrefix(data, pngPrefix) {
+		return CoverTypePng
+	}
+	return CoverTypeUnknown
+}
+
+func readUint32(rBuf []byte, rs io.ReadSeeker) (uint32, error) {
+	if n, err := rs.Read(rBuf); err != nil {
+		return uint32(n), fmt.Errorf("read: %w", err)
+	}
+	return binary.LittleEndian.Uint32(rBuf), nil
 }

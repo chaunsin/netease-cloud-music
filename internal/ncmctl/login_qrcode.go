@@ -151,6 +151,6 @@ ok:
 	if err != nil {
 		return fmt.Errorf("GetUserInfo: %s", err)
 	}
-	c.cmd.Printf("login success: %+v", user)
+	c.cmd.Printf("login success: %+v\n", user)
 	return nil
 }
