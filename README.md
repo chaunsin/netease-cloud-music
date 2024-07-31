@@ -253,3 +253,5 @@ Use "ncmctl [command] --help" for more information about a command.
 - https://github.com/mos9527/pyncm
 - https://github.com/naruto2o2o/musicdump
 - https://crontab.guru
+
+以及本项目所依赖的三方优秀库。
