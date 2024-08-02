@@ -24,29 +24,38 @@
 package tag
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"os"
 
-	"github.com/go-flac/flacpicture"
-	"github.com/go-flac/flacvorbis"
-	"github.com/go-flac/go-flac"
+	"github.com/go-flac/flacpicture/v2"
+	"github.com/go-flac/flacvorbis/v2"
+	"github.com/go-flac/go-flac/v2"
 )
 
 type Flac struct {
-	path    string
-	file    *flac.File
-	comment *flacvorbis.MetaDataBlockVorbisComment
+	filename string
+	file     *os.File
+	flac     *flac.File
+	comment  *flacvorbis.MetaDataBlockVorbisComment
 }
 
-func NewFlac(path string) (*Flac, error) {
-	// already read and closed
-	file, err := flac.ParseFile(path)
+func NewFlac(filename string) (*Flac, error) {
+	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 
+	_flac, err := flac.ParseBytes(bufio.NewReader(file))
+	if err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("ParseBytes: %w", err)
+	}
+
 	// find the vorbisComment
 	var block *flac.MetaDataBlock
-	for _, m := range file.Meta {
+	for _, m := range _flac.Meta {
 		if m.Type == flac.VorbisComment {
 			block = m
 			break
@@ -56,6 +65,7 @@ func NewFlac(path string) (*Flac, error) {
 	if block != nil {
 		comment, err = flacvorbis.ParseFromMetaDataBlock(*block)
 		if err != nil {
+			_ = file.Close()
 			return nil, fmt.Errorf("ParseFromMetaDataBlock: %w", err)
 		}
 	} else {
@@ -63,22 +73,22 @@ func NewFlac(path string) (*Flac, error) {
 	}
 
 	f := Flac{
-		path:    path,
-		file:    file,
-		comment: comment,
+		filename: filename,
+		file:     file,
+		flac:     _flac,
+		comment:  comment,
 	}
 	return &f, nil
 }
 
-// SetCover sets the cover image. mime supported: image/jpeg, image/png
 func (f *Flac) SetCover(buf []byte, mime string) error {
 	picture, err := flacpicture.NewFromImageData(flacpicture.PictureTypeFrontCover, "Front cover", buf, mime)
 	if err != nil {
-		return fmt.Errorf("NewFromImageData: %w", err)
+		return err
 	}
 
 	data := picture.Marshal()
-	f.file.Meta = append(f.file.Meta, &data)
+	f.flac.Meta = append(f.flac.Meta, &data)
 	return nil
 }
 
@@ -90,7 +100,7 @@ func (f *Flac) SetCoverUrl(coverUrl string) error {
 		ImageData:   []byte(coverUrl),
 	}
 	data := picture.Marshal()
-	f.file.Meta = append(f.file.Meta, &data)
+	f.flac.Meta = append(f.flac.Meta, &data)
 	return nil
 }
 
@@ -128,21 +138,50 @@ func (f *Flac) SetComment(comment string) error {
 
 func (f *Flac) setVorbisCommentMeta(block *flac.MetaDataBlock) {
 	var idx = -1
-	for i, m := range f.file.Meta {
+	for i, m := range f.flac.Meta {
 		if m.Type == flac.VorbisComment {
 			idx = i
 			break
 		}
 	}
 	if idx == -1 {
-		f.file.Meta = append(f.file.Meta, block)
+		f.flac.Meta = append(f.flac.Meta, block)
 	} else {
-		f.file.Meta[idx] = block
+		f.flac.Meta[idx] = block
 	}
 }
 
 func (f *Flac) Save() error {
 	block := f.comment.Marshal()
 	f.setVorbisCommentMeta(&block)
-	return f.file.Save(f.path)
+
+	stat, err := f.file.Stat()
+	if err != nil {
+		return err
+	}
+
+	var tmpName = f.filename + "-tmp"
+	temp, err := os.OpenFile(tmpName, os.O_RDWR|os.O_CREATE, stat.Mode())
+	if err != nil {
+		return err
+	}
+	defer temp.Close()
+
+	// 写入到临时文件中
+	if _, err := f.flac.WriteTo(temp); err != nil {
+		return fmt.Errorf("WriteTo: %w", err)
+	}
+
+	// 关闭打开的源文件
+	if err := f.file.Close(); err != nil && !errors.Is(err, os.ErrClosed) {
+		_ = os.Remove(tmpName)
+		return err
+	}
+
+	// 替换掉源文件
+	if err := os.Rename(tmpName, f.filename); err != nil {
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("rename: %w", err)
+	}
+	return nil
 }

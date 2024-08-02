@@ -8,11 +8,11 @@ require (
 	github.com/cheggaaa/pb/v3 v3.1.5
 	github.com/dgraph-io/badger/v4 v4.2.0
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
-	github.com/go-flac/flacpicture v0.3.0
-	github.com/go-flac/flacvorbis v0.2.0
-	github.com/go-flac/go-flac v1.0.0
+	github.com/go-flac/flacpicture/v2 v2.0.2
+	github.com/go-flac/flacvorbis/v2 v2.0.2
+	github.com/go-flac/go-flac/v2 v2.0.1
 	github.com/go-resty/resty/v2 v2.13.1
-	github.com/google/brotli/go/cbrotli v0.0.0-20240531161123-a528bce9f65b
+	github.com/google/brotli/go/cbrotli v0.0.0-20240715182736-39bcecf4559f
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
