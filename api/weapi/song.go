@@ -419,3 +419,68 @@ func (a *Api) SongDownloadUrl(ctx context.Context, req *SongDownloadUrlReq) (*So
 	_ = resp
 	return &reply, nil
 }
+
+type SongDownloadUrlV1Req struct {
+	types.ReqCommon
+	Ids         string      `json:"id"`          // 歌曲id
+	Level       types.Level `json:"level"`       // 音乐质量
+	ImmerseType string      `json:"immerseType"` // 只有Level为sky时生效(可能还有其他类型)
+}
+
+type SongDownloadUrlV1Resp struct {
+	types.RespCommon[SongDownloadUrlV1RespData]
+}
+
+type SongDownloadUrlV1RespData struct {
+	Br                     int64                        `json:"br"`
+	CanExtend              bool                         `json:"canExtend"`
+	ChannelLayout          interface{}                  `json:"channelLayout"`
+	Code                   int64                        `json:"code"`
+	EffectTypes            interface{}                  `json:"effectTypes"`
+	EncodeType             string                       `json:"encodeType"`
+	Expi                   int64                        `json:"expi"`
+	Fee                    int64                        `json:"fee"`
+	Flag                   int64                        `json:"flag"`
+	FreeTimeTrialPrivilege types.FreeTimeTrialPrivilege `json:"freeTimeTrialPrivilege"`
+	FreeTrialInfo          interface{}                  `json:"freeTrialInfo"`
+	FreeTrialPrivilege     types.FreeTrialPrivilege     `json:"freeTrialPrivilege"`
+	Gain                   float64                      `json:"gain"`
+	Id                     int64                        `json:"id"`
+	Level                  string                       `json:"level"`
+	LevelConfuse           interface{}                  `json:"levelConfuse"`
+	Md5                    string                       `json:"md5"`
+	Message                interface{}                  `json:"message"`
+	Payed                  int64                        `json:"payed"`
+	Peak                   float64                      `json:"peak"`
+	PodcastCtrp            interface{}                  `json:"podcastCtrp"`
+	RightSource            int64                        `json:"rightSource"`
+	Size                   int64                        `json:"size"`
+	Time                   int64                        `json:"time"`
+	Type                   string                       `json:"type"`
+	Uf                     interface{}                  `json:"uf"`
+	Url                    string                       `json:"url"`
+	UrlSource              int64                        `json:"urlSource"`
+}
+
+// SongDownloadUrlV1 获取客户端歌曲下载链接
+// url:
+// needLogin: 未知
+// 说明: 使用 `/song/url/v1` 接口获取的是歌曲试听 url, 但存在部分歌曲在非 VIP 账号上可以下载无损音质而不能试听无损音质, 使用此接口可使非 VIP 账号获取这些歌曲的无损音频
+func (a *Api) SongDownloadUrlV1(ctx context.Context, req *SongDownloadUrlV1Req) (*SongDownloadUrlV1Resp, error) {
+	var (
+		url   = "https://music.163.com/weapi/song/enhance/download/url/v1"
+		reply SongDownloadUrlV1Resp
+	)
+
+	// 目前不传值也没发现什么问题
+	// if req.Level == types.LevelSky {
+	// 	req.ImmerseType = "c51"
+	// }
+
+	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", &req, &reply)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
