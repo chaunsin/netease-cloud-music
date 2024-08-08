@@ -117,7 +117,7 @@ ncmctl download -l hires '1820944399'
 2. 下载无损品质(SQ)音乐,到当前`download`目录下
 
 ```shell
-ncmctl download -l SQ 'https://music.163.com/song?id=1820944399 -o ./download/' 
+ncmctl download -l SQ 'https://music.163.com/song?id=1820944399' -o ./download/ 
 ```
 
 **提示:** 支持得音质有(从低到高) `standard/128 < higher/192 < exhigh/HQ/320 < lossless/SQ < hires/HR`
