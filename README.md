@@ -240,6 +240,8 @@ Use "ncmctl [command] --help" for more information about a command.
 
 综上所述强烈建议***不要清理`$HOME/.ncmctl/database/`目录下的文件数据***,除非你知道你在干什么。
 
+另外还有一种极端情况,刷歌采用的歌单是top榜单歌曲(top榜单歌曲相对来说都是新歌,不同得歌单更新频率不一样)，top榜单有50个左右，虽然看起来很多,但实际上还是存在不满足300首新歌情况,如果网易新歌曲更新得不及时,由于有判重复逻辑,因此还是会存在不满足300首得情况。
+
 # 鸣谢
 
 - https://github.com/Binaryify/NeteaseCloudMusicApi
