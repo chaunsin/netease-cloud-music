@@ -57,7 +57,7 @@ git clone https://github.com/chaunsin/netease-cloud-music.git
 make install
 ```
 
-**提示:** 默认会安装到`$GOPATH/bin`下
+**提示:** 默认会安装到`$GOPATH/bin`目录下
 
 ## 使用
 
