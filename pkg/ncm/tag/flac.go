@@ -124,7 +124,6 @@ func (f *Flac) SetTitle(title string) error {
 }
 
 func (f *Flac) SetAlbum(album string) error {
-
 	return f.addTag(flacvorbis.FIELD_ALBUM, album)
 }
 
