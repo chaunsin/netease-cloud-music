@@ -242,6 +242,12 @@ Use "ncmctl [command] --help" for more information about a command.
 
 另外还有一种极端情况,刷歌采用的歌单是top榜单歌曲(top榜单歌曲相对来说都是新歌,不同得歌单更新频率不一样)，top榜单有50个左右，虽然看起来很多,但实际上还是存在不满足300首新歌情况,如果网易新歌曲更新得不及时,由于有判重复逻辑,因此还是会存在不满足300首得情况。
 
+### ncmctl task和scrobble、sign、partner子命令有啥区别？
+
+task命令是一个服务，默认执行是包含了scrobble、sign、partner子命令功能，启动之后会每天定时得去执行,也就是说把此命令部署到服务器上并配合`nohup`命令去启动就不用每天手动去执行一遍任务了。
+
+再说一下scrobble、sign、partner。这几个子命令不是服务，执行之后会立刻执行相应得任务并返回结果，不像task执行需要”到点了“才会执行。
+
 # 鸣谢
 
 - https://github.com/Binaryify/NeteaseCloudMusicApi
