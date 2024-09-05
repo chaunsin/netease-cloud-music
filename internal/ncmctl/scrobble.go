@@ -109,6 +109,14 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	}
 	var uid = fmt.Sprintf("%v", user.Account.Id)
 
+	// 刷新token过期时间
+	defer func() {
+		refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
+		if err != nil || refresh.Code != 200 {
+			log.Warn("TokenRefresh resp:%+v err: %s", refresh, err)
+		}
+	}()
+
 	// 初始化数据库如果文件不存在则直接创建
 	db, err := database.New(c.root.Cfg.Database)
 	if err != nil {

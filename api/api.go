@@ -199,6 +199,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 
 	request := c.cli.R().
 		SetContext(ctx).
+		// SetCookie(&http.Cookie{Name: "os", Value: "pc"}). // TODO: 临时解决token刷新400问题,如果全局添加扫码登录创建二维码会报网络频繁错误。
 		SetHeader("Host", "music.163.com").
 		SetHeader("Connection", "keep-alive").
 		SetHeader("Accept", "*/*").

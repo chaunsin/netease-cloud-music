@@ -247,6 +247,14 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 		return fmt.Errorf("need login")
 	}
 
+	// 刷新token过期时间
+	defer func() {
+		refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
+		if err != nil || refresh.Code != 200 {
+			log.Warn("TokenRefresh resp:%+v err: %s", refresh, err)
+		}
+	}()
+
 	// 执行目录文件上传
 	var (
 		sema = semaphore.NewWeighted(c.opts.Parallel)

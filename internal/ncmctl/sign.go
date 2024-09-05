@@ -131,5 +131,10 @@ func (c *SignIn) execute(ctx context.Context) error {
 	// 	c.cmd.Printf("[%s] finish\n", v.TaskName)
 	// }
 
+	// 刷新token过期时间
+	refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
+	if err != nil || refresh.Code != 200 {
+		log.Warn("TokenRefresh resp:%+v err: %s", refresh, err)
+	}
 	return nil
 }

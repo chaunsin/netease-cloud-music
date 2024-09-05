@@ -109,9 +109,9 @@ func (c *Partner) do(ctx context.Context) error {
 		return fmt.Errorf("NewClient: %w", err)
 	}
 	defer cli.Close(ctx)
-	request := weapi.New(cli)
 
 	// 判断是否需要登录
+	request := weapi.New(cli)
 	if request.NeedLogin(ctx) {
 		return fmt.Errorf("need login")
 	}
@@ -178,6 +178,12 @@ func (c *Partner) do(ctx context.Context) error {
 			log.Error("PartnerEvaluate(%+v) err: %+v\n", req, resp)
 			// return fmt.Errorf("PartnerEvaluate: %v", resp.Message)
 		}
+	}
+
+	// 刷新token过期时间
+	refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
+	if err != nil || refresh.Code != 200 {
+		log.Warn("TokenRefresh resp:%+v err: %s", refresh, err)
 	}
 	return nil
 }

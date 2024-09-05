@@ -29,6 +29,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/nohup"
 
@@ -164,6 +166,17 @@ func (c *Task) execute(ctx context.Context, args []string) error {
 	local, err := time.LoadLocation(c.opts.Location)
 	if err != nil {
 		return fmt.Errorf("wrong time zone: %w", err)
+	}
+
+	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
+	if err != nil {
+		return fmt.Errorf("NewClient: %w", err)
+	}
+	defer cli.Close(ctx)
+
+	request := weapi.New(cli)
+	if request.NeedLogin(ctx) {
+		return fmt.Errorf("need login")
 	}
 
 	var (

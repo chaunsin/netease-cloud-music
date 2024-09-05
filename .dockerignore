@@ -1,0 +1,5 @@
+*.md
+docs
+testdata
+ncmctl
+ncmctl.exe
