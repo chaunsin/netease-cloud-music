@@ -125,7 +125,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	defer db.Close(ctx)
 
 	// return db.Del(ctx, scrobbleTodayNumKey(uid))
-	// 判断今日是刷歌数量
+	// 判断今日刷歌数量
 	record, err := db.Get(ctx, scrobbleTodayNumKey(uid))
 	if err != nil {
 		if strings.Contains(err.Error(), "Key not found") {
