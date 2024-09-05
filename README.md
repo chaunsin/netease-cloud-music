@@ -40,6 +40,7 @@
 # 要求
 
 - golang >= 1.21
+- makefile (可选)
 - git (可选)
 - docker (可选)
 
@@ -57,7 +58,7 @@ go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
 
 ```shell
 git clone https://github.com/chaunsin/netease-cloud-music.git
-make install
+cd netease-cloud-music && make install
 ```
 
 **提示:** 默认会安装到`$GOPATH/bin`目录下
@@ -74,7 +75,7 @@ docker pull chaunsin/ncmctl:latest
 
 ```shell
 git clone https://github.com/chaunsin/netease-cloud-music.git
-make build-iamge
+cd netease-cloud-music && make build-iamge
 ```
 
 **提示:** 自行编译需要安装docker环境,另外受国服环境影响最好开梯子。
@@ -276,7 +277,8 @@ Use "ncmctl [command] --help" for more information about a command.
 
 ### ncmctl task和scrobble、sign、partner子命令有啥区别？
 
-task命令是一个服务，默认执行是包含了scrobble、sign、partner子命令功能，启动之后会每天定时得去执行,也就是说把此命令部署到服务器上并配合`nohup`命令去启动就不用每天手动去执行一遍任务了。
+task命令是一个服务，默认执行是包含了scrobble、sign、partner子命令功能，启动之后会每天定时得去执行,也就是说把此命令部署到服务器上并配合
+`nohup`命令去启动就不用每天手动去执行一遍任务了。
 
 再说一下scrobble、sign、partner。这几个子命令不是服务，执行之后会立刻执行相应得任务并返回结果，不像task执行需要”到点了“才会执行。
 
