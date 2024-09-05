@@ -26,8 +26,8 @@ package weapi
 import (
 	"context"
 	"fmt"
-	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
@@ -147,13 +147,14 @@ func (a *Api) PartnerWeek(ctx context.Context, req *PartnerWeekReq) (*PartnerWee
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/week/result/get"
 		reply PartnerWeekResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -274,13 +275,14 @@ func (a *Api) PartnerPeriod(ctx context.Context, req *PartnerPeriodReq) (*Partne
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/period/result/get"
 		reply PartnerPeriodResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -325,13 +327,14 @@ func (a *Api) PartnerUserinfo(ctx context.Context, req *PartnerUserinfoReq) (*Pa
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/user/info/get"
 		reply PartnerUserinfoResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -358,13 +361,14 @@ func (a *Api) PartnerLatest(ctx context.Context, req *PartnerLatestReq) (*Partne
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/latest/settle/period/get"
 		reply PartnerLatestResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -407,13 +411,14 @@ func (a *Api) PartnerHome(ctx context.Context, req *PartnerHomeReq) (*PartnerHom
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/home/get"
 		reply PartnerHomeResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -470,13 +475,14 @@ func (a *Api) PartnerDailyTask(ctx context.Context, req *PartnerTaskReq) (*Partn
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/daily/task/get"
 		reply PartnerTaskResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -501,13 +507,14 @@ func (a *Api) PartnerPickRight(ctx context.Context, req *PartnerPickRightReq) (*
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/song/pick/right/get"
 		reply PartnerPickRightResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -528,13 +535,14 @@ func (a *Api) PartnerNotice(ctx context.Context, req *PartnerNoticeReq) (*Partne
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/daily/notice/switch/get"
 		reply PartnerNoticeResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -687,13 +695,14 @@ func (a *Api) PartnerEvaluate(ctx context.Context, req *PartnerEvaluateReq) (*Pa
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/work/evaluate"
 		reply PartnerEvaluateResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

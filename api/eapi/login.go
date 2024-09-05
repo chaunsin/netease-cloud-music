@@ -26,8 +26,8 @@ package eapi
 import (
 	"context"
 	"fmt"
-	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 
 	"github.com/skip2/go-qrcode"
@@ -70,9 +70,11 @@ func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*Qr
 	var (
 		url   = "https://music.163.com/eapi/login/qrcode/unikey"
 		reply QrcodeCreateKeyResp
+		opts  = api.NewOptions()
 	)
+	opts.CryptoMode = api.CryptoModeEAPI
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -135,9 +137,11 @@ func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeChec
 	var (
 		url   = "https://music.163.com/eapi/login/qrcode/client/login"
 		reply QrcodeCheckResp
+		opts  = api.NewOptions()
 	)
+	opts.CryptoMode = api.CryptoModeEAPI
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -216,9 +220,11 @@ func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInf
 	var (
 		url   = "https://music.163.com/eapi/w/nuser/account/get"
 		reply GetUserInfoResp
+		opts  = api.NewOptions()
 	)
+	opts.CryptoMode = api.CryptoModeEAPI
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -239,8 +245,11 @@ func (a *Api) RefreshToken(ctx context.Context, req *RefreshTokenReq) (*RefreshT
 	var (
 		url   = "https://music.163.com/eapi/login/token/refresh"
 		reply RefreshTokenResp
+		opts  = api.NewOptions()
 	)
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", req, &reply)
+	opts.CryptoMode = api.CryptoModeEAPI
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

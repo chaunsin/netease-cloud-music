@@ -26,8 +26,8 @@ package weapi
 import (
 	"context"
 	"fmt"
-	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
@@ -66,9 +66,11 @@ func (a *Api) SearchDefault(ctx context.Context, req *SearchDefaultReq) (*Search
 	var (
 		url   = "https://interface.music.163.com/eapi/search/default/keyword/get"
 		reply SearchDefaultResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", req, &reply)
+	opts.CryptoMode = api.CryptoModeEAPI
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

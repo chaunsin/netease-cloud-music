@@ -163,6 +163,14 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 		return fmt.Errorf("need login")
 	}
 
+	// 刷新token过期时间
+	defer func() {
+		refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
+		if err != nil || refresh.Code != 200 {
+			log.Warn("TokenRefresh resp:%+v err: %s", refresh, err)
+		}
+	}()
+
 	if err := utils.MkdirIfNotExist(c.opts.Output, 0755); err != nil {
 		return fmt.Errorf("MkdirIfNotExist: %w", err)
 	}

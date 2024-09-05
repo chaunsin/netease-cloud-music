@@ -183,7 +183,17 @@ func (c *Client) GetCSRF(url string) (string, bool) {
 }
 
 // Request 接口请求
-func (c *Client) Request(ctx context.Context, method, url, cryptoType string, req, resp interface{}) (*resty.Response, error) {
+func (c *Client) Request(ctx context.Context, url string, req, resp interface{}, opts *Options) (*resty.Response, error) {
+	if url == "" || req == nil || resp == nil {
+		return nil, errors.New("request args invalid")
+	}
+	if opts == nil {
+		opts = NewOptions()
+	}
+	if opts.Method == "" {
+		opts.Method = http.MethodPost
+	}
+
 	var (
 		encryptData map[string]string
 		err         error
@@ -195,7 +205,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 		return nil, err
 	}
 
-	// todo: User-Agent
+	// todo: set User-Agent config
 
 	request := c.cli.R().
 		SetContext(ctx).
@@ -209,8 +219,16 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034")
 	// SetHeader("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.1 Chrome/121.0.0.0 Mobile Safari/537.36")
 
-	switch cryptoType {
-	case "eapi":
+	// append
+	if opts.Headers != nil && len(opts.Headers) > 0 {
+		request.SetHeaders(opts.Headers)
+	}
+	if opts.Cookies != nil && len(opts.Cookies) > 0 {
+		request.SetCookies(opts.Cookies)
+	}
+
+	switch opts.CryptoMode {
+	case CryptoModeEAPI:
 		// todo: set common params
 		// var dataHeader = http.Header{}
 		// dataHeader.Add("osver", getCookie(options.cookies, "osver"))
@@ -244,7 +262,7 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 		if err != nil {
 			return nil, fmt.Errorf("EApiEncrypt: %w", err)
 		}
-	case "weapi":
+	case CryptoModeWEAPI:
 		// todo: 需要替换？因为有些 https://interface.music.163.com/api 得接口也会走这个逻辑
 		// reg, _ := regexp.Compile(`\w*api`)
 		// url = reg.ReplaceAllString(url, "weapi")
@@ -271,25 +289,25 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 		if err != nil {
 			return nil, fmt.Errorf("WeApiEncrypt: %w", err)
 		}
-	case "linux":
+	case CryptoModeLinux:
 		encryptData, err = crypto.LinuxApiEncrypt(req)
 		if err != nil {
 			return nil, fmt.Errorf("LinuxApiEncrypt: %w", err)
 		}
-	case "api":
+	case CryptoModeAPI:
 		// tips: 不需要加密处理请求
 	default:
-		return nil, fmt.Errorf("%s crypto mode unknown", cryptoType)
+		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
 	log.Debug("[request]: %+v encrypt: %+v", req, encryptData)
 
-	switch method {
+	switch opts.Method {
 	case http.MethodPost:
 		response, err = request.SetFormData(encryptData).Post(url)
 	case http.MethodGet:
 		resp, err = request.Get(url)
 	default:
-		return nil, fmt.Errorf("%s not surpport http method", method)
+		return nil, fmt.Errorf("%s not surpport http method", opts.Method)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
@@ -297,11 +315,11 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 	log.Debug("[response]: %+v", string(response.Body()))
 
 	var decryptData []byte
-	switch cryptoType {
-	case "api":
+	switch opts.CryptoMode {
+	case CryptoModeAPI:
 		// tips: api接口返回数据是明文
 		decryptData = response.Body()
-	case "eapi":
+	case CryptoModeEAPI:
 		// TODO: 貌似eapi接口返回数据是否是是明文,跟传入参数有关系e_r: true有关true为加密，false为铭文。采用反射处理。
 		// see: https://gitlab.com/Binaryify/neteasecloudmusicapi/-/commit/58e9865b70e41197c2ab75c46a775fc45d6efa6e
 		// decryptData, err = crypto.EApiDecrypt(string(response.Body()), "")
@@ -309,16 +327,16 @@ func (c *Client) Request(ctx context.Context, method, url, cryptoType string, re
 		// 	return nil, fmt.Errorf("EApiDecrypt: %w", err)
 		// }
 		decryptData = response.Body()
-	case "weapi":
+	case CryptoModeWEAPI:
 		// tips: weapi接口返回数据是明文
 		decryptData = response.Body()
-	case "linux":
+	case CryptoModeLinux:
 		decryptData, err = crypto.LinuxApiDecrypt(string(response.Body()))
 		if err != nil {
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
 	default:
-		return nil, fmt.Errorf("%s crypto mode unknown", cryptoType)
+		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
 	log.Debug("[response.decrypt]: %s", string(decryptData))
 	if err := json.Unmarshal(decryptData, &resp); err != nil {

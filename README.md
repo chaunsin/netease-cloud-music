@@ -41,10 +41,13 @@
 
 - golang >= 1.21
 - git (可选)
+- docker (可选)
 
 # ncmctl
 
 ## 安装
+
+可执行文件安装
 
 ```shell
 go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
@@ -59,6 +62,23 @@ make install
 
 **提示:** 默认会安装到`$GOPATH/bin`目录下
 
+docker版本镜像获取方式
+
+```shell
+docker pull chaunsin/ncmctl:latest
+```
+
+镜像仓库以及docker使用方式: https://hub.docker.com/r/chaunsin/ncmctl
+
+如有条件自编译镜像
+
+```shell
+git clone https://github.com/chaunsin/netease-cloud-music.git
+make build-iamge
+```
+
+**提示:** 自行编译需要安装docker环境,另外受国服环境影响最好开梯子。
+
 ## 使用
 
 **一、二维码登录**
@@ -67,8 +87,12 @@ make install
 ncmctl login qrcode
 ```
 
-**提示:** 使用手机登录网易云音乐app进行扫码授权登录，如果不能识别终端打印的二维码可根据终端输出得文件路径找到二维码图片文件进行扫描。切记扫码过程中
-**不能退出终端**!!! 如有问题可重复此流程。
+**提示:** 使用手机登录网易云音乐app进行扫码授权登录，如果不能识别终端打印的二维码可根据终端输出得文件路径提示找到二维码图片进行扫描,或者copy终端输出得
+`qrcode content: https://www.163.com/xxx` 内容进行自己生成二维码再进行扫描(_粘贴时不要包含`qrcode content: `
+以及结尾空格_)。另外扫码过程中
+**不能退出终端**!!! 如有问题可重复此流程,为避免被风控不要频繁登录。
+
+在线生成二维码工具: https://www.bejson.com/convert/qrcode/#google_vignette
 
 **二、一键执行每日所有任务**
 
@@ -88,7 +112,14 @@ ncmctl task
 ncmctl task --sign
 ````
 
-更改某一个任务默认运行时间,比如刷歌(scrobble)在每天晚上20:00:00点执行.
+另外`partner`"音乐合伙人"资格不是所有人都有，网易会不定期私信邀请一部分人成为音乐合伙人。由于`ncmctl task`
+默认是执行所有任务，因此没有该资格得人执行如下
+
+```shell
+ncmctl task --sign --scrobble 
+```
+
+如果想更改某一个任务默认运行时间,比如刷歌(scrobble)在每天晚上20:00:00点执行.
 
 ```shell
 ncmctl task --scrobble.cron "0 20 * * *"
@@ -240,7 +271,8 @@ Use "ncmctl [command] --help" for more information about a command.
 
 综上所述强烈建议***不要清理`$HOME/.ncmctl/database/`目录下的文件数据***,除非你知道你在干什么。
 
-另外还有一种极端情况,刷歌采用的歌单是top榜单歌曲(top榜单歌曲相对来说都是新歌,不同得歌单更新频率不一样)，top榜单有50个左右，虽然看起来很多,但实际上还是存在不满足300首新歌情况,如果网易新歌曲更新得不及时,由于有判重复逻辑,因此还是会存在不满足300首得情况。
+另外还有一种极端情况,刷歌采用的歌单是top榜单歌曲(top榜单歌曲相对来说都是新歌,不同得歌单更新频率不一样)
+，top榜单有50个左右，虽然看起来很多,但实际上还是存在不满足300首新歌情况,如果网易新歌曲更新得不及时,由于有判重复逻辑,因此还是会存在不满足300首得情况。
 
 ### ncmctl task和scrobble、sign、partner子命令有啥区别？
 

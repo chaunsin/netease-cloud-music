@@ -27,8 +27,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
@@ -239,7 +239,9 @@ func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDe
 	var (
 		url   = "https://music.163.com/eapi/v3/song/detail"
 		reply V3SongDetailResp
+		opts  = api.NewOptions()
 	)
+	opts.CryptoMode = api.CryptoModeEAPI
 
 	// "[{\"id\":\"1974334953\",\"v\":0}]
 	data, err := json.Marshal(req.C)
@@ -247,7 +249,7 @@ func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDe
 		return nil, err
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", &v3SongDetailReq{C: string(data)}, &reply)
+	resp, err := a.client.Request(ctx, url, &v3SongDetailReq{C: string(data)}, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

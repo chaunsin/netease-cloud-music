@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
@@ -212,8 +213,11 @@ func (a *Api) PlaylistDetail(ctx context.Context, req *PlaylistDetailReq) (*Play
 	var (
 		url   = "https://music.163.com/api/v6/playlist/detail"
 		reply PlaylistDetailResp
+		opts  = api.NewOptions()
 	)
-	resp, err := a.client.Request(ctx, http.MethodGet, url, "api", req, &reply)
+	opts.Method = http.MethodGet
+	opts.CryptoMode = api.CryptoModeAPI
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

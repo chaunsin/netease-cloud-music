@@ -35,6 +35,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
@@ -124,13 +125,14 @@ func (a *Api) CloudList(ctx context.Context, req *CloudListReq) (*CloudListResp,
 	var (
 		url   = "https://music.163.com/weapi/v1/cloud/get"
 		reply CloudListResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -182,13 +184,14 @@ func (a *Api) CloudTokenAlloc(ctx context.Context, req *CloudTokenAllocReq) (*Cl
 	var (
 		url   = "https://music.163.com/weapi/nos/token/alloc"
 		reply CloudTokenAllocResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -222,13 +225,14 @@ func (a *Api) CloudUploadCheck(ctx context.Context, req *CloudUploadCheckReq) (*
 	var (
 		url   = "https://interface.music.163.com/weapi/cloud/upload/check"
 		reply CloudUploadCheckResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -499,6 +503,7 @@ func (a *Api) CloudInfo(ctx context.Context, req *CloudInfoReq) (*CloudInfoResp,
 	var (
 		url   = "https://music.163.com/weapi/upload/cloud/info/v2" // 是api还是weapi？
 		reply CloudInfoResp
+		opts  = api.NewOptions()
 	)
 	if req.Album == "" {
 		req.Album = "未知专辑"
@@ -507,7 +512,7 @@ func (a *Api) CloudInfo(ctx context.Context, req *CloudInfoReq) (*CloudInfoResp,
 		req.Artist = "未知艺术家"
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -538,9 +543,10 @@ func (a *Api) CloudMusicStatus(ctx context.Context, req *CloudMusicStatusReq) (*
 	var (
 		url   = "https://music.163.com/weapi/v1/cloud/music/status"
 		reply CloudMusicStatusResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -566,9 +572,10 @@ func (a *Api) CloudPublish(ctx context.Context, req *CloudPublishReq) (*CloudPub
 	var (
 		url   = "https://interface.music.163.com/weapi/cloud/pub/v2"
 		reply CloudPublishResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -595,9 +602,10 @@ func (a *Api) CloudDownload(ctx context.Context, req *CloudDownloadReq) (*CloudD
 	var (
 		url   = "https://music.163.com/weapi/cloud/dowonload"
 		reply CloudDownloadResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -625,9 +633,10 @@ func (a *Api) CloudLyric(ctx context.Context, req *CloudLyricReq) (*CloudLyricRe
 	var (
 		url   = "https://music.163.com/weapi/cloud/lyric/get"
 		reply CloudLyricResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -655,9 +664,10 @@ func (a *Api) CloudDel(ctx context.Context, req *CloudDelReq) (*CloudDelResp, er
 	var (
 		url   = "https://music.163.com/weapi/cloud/del"
 		reply CloudDelResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

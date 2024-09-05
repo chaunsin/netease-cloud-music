@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
@@ -43,13 +43,14 @@ func (a *Api) ApiWebLog(ctx context.Context, req *ApiWebLogReq) (*ApiWebLogResp,
 	var (
 		url  = "https://interface.music.163.com/api/feedback/weblog"
 		resp ApiWebLogResp
+		opts = api.NewOptions()
 	)
 	if req.CsrfToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CsrfToken = csrf
 	}
 
-	reply, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &resp)
+	reply, err := a.client.Request(ctx, url, req, &resp, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +93,7 @@ func (a *Api) WebLog(ctx context.Context, req *WebLogReq) (*WebLogResp, error) {
 	var (
 		url  = "https://music.163.com/weapi/feedback/weblog"
 		resp WebLogResp
+		opts = api.NewOptions()
 	)
 	if req.CsrfToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -107,7 +109,7 @@ func (a *Api) WebLog(ctx context.Context, req *WebLogReq) (*WebLogResp, error) {
 		Logs:      string(data),
 	}
 
-	reply, err := a.client.Request(ctx, http.MethodPost, url, "weapi", &request, &resp)
+	reply, err := a.client.Request(ctx, url, &request, &resp, opts)
 	if err != nil {
 		return nil, err
 	}

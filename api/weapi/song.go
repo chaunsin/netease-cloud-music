@@ -27,8 +27,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
@@ -174,6 +174,7 @@ func (a *Api) SongDetail(ctx context.Context, req *SongDetailReq) (*SongDetailRe
 	var (
 		url   = "https://music.163.com/weapi/v3/song/detail"
 		reply SongDetailResp
+		opts  = api.NewOptions()
 	)
 
 	// "[{\"id\":\"1974334953\",\"v\":0}]
@@ -182,7 +183,7 @@ func (a *Api) SongDetail(ctx context.Context, req *SongDetailReq) (*SongDetailRe
 		return nil, err
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", &songDetailReq{C: string(data)}, &reply)
+	resp, err := a.client.Request(ctx, url, &songDetailReq{C: string(data)}, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -213,9 +214,10 @@ func (a *Api) SongMusicQuality(ctx context.Context, req *SongMusicQualityReq) (*
 	var (
 		url   = "https://music.163.com/weapi/song/music/detail/get"
 		reply SongMusicQualityResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -278,13 +280,14 @@ func (a *Api) SongPlayer(ctx context.Context, req *SongPlayerReq) (*SongPlayerRe
 	var (
 		url   = "https://interface.music.163.com/weapi/song/enhance/player/url"
 		reply SongPlayerResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -343,6 +346,7 @@ func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerV1Req) (*SongPlay
 	var (
 		url   = "https://music.163.com/weapi/song/enhance/player/url/v1"
 		reply SongPlayerV1Resp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -352,7 +356,7 @@ func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerV1Req) (*SongPlay
 		req.ImmerseType = "c51"
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -410,9 +414,10 @@ func (a *Api) SongDownloadUrl(ctx context.Context, req *SongDownloadUrlReq) (*So
 	var (
 		url   = "https://music.163.com/weapi/song/enhance/download/url"
 		reply SongDownloadUrlResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", &req, &reply)
+	resp, err := a.client.Request(ctx, url, &req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -470,6 +475,7 @@ func (a *Api) SongDownloadUrlV1(ctx context.Context, req *SongDownloadUrlV1Req) 
 	var (
 		url   = "https://music.163.com/weapi/song/enhance/download/url/v1"
 		reply SongDownloadUrlV1Resp
+		opts  = api.NewOptions()
 	)
 
 	// 目前不传值也没发现什么问题
@@ -477,7 +483,7 @@ func (a *Api) SongDownloadUrlV1(ctx context.Context, req *SongDownloadUrlV1Req) 
 	// 	req.ImmerseType = "c51"
 	// }
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", &req, &reply)
+	resp, err := a.client.Request(ctx, url, &req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

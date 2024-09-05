@@ -21,44 +21,47 @@
 // SOFTWARE.
 //
 
-package eapi
+package api
 
-import (
-	"context"
-	"fmt"
+import "net/http"
 
-	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/api/types"
+type CryptoMode string
+
+const (
+	CryptoModeAPI   CryptoMode = "api"
+	CryptoModeEAPI  CryptoMode = "eapi"
+	CryptoModeWEAPI CryptoMode = "weapi"
+	CryptoModeLinux CryptoMode = "linux"
 )
 
-type YunBeiSignInReq struct {
-	// Type 签到类型 0:安卓(默认)3点经验 1:web/PC2点经验
-	Type int64 `json:"type"`
+type Options struct {
+	Method     string
+	CryptoMode CryptoMode
+	Headers    map[string]string
+	Cookies    []*http.Cookie
 }
 
-// YunBeiSignInResp 签到返回
-type YunBeiSignInResp struct {
-	// Code 错误码 -2:重复签到 200:成功(会有例外会出现“功能暂不支持”) 301:未登录
-	types.RespCommon[any]
-	// Point 签到获得积分奖励数量
-	Point int64 `json:"point"`
+func (o *Options) SetCookies(c ...*http.Cookie) {
+	o.Cookies = append(o.Cookies, c...)
 }
 
-// YunBeiSignIn 用户每日签到
-// url:
-// needLogin: 是
-// todo:目前传0会出现功能暂不支持不知为何(可能请求头或cookie问题)待填坑
-func (a *Api) YunBeiSignIn(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSignInResp, error) {
-	var (
-		url   = "https://music.163.com/eapi/point/dailyTask"
-		reply YunBeiSignInResp
-		opts  = api.NewOptions()
-	)
-	opts.CryptoMode = api.CryptoModeEAPI
-	resp, err := a.client.Request(ctx, url, req, &reply, opts)
-	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+func (o *Options) SetHeader(key, value string) *Options {
+	o.Headers[key] = value
+	return o
+}
+
+func (o *Options) SetHeaders(h map[string]string) *Options {
+	for k, v := range h {
+		o.Headers[k] = v
 	}
-	_ = resp
-	return &reply, nil
+	return o
+}
+
+func NewOptions() *Options {
+	return &Options{
+		Method:     http.MethodPost,
+		CryptoMode: CryptoModeWEAPI,
+		Headers:    make(map[string]string),
+		Cookies:    []*http.Cookie{},
+	}
 }

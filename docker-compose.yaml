@@ -1,0 +1,13 @@
+services:
+  ncmctl:
+    image: ${IMAGES}
+    # data目录可以根据情况自行更改
+    volumes:
+      - "./data:/root/"
+    # 运行刷歌和云贝签到定时任务,如想运行音乐合伙人则追加"--partner"
+    command: [ "/app/ncmctl", "task","--scrobble","--sign" ]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+        max-file: "3"

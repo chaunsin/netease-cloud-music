@@ -26,8 +26,8 @@ package weapi
 import (
 	"context"
 	"fmt"
-	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
@@ -172,8 +172,10 @@ func (a *Api) Album(ctx context.Context, req *AlbumReq) (*AlbumResp, error) {
 	var (
 		url   = fmt.Sprintf("https://music.163.com/weapi/v1/album/%v", req.Id)
 		reply AlbumResp
+		opts  = api.NewOptions()
 	)
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

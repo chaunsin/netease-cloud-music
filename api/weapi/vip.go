@@ -26,9 +26,9 @@ package weapi
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
@@ -53,6 +53,7 @@ func (a *Api) VipRewardGet(ctx context.Context, req *VipRewardGetReq) (*VipRewar
 	}
 
 	var (
+		opts    = api.NewOptions()
 		url     = "https://music.163.com/weapi/vipnewcenter/app/level/task/reward/get"
 		reply   VipRewardGetResp
 		request = vipRewardGetReq{
@@ -60,7 +61,7 @@ func (a *Api) VipRewardGet(ctx context.Context, req *VipRewardGetReq) (*VipRewar
 		}
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", &request, &reply)
+	resp, err := a.client.Request(ctx, url, &request, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -85,9 +86,10 @@ func (a *Api) VipRewardGetAll(ctx context.Context, req *VipRewardGetAllReq) (*Vi
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/task/reward/getall"
 		reply VipRewardGetAllResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -149,9 +151,10 @@ func (a *Api) VipTask(ctx context.Context, req *VipTaskReq) (*VipTaskResp, error
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/task/list"
 		reply VipTaskResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -218,9 +221,10 @@ func (a *Api) VipTaskV2(ctx context.Context, req *VipTaskV2Req) (*VipTaskV2Resp,
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/task/newlist"
 		reply VipTaskV2Resp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -284,9 +288,10 @@ func (a *Api) VipInfo(ctx context.Context, req *VipInfoReq) (*VipInfoResp, error
 	var (
 		url   = "https://music.163.com/weapi/music-vip-membership/front/vip/info"
 		reply VipInfoResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -375,9 +380,10 @@ func (a *Api) VipClientInfo(ctx context.Context, req *VipClientInfoReq) (*VipCli
 	var (
 		url   = "https://music.163.com/api/music-vip-membership/client/vip/info"
 		reply VipClientInfoResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

@@ -29,6 +29,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/nohup"
 
@@ -166,9 +168,21 @@ func (c *Task) execute(ctx context.Context, args []string) error {
 		return fmt.Errorf("wrong time zone: %w", err)
 	}
 
+	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
+	if err != nil {
+		return fmt.Errorf("NewClient: %w", err)
+	}
+	defer cli.Close(ctx)
+
+	request := weapi.New(cli)
+	if request.NeedLogin(ctx) {
+		return fmt.Errorf("need login")
+	}
+
 	var (
 		job     = cron.New(cron.WithLocation(local))
 		partner = func() error {
+			c.cmd.Println("[partner] task register")
 			log.Info("[partner] task register")
 			partner := NewPartner(c.root, c.l)
 			partner.cmd.DisableFlagParsing = true // 关闭子命令解析比如出现unknown flag错误
@@ -192,6 +206,7 @@ func (c *Task) execute(ctx context.Context, args []string) error {
 			return nil
 		}
 		scrobble = func() error {
+			c.cmd.Println("[scrobble] task register")
 			log.Info("[scrobble] task register")
 			s := NewScrobble(c.root, c.l)
 			s.cmd.DisableFlagParsing = true
@@ -215,6 +230,7 @@ func (c *Task) execute(ctx context.Context, args []string) error {
 			return nil
 		}
 		signIn = func() error {
+			c.cmd.Println("[sign] task register")
 			log.Info("[sign] task register")
 			signIn := NewSignIn(c.root, c.l)
 			signIn.cmd.DisableFlagParsing = true
