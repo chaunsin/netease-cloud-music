@@ -26,8 +26,8 @@ package weapi
 import (
 	"context"
 	"fmt"
-	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
@@ -55,8 +55,10 @@ func (a *Api) SignIn(ctx context.Context, req *SignInReq) (*SignInResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/point/dailyTask"
 		reply SignInResp
+		opts  = api.NewOptions()
 	)
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -128,12 +130,13 @@ func (a *Api) SignInProgress(ctx context.Context, req *SignInProgressReq) (*Sign
 	var (
 		url   = "https://music.163.com/weapi/act/modules/signin/v2/progress"
 		reply SignInProgressResp
+		opts  = api.NewOptions()
 	)
 	if req.ModuleId == "" {
 		req.ModuleId = "1207signin-1207signin"
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -193,9 +196,10 @@ func (a *Api) SignInHappyInfo(ctx context.Context, req *SignHappyInfoReq) (*Sign
 	var (
 		url   = "https://music.163.com/weapi/sign/happy/info"
 		reply SignHappyInfoResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -225,8 +229,10 @@ func (a *Api) YunBeiSignInfo(ctx context.Context, req *YunBeiSignInfoReq) (*YunB
 	var (
 		url   = "https://music.163.com/weapi/point/signed/get"
 		reply YunBeiSignInfoResp
+		opts  = api.NewOptions()
 	)
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -274,9 +280,10 @@ func (a *Api) YunBeiUserInfo(ctx context.Context, req *YunBeiUserInfoReq) (*YunB
 	var (
 		url   = "https://music.163.com/weapi/v1/user/info"
 		reply YunBeiUserInfoResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -302,9 +309,10 @@ func (a *Api) YunBeiSignIn(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSi
 	var (
 		url   = "https://music.163.com/weapi/pointmall/user/sign"
 		reply YunBeiSignInResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -329,9 +337,10 @@ func (a *Api) YunBeiTodaySignInInfo(ctx context.Context, req *YunBeiTodaySignInI
 	var (
 		url   = "https://music.163.com/weapi/point/today/get"
 		reply YunBeiTodaySignInInfoResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -362,12 +371,13 @@ func (a *Api) YunBeiExpense(ctx context.Context, req *YunBeiExpenseReq) (*YunBei
 	var (
 		url   = "https://music.163.com/store/api/point/expense"
 		reply YunBeiExpenseResp
+		opts  = api.NewOptions()
 	)
 	if req.Limit == 0 {
 		req.Limit = 10
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -413,12 +423,13 @@ func (a *Api) YunBeiReceipt(ctx context.Context, req *YunBeiReceiptReq) (*YunBei
 	var (
 		url   = "https://music.163.com/store/api/point/receipt"
 		reply YunBeiReceiptResp
+		opts  = api.NewOptions()
 	)
 	if req.Limit == 0 {
 		req.Limit = 10
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -484,9 +495,10 @@ func (a *Api) YunBeiTaskList(ctx context.Context, req *YunBeiTaskListReq) (*YunB
 	var (
 		url   = "https://music.163.com/weapi/usertool/task/list/all"
 		reply YunBeiTaskListResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -556,9 +568,10 @@ func (a *Api) YunBeiTaskListV3(ctx context.Context, req *YunBeiTaskListV3Req) (*
 	var (
 		url   = "https://music.163.com/weapi/usertool/task/list/all/v3"
 		reply YunBeiTaskListV3Resp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -594,9 +607,10 @@ func (a *Api) YunBeiTaskTodo(ctx context.Context, req *YunBeiTaskTodoReq) (*YunB
 	var (
 		url   = "https://music.163.com/weapi/usertool/task/todo/query"
 		reply YunBeiTaskTodoResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -627,9 +641,10 @@ func (a *Api) YunBeiTaskFinish(ctx context.Context, req *YunBeiTaskFinishReq) (*
 	var (
 		url   = "https://music.163.com/weapi/usertool/task/point/receive"
 		reply YunBeiTaskFinishResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -657,9 +672,10 @@ func (a *Api) YunBeiSignInCalendar(ctx context.Context, req *YunBeiSignInCalenda
 	var (
 		url   = "https://music.163.com/weapi/pointmall/sign/calendar"
 		reply YunBeiSignInCalendarResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -681,9 +697,10 @@ func (a *Api) YunBeiSignInJudge(ctx context.Context, req *YunBeiSignInJudgeReq) 
 	var (
 		url   = "https://music.163.com/weapi/pointmall/extra/sign/judge"
 		reply YunBeiSignInJudgeResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -732,9 +749,10 @@ func (a *Api) YunBeiSignInProgress(ctx context.Context, req *YunBeiSignInProgres
 	var (
 		url   = "https://music.163.com/weapi/pointmall/user/sign/config"
 		reply YunBeiSignInProgressResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -761,9 +779,10 @@ func (a *Api) YunBeiNewJudge(ctx context.Context, req *YunBeiNewJudgeReq) (*YunB
 	var (
 		url   = "https://music.163.com/weapi/usertool/user/new/judge"
 		reply YunBeiNewJudgeResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -789,9 +808,10 @@ func (a *Api) YunBeiExpire(ctx context.Context, req *YunBeiExpireReq) (*YunBeiEx
 	var (
 		url   = "https://music.163.com/weapi/yunbei/expire/get"
 		reply YunBeiExpireResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -819,9 +839,10 @@ func (a *Api) YunBeiRecommendConfig(ctx context.Context, req *YunBeiRecommendCon
 	var (
 		url   = "https://music.163.com/weapi/pointmall/recommend/config"
 		reply YunBeiRecommendConfigResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

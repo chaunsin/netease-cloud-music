@@ -26,8 +26,8 @@ package weapi
 import (
 	"context"
 	"fmt"
-	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
@@ -226,8 +226,10 @@ func (a *Api) TopNewSongs(ctx context.Context, req *TopNewSongsReq) (*TopNewSong
 	var (
 		url   = "https://music.163.com/weapi/v1/discovery/new/songs"
 		reply TopNewSongsResp
+		opts  = api.NewOptions()
 	)
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -298,9 +300,11 @@ func (a *Api) TopList(ctx context.Context, req *TopListReq) (*TopListResp, error
 	var (
 		url   = "https://music.163.com/api/toplist"
 		reply TopListResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "api", req, &reply)
+	opts.CryptoMode = api.CryptoModeAPI
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

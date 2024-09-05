@@ -64,8 +64,8 @@ func qrcode(root *Login, l *log.Logger) *cobra.Command {
 }
 
 func (c *loginQrcodeCmd) addFlags() {
-	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Minute*5, "1s 1m")
-	c.cmd.Flags().StringVarP(&c.dir, "dir", "d", "./", "./")
+	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Minute*5, "1s、1m")
+	c.cmd.Flags().StringVarP(&c.dir, "dir", "d", "", "qrcode file output path. default ./")
 }
 
 func (c *loginQrcodeCmd) execute(ctx context.Context, args []string) error {
@@ -95,20 +95,23 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, args []string) error {
 	}
 
 	// 3. 手机扫码
-	dir, err := os.Getwd()
-	if err != nil {
-		return err
+	if c.dir == "" {
+		dir, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		c.dir = dir
 	}
-	p := filepath.Join(dir, c.dir)
-	if err := os.MkdirAll(p, os.ModePerm); err != nil {
+	if err := os.MkdirAll(c.dir, os.ModePerm); err != nil {
 		return fmt.Errorf("MkdirAll: %w", err)
 	}
-	var file = filepath.Join(p, "qrcode.png")
+	var file = filepath.Join(c.dir, "qrcode.png")
 	if err := os.WriteFile(file, qr.Qrcode, os.ModePerm); err != nil {
 		return err
 	}
 	c.cmd.Println(">>>>> please scan qrcode in your phone <<<<<")
-	c.cmd.Printf("qrcode file %s\n", file)
+	c.cmd.Printf("qrcode content: https://music.163.com/login?codekey=%s\n", key.UniKey)
+	c.cmd.Printf("qrcode file: %s\n", file)
 	c.cmd.Printf("qrcode: \n%s\n", qr.QrcodePrint)
 
 	// 4. 轮训获取扫码状态
@@ -126,7 +129,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, args []string) error {
 		}
 		log.Debug("QrcodeCheck resp: %v\n", resp)
 		switch resp.Code {
-		case 800: // 二维码不存在或已过期
+		case 800: // 二维码不存在、已过期、用户取消授权
 			return fmt.Errorf("current QrcodeCheck resp: %v\n", resp)
 		case 801: // 等待扫码
 			continue

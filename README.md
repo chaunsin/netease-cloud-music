@@ -47,6 +47,8 @@
 
 ## 安装
 
+可执行文件安装
+
 ```shell
 go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
 ```
@@ -60,7 +62,7 @@ make install
 
 **提示:** 默认会安装到`$GOPATH/bin`目录下
 
-另外带有命令行版本的docker镜像获取方式
+docker版本镜像获取方式
 
 ```shell
 docker pull chaunsin/ncmctl:latest
@@ -85,8 +87,12 @@ make build-iamge
 ncmctl login qrcode
 ```
 
-**提示:** 使用手机登录网易云音乐app进行扫码授权登录，如果不能识别终端打印的二维码可根据终端输出得文件路径找到二维码图片文件进行扫描。切记扫码过程中
-**不能退出终端**!!! 如有问题可重复此流程。另外不要频繁登录避免被风控。
+**提示:** 使用手机登录网易云音乐app进行扫码授权登录，如果不能识别终端打印的二维码可根据终端输出得文件路径提示找到二维码图片进行扫描,或者copy终端输出得
+`qrcode content: https://www.163.com/xxx` 内容进行自己生成二维码再进行扫描(_粘贴时不要包含`qrcode content: `
+以及结尾空格_)。另外扫码过程中
+**不能退出终端**!!! 如有问题可重复此流程,为避免被风控不要频繁登录。
+
+在线生成二维码工具: https://www.bejson.com/convert/qrcode/#google_vignette
 
 **二、一键执行每日所有任务**
 

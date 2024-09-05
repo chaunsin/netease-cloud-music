@@ -26,8 +26,8 @@ package eapi
 import (
 	"context"
 	"fmt"
-	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
@@ -135,12 +135,14 @@ func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, er
 	var (
 		url   = "https://music.163.com/eapi/user/playlist/"
 		reply PlaylistResp
+		opts  = api.NewOptions()
 	)
+	opts.CryptoMode = api.CryptoModeEAPI
 	if req.Limit == "" {
 		req.Limit = "1000"
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "eapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}

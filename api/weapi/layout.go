@@ -2,8 +2,8 @@ package weapi
 
 import (
 	"context"
-	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
@@ -21,12 +21,13 @@ func (a *Api) Layout(ctx context.Context, req *LayoutReq) (*LayoutResp, error) {
 	var (
 		url  = "https://music.163.com/weapi/logout"
 		resp LayoutResp
+		opts = api.NewOptions()
 	)
 	if req.CsrfToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CsrfToken = csrf
 	}
-	reply, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &resp)
+	reply, err := a.client.Request(ctx, url, req, &resp, opts)
 	if err != nil {
 		return nil, err
 	}

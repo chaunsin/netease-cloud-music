@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 
 	"github.com/skip2/go-qrcode"
@@ -51,9 +52,10 @@ func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*Qr
 	var (
 		url   = "https://music.163.com/weapi/login/qrcode/unikey"
 		reply QrcodeCreateKeyResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -67,7 +69,7 @@ type QrcodeGenerateReq struct {
 
 type QrcodeGenerateResp struct {
 	types.RespCommon[any]
-	Qrcode      []byte //
+	Qrcode      []byte
 	QrcodePrint string
 }
 
@@ -78,7 +80,7 @@ func (a *Api) QrcodeGenerate(ctx context.Context, req *QrcodeGenerateReq) (*Qrco
 		reply   QrcodeGenerateResp
 	)
 
-	qr, err := qrcode.New(content, qrcode.Medium)
+	qr, err := qrcode.New(content, qrcode.High)
 	if err != nil {
 		return nil, err
 	}
@@ -116,9 +118,10 @@ func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeChec
 	var (
 		url   = "https://music.163.com/weapi/login/qrcode/client/login"
 		reply QrcodeCheckResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -197,9 +200,10 @@ func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInf
 	var (
 		url   = "https://music.163.com/weapi/w/nuser/account/get"
 		reply GetUserInfoResp
+		opts  = api.NewOptions()
 	)
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -215,18 +219,20 @@ type TokenRefreshResp struct {
 	types.RespCommon[any]
 }
 
-// TokenRefresh 登录token刷新 TODO: 400问题待解决 已经定位到问题cookie中需要增加 SetCookie(&http.Cookie{Name: "os", Value: "pc"})待解决
+// TokenRefresh 登录token刷新
 func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRefreshResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/login/token/refresh"
 		reply TokenRefreshResp
+		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
 
-	resp, err := a.client.Request(ctx, http.MethodPost, url, "weapi", req, &reply)
+	opts.SetCookies(&http.Cookie{Name: "os", Value: "pc"}) // 解决400问题
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
