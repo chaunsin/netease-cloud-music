@@ -68,7 +68,7 @@ docker版本镜像获取方式
 docker pull chaunsin/ncmctl:latest
 ```
 
-镜像详情: https://hub.docker.com/r/chaunsin/ncmctl
+镜像仓库以及docker使用方式: https://hub.docker.com/r/chaunsin/ncmctl
 
 如有条件自编译镜像
 
