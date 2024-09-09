@@ -86,10 +86,10 @@ func NewDownload(root *Root, l *log.Logger) *Download {
 func (c *Download) addFlags() {
 	// c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "music file path")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./download", "music file output path")
-	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 5, "concurrent upload count")
+	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 5, "concurrent download count")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Level, "level", "l", string(types.LevelLossless), "song quality level. support: standard/128,higher/192,exhigh/HQ/320,lossless/SQ,hires/HR")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Strict, "strict", false, "strict mode. when the downloaded song does not find the corresponding quality, it will not be downloaded.")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", true, "whether to set song tag information,default set")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", true, "whether to set song tag information,default enable")
 }
 
 func (c *Download) validate() error {
