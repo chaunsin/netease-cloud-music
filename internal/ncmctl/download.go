@@ -48,7 +48,6 @@ import (
 )
 
 type DownloadOpts struct {
-	// Input    string // 可以是歌曲id、歌单id、专辑、歌手(https://music.163.com/#/discover/artist)
 	Output   string // 输出目录
 	Parallel int64  // 并发下载数量
 	Level    string // 歌曲品质 types.Level
@@ -84,12 +83,11 @@ func NewDownload(root *Root, l *log.Logger) *Download {
 }
 
 func (c *Download) addFlags() {
-	// c.cmd.PersistentFlags().StringVarP(&c.opts.Input, "input", "i", "", "music file path")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./download", "music file output path")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 5, "concurrent upload count")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Level, "level", "l", string(types.LevelLossless), "song quality level. support: standard/128,higher/192,exhigh/HQ/320,lossless/SQ,hires/HR")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Strict, "strict", false, "strict mode. when the downloaded song does not find the corresponding quality, it will not be downloaded.")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", true, "whether to set song tag information,default set")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", true, "whether to set song tag information,default enable")
 }
 
 func (c *Download) validate() error {
@@ -484,7 +482,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	// }
 
 	var (
-		// drd      = downResp.Data[0]
+		// drd = downResp.Data[0]
 		drd      = downResp.Data
 		dest     = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s.%s", music.ArtistString(), music.Name, drd.Type))
 		tempName = fmt.Sprintf("ncmctl-*-%s.tmp", music.Name)

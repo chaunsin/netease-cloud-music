@@ -53,8 +53,10 @@ type SongDetailResp struct {
 }
 
 // SongDetailRespSongs
-// see: https://github.com/Binaryify/NeteaseCloudMusicApi/issues/1121#issuecomment-774438040
+// see:
+// https://github.com/Binaryify/NeteaseCloudMusicApi/issues/1121#issuecomment-774438040
 // https://docs-neteasecloudmusicapi.vercel.app/docs/#/?id=%e8%8e%b7%e5%8f%96%e6%ad%8c%e6%9b%b2%e8%af%a6%e6%83%85
+// https://gitlab.com/Binaryify/neteasecloudmusicapi/-/commit/0dab5e55bad90fb427ae7881a9275aceade1f80b
 type SongDetailRespSongs struct {
 	// Name 歌曲标题
 	Name string `json:"name"`
@@ -101,17 +103,8 @@ type SongDetailRespSongs struct {
 	Al types.Album `json:"al"`
 	// Dt 歌曲时长
 	Dt int64 `json:"dt"`
+	// 音质信息
 	types.Qualities
-	// // H 级高质量文件信息
-	// H *types.Quality `json:"h"`
-	// // M 中质量文件信息
-	// M *types.Quality `json:"m"`
-	// // L 标准质量文件信息
-	// L *types.Quality `json:"l"`
-	// // Sq 无损质量文件信息
-	// Sq *types.Quality `json:"sq"`
-	// // Hr Hi-Res质量文件信息
-	// Hr *types.Quality `json:"hr"`
 	// A 常为None，功能未知
 	A interface{} `json:"a"`
 	// Cd None或如"04", "1/2", "3", "null"的字符串，表示歌曲属于专辑中第几张CD，对应音频文件的Tag
@@ -130,7 +123,13 @@ type SongDetailRespSongs struct {
 	Copyright int64 `json:"copyright"`
 	// SId 对于t == 2的歌曲，表示匹配到的公开版本歌曲ID
 	SId int64 `json:"s_id"`
-	// Mark 一些歌曲属性，用按位与操作获取对应位置的值 8192:立体声?(不是很确定) 131072:纯音乐 1048576:脏标E 其他未知，理论上有从1到2^63共64种不同的信息
+	// Mark 一些歌曲属性，用按位与操作获取对应位置的值
+	// 8192:立体声?(不是很确定)
+	// 131072:纯音乐
+	// 262144 支持 杜比全景声(Dolby Atmos)
+	// 1048576:脏标E
+	// 17179869184 支持 Hi-Res
+	// 其他未知，理论上有从1到2^63共64种不同的信息
 	// 专辑信息的mark字段也同理 例子:id 1859245776和1859306637为同一首歌，前者 mark & 1048576 == 1048576,后者 mark & 1048576 == 0，因此前者是脏版
 	Mark int64 `json:"mark"`
 	// OriginCoverType 0:未知 1:原曲 2:翻唱
@@ -341,13 +340,18 @@ type SongPlayerRespV1Data struct {
 // SongPlayerV1 音乐播放详情
 // url: testdata/har/6.har
 // needLogin: 未知
-// 提示: 获取的歌曲url有时效性,失效时间目前测试为20分钟,过期访问则会出现403错误
+// 提示:
+// 1.获取的歌曲url有时效性,失效时间目前测试为20分钟,过期访问则会出现403错误
+// 2.杜比全景声音质需要设备支持，不同的设备可能会返回不同码率的url。cookie需要传入os=pc保证返回正常码率的url。
 func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerV1Req) (*SongPlayerV1Resp, error) {
 	var (
 		url   = "https://music.163.com/weapi/song/enhance/player/url/v1"
 		reply SongPlayerV1Resp
 		opts  = api.NewOptions()
 	)
+	// 经测试设置cookie下载无损音质音乐还是会下载hires音质得音乐。比如Animals歌曲id: 28987626
+	// see: https://gitlab.com/Binaryify/neteasecloudmusicapi/-/blob/main/public/docs/home.md?ref_type=heads#%E8%8E%B7%E5%8F%96%E9%9F%B3%E4%B9%90-url---%E6%96%B0%E7%89%88
+	// opts.SetCookies(&http.Cookie{Name: "os", Value: "pc"})
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
