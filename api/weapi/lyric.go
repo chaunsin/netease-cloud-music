@@ -76,11 +76,21 @@ func (a *Api) Lyric(ctx context.Context, req *LyricReq) (*LyricResp, error) {
 		reply LyricResp
 		opts  = api.NewOptions()
 	)
-	req.TV = -1
-	req.LV = -1
-	req.RV = -1
-	req.KV = -1
-	req.NMCLFL = 1
+	if req.TV == 0 {
+		req.TV = -1
+	}
+	if req.LV == 0 {
+		req.LV = -1
+	}
+	if req.RV == 0 {
+		req.RV = -1
+	}
+	if req.KV == 0 {
+		req.KV = -1
+	}
+	if req.NMCLFL == 0 {
+		req.NMCLFL = 1
+	}
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
