@@ -381,7 +381,7 @@ type SongDownloadUrlRespData struct {
 	Br                     int64                        `json:"br"`
 	CanExtend              bool                         `json:"canExtend"`
 	ChannelLayout          interface{}                  `json:"channelLayout"`
-	Code                   int64                        `json:"code"` // 状态码 200:正常 -103:貌似也不能下载 -110:变灰歌曲不能下载播放
+	Code                   int64                        `json:"code"` // 状态码 200:正常 -103:貌似也不能下载 -105:需要付费购买专辑 -110:变灰歌曲不能下载播放
 	EffectTypes            interface{}                  `json:"effectTypes"`
 	EncodeType             string                       `json:"encodeType"`
 	Expi                   int64                        `json:"expi"`
