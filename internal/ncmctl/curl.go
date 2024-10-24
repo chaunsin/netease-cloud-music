@@ -140,7 +140,7 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 
 	var (
 		t        = methodName.Func.Type()
-		req      = t.In(2).Elem() // 0:为当前请求对应 1:context.Context 2:req请求参数
+		req      = t.In(2).Elem() // 0:为当前请求 1:context.Context 2:req请求参数
 		instance = reflect.New(req).Elem()
 	)
 

@@ -90,7 +90,7 @@ type SignInProgressRespData struct {
 	// Today 今天签到情况
 	Today struct {
 		TodaySignedIn bool `json:"todaySignedIn"`
-		// TodayStats 里面包含不同类型的今日签到，连续签到情况，今日签到情况等等，也就是ACCUMULATE、CURRENT_INDEX、CONTINUOUS。
+		// TodayStats 里面包含不同类型的签到，连续签到，今日签到等情况，也就是ACCUMULATE、CURRENT_INDEX、CONTINUOUS。
 		TodayStats []SignInProgressRespDataStats `json:"todayStats"`
 	} `json:"today"`
 }
