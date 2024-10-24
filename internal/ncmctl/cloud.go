@@ -192,7 +192,7 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 				return nil
 			}
 
-			// 忽略大文件的文件、小于0字节的文件以及用户配置得忽略的最小文件大小
+			// 忽略大文件、小于0字节的文件以及用户配置忽略的最小文件大小
 			if info.Size() > maxSize {
 				c.cmd.Printf("%s file size too large. limit %vMB", file, maxSize)
 				skip.Add(1)
