@@ -312,7 +312,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
 	}
-	log.Debug("[response]: %+v", string(response.Body()))
+	log.Debug("[response]: %s", string(response.Body()))
 
 	var decryptData []byte
 	switch opts.CryptoMode {
@@ -339,8 +339,11 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
 	log.Debug("[response.decrypt]: %s", string(decryptData))
-	if err := json.Unmarshal(decryptData, &resp); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal: %w", err)
+
+	decode := json.NewDecoder(bytes.NewReader(decryptData))
+	// decode.DisallowUnknownFields()
+	if err := decode.Decode(&resp); err != nil {
+		return nil, fmt.Errorf("json.NewDecoder: %w", err)
 	}
 	if response.StatusCode() != http.StatusOK {
 		return nil, fmt.Errorf("http status code: %d detail: %s", response.StatusCode(), string(decryptData))

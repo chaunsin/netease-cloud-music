@@ -434,39 +434,68 @@ type PartnerTaskResp struct {
 	types.RespCommon[PartnerTaskRespData]
 }
 
+type PartnerWork struct {
+	Id                int64  `json:"id"`
+	ResourceType      string `json:"resourceType"` // 资源类型 SONG
+	ResourceId        int64  `json:"resourceId"`   // 歌曲id
+	Name              string `json:"name"`
+	CoverUrl          string `json:"coverUrl"`
+	AuthorName        string `json:"authorName"`
+	LyricType         int64  `json:"lyricType"`
+	LyricContent      string `json:"lyricContent"`
+	Duration          int64  `json:"duration"`
+	SongStartPosition int64  `json:"songStartPosition"`
+	SongEndPosition   int64  `json:"songEndPosition"`
+	Status            string `json:"status"` // NORMAL
+	PlayUrl           string `json:"playUrl"`
+	Source            string `json:"source"` // RANK_INSERT,MUSE,等
+	GoodRate          int64  `json:"goodRate"`
+	Style             string `json:"style"` // 华语、华语嘻哈说唱、等
+}
+
 type PartnerTaskRespData struct {
-	Id             int64       `json:"id"`
-	Count          int64       `json:"count"`
-	CompletedCount int64       `json:"completedCount"`
-	Integral       int64       `json:"integral"`
-	TaskTitle      interface{} `json:"taskTitle"`
+	Id int64 `json:"id"`
+	// 任务数量
+	Count int64 `json:"count"`
+	// 完成数量
+	CompletedCount int64 `json:"completedCount"`
+	// 完成任务获得的积分老版为10现在3.0版本为8分
+	Integral  int64       `json:"integral"`
+	TaskTitle interface{} `json:"taskTitle"`
 	// Works 如果没有测评资格则该任务列表为空
 	Works []struct {
-		Work struct {
-			Id                int64  `json:"id"`
-			ResourceType      string `json:"resourceType"`
-			ResourceId        int64  `json:"resourceId"` // 歌曲id
-			Name              string `json:"name"`
-			CoverUrl          string `json:"coverUrl"`
-			AuthorName        string `json:"authorName"`
-			LyricType         int64  `json:"lyricType"`
-			LyricContent      string `json:"lyricContent"`
-			Duration          int64  `json:"duration"`
-			SongStartPosition int64  `json:"songStartPosition"`
-			SongEndPosition   int64  `json:"songEndPosition"`
-			Status            string `json:"status"`
-			PlayUrl           string `json:"playUrl"`
-			Source            string `json:"source"`
-		} `json:"work"`
-		Completed     bool        `json:"completed"`
-		Score         float64     `json:"score"`
-		UserScore     float64     `json:"userScore"`
-		Tags          interface{} `json:"tags"`
-		CustomTags    interface{} `json:"customTags"`
-		Comment       interface{} `json:"comment"`
-		TaskTitleDesc interface{} `json:"taskTitleDesc"`
+		Work            PartnerWork `json:"work"`
+		Completed       bool        `json:"completed"`
+		Score           float64     `json:"score"`
+		UserScore       float64     `json:"userScore"`
+		Tags            interface{} `json:"tags"`
+		CustomTags      interface{} `json:"customTags"`
+		Comment         interface{} `json:"comment"`
+		TaskTitleDesc   interface{} `json:"taskTitleDesc"`
+		SongCommentInfo struct {
+			CommentId int64  `json:"commentId"`
+			ThreadId  string `json:"threadId"`
+		} `json:"songCommentInfo"`
 	} `json:"works"`
+	// 推荐歌曲列表该列表为新得音乐合伙人3.0功能中增加
+	RecResources []struct {
+		Work           PartnerWork `json:"work"`
+		SpecialTag     interface{} `json:"specialTag"`
+		SongCommonTags interface{} `json:"songCommonTags"`
+		ReceivedScore  int         `json:"receivedScore"`
+		QualityScore   int         `json:"qualityScore"`
+		RedHeartSong   bool        `json:"redHeartSong"`
+		Listened       bool        `json:"listened"`
+		CanInteract    bool        `json:"canInteract"`
+		PublishComment bool        `json:"publishComment"`
+		PublishEvent   bool        `json:"publishEvent"`
+		CollectList    bool        `json:"collectList"`
+		TotalTaskNum   int         `json:"totalTaskNum"`
+		FinishTaskNum  int         `json:"finishTaskNum"`
+	} `json:"recResources"`
 	PageTaskType int64 `json:"pageTaskType"`
+	CurRcmdScore int64 `json:"curRcmdScore"`
+	CanInteract  bool  `json:"canInteract"`
 	Completed    bool  `json:"completed"`
 }
 
@@ -530,7 +559,7 @@ type PartnerNoticeResp struct {
 	types.RespCommon[bool]
 }
 
-// PartnerNotice todo：是否开启通知？
+// PartnerNotice 是否开启通知？
 func (a *Api) PartnerNotice(ctx context.Context, req *PartnerNoticeReq) (*PartnerNoticeResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/daily/notice/switch/get"
@@ -684,10 +713,21 @@ type PartnerEvaluateReq struct {
 	SyncYunCircle bool        `json:"syncYunCircle"` // 同步到音乐圈中
 	SyncComment   bool        `json:"syncComment"`   // ?
 	Source        string      `json:"source"`        // 应该表示平台 例如:mp-music-partner
+	ExtraResource bool        `json:"extraResource"` // 当测评更多歌曲时使用
 }
 
 type PartnerEvaluateResp struct {
 	types.RespCommon[any]
+}
+
+type PartnerEvaluateRespData struct {
+	SongCommentInfo struct {
+		CommentId int64  `json:"commentId"`
+		ThreadId  string `json:"threadId"`
+	} `json:"songCommentInfo"`
+	EvaluateRes       bool  `json:"evaluateRes"`
+	TodayExtendEvaNum int64 `json:"todayExtendEvaNum"` // 应该是今天测评了多少扩展歌曲
+	CurScore          int64 `json:"curScore"`          // 当前歌曲测评得分
 }
 
 // PartnerEvaluate 音乐评审提交
@@ -695,6 +735,83 @@ func (a *Api) PartnerEvaluate(ctx context.Context, req *PartnerEvaluateReq) (*Pa
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/work/evaluate"
 		reply PartnerEvaluateResp
+		opts  = api.NewOptions()
+	)
+	if req.CSRFToken == "" {
+		csrf, _ := a.client.GetCSRF(url)
+		req.CSRFToken = csrf
+	}
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type PartnerExtraTaskReq struct {
+	types.ReqCommon
+}
+
+type PartnerExtraTaskResp struct {
+	types.RespCommon[[]PartnerExtraTaskRespData]
+}
+
+type PartnerExtraTaskRespData struct {
+	Comment         string        `json:"comment"`
+	Completed       bool          `json:"completed"`
+	CustomTags      []interface{} `json:"customTags"`
+	Score           float64       `json:"score"`
+	SongCommentInfo interface{}   `json:"songCommentInfo"`
+	Tags            []interface{} `json:"tags"`
+	TaskTitleDesc   string        `json:"taskTitleDesc"`
+	UserScore       float64       `json:"userScore"`
+	Work            PartnerWork   `json:"work"`
+}
+
+// PartnerExtraTask 扩展听歌任务列表,返回得数据有100首歌(2024年10月21日推出的新功能测评)。
+func (a *Api) PartnerExtraTask(ctx context.Context, req *PartnerExtraTaskReq) (*PartnerExtraTaskResp, error) {
+	var (
+		url   = "https://interface.music.163.com/api/music/partner/extra/wait/evaluate/work/list"
+		reply PartnerExtraTaskResp
+		opts  = api.NewOptions()
+	)
+	if req.CSRFToken == "" {
+		csrf, _ := a.client.GetCSRF(url)
+		req.CSRFToken = csrf
+	}
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type PartnerExtraReportReq struct {
+	types.ReqCommon
+	WorkId        int64  `json:"workId"`
+	ResourceId    int64  `json:"resourceId"`
+	BizResourceId string `json:"bizResourceId"`
+	InteractType  string `json:"interactType"` // PLAY_END(目前只知道这个一个)
+}
+
+type PartnerExtraReportResp struct {
+	types.RespCommon[PartnerExtraReportRespData]
+}
+
+type PartnerExtraReportRespData struct {
+	FailedReason   interface{} `json:"failedReason"`
+	InteractResult bool        `json:"interactResult"`
+}
+
+// PartnerExtraReport 报告扩展听歌任务(2024年10月21日出的新功能测评)
+func (a *Api) PartnerExtraReport(ctx context.Context, req *PartnerExtraReportReq) (*PartnerExtraReportResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/partner/resource/interact/report"
+		reply PartnerExtraReportResp
 		opts  = api.NewOptions()
 	)
 	if req.CSRFToken == "" {

@@ -132,23 +132,25 @@ func (c *Partner) do(ctx context.Context) error {
 		return fmt.Errorf("您没有测评资格或失去测评资格 status: %s\n", info.Data.Status)
 	}
 
-	// 获取任务列表
+	// 获取每日基本任务5首歌曲列表并执行测评
 	task, err := request.PartnerDailyTask(ctx, &weapi.PartnerTaskReq{ReqCommon: types.ReqCommon{}})
 	if err != nil {
 		return fmt.Errorf("PartnerDailyTask: %w", err)
 	}
 	for _, work := range task.Data.Works {
-		_ = work.Work.ResourceId
-
-		// 随机一个分数,然后取一个tag从对应分数组中
-		star := c.opts.Star[rand.Int31n(int32(len(c.opts.Star)))]
-		group := weapi.PartnerTagsGroup[star]
-		tags := group[rand.Int31n(int32(len(group)))]
+		// 判断任务是否执行过
+		if work.Completed {
+			log.Warn("task completed: %+v\n", work)
+			continue
+		}
 
 		// 模拟听歌消耗得时间,随机15-25秒
 		time.Sleep(time.Second * time.Duration(15+int(rand.Int31n(10))))
 
-		// 判断任务是否执行过
+		// 随机一个分数,然后从对应分数组中取一个tag
+		star := c.opts.Star[rand.Int31n(int32(len(c.opts.Star)))]
+		group := weapi.PartnerTagsGroup[star]
+		tags := group[rand.Int31n(int32(len(group)))]
 
 		// 上报听歌事件
 
@@ -179,6 +181,85 @@ func (c *Partner) do(ctx context.Context) error {
 			// return fmt.Errorf("PartnerEvaluate: %v", resp.Message)
 		}
 	}
+
+	// 获取扩展任务列表并执行扩展任务测评 2024年10月21日推出的新功能测评
+	var (
+		taskId   = task.Data.Id
+		extraNum = 2 + rand.Int31n(6) // 扩展歌曲每日7首歌会给一分
+	)
+	extraTask, err := request.PartnerExtraTask(ctx, &weapi.PartnerExtraTaskReq{ReqCommon: types.ReqCommon{}})
+	if err != nil {
+		return fmt.Errorf("PartnerExtraTask: %w", err)
+	}
+	for _, work := range extraTask.Data {
+		// 判断任务是否执行过
+		if work.Completed {
+			log.Warn("extra task completed: %+v\n", work)
+			continue
+		}
+
+		// 模拟听歌消耗得时间,随机15-25秒
+		time.Sleep(time.Second * time.Duration(15+int(rand.Int31n(10))))
+
+		// 随机一个分数,然后从对应分数组中取一个tag
+		star := c.opts.Star[rand.Int31n(int32(len(c.opts.Star)))]
+		group := weapi.PartnerTagsGroup[star]
+		tags := group[rand.Int31n(int32(len(group)))]
+
+		// 上报听歌事件
+
+		// 上报
+		var req = &weapi.PartnerExtraReportReq{
+			ReqCommon:     types.ReqCommon{},
+			WorkId:        work.Work.Id,
+			ResourceId:    work.Work.ResourceId,
+			BizResourceId: "",
+			InteractType:  "PLAY_END",
+		}
+		resp, err := request.PartnerExtraReport(ctx, req)
+		if err != nil {
+			return fmt.Errorf("PartnerExtraReport: %w", err)
+		}
+		switch resp.Code {
+		case 200:
+			// ok
+		default:
+			log.Error("PartnerExtraReport(%+v) err: %+v\n", req, resp)
+			continue
+		}
+
+		// 执行测评
+		var evaluateReq = &weapi.PartnerEvaluateReq{
+			ReqCommon:     types.ReqCommon{},
+			TaskId:        taskId,
+			WorkId:        work.Work.Id,
+			Score:         star,
+			Tags:          tags,
+			CustomTags:    "[]",
+			Comment:       "",
+			SyncYunCircle: false,
+			SyncComment:   true,               // ?
+			Source:        "mp-music-partner", // 定死的值？
+			ExtraResource: true,
+		}
+		evaluateResp, err := request.PartnerEvaluate(ctx, evaluateReq)
+		if err != nil {
+			return fmt.Errorf("PartnerEvaluate: %w", err)
+		}
+		switch evaluateResp.Code {
+		case 200:
+			extraNum--
+			if extraNum <= 0 {
+				goto end
+			}
+		case 405:
+			// 当前任务歌曲已完成评
+		default:
+			log.Error("PartnerEvaluate(%+v) err: %+v\n", req, resp)
+			// return fmt.Errorf("PartnerEvaluate: %v", resp.Message)
+		}
+	}
+end:
 
 	// 刷新token过期时间
 	refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
