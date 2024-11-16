@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         os: [ linux, windows, darwin ]
-        arch: [ "amd64", "arm64", "arm", "386", "loong64" ]
+        arch: [ "amd64", "arm64", "loong64" ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
