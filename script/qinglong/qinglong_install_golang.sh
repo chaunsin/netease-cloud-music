@@ -56,9 +56,40 @@ detect_platform() {
     fi
 }
 
-# 比较版本号
+# 比较版本号 (>=)，只考虑三位版本号
 version_ge() {
-    [ "$(echo -e "$1\n$2" | sort -V | head -n1)" == "$2" ]
+    # 使用 'IFS' 以 '.' 为分隔符拆分版本号
+    IFS='.'  # 设置分隔符
+    set -- $1  # 拆分第一个版本号
+    ver1_major=$1
+    ver1_minor=${2:-0}  # 默认为0
+    ver1_patch=${3:-0}  # 默认为0
+
+    set -- $2  # 拆分第二个版本号
+    ver2_major=$1
+    ver2_minor=${2:-0}  # 默认为0
+    ver2_patch=${3:-0}  # 默认为0
+
+    # 比较每一部分的版本号
+    if [[ $ver1_major -gt $ver2_major ]]; then
+        return 0  # ver1 >= ver2
+    elif [[ $ver1_major -lt $ver2_major ]]; then
+        return 1  # ver1 < ver2
+    fi
+
+    if [[ $ver1_minor -gt $ver2_minor ]]; then
+        return 0  # ver1 >= ver2
+    elif [[ $ver1_minor -lt $ver2_minor ]]; then
+        return 1  # ver1 < ver2
+    fi
+
+    if [[ $ver1_patch -gt $ver2_patch ]]; then
+        return 0  # ver1 >= ver2
+    elif [[ $ver1_patch -lt $ver2_patch ]]; then
+        return 1  # ver1 < ver2
+    fi
+
+    return 0  # ver1 == ver2
 }
 
 # 检查当前安装的 Go 版本

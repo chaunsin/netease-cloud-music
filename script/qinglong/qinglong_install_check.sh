@@ -129,7 +129,7 @@ main() {
     detect_package_manager
 
     # 检查所需命令并尝试安装
-    REQUIRED_COMMANDS=("grep" "mkdir" "tar" "curl" "mktemp")
+    REQUIRED_COMMANDS=("grep" "mkdir" "tar" "curl" "mktemp" "awk" "sed")
     for cmd in "${REQUIRED_COMMANDS[@]}"; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             echo "检测到 $cmd 未安装，尝试安装..."
