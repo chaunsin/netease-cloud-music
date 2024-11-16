@@ -89,14 +89,6 @@ install_golang() {
         exit 1
     fi
 
-    # 验证下载的文件
-    echo "Verifying the downloaded file..."
-    file "$TMP_DIR/go.tar.gz"
-    if [[ $(file "$TMP_DIR/go.tar.gz" | grep -c "gzip") -eq 0 ]]; then
-        echo "Downloaded file is not a valid gzip archive. Please check the download URL."
-        exit 1
-    fi
-
     echo "Extracting Golang to $INSTALL_PATH..."
     mkdir -p "$INSTALL_PATH"
     tar -C "$INSTALL_PATH" --strip-components=1 -xzf "$TMP_DIR/go.tar.gz"
