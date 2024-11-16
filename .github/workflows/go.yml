@@ -1,0 +1,72 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: ci
+
+on:
+  push:
+    branches: [ "" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "" ]
+  workflow_dispatch:  
+  
+permissions:
+  contents: read # to fetch code (actions/checkout)  
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [linux, windows, macos]
+        arch: [amd64, arm64, arm, 386, loong64] 
+    steps:
+      - name: Checkout code 
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      #- name: Test
+      #  run: go test -v ./...
+      
+      # 编译不同平台和架构的二进制文件
+      - name: Build for ${{ matrix.os }}-${{ matrix.arch }}
+        run: |
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o ncmctl-${{ matrix.os }}-${{ matrix.arch }} .
+      
+      # 打包为压缩包
+      - name: Package for ${{ matrix.os }}-${{ matrix.arch }}
+        run: |
+          tar -czf ncmctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz ncmctl-${{ matrix.os }}-${{ matrix.arch }}
+
+      # 上传编译好的压缩包
+      - name: Upload artifact for ${{ matrix.os }}-${{ matrix.arch }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: ncmctl-${{ matrix.os }}-${{ matrix.arch }}
+          path: ncmctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+
+      # 创建 GitHub Release 并上传压缩包
+      - name: Create Release and Upload Artifacts
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ncmctl-linux-amd64.tar.gz
+            ncmctl-linux-arm64.tar.gz
+            ncmctl-linux-arm.tar.gz
+            ncmctl-linux-386.tar.gz
+            ncmctl-linux-loong64.tar.gz
+            ncmctl-windows-amd64.tar.gz
+            ncmctl-windows-arm64.tar.gz
+            ncmctl-windows-arm.tar.gz
+            ncmctl-windows-386.tar.gz
+            ncmctl-windows-loong64.tar.gz
+            ncmctl-macos-amd64.tar.gz
+            ncmctl-macos-arm64.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
