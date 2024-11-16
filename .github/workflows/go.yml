@@ -37,7 +37,7 @@ jobs:
       # 编译不同平台和架构的二进制文件
       - name: Build for ${{ matrix.os }}-${{ matrix.arch }}
         run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o ncmctl-${{ matrix.os }}-${{ matrix.arch }} .
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o ncmctl-${{ matrix.os }}-${{ matrix.arch }} ./cmd/ncmctl/main.go
       
       # 打包为压缩包
       - name: Package for ${{ matrix.os }}-${{ matrix.arch }}
