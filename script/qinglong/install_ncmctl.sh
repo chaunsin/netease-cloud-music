@@ -73,15 +73,39 @@ else
 fi
 
 # 拉取代码仓库
-REPO_URL="https://github.com/chaunsin/netease-cloud-music"
+GITHUB_REPO_URL="https://github.com/chaunsin/netease-cloud-music.git"
+GITEE_REPO_URL="https://gitee.com/chaunsin/netease-cloud-music.git"
 CLONE_DIR="netease-cloud-music"
 
+clone_repository() {
+    local repo_url=$1
+    if git ls-remote "$repo_url" &>/dev/null; then
+        echo "正在从 $repo_url 克隆代码库..."
+        git clone "$repo_url" "$CLONE_DIR"
+        return 0
+    else
+        return 1
+    fi
+}
+
 if [ ! -d "$CLONE_DIR" ]; then
-    echo "正在从 $REPO_URL 克隆代码库..."
-    git clone "$REPO_URL" "$CLONE_DIR"
+    if ! clone_repository "$GITHUB_REPO_URL"; then
+        echo "GitHub 仓库不可访问，尝试从 Gitee 拉取代码..."
+        if ! clone_repository "$GITEE_REPO_URL"; then
+            echo "Gitee 仓库也不可访问，退出..."
+            exit 1
+        fi
+    fi
 else
     echo "代码库已存在，正在更新..."
-    cd "$CLONE_DIR" && git pull && cd ..
+    cd "$CLONE_DIR" && git pull || {
+        echo "更新失败，尝试切换到 Gitee 源..."
+        git remote set-url origin "$GITEE_REPO_URL" && git pull || {
+            echo "无法从 Gitee 更新代码，退出..."
+            exit 1
+        }
+    }
+    cd ..
 fi
 
 # 编译代码
