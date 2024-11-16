@@ -31,7 +31,7 @@ GO_INSTALL_DIR="/usr/local"
 # https://go.dev/dl/go1.22.9.src.tar.gz
 #SOURCE="https://go.dev/dl/"
 # https://studygolang.com/dl/golang/go1.23.3.src.tar.gz
-SOURCE="https://golang.org/dl/golang/"
+SOURCE="https://studygolang.com/dl/golang/"
 
 # 检查当前系统类型和架构
 detect_platform() {

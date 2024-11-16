@@ -25,8 +25,6 @@
 #
 ################################################################################
 
-#!/bin/bash
-
 # 检查命令是否可用的函数
 check_command() {
     command -v "$1" >/dev/null 2>&1
@@ -36,7 +34,7 @@ check_command() {
     fi
 }
 
-# 检测系统类型并检查/安装包管理器
+# 检测系统类型并选择包管理器
 detect_package_manager() {
     if [ -f /etc/debian_version ]; then
         echo "检测到系统: Debian/Ubuntu"
@@ -51,25 +49,52 @@ detect_package_manager() {
     elif [ -f /etc/arch-release ]; then
         echo "检测到系统: Arch Linux"
         PACKAGE_MANAGER="pacman"
+    elif [ -f /etc/alpine-release ]; then
+        echo "检测到系统: Alpine Linux"
+        PACKAGE_MANAGER="apk"
+    elif grep -i "photon" /etc/os-release >/dev/null 2>&1; then
+        echo "检测到系统: VMware Photon OS"
+        PACKAGE_MANAGER="tdnf"
+    elif grep -i "amazon linux" /etc/os-release >/dev/null 2>&1; then
+        echo "检测到系统: Amazon Linux"
+        PACKAGE_MANAGER="yum"
     elif [ "$(uname)" == "Darwin" ]; then
         echo "检测到系统: macOS"
         if ! command -v brew &>/dev/null; then
-            echo "错误: Homebrew 未安装，请手动安装 Homebrew 然后重试"
+            echo "错误: Homebrew 未安装，请手动安装 Homebrew 然后重试。"
             exit 1
         fi
         PACKAGE_MANAGER="brew"
+    elif [ -f /etc/os-release ]; then
+        echo "检测到未知的 Linux 系统，尝试使用常见包管理器..."
+        if command -v apt >/dev/null 2>&1; then
+            PACKAGE_MANAGER="apt"
+        elif command -v yum >/dev/null 2>&1; then
+            PACKAGE_MANAGER="yum"
+        elif command -v apk >/dev/null 2>&1; then
+            PACKAGE_MANAGER="apk"
+        elif command -v pacman >/dev/null 2>&1; then
+            PACKAGE_MANAGER="pacman"
+        else
+            echo "无法确定包管理器，请手动安装必要工具后重试。"
+            exit 1
+        fi
     else
-        echo "未知的系统类型，请手动安装必要工具后重试"
+        echo "未知的系统类型，请手动安装必要工具后重试。"
         exit 1
     fi
 }
 
-# 安装必要工具的函数
+# 安装工具函数，根据系统包管理器
 install_dependencies() {
     local package=$1
     case "$PACKAGE_MANAGER" in
     apt)
-        sudo apt update && sudo apt install -y "$package"
+        if command -v sudo >/dev/null 2>&1; then
+            sudo apt update && sudo apt install -y "$package"
+        else
+            apt update && apt install -y "$package"
+        fi
         ;;
     yum)
         sudo yum install -y "$package"
@@ -79,6 +104,12 @@ install_dependencies() {
         ;;
     pacman)
         sudo pacman -Syu --noconfirm "$package"
+        ;;
+    apk)
+        sudo apk add --no-cache "$package"
+        ;;
+    tdnf)
+        sudo tdnf install -y "$package"
         ;;
     brew)
         brew install "$package"
@@ -90,12 +121,12 @@ install_dependencies() {
     esac
 }
 
-# 主程序逻辑
+# 主逻辑函数
 main() {
-    # 检测系统和包管理器
+    # 检测系统类型和包管理器
     detect_package_manager
 
-    # 检查并安装所需命令
+    # 检查所需命令并尝试安装
     REQUIRED_COMMANDS=("grep" "mkdir" "tar" "curl" "mktemp")
     for cmd in "${REQUIRED_COMMANDS[@]}"; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -109,4 +140,3 @@ main() {
 
 # 执行主程序
 main
-
