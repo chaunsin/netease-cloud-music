@@ -10,8 +10,8 @@ on:
       - 'v*'
   pull_request:
     branches: [ "" ]
-  workflow_dispatch:  
-  
+  workflow_dispatch:
+
 permissions:
   contents: read # to fetch code (actions/checkout)  
 
@@ -20,10 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [linux, windows, macos]
-        arch: [amd64, arm64, arm, 386, loong64] 
+        os: [ linux, windows, darwin ]
+        arch: [ "amd64", "arm64", "arm", "386", "loong64" ]
     steps:
-      - name: Checkout code 
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Go
