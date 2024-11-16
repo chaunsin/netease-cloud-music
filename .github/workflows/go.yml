@@ -62,9 +62,12 @@ jobs:
       - name: Cross Compile
         run: |
           platform=${{ matrix.platform }}
-          output_file="output/${{ matrix.platform }}/ncmctl"
+          # 使用 bash split 来分割 platform 字符串
+          OS=$(echo $platform | cut -d'/' -f1)
+          ARCH=$(echo $platform | cut -d'/' -f2)
+          output_file="output/${platform}/ncmctl"
           mkdir -p "$(dirname "$output_file")"
-          GOOS=${{ matrix.platform.split('/')[0] }} GOARCH=${{ matrix.platform.split('/')[1] }} go build -o "$output_file" ./cmd/ncmctl/main.go
+          GOOS=$OS GOARCH=$ARCH go build -o "$output_file" ./cmd/ncmctl/main.go
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
