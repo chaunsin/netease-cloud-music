@@ -28,7 +28,7 @@
 set -o pipefail
 
 # Golang 默认版本
-DEFAULT_GO_VERSION="1.21"
+DEFAULT_GO_VERSION="1.21.0"
 GO_INSTALL_DIR="/usr/local"
 # https://go.dev/dl/go1.22.9.src.tar.gz
 #SOURCE="https://go.dev/dl/"
@@ -86,6 +86,14 @@ install_golang() {
     curl -fsSL "$DOWNLOAD_URL" -o "$TMP_DIR/go.tar.gz"
     if [[ $? -ne 0 ]]; then
         echo "Failed to download Golang. Please check your network connection."
+        exit 1
+    fi
+
+    # 验证下载的文件
+    echo "Verifying the downloaded file..."
+    file "$TMP_DIR/go.tar.gz"
+    if [[ $(file "$TMP_DIR/go.tar.gz" | grep -c "gzip") -eq 0 ]]; then
+        echo "Downloaded file is not a valid gzip archive. Please check the download URL."
         exit 1
     fi
 
