@@ -27,7 +27,7 @@ jobs:
       - name: Create matrix
         id: platforms
         run: |
-          echo '[
+          platforms='[
             "darwin/amd64", "darwin/arm64",
             "freebsd/amd64", "freebsd/arm64", "freebsd/riscv64",
             "linux/amd64", "linux/arm64", "linux/loong64", "linux/ppc64", "linux/ppc64le", "linux/riscv64",
@@ -35,11 +35,11 @@ jobs:
             "openbsd/amd64", "openbsd/arm64", "openbsd/ppc64", "openbsd/riscv64",
             "plan9/amd64",
             "windows/amd64", "windows/arm64"
-          ]' > platforms.json
-          echo "matrix=$(cat platforms.json)" >> $GITHUB_OUTPUT
+          ]'
+          echo "matrix=$platforms" >> $GITHUB_ENV
 
       - name: Show matrix
-        run: echo ${{ steps.platforms.outputs.matrix }}
+        run: echo ${{ env.matrix }}
 
   build:
     runs-on: ubuntu-latest
