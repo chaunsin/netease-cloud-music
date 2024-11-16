@@ -133,13 +133,13 @@ install_golang() {
         echo "Added Go to .bashrc"
     fi
 
-       # 如果是 Zsh 用户，检查并更新 .zshrc
+    # 如果是 Zsh 用户，检查并更新 .zshrc
     if [[ -n "$ZSH_VERSION" && ! -f "$HOME/.zshrc" ]]; then
         echo "export PATH=\"$INSTALL_PATH/bin:\$PATH\"" >> "$HOME/.zshrc"
         echo "Added Go to .zshrc"
     fi
 
-       # 使用 source 或 . 来立即生效
+    # 使用 source 或 . 来立即生效
     if [[ -f "$HOME/.bashrc" ]]; then
         source "$HOME/.bashrc"  # Bash 和 Zsh 支持
         echo "Sourced .bashrc to apply changes"
