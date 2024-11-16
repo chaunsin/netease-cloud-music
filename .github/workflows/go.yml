@@ -13,60 +13,61 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read # to fetch code (actions/checkout)  
+  contents: read # to fetch code (actions/checkout)
 
 jobs:
-  build:
+  prepare:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        os: [ linux, windows, darwin ]
-        arch: [ "amd64", "arm64", "loong64" ]
+    outputs:
+      matrix: ${{ steps.platforms.outputs.matrix }}
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-
-      #- name: Test
-      #  run: go test -v ./...
-      
-      # 编译不同平台和架构的二进制文件
-      - name: Build for ${{ matrix.os }}-${{ matrix.arch }}
+      - name: Create matrix
+        id: platforms
         run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o ncmctl-${{ matrix.os }}-${{ matrix.arch }} ./cmd/ncmctl/main.go
-      
-      # 打包为压缩包
-      - name: Package for ${{ matrix.os }}-${{ matrix.arch }}
+          echo '[
+            "darwin/amd64", "darwin/arm64",
+            "freebsd/amd64", "freebsd/arm64", "freebsd/riscv64",
+            "linux/amd64", "linux/arm64", "linux/loong64", "linux/ppc64", "linux/ppc64le", "linux/riscv64",
+            "netbsd/amd64", "netbsd/arm64",
+            "openbsd/amd64", "openbsd/arm64", "openbsd/ppc64", "openbsd/riscv64",
+            "plan9/amd64",
+            "windows/amd64", "windows/arm64"
+          ]' > platforms.json
+          echo "matrix=$(cat platforms.json)" >> $GITHUB_OUTPUT
+
+      - name: Show matrix
+        run: echo ${{ steps.platforms.outputs.matrix }}
+
+  build:
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Cross Compile
         run: |
-          tar -czf ncmctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz ncmctl-${{ matrix.os }}-${{ matrix.arch }}
+          platform=${{ matrix.platform }}
+          output_file="output/${{ matrix.platform }}/ncmctl"
+          mkdir -p "$(dirname "$output_file")"
+          GOOS=${{ matrix.platform.split('/')[0] }} GOARCH=${{ matrix.platform.split('/')[1] }} go build -o "$output_file" ./cmd/ncmctl/main.go
 
-      # 上传编译好的压缩包
-      - name: Upload artifact for ${{ matrix.os }}-${{ matrix.arch }}
-        uses: actions/upload-artifact@v3
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: ncmctl-${{ matrix.os }}-${{ matrix.arch }}
-          path: ncmctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
-
-      # 创建 GitHub Release 并上传压缩包
-      - name: Create Release and Upload Artifacts
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            ncmctl-linux-amd64.tar.gz
-            ncmctl-linux-arm64.tar.gz
-            ncmctl-linux-arm.tar.gz
-            ncmctl-linux-386.tar.gz
-            ncmctl-linux-loong64.tar.gz
-            ncmctl-windows-amd64.tar.gz
-            ncmctl-windows-arm64.tar.gz
-            ncmctl-windows-arm.tar.gz
-            ncmctl-windows-386.tar.gz
-            ncmctl-windows-loong64.tar.gz
-            ncmctl-macos-amd64.tar.gz
-            ncmctl-macos-arm64.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+          name: release-${{ matrix.platform }}
+          path: output/${{ matrix.platform }}
