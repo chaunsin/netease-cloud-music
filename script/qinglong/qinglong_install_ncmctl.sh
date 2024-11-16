@@ -31,7 +31,7 @@ set -o pipefail
 if ! command -v go &>/dev/null; then
     echo "Golang 未安装，正在运行 install_golang.sh..."
     if [ -f "./install_golang.sh" ]; then
-        bash ./install_golang.sh
+        bash ./qinglong_install_golang.sh
     else
         echo "找不到 install_golang.sh 脚本，退出..."
         exit 1

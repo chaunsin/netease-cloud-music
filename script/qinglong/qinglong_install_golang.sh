@@ -95,8 +95,29 @@ install_golang() {
 
     echo "Setting up Go environment for version $DEFAULT_GO_VERSION..."
     export PATH="$INSTALL_PATH/bin:$PATH"
+
+    # 将 Go 环境变量添加到 .bashrc 或 .zshrc 文件
     if ! grep -q "$INSTALL_PATH/bin" "$HOME/.bashrc" 2>/dev/null; then
-        echo "export PATH=\"$INSTALL_PATH/bin:\$PATH\"" >> "$HOME/.bashrc" || "$HOME/.zshrc"
+        echo "export PATH=\"$INSTALL_PATH/bin:\$PATH\"" >> "$HOME/.bashrc"
+        echo "Added Go to .bashrc"
+    fi
+
+       # 如果是 Zsh 用户，检查并更新 .zshrc
+    if [[ -n "$ZSH_VERSION" && ! -f "$HOME/.zshrc" ]]; then
+        echo "export PATH=\"$INSTALL_PATH/bin:\$PATH\"" >> "$HOME/.zshrc"
+        echo "Added Go to .zshrc"
+    fi
+
+       # 使用 source 或 . 来立即生效
+    if [[ -f "$HOME/.bashrc" ]]; then
+        source "$HOME/.bashrc"  # Bash 和 Zsh 支持
+        echo "Sourced .bashrc to apply changes"
+    elif [[ -f "$HOME/.zshrc" ]]; then
+        source "$HOME/.zshrc"  # Bash 和 Zsh 支持
+        echo "Sourced .zshrc to apply changes"
+    elif [[ -f "$HOME/.profile" ]]; then
+        . "$HOME/.profile"  # 适配 sh / dash
+        echo "Sourced .profile to apply changes"
     fi
 
     echo "Go installation completed."
