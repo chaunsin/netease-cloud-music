@@ -25,6 +25,8 @@
 #
 ################################################################################
 
+set -o pipefail
+
 # Golang 默认版本
 DEFAULT_GO_VERSION="1.21"
 GO_INSTALL_DIR="/usr/local"
@@ -88,8 +90,8 @@ install_golang() {
     fi
 
     echo "Extracting Golang to $INSTALL_PATH..."
-    sudo mkdir -p "$INSTALL_PATH"
-    sudo tar -C "$INSTALL_PATH" --strip-components=1 -xzf "$TMP_DIR/go.tar.gz"
+    mkdir -p "$INSTALL_PATH"
+    tar -C "$INSTALL_PATH" --strip-components=1 -xzf "$TMP_DIR/go.tar.gz"
 
     echo "Setting up Go environment for version $DEFAULT_GO_VERSION..."
     export PATH="$INSTALL_PATH/bin:$PATH"
