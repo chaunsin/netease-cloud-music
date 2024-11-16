@@ -16,58 +16,34 @@ permissions:
   contents: read # to fetch code (actions/checkout)
 
 jobs:
-  prepare:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.platforms.outputs.matrix }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Create matrix
-        id: platforms
-        run: |
-          echo '[
-            "darwin/amd64", "darwin/arm64",
-            "freebsd/amd64", "freebsd/arm64", "freebsd/riscv64",
-            "linux/amd64", "linux/arm64", "linux/loong64", "linux/ppc64", "linux/ppc64le", "linux/riscv64",
-            "netbsd/amd64", "netbsd/arm64",
-            "openbsd/amd64", "openbsd/arm64", "openbsd/ppc64", "openbsd/riscv64",
-            "plan9/amd64",
-            "windows/amd64", "windows/arm64"
-          ]' > platforms.json
-          echo "matrix=$(cat platforms.json)" >> $GITHUB_OUTPUT
-
-      - name: Show matrix
-        run: echo ${{ steps.platforms.outputs.matrix }}
-
   build:
     runs-on: ubuntu-latest
-    needs:
-      - prepare
     strategy:
-      fail-fast: false
       matrix:
-        platform: ${{ fromJson(needs.prepare.outputs.matrix) }}
+        os: [ linux, windows, darwin ]
+        arch: [ amd64, arm64 ]
+        include:
+          - os: linux
+            arch: amd64
+
     steps:
-      - name: Checkout
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Cross Compile
-        run: |
-          platform=${{ matrix.platform }}
-          output_file="output/${{ matrix.platform }}/ncmctl"
-          mkdir -p "$(dirname "$output_file")"
-          GOOS=${{ matrix.platform.split('/')[0] }} GOARCH=${{ matrix.platform.split('/')[1] }} go build -o "$output_file" ./cmd/ncmctl/main.go
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          name: release-${{ matrix.platform }}
-          path: output/${{ matrix.platform }}
+          go-version: '1.21'
+
+      - name: Build for ${{ matrix.os }}-${{ matrix.arch }}
+        run: |
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o ncmctl-${{ matrix.os }}-${{ matrix.arch }} ./cmd/ncmctl/main.go
+          if [[ "${{ matrix.os }}" == "windows" ]]; then
+            mv ncmctl-${{ matrix.os }}-${{ matrix.arch }} ncmctl-${{ matrix.os }}-${{ matrix.arch }}.exe
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: myapp-*
