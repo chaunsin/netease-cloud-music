@@ -27,16 +27,19 @@ jobs:
         with:
           go-version: '1.21' # 设置你的 Go 版本
 
-      # Step 3: 拉取 xgo Docker 镜像并进行编译
-      - name: Cross-compile with xgo
+      - name: Install xgo
         run: |
-          docker run --rm \
-            -v "$(pwd)":/src \
-            -v "$(pwd)/output":/output \
-            ghcr.io/techknowlogick/xgo:latest \
-            --targets=linux/amd64,windows/amd64,linux/arm64 \
-            --out=/output/ncmctl \
-            ./cmd/ncmctl/main.go
+          go install src.techknowlogick.com/xgo@latest
+
+      # Step 4: 编译项目
+      - name: Cross-Compile using xgo
+        run: |
+          mkdir -p dist
+          xgo \
+            --targets=linux/amd64,linux/arm64,darwin/amd64,windows/amd64 \
+            --out dist \
+            -go go-1.21 \
+            ./cmd/ncmctl
 
       # Step 4: 保存编译的二进制文件
       - name: Upload binaries
