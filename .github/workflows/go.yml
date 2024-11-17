@@ -34,10 +34,10 @@ jobs:
       # Step 4: 编译项目
       - name: Cross-Compile using xgo
         run: |
-          mkdir -p dist
+          mkdir -p output
           xgo \
-            --targets=linux/amd64,linux/arm64,darwin/amd64,windows/amd64 \
-            --out dist \
+            --targets=linux/amd64 \
+            -out ./output/ \
             # -go go-1.21.0 \
             ./cmd/ncmctl/main.go
 
