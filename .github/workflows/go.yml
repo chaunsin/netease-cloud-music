@@ -26,7 +26,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: '1.21' # 设置你的 Go 版本
-
+      # Step 3: 安装xgo
       - name: Install xgo
         run: |
           go install src.techknowlogick.com/xgo@latest
@@ -35,12 +35,13 @@ jobs:
       - name: Cross-Compile using xgo
         run: |
           mkdir -p output
-          xgo --targets=linux/amd64 \
-          -out ./output/ ./cmd/ncmctl/main.go
+          xgo --targets=linux/*,windows/*,darwin/* \
+          -out ncmctl ./cmd/ncmctl/main.go
 
-      # Step 4: 保存编译的二进制文件
+      # Step 4: 保存编译的二进制文件 
+      # https://github.com/actions/upload-artifact
       - name: Upload binaries
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: binaries
           path: output/
