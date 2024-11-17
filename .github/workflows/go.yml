@@ -21,11 +21,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: 设置 Go 环境（可选，仅用于工具安装或调试）
+      # Step 2: 设置 Go 环境
       - name: Set up Go environment
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21' # 设置你的 Go 版本
+          go-version: '1.21' 
+
       # Step 3: 安装xgo
       - name: Install xgo
         run: |
@@ -38,31 +39,20 @@ jobs:
           xgo --targets=darwin/* \
           -out output/ncmctl ./cmd/ncmctl/main.go
 
-      # Step 4: 保存编译的二进制文件 
-      # https://github.com/actions/upload-artifact
-      # - name: Upload binaries
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: binaries
-      #     path: output/
-      - name: Compress and Upload binaries
+      # Step 5: 压缩每个编译的二进制文件
+      - name: Compress and upload binaries
         id: compress
         run: |
-          tarballs=""
           for file in output/*; do
             filename=$(basename "$file")
             os_arch=$(echo "$filename" | sed -E 's/^ncmctl[-]?|[.exe]*$//g' | tr '-' '_')
-            tarball="ncmctl_${os_arch}.tar.gz"
+            tarball="output/ncmctl_${os_arch}.tar.gz"
             tar -czf "$tarball" -C output "$filename"
-            tarballs="${tarballs} ${tarball}"
-            echo "tarball=${tarballs}" >> $GITHUB_OUTPUT
           done
 
+      # Step 6: 上传每个tarball文件
       - name: Upload tarballs
         uses: actions/upload-artifact@v4
         with:
           name: ncmctl-tarballs
-          path: ${{ steps.compress.outputs.tarball }}
-
-       
-      
+          path: output/*.tar.gz
