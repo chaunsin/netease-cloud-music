@@ -15,44 +15,32 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        os: [ linux, windows, darwin ]
-        arch: [ amd64, arm64 ]
-        include:
-          - os: linux
-            arch: amd64
 
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      # Step 1: 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      # Step 2: 设置 Go 环境（可选，仅用于工具安装或调试）
+      - name: Set up Go environment
+        uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: '1.21' # 设置你的 Go 版本
 
-      - name: Install dependencies for ${{ matrix.os }}
+      # Step 3: 拉取 xgo Docker 镜像并进行编译
+      - name: Cross-compile with xgo
         run: |
-          if [[ "${{ matrix.os }}" == "linux" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y clang brotli
-          elif [[ "${{ matrix.os }}" == "windows" ]]; then
-            choco install mingw -y
-          elif [[ "${{ matrix.os }}" == "darwin" ]]; then
-            brew install brotli
-          fi
+          docker run --rm \
+            -v "$(pwd)":/src \
+            -v "$(pwd)/output":/output \
+            ghcr.io/techknowlogick/xgo:latest \
+            --targets=linux/amd64,windows/amd64,linux/arm64 \
+            --out=/output/ncmctl \
+            ./cmd/ncmctl/main.go
 
-      - name: Build for ${{ matrix.os }}-${{ matrix.arch }}
-        run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} CGO_ENABLED=1 go build -o ncmctl-${{ matrix.os }}-${{ matrix.arch }} ./cmd/ncmctl/main.go
-          if [[ "${{ matrix.os }}" == "windows" ]]; then
-            mv ncmctl-${{ matrix.os }}-${{ matrix.arch }} ncmctl-${{ matrix.os }}-${{ matrix.arch }}.exe
-          fi
-          echo "Build artifact generated: ncmctl-${{ matrix.os }}-${{ matrix.arch }}"
-
-      - name: Upload build artifacts
+      # Step 4: 保存编译的二进制文件
+      - name: Upload binaries
         uses: actions/upload-artifact@v3
         with:
-          name: build-artifacts
-          path: ncmctl-*
+          name: binaries
+          path: output/
