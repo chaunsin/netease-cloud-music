@@ -41,7 +41,19 @@ jobs:
       # Step 4: 保存编译的二进制文件 
       # https://github.com/actions/upload-artifact
       - name: Upload binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: binaries
-          path: output/
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: binaries
+      #     path: output/
+        run: |
+          for file in output/*; do
+            # 提取文件名和操作系统/架构信息
+            filename=$(basename "$file")
+            os_arch=$(echo "$filename" | sed -E 's/^ncmctl[-]?|[.exe]*$//g' | tr '-' '_')
+            tarball="ncmctl_${os_arch}.tar.gz"
+            
+            tar -czf "$tarball" -C output "$filename"
+            
+            echo "Uploading $tarball"
+            gh run upload-artifact --name "$tarball" --path "$tarball"
+          done  
