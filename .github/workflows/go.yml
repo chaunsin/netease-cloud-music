@@ -35,7 +35,7 @@ jobs:
       - name: Cross-Compile using xgo
         run: |
           mkdir -p output
-          xgo --targets=linux/*,windows/*,darwin/* \
+          xgo --targets=darwin/* \
           -out output/ncmctl ./cmd/ncmctl/main.go
 
       # Step 4: 保存编译的二进制文件 
@@ -46,19 +46,23 @@ jobs:
       #     name: binaries
       #     path: output/
       - name: Compress and Upload binaries
+        id: compress
         run: |
+          tarballs=""
           for file in output/*; do
             filename=$(basename "$file")
             os_arch=$(echo "$filename" | sed -E 's/^ncmctl[-]?|[.exe]*$//g' | tr '-' '_')
             tarball="ncmctl_${os_arch}.tar.gz"
             tar -czf "$tarball" -C output "$filename"
-            echo "tarball={tarball}" >> $GITHUB_OUTPUT
+            tarballs="${tarballs} ${tarball}"
+            echo "tarball=${tarballs}" >> $GITHUB_OUTPUT
           done
-        continue-on-error: true
 
       - name: Upload tarballs
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.compress.outputs.tarball }}
-          path: ${{ steps.compress.outputs.tarball }}  
+          name: ncmctl-tarballs
+          path: ${{ steps.compress.outputs.tarball }}
+
+       
       
