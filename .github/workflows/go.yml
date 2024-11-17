@@ -39,7 +39,7 @@ jobs:
             --targets=linux/amd64,linux/arm64,darwin/amd64,windows/amd64 \
             --out dist \
             # -go go-1.21.0 \
-            ./cmd/ncmctl
+            ./cmd/ncmctl/main.go
 
       # Step 4: 保存编译的二进制文件
       - name: Upload binaries
