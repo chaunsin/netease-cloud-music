@@ -52,7 +52,7 @@ jobs:
             os_arch=$(echo "$filename" | sed -E 's/^ncmctl[-]?|[.exe]*$//g' | tr '-' '_')
             tarball="ncmctl_${os_arch}.tar.gz"
             tar -czf "$tarball" -C output "$filename"
-            echo "::set-output name=tarball::$tarball"
+            echo "tarball={tarball}" >> $GITHUB_OUTPUT
           done
         continue-on-error: true
 
