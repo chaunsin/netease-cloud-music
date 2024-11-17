@@ -35,7 +35,9 @@ jobs:
       - name: Cross-Compile using xgo
         run: |
           mkdir -p output
-          xgo --targets=linux/amd64 -out ./output/ ./cmd/ncmctl/main.go
+          xgo -deps https://github.com/google/brotli/archive/refs/tags/v1.1.0.tar.gz \
+          --targets=linux/amd64 \
+          -out ./output/ ./cmd/ncmctl/main.go
 
       # Step 4: 保存编译的二进制文件
       - name: Upload binaries
