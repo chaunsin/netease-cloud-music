@@ -36,7 +36,7 @@ jobs:
         run: |
           mkdir -p output
           xgo --targets=linux/*,windows/*,darwin/* \
-          -out ncmctl ./cmd/ncmctl/main.go
+          -out output/ncmctl ./cmd/ncmctl/main.go
 
       # Step 4: 保存编译的二进制文件 
       # https://github.com/actions/upload-artifact
