@@ -41,9 +41,10 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
+	"github.com/andybalholm/brotli"
 	"github.com/cheggaaa/pb/v3"
 	"github.com/go-resty/resty/v2"
-	"github.com/google/brotli/go/cbrotli"
+	// "github.com/google/brotli/go/cbrotli"
 )
 
 type Config struct {
@@ -436,7 +437,10 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 		}
 		resp.SetBody(bodyBytes)
 	case "br":
-		bodyBytes, err := cbrotli.Decode(resp.Body())
+		// bodyBytes, err := cbrotli.Decode(resp.Body())
+		// 使用纯go实现
+		r := brotli.NewReader(bytes.NewReader(resp.Body()))
+		bodyBytes, err := io.ReadAll(r)
 		if err != nil {
 			return fmt.Errorf("cbrotli.Decode: %w", err)
 		}
