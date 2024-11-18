@@ -31,9 +31,8 @@ jobs:
         run: |
           docker build . --file Dockerfile \
           --tag $IMAGE_NAME \
-          --build-arg BUILD_TIME=$(date "+%Y/%m/%d %H:%M:%S") \
-          --build-arg COMMIT_HASH=$(git rev-parse --short=7 HEAD) \
-          --build-arg VERSION=$(git rev-parse --abbrev-ref HEAD) \
+          --build-arg BUILD_TIME='' \
+          --build-arg VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,') \
           --build-arg GOPROXY=https://proxy.golang.org \
           --label "runnumber=${GITHUB_RUN_ID}"
 
