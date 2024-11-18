@@ -3,7 +3,7 @@ FROM golang:1.21 AS builder
 
 ARG GOPROXY=https://goproxy.cn,direct
 ARG VERSION=''
-ARG COMMIT=''
+ARG COMMIT_HASH=''
 ARG BUILD_TIME=''
 
 # https://github.com/opencontainers/image-spec/blob/main/annotations.md#annotations
@@ -40,7 +40,7 @@ RUN go env -w GO111MODULE=on && \
     go env -w GOPROXY=${GOPROXY} && \
     go mod tidy && \
     CGO_ENABLED=1 GOOS=linux \
-    go build "-X main.Version=${CURRENT_BRANCH} -X main.Commit=${COMMIT} -X main.BuildTime=${BUILD_TIME} -s -w" -o /app/ncmctl cmd/ncmctl/main.go
+    go build "-X main.Version=${CURRENT_BRANCH} -X main.Commit=${COMMIT_HASH} -X main.BuildTime=${BUILD_TIME} -s -w" -o /app/ncmctl cmd/ncmctl/main.go
 #    CGO_CFLAGS='-I /usr/local/out/installed/include' \
 #    CGO_LDFLAGS='-L /usr/local/out/installed/lib' \
 #    LD_LIBRARY_PATH='/usr/local/out/installed/lib' \
