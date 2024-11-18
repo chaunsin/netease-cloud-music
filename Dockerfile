@@ -40,7 +40,7 @@ RUN go env -w GO111MODULE=on && \
     go env -w GOPROXY=${GOPROXY} && \
     go mod tidy && \
     CGO_ENABLED=1 GOOS=linux \
-    go build "-X 'main.Version=${Version}' -X 'main.Commit=${COMMIT_HASH}' -X 'main.BuildTime=${BUILD_TIME}' -s -w" \
+    go build -ldflags "-X main.Version=${Version} -X main.Commit=${COMMIT_HASH} -X main.BuildTime=${BUILD_TIME} -s -w" \
     -o /app/ncmctl cmd/ncmctl/main.go
 #    CGO_CFLAGS='-I /usr/local/out/installed/include' \
 #    CGO_LDFLAGS='-L /usr/local/out/installed/lib' \
