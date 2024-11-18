@@ -26,7 +26,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+        
+      - name: Date
+        run: |
+          t=$(date)
+          echo $t
+      
       - name: Build image
         run: |
           docker build . --file Dockerfile \
