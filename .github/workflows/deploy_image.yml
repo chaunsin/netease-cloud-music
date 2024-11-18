@@ -1,5 +1,4 @@
-#
-name: ncmctl docker image push
+name: deploy image
 
 # This workflow runs when any of the following occur:
 # - A push is made to a branch called `main` or `seed`
