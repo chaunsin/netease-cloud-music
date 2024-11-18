@@ -1,5 +1,5 @@
-export VERSION ?= latest
-export IMAGE?=chaunsin/ncmctl:${VERSION}
+export IMAGE_VERSION ?= latest
+export IMAGE_NAME?=chaunsin/ncmctl:${IMAGE_VERSION}
 
 test:
 	#go test -v ./..
@@ -12,7 +12,7 @@ install:
 
 # 构建镜像
 build-image:
-	DOCKER_BUILDKIT=1 docker build --progress=plain -t $(IMAGE) -f $(PWD)/Dockerfile $(PWD)
+	DOCKER_BUILDKIT=1 docker build --progress=plain -t $(IMAGE_NAME) -f $(PWD)/Dockerfile $(PWD)
 
 # 推送镜像到doker hub
 push-image:
