@@ -50,6 +50,8 @@ github.com/go-flac/flacvorbis/v2 v2.0.2 h1:xCL3OhxrxWkHrbWUBvGNe+6FQ03yLmBbz0v5z
 github.com/go-flac/flacvorbis/v2 v2.0.2/go.mod h1:SwTB5gs13VaM/N7rstwPoUsPibiMKklgwybYP9dYo2g=
 github.com/go-flac/go-flac/v2 v2.0.1 h1:1zilNkbmmpK9DLsz2NbjLHG8avOmthYqUfVc9YKB/Ps=
 github.com/go-flac/go-flac/v2 v2.0.1/go.mod h1:hvgeR2hElLbwk0Q1/vMazIDmIc2LAFSd9Bx/Fk6ViKo=
+github.com/go-flac/go-flac/v2 v2.0.2 h1:w6JvQVI6dpCRXd03S2e+lcpQ+6SI9Re6Y2gP0xc/1v4=
+github.com/go-flac/go-flac/v2 v2.0.2/go.mod h1:hvgeR2hElLbwk0Q1/vMazIDmIc2LAFSd9Bx/Fk6ViKo=
 github.com/go-redis/redis/v8 v8.11.4/go.mod h1:2Z2wHZXdQpCDXEGzqMockDpNyYvi2l4Pxt6RJr792+w=
 github.com/go-resty/resty/v2 v2.6.0/go.mod h1:PwvJS6hvaPkjtjNg9ph+VrSD92bi5Zq73w/BIH7cC3Q=
 github.com/go-resty/resty/v2 v2.13.1 h1:x+LHXBI2nMB1vqndymf26quycC4aggYJ7DECYbiz03g=
