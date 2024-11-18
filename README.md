@@ -156,7 +156,7 @@ ncmctl download -l hires '1820944399'
 ncmctl download -l SQ 'https://music.163.com/song?id=1820944399' -o ./download/ 
 ```
 
-**提示:** 支持得音质有(从低到高) `standard/128 < higher/192 < exhigh/HQ/320 < lossless/SQ < hires/HR`
+**提示:** 支持得音质有(从低到高) `standard/128 < higher/192 < exhigh/HQ/320 < lossless/SQ < hires/HR` 参数可指定任意别名。
 
 3. 下载某一张专辑所有音乐,批量下载数量5(最大值20)
 
@@ -172,14 +172,14 @@ ncmctl download -p 5 'https://music.163.com/#/album?id=34608111'
 ncmctl download --strict 'https://music.163.com/#/artist?id=33400892'
 ```
 
-**提示:** `--strict`为严格默认,当歌曲没有对应品质的音乐时则会忽略下载,如果不指定`--strict`则默认下载次一级的音乐品质。
+**提示:** `--strict`为严格默认,当歌曲没有对应品质的音乐时则会忽略下载,如果不指定`--strict`则默认下载次一级的音乐品质。比如指定HR品质没有对应得资源则下载SQ。
 
 5. 下载某一歌单
 
 ```shell
-# web端
+# web端链接
 ncmctl download 'https://music.163.com/#/my/m/music/playlist?id=593617579'
-# pc端 
+# pc端链接 
 ncmctl download 'https://music.163.com/playlist?id=593617579'
 ```
 
@@ -197,7 +197,7 @@ ncmctl cloud '/Users/chaunsin/Music/谁为我停留 - 田震.mp3'
 ncmctl cloud '/Users/chaunsin/Music/' 
 ```
 
-**提示:** 默认批量上传数为3,最大为10,可指定`-p`参数设置,同时cloud支持按照自定义过滤条件进行上传详情可参考命令行。另外输入的目录深度不能超过3层。
+**提示:** 默认批量上传数为3,最大为10,可指定`-p`参数设置,同时cloud支持按照自定义过滤条件进行上传详情可使用`-h`参考命令行。另外输入的目录深度不能超过3层。
 
 **五、.ncm文件解析**
 
@@ -207,7 +207,7 @@ ncmctl cloud '/Users/chaunsin/Music/'
 ncmctl ncm '/Users/chaunsin/Music/' -o ./ncm
 ```
 
-**提示:** 支持批量解析,默认参数为10，可以指定`-p`参数设置数量。另外输入的目录深度不能超过3层。
+**提示:** 支持批量解析,默认参数为10，可以指定`-p`参数设置数量。同样输入的目录深度不能超过3层。
 
 **六、其他命令**
 
@@ -263,11 +263,11 @@ Use "ncmctl [command] --help" for more information about a command.
 
 # 已知问题
 
-### 下载无损音乐品质不准确
+### 1.下载无损音乐品质不准确
 
 当使用`ncmctl`下载无损音乐指定`-l lossless`时,会存在下载Hi-Res品质音乐情况,如果歌曲不支持Hi-Res品质音乐,同时有无损品质音乐则正常下载无损音乐,问题还需要排查。
 
-### 每日刷歌300首为啥达不到300首
+### 2.每日刷歌300首为啥达不到300首
 
 `scrobble`是支持去重功能的,会在`$HOME/.ncmctl/database/`记录听过哪些歌曲记录，但是目前没有找到这样的一个接口,判断当前账户听过哪些歌曲,因此这就会造成每日听歌达不到300首的情况。
 
@@ -279,7 +279,7 @@ Use "ncmctl [command] --help" for more information about a command.
 另外还有一种极端情况,刷歌采用的歌单是top榜单歌曲(top榜单歌曲相对来说都是新歌,不同得歌单更新频率不一样)
 ，top榜单有50个左右，虽然看起来很多,但实际上还是存在不满足300首新歌情况,如果网易新歌曲更新得不及时,由于有判重复逻辑,因此还是会存在不满足300首得情况。
 
-### ncmctl task和scrobble、sign、partner子命令有啥区别？
+### 3.ncmctl task和scrobble、sign、partner子命令有啥区别？
 
 task命令是一个服务，默认执行是包含了scrobble、sign、partner子命令功能，启动之后会每天定时执行,如果把此命令部署到服务器上并配合
 `nohup`命令去启动就不用每天手动去执行一遍任务了。
