@@ -34,7 +34,7 @@ jobs:
           --build-arg COMMIT_HASH=$(git rev-parse --short=7 HEAD) \
           --build-arg VERSION=$(git rev-parse --abbrev-ref HEAD) \
           --build-arg GOPROXY=https://proxy.golang.org \
-          --tag $IMAGE_NAME 
+          --tag $IMAGE_NAME \ 
           --label "runnumber=${GITHUB_RUN_ID}"
 
       - name: Log in to registry
