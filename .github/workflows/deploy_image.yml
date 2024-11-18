@@ -10,6 +10,7 @@ on:
     tags:
       - v*
   pull_request:
+  workflow_dispatch:
   # This creates an environment variable called `IMAGE_NAME ` with the value `ghtoken_product_demo`.
 env:
   IMAGE_NAME: ncmctl
