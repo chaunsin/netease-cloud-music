@@ -13,7 +13,7 @@ test:
 	#go test -v ./..
 
 build: info
-	go build -ldflags "-X main.Version=$(CURRENT_BRANCH) -X main.Commit=${COMMIT_HASH} -X main.BuildTime=${BUILD_TIME} -s -w" -o ncmctl cmd/ncmctl/main.go
+	go build -ldflags "-X 'main.Version=$(CURRENT_BRANCH)' -X 'main.Commit=${COMMIT_HASH}' -X 'main.BuildTime=${BUILD_TIME}' -s -w" -o ncmctl cmd/ncmctl/main.go
 
 install:
 	cd cmd/ncmctl && go install .
