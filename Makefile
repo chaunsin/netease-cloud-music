@@ -1,11 +1,15 @@
 export IMAGE_VERSION ?= latest
 export IMAGE_NAME?=chaunsin/ncmctl:${IMAGE_VERSION}
+CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+CURRENT_HASH := $(shell git rev-parse --short=7 HEAD)
 
 test:
 	#go test -v ./..
 
 build:
-	go build -o ncmctl cmd/ncmctl/main.go
+	@echo "Current Branch: $(CURRENT_BRANCH)"
+	@echo "Current Commit Hash: $(CURRENT_HASH)"
+	go build -ldflags "-X main.Version=$(CURRENT_BRANCH) -s -w" -o ncmctl cmd/ncmctl/main.go
 
 install:
 	cd cmd/ncmctl && go install .
