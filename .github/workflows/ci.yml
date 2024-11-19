@@ -48,11 +48,18 @@ jobs:
             os_arch=$(echo "$filename" | sed -E 's/^ncmctl[-]?|[.exe]*$//g' | tr '-' '_')
             tarball="output/ncmctl_${os_arch}.tar.gz"
             tar -czf "$tarball" -C output "$filename"
+#            echo "$filename=$tarball" >> "$GITHUB_OUTPUT"
           done
 
       # Step 6: 上传每个tarball文件
-      - name: Upload tarballs
-        uses: actions/upload-artifact@v4
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
         with:
-          name: ncmctl-tarballs
-          path: output/*.tar.gz
+          files: |
+            ./output/*
+            ./LICENSE
+          generate_release_notes: false
+          fail_on_unmatched_files: true
+          draft: true
+          token: ${{ secrets.GITHUB_TOKEN }}
