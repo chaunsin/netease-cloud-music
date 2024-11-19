@@ -25,7 +25,7 @@ jobs:
       - name: Set up Go environment
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21' 
+          go-version: '1.21'
 
       # Step 3: 安装xgo
       - name: Install xgo
@@ -39,7 +39,7 @@ jobs:
           xgo --targets=darwin/* \
           -out output/ncmctl ./cmd/ncmctl/main.go
 
-      # Step 5: 压缩每个编译的二进制文件
+      # Step 5: 压缩并上传二进制文件
       - name: Compress and upload binaries
         id: compress
         run: |
@@ -48,7 +48,6 @@ jobs:
             os_arch=$(echo "$filename" | sed -E 's/^ncmctl[-]?|[.exe]*$//g' | tr '-' '_')
             tarball="output/ncmctl_${os_arch}.tar.gz"
             tar -czf "$tarball" -C output "$filename"
-#            echo "$filename=$tarball" >> "$GITHUB_OUTPUT"
           done
 
       # Step 6: 上传每个tarball文件
