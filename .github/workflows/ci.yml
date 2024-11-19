@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -63,6 +63,13 @@ jobs:
           pattern: artifacts*
           path: ./output
           merge-multiple: true
+
+      - name: Debug Release
+        run: |
+          echo "Current ref: ${{ github.ref }}"
+          echo "Generated artifacts:"
+          ls ./output
+    
 
       # Step 6: 上传每个tarball文件
       - name: Create Release
