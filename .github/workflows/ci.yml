@@ -73,5 +73,5 @@ jobs:
             ./output/*
           generate_release_notes: false
           fail_on_unmatched_files: true
-          draft: false
+          draft: true
           token: ${{ secrets.GITHUB_TOKEN }}
