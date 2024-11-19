@@ -6,12 +6,12 @@ name: deploy image
 # - A pull request is created or updated
 on:
   push:
-    branches: [""]
+    branches: [ "" ]
     tags:
       - v*
   pull_request:
   workflow_dispatch:
-  # This creates an environment variable called `IMAGE_NAME ` with the value `ghtoken_product_demo`.
+
 env:
   IMAGE_NAME: ncmctl
   IMAGE_VERSION: latest
@@ -27,12 +27,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Build image
         run: |
           docker build . --file Dockerfile \
           --tag $IMAGE_NAME \
-          --build-arg BUILD_TIME='' \
+          --build-arg BUILD_TIME=${BUILD_TIME} \
           --build-arg VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,') \
           --build-arg COMMIT_HASH=$(echo "${{ github.sha }}" | cut -c 1-7) \
           --build-arg GOPROXY=https://proxy.golang.org \
@@ -40,7 +40,7 @@ jobs:
 
       - name: Log in to registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-      
+
       - name: Push image
         run: |
           IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
@@ -52,7 +52,7 @@ jobs:
           # This strips the "v" prefix from the tag name.
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
           # This uses the Docker `latest` tag convention.
-          [ "$VERSION" == "main" ] && VERSION=latest
+          [ "$VERSION" == "master" ] && VERSION=latest
           echo IMAGE_ID=$IMAGE_ID
           echo VERSION=$VERSION
           docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
