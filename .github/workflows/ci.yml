@@ -41,20 +41,31 @@ jobs:
       - name: Cross-Compile using xgo
         run: |
           mkdir -p output
-          xgo --targets=darwin/* \
+          xgo --targets=darwin/*,linux/*,windows/* \
           -out output/ncmctl ./cmd/ncmctl/main.go
 
-      # Step 5: 压缩并上传二进制文件
+      # Step 5: 压缩文件
       - name: Compress and upload binaries
-        id: compress
         run: |
           for file in output/*; do
             filename=$(basename "$file")
-            os_arch=$(echo "$filename" | sed -E 's/^ncmctl[-]?|[.exe]*$//g' | tr '-' '_')
-            tarball="output/ncmctl_${os_arch}.tar.gz"
-            tar -czf "$tarball" -C output "$filename"
+            ext="${filename##*.}"
+
+            if [[ "ext" == "exe" ]]; then
+              new_name="ncmctl.exe"
+            else
+              new_name="ncmctl"
+            fi
+
+            mv "$file" "output/$new_name"
+
+            tarball="output/${filename}.tar.gz"
+            tar -czf "$tarball" -C output "$new_name"
+          
+            rm -f "output/$new_name"
           done
 
+      # Step 6: 上传压缩包
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -62,6 +73,7 @@ jobs:
           path: ./output
           if-no-files-found: error
 
+      # Step 7: 下载压缩包
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -69,6 +81,7 @@ jobs:
           path: ./output
           merge-multiple: true
 
+      # Step 8: 输出当前ref和生成的文件列表
       - name: Debug Release
         run: |
           echo "Current ref: ${{ github.ref }}"
@@ -76,7 +89,7 @@ jobs:
           ls ./output
     
 
-      # Step 6: 上传每个tarball文件
+      # Step 9: 发布
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v') || startsWith(inputs.tag, 'v')
         uses: softprops/action-gh-release@v2
