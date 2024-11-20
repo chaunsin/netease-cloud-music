@@ -44,7 +44,7 @@ jobs:
       - name: Cross-Compile using xgo
         run: |
           mkdir -p output
-          xgo --targets=darwin-10.14/*,windows-6.1/*,linux/amd64,linux/arm64,linux/386,linux/mips64,linux/mips64le,linux/ppc64le,linux/riscv64\
+          xgo --targets=darwin-10.14/*,windows-6.1/*,linux/amd64,linux/arm64,linux/386,linux/mips64,linux/mips64le,linux/ppc64le,linux/riscv64 \
           -out output/ncmctl ./cmd/ncmctl/main.go
           ls ./output
 
