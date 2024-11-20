@@ -36,8 +36,8 @@ jobs:
       - name: Install xgo and upx
         run: |
           go install src.techknowlogick.com/xgo@latest
-          sudo apt update
-          sudo apt install upx  
+          sudo apt-get update
+          sudo apt-get install upx  
 
       # Step 4: 编译项目
       - name: Cross-Compile using xgo
@@ -69,7 +69,12 @@ jobs:
             mv "$file" "output/$new_name"
             
             # 使用 UPX 压缩文件
-            upx --best "output/$new_name"
+            if [[ -x "output/$new_name" ]]; then
+              upx --best "output/$new_name"
+            else
+              echo "Skipping UPX for non-executable file: $new_name"
+              continue
+            fi
             
             # 验证压缩后的文件是否可执行
             if [[ "$ext" == "exe" ]]; then
