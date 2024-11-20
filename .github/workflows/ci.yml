@@ -33,7 +33,7 @@ jobs:
           go-version: '1.21'
 
       # Step 3: 安装xgo以及upx
-      - name: Install xgo
+      - name: Install xgo and upx
         run: |
           go install src.techknowlogick.com/xgo@latest
           sudo apt update
@@ -55,6 +55,10 @@ jobs:
           for file in output/*; do
             filename=$(basename "$file")
             ext="${filename##*.}"
+          
+            if [[ "$filename" == "LICENSE" ]]; then
+              continue
+            fi
 
             if [[ "$ext" == "exe" ]]; then
               new_name="ncmctl.exe"
