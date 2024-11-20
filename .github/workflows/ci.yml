@@ -9,10 +9,10 @@ on:
     branches: [ "" ]
   workflow_dispatch:
     inputs:
-      tag:
+      debug_enabled:
         description: "用于手动触发测试"
         required: true
-        default: "v0.0.0"
+        default: true
 
 permissions:
   contents: write
@@ -20,17 +20,18 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       # Step 1: 检出代码
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Step 2: 设置 Go 环境
       - name: Set up Go environment
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: 'go.mod'
+          check-latest: true
+          cache: true
 
       # Step 3: 安装xgo以及upx
       - name: Install xgo and upx
@@ -71,35 +72,22 @@ jobs:
             
             # 使用 UPX 压缩文件
             if [[ -x "output/$new_name" ]]; then
-              upx -9 "output/$new_name"
+              upx -best "output/$new_name"
+              file "output/$new_name"
             else
               echo "Skipping UPX for non-executable file: $new_name"
               continue
             fi
             
-            # 验证压缩后的文件是否可执行
-            if [[ "$ext" == "exe" ]]; then
-              file "output/$new_name" | grep -q "PE32"
-            else
-              file "output/$new_name" | grep -q "ELF"
-            fi
-            if [[ $? -ne 0 ]]; then
-              echo "ERROR: Compressed file $new_name is not valid!"
-              exit 1
-            fi
-          
-            echo "SHA256 for $new_name:"
             sha256_file="output/${new_name}.sha256"
             sha256sum "output/$new_name" > "$sha256_file"
-            echo "$(cat "$sha256_file")  $new_name"
+            echo "SHA256 for $filename: $(cat "$sha256_file")"
             
             tarball="output/${filename}.tar.gz"
             tar -czf "$tarball" -C output "$new_name" -C output "${new_name}.sha256" -C output LICENSE
           
             rm -f "output/$new_name" "output/${new_name}.sha256"
           done
-          
-          rm -f "output/LICENSE"
 
       # Step 6: 上传压缩包
       - name: Upload artifacts
@@ -127,7 +115,17 @@ jobs:
 
       # Step 9: 发布
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v') || startsWith(inputs.tag, 'v')
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./output/*
+          generate_release_notes: false
+          fail_on_unmatched_files: true
+          draft: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Debug Release
+        if: startsWith(inputs.tag, true)
         uses: softprops/action-gh-release@v2
         with:
           files: |

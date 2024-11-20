@@ -11,6 +11,11 @@ on:
       - v*
   pull_request:
   workflow_dispatch:
+    inputs:
+      debug_enabled:
+        description: "用于手动触发测试"
+        required: true
+        default: true
 
 env:
   IMAGE_NAME: ncmctl
