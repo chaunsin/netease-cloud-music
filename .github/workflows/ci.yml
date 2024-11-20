@@ -32,10 +32,12 @@ jobs:
         with:
           go-version: '1.21'
 
-      # Step 3: 安装xgo
+      # Step 3: 安装xgo以及upx
       - name: Install xgo
         run: |
           go install src.techknowlogick.com/xgo@latest
+          sudo apt update
+          sudo apt install upx  
 
       # Step 4: 编译项目
       - name: Cross-Compile using xgo
@@ -43,27 +45,49 @@ jobs:
           mkdir -p output
           xgo --targets=darwin/*,linux/*,windows/* \
           -out output/ncmctl ./cmd/ncmctl/main.go
+          ls ./output
 
       # Step 5: 压缩文件
       - name: Compress and upload binaries
         run: |
+          cp LICENSE output/LICENSE
+          
           for file in output/*; do
             filename=$(basename "$file")
             ext="${filename##*.}"
 
-            if [[ "ext" == "exe" ]]; then
+            if [[ "$ext" == "exe" ]]; then
               new_name="ncmctl.exe"
             else
               new_name="ncmctl"
             fi
 
             mv "$file" "output/$new_name"
+            
+            # 使用 UPX 压缩文件
+            upx --best "output/$new_name"
+            
+            # 验证压缩后的文件是否可执行
+            if [[ "$ext" == "exe" ]]; then
+              file "output/$new_name" | grep -q "PE32"
+            else
+              file "output/$new_name" | grep -q "ELF"
+            fi
+            if [[ $? -ne 0 ]]; then
+              echo "ERROR: Compressed file $new_name is not valid!"
+              exit 1
+            fi
+          
+            sha256_file="output/${new_name}.sha256"
+            sha256sum "output/$new_name" > "$sha256_file"
 
             tarball="output/${filename}.tar.gz"
-            tar -czf "$tarball" -C output "$new_name"
+            tar -czf "$tarball" -C output "$new_name" -C output "${new_name}.sha256" -C output LICENSE
           
-            rm -f "output/$new_name"
+            rm -f "output/$new_name" "output/${new_name}.sha256"
           done
+          
+          rm -f output/LICENSE
 
       # Step 6: 上传压缩包
       - name: Upload artifacts
