@@ -42,9 +42,9 @@ type Config struct {
 type Module string
 
 const (
-	ModuleMail  Module = "mail"
-	ModuleQQBot Module = "qq_bot"
-	ModuleHTTP  Module = "http"
+	ModuleMail Module = "mail"
+	ModuleHTTP Module = "http"
+	ModuleVX   Module = "vx"
 )
 
 type Alert interface {
@@ -56,8 +56,6 @@ func New(module Module, cfg *Config) (a Alert, err error) {
 	switch module {
 	case ModuleMail:
 		a, err = mail.New(cfg.Mail)
-	case ModuleQQBot:
-		a, err = bot.New(cfg.QQBot)
 	case ModuleHTTP:
 		a, err = http.New(cfg.HTTP)
 	default:

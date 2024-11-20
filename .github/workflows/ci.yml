@@ -34,6 +34,7 @@ jobs:
           cache: true
 
       # Step 3: 安装xgo以及upx
+      # https://github.com/techknowlogick/xgo
       - name: Install xgo and upx
         run: |
           go install src.techknowlogick.com/xgo@latest
