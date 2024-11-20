@@ -50,6 +50,7 @@ jobs:
       # Step 5: 压缩文件
       - name: Compress and upload binaries
         run: |
+          set -x
           cp LICENSE output/LICENSE
           
           for file in output/*; do
@@ -71,7 +72,6 @@ jobs:
             # 使用 UPX 压缩文件
             if [[ -x "output/$new_name" ]]; then
               upx -9 "output/$new_name"
-              echo "Compressed $new_name using UPX."
             else
               echo "Skipping UPX for non-executable file: $new_name"
               continue
@@ -88,16 +88,18 @@ jobs:
               exit 1
             fi
           
+            echo "SHA256 for $new_name:"
             sha256_file="output/${new_name}.sha256"
             sha256sum "output/$new_name" > "$sha256_file"
-
+            echo "$(cat "$sha256_file")  $new_name"
+            
             tarball="output/${filename}.tar.gz"
             tar -czf "$tarball" -C output "$new_name" -C output "${new_name}.sha256" -C output LICENSE
           
             rm -f "output/$new_name" "output/${new_name}.sha256"
           done
           
-          rm -f output/LICENSE
+          rm -f "output/LICENSE"
 
       # Step 6: 上传压缩包
       - name: Upload artifacts
