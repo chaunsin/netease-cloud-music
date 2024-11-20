@@ -70,7 +70,8 @@ jobs:
             
             # 使用 UPX 压缩文件
             if [[ -x "output/$new_name" ]]; then
-              upx --best "output/$new_name"
+              upx -9 "output/$new_name"
+              echo "Compressed $new_name using UPX."
             else
               echo "Skipping UPX for non-executable file: $new_name"
               continue
