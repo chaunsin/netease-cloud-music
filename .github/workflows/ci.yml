@@ -12,7 +12,7 @@ on:
       debug_enabled:
         description: "用于手动触发测试"
         required: true
-        default: true
+        default: "true"
 
 permissions:
   contents: write
@@ -69,7 +69,7 @@ jobs:
             fi
 
             mv "$file" "output/$new_name"
-            
+          
             ## 使用 UPX 压缩文件
             #if [[ -x "output/$new_name" ]]; then
             #  upx --best "output/$new_name"
@@ -78,11 +78,11 @@ jobs:
             #  echo "Skipping UPX for non-executable file: $new_name"
             #  continue
             #fi
-            
+          
             sha256_file="output/checksum.sha256"
             sha256sum "output/$new_name" > "$sha256_file"
             echo "SHA256 for $filename: $(cat "$sha256_file")"
-            
+          
             tarball="output/${filename}.tar.gz"
             tar -czf "$tarball" output/"$new_name" output/checksum.sha256 output/LICENSE
           
@@ -127,7 +127,7 @@ jobs:
           draft: false
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Debug Release
-        if: startsWith(inputs.tag, true)
+        if: startsWith(inputs.tag, 'true')
         uses: softprops/action-gh-release@v2
         with:
           files: |
