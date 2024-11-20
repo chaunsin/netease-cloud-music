@@ -51,7 +51,6 @@ jobs:
       # Step 5: 压缩文件
       - name: Compress and upload binaries
         run: |
-          set -x
           cp LICENSE output/LICENSE
           
           for file in output/*; do
@@ -80,7 +79,8 @@ jobs:
             #fi
           
             sha256_file="output/checksum.sha256"
-            sha256sum "output/$new_name" > "$sha256_file"
+            # 去掉路径，仅保留文件名
+            sha256sum "output/$new_name" | sed "s|output/||" > "$sha256_file"
             echo "SHA256 for $filename: $(cat "$sha256_file")"
           
             tarball="output/${filename}.tar.gz"
