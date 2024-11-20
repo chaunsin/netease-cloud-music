@@ -79,14 +79,14 @@ jobs:
               continue
             fi
             
-            sha256_file="output/${new_name}.sha256"
+            sha256_file="output/checksum.sha256"
             sha256sum "output/$new_name" > "$sha256_file"
             echo "SHA256 for $filename: $(cat "$sha256_file")"
             
             tarball="output/${filename}.tar.gz"
-            tar -czf "$tarball" -C output "$new_name" -C output "${new_name}.sha256" -C output LICENSE
+            tar -czf "$tarball" output/"$new_name" output/checksum.sha256 output/LICENSE
           
-            rm -f "output/$new_name" "output/${new_name}.sha256"
+            rm -f "output/$new_name" "output/checksum.sha256"
           done
 
       # Step 6: 上传压缩包
