@@ -29,13 +29,11 @@ import (
 
 	"github.com/chaunsin/netease-cloud-music/pkg/alert/http"
 	"github.com/chaunsin/netease-cloud-music/pkg/alert/mail"
-	"github.com/chaunsin/netease-cloud-music/pkg/alert/qq/bot"
 )
 
 type Config struct {
 	Module Module       `json:"module" yaml:"module"`
 	Mail   *mail.Config `json:"mail" yaml:"mail"`
-	QQBot  *bot.Config  `json:"qq_bot" yaml:"qq_bot"`
 	HTTP   *http.Config `json:"http" yaml:"http"`
 }
 
