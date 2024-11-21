@@ -1,6 +1,6 @@
 module github.com/chaunsin/netease-cloud-music
 
-go 1.21
+go 1.21.0
 
 require (
 	github.com/andybalholm/brotli v1.1.1
