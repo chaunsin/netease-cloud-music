@@ -14,9 +14,8 @@ on:
         required: true
         default: true
 
-env:
-  IMAGE_NAME: ${{ github.repository_owner }}/ncmctl
-  BUILD_TIME: $(date "+%Y/%m/%d %H:%M:%S")
+#env:
+#  IMAGE_NAME: ${{ github.repository_owner }}/ncmctl
 
 jobs:
   push:
@@ -28,6 +27,13 @@ jobs:
       attestations: write
       id-token: write
     steps:
+      - name: Set Environment Variable
+        run: |
+          echo "BUILD_TIME=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+          echo "VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')" >> $GITHUB_ENV
+          echo "COMMIT_HASH=$(echo "${{ github.sha }}" | cut -c 1-7)" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${{ github.repository_owner }}/ncmctl" >> $GITHUB_ENV
+
       - name: Check out the repo
         uses: actions/checkout@v4
 
@@ -86,8 +92,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BUILD_TIME=${{ env.BUILD_TIME }}
-            VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-            COMMIT_HASH=$(echo "${{ github.sha }}" | cut -c 1-7)
+            VERSION=${{ env.VERSION }}
+            COMMIT_HASH=${{ env.COMMIT_HASH}}
             GOPROXY=https://proxy.golang.org
 
       - name: Generate artifact attestation
