@@ -75,24 +75,24 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BUILD_TIME=${{ env.BUILD_TIME }}
-            VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-            COMMIT_HASH=$(echo "${{ github.sha }}" | cut -c 1-7)
-            GOPROXY=https://proxy.golang.org
-
-      - name: Debug Build and push Docker images
-        id: bp
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled == 'true' }}
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            BUILD_TIME=${{ env.BUILD_TIME }}
             VERSION=${{ env.VERSION }}
             COMMIT_HASH=${{ env.COMMIT_HASH}}
             GOPROXY=https://proxy.golang.org
+
+#      - name: Debug Build and push Docker images
+#        id: bp
+#        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled == 'true' }}
+#        uses: docker/build-push-action@v6
+#        with:
+#          context: .
+#          push: true
+#          tags: ${{ steps.meta.outputs.tags }}
+#          labels: ${{ steps.meta.outputs.labels }}
+#          build-args: |
+#            BUILD_TIME=${{ env.BUILD_TIME }}
+#            VERSION=${{ env.VERSION }}
+#            COMMIT_HASH=${{ env.COMMIT_HASH}}
+#            GOPROXY=https://proxy.golang.org
 
       # https://github.com/actions/attest-build-provenance
       - name: Generate artifact attestation
