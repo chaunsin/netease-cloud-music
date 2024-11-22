@@ -24,7 +24,7 @@ jobs:
       - name: Set Env
         run: |
           echo "BUILD_TIME=$(date --rfc-3339=seconds --utc)" >> $GITHUB_ENV
-          echo "previous_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_ENV
+          echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_ENV
 
       # Step 1: 检出代码
       - name: Checkout code
@@ -50,7 +50,8 @@ jobs:
       - name: Cross-Compile using xgo
         run: |
           mkdir -p output
-          xgo --targets=darwin-10.14/*,windows-6.1/*,linux/amd64,linux/arm64,linux/mips64,linux/mips64le,linux/ppc64le,linux/riscv64 \
+          #xgo --targets=darwin-10.14/*,windows-6.1/*,linux/amd64,linux/arm64,linux/mips64,linux/mips64le,linux/ppc64le,linux/riscv64 \
+          xgo --targets=darwin-10.14/*
           -out output/ncmctl ./cmd/ncmctl/main.go
           ls ./output
 
@@ -123,7 +124,7 @@ jobs:
       - name: Generate changelog
         id: changelog
         uses: jaywcjlove/changelog-generator@main
-        if: env.previous_tag
+        if: ${{ env.PREVIOUS_TAG }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           filter-author: (jaywcjlove|小弟调调™|dependabot|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
