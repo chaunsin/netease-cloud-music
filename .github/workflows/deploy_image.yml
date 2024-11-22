@@ -57,8 +57,8 @@ jobs:
             ${{ env.IMAGE_NAME}}
             ghcr.io/${{ env.IMAGE_NAME}}
           tags: |
-            type=semver,value=latest,pattern={{version}}
-            #type=ref,event=tag,value=latest
+            type=semver,pattern={{version}}
+            type=ref,event=tag,value=latest
             # set latest tag for default branch
             type=raw,value=latest,enable={{is_default_branch}}
             #type=ref,event=branch
