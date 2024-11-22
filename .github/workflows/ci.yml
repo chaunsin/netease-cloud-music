@@ -122,7 +122,7 @@ jobs:
         run: |
           echo "Current ref: ${{ github.ref }}"
           echo "Generated artifacts:"
-          ls ./output
+          tree ./output
 
       # Step 9: 生成 changelog
       # https://github.com/jaywcjlove/changelog-generator
@@ -136,9 +136,9 @@ jobs:
           filter: '[R|r]elease[d]\s+[v|V]\d(\.\d+){0,2}'
           template: |
             ## Bugs
-            {{fix}}
+            {{fix,bug}}
             ## Feature
-            {{feat}}
+            {{feat,feature}}
             ## Improve
             {{refactor,perf,clean,optimize}}
             ## Misc
@@ -181,7 +181,7 @@ jobs:
           body: |
             ${{ steps.changelog.outputs.compareurl }}
             ${{ steps.changelog.outputs.changelog }}
-          name: ${{github.ref_name}} Releases Test ci release please ignore！！！
+          name: ${{github.ref_name}} Releases
           generate_release_notes: true
           fail_on_unmatched_files: true
           prerelease: true
