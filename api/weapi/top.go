@@ -52,7 +52,7 @@ type TopNewSongsResp struct {
 
 // MusicQuality 和 type.Quality 类似
 type MusicQuality struct {
-	Bitrate     int         `json:"bitrate"`
+	Bitrate     int64       `json:"bitrate"`
 	DfsId       int         `json:"dfsId"`
 	Extension   string      `json:"extension"`
 	Id          int64       `json:"id"`

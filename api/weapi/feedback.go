@@ -20,7 +20,7 @@ type ApiWebLogReqJson struct {
 	Eventtime int64         `json:"_eventtime"`
 	Sessid    string        `json:"_sessid"`
 	GDprefer  string        `json:"g_dprefer"`
-	IsWebview int           `json:"is_webview"`
+	IsWebview int64         `json:"is_webview"`
 }
 
 // ApiWebLogReq .

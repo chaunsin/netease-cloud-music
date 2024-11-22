@@ -160,24 +160,24 @@ type GetUserInfoResp struct {
 }
 
 type GetUserInfoRespAccount struct {
-	Id                 int    `json:"id"`
+	Id                 int64  `json:"id"`
 	UserName           string `json:"userName"`
-	Type               int    `json:"type"`
-	Status             int    `json:"status"`
-	WhitelistAuthority int    `json:"whitelistAuthority"`
+	Type               int64  `json:"type"`
+	Status             int64  `json:"status"`
+	WhitelistAuthority int64  `json:"whitelistAuthority"`
 	CreateTime         int64  `json:"createTime"`
-	TokenVersion       int    `json:"tokenVersion"`
-	Ban                int    `json:"ban"`
-	BaoyueVersion      int    `json:"baoyueVersion"`
-	DonateVersion      int    `json:"donateVersion"`
-	VipType            int    `json:"vipType"`
+	TokenVersion       int64  `json:"tokenVersion"`
+	Ban                int64  `json:"ban"`
+	BaoyueVersion      int64  `json:"baoyueVersion"`
+	DonateVersion      int64  `json:"donateVersion"`
+	VipType            int64  `json:"vipType"`
 	AnonimousUser      bool   `json:"anonimousUser"`
 	PaidFee            bool   `json:"paidFee"`
 }
 
 type GetUserInfoRespProfile struct {
-	UserId              int         `json:"userId"`
-	UserType            int         `json:"userType"`
+	UserId              int64       `json:"userId"`
+	UserType            int64       `json:"userType"`
 	Nickname            string      `json:"nickname"`
 	AvatarImgId         int64       `json:"avatarImgId"`
 	AvatarUrl           string      `json:"avatarUrl"`
@@ -186,23 +186,23 @@ type GetUserInfoRespProfile struct {
 	Signature           string      `json:"signature"`
 	CreateTime          int64       `json:"createTime"`
 	UserName            string      `json:"userName"`
-	AccountType         int         `json:"accountType"`
+	AccountType         int64       `json:"accountType"`
 	ShortUserName       string      `json:"shortUserName"`
 	Birthday            int64       `json:"birthday"`
-	Authority           int         `json:"authority"`
-	Gender              int         `json:"gender"`
-	AccountStatus       int         `json:"accountStatus"`
-	Province            int         `json:"province"`
-	City                int         `json:"city"`
-	AuthStatus          int         `json:"authStatus"`
+	Authority           int64       `json:"authority"`
+	Gender              int64       `json:"gender"`
+	AccountStatus       int64       `json:"accountStatus"`
+	Province            int64       `json:"province"`
+	City                int64       `json:"city"`
+	AuthStatus          int64       `json:"authStatus"`
 	Description         interface{} `json:"description"`
 	DetailDescription   interface{} `json:"detailDescription"`
 	DefaultAvatar       bool        `json:"defaultAvatar"`
 	ExpertTags          interface{} `json:"expertTags"`
 	Experts             interface{} `json:"experts"`
-	DjStatus            int         `json:"djStatus"`
-	LocationStatus      int         `json:"locationStatus"`
-	VipType             int         `json:"vipType"`
+	DjStatus            int64       `json:"djStatus"`
+	LocationStatus      int64       `json:"locationStatus"`
+	VipType             int64       `json:"vipType"`
 	Followed            bool        `json:"followed"`
 	Mutual              bool        `json:"mutual"`
 	Authenticated       bool        `json:"authenticated"`
@@ -210,7 +210,7 @@ type GetUserInfoRespProfile struct {
 	LastLoginIP         string      `json:"lastLoginIP"`
 	RemarkName          interface{} `json:"remarkName"`
 	ViptypeVersion      int64       `json:"viptypeVersion"`
-	AuthenticationTypes int         `json:"authenticationTypes"`
+	AuthenticationTypes int64       `json:"authenticationTypes"`
 	AvatarDetail        interface{} `json:"avatarDetail"`
 	Anchor              bool        `json:"anchor"`
 }

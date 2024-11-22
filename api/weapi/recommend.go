@@ -41,7 +41,7 @@ type RecommendSongsRespData struct {
 	DailySongs []struct {
 		A  interface{} `json:"a"`
 		Al struct {
-			Id     int           `json:"id"`
+			Id     int64         `json:"id"`
 			Name   string        `json:"name"`
 			Pic    int64         `json:"pic"`
 			PicUrl string        `json:"picUrl"`
@@ -52,51 +52,51 @@ type RecommendSongsRespData struct {
 		Alia []string `json:"alia"`
 		Ar   []struct {
 			Alias []interface{} `json:"alias"`
-			Id    int           `json:"id"`
+			Id    int64         `json:"id"`
 			Name  string        `json:"name"`
 			Tns   []interface{} `json:"tns"`
 		} `json:"ar"`
 		Cd                   string         `json:"cd"`
 		Cf                   string         `json:"cf"`
-		Copyright            int            `json:"copyright"`
-		Cp                   int            `json:"cp"`
+		Copyright            int64          `json:"copyright"`
+		Cp                   int64          `json:"cp"`
 		Crbt                 interface{}    `json:"crbt"`
-		DjId                 int            `json:"djId"`
-		Dt                   int            `json:"dt"`
+		DjId                 int64          `json:"djId"`
+		Dt                   int64          `json:"dt"`
 		EntertainmentTags    interface{}    `json:"entertainmentTags"`
-		Fee                  int            `json:"fee"`
-		Ftype                int            `json:"ftype"`
+		Fee                  int64          `json:"fee"`
+		Ftype                int64          `json:"ftype"`
 		H                    *types.Quality `json:"h"`
 		Hr                   *types.Quality `json:"hr"`
 		Id                   int64          `json:"id"`
 		L                    *types.Quality `json:"l"`
 		M                    *types.Quality `json:"m"`
 		Mark                 int64          `json:"mark"`
-		Mst                  int            `json:"mst"`
-		Mv                   int            `json:"mv"`
+		Mst                  int64          `json:"mst"`
+		Mv                   int64          `json:"mv"`
 		Name                 string         `json:"name"`
-		No                   int            `json:"no"`
+		No                   int64          `json:"no"`
 		NoCopyrightRcmd      interface{}    `json:"noCopyrightRcmd"`
-		OriginCoverType      int            `json:"originCoverType"`
+		OriginCoverType      int64          `json:"originCoverType"`
 		OriginSongSimpleData interface{}    `json:"originSongSimpleData"`
 		Pop                  float64        `json:"pop"`
 		Privilege            struct {
 			ChargeInfoList []struct {
 				ChargeMessage interface{} `json:"chargeMessage"`
-				ChargeType    int         `json:"chargeType"`
+				ChargeType    int64       `json:"chargeType"`
 				ChargeUrl     interface{} `json:"chargeUrl"`
-				Rate          int         `json:"rate"`
+				Rate          int64       `json:"rate"`
 			} `json:"chargeInfoList"`
-			Cp                 int    `json:"cp"`
+			Cp                 int64  `json:"cp"`
 			Cs                 bool   `json:"cs"`
-			Dl                 int    `json:"dl"`
+			Dl                 int64  `json:"dl"`
 			DlLevel            string `json:"dlLevel"`
 			DownloadMaxBrLevel string `json:"downloadMaxBrLevel"`
-			DownloadMaxbr      int    `json:"downloadMaxbr"`
-			Fee                int    `json:"fee"`
-			Fl                 int    `json:"fl"`
+			DownloadMaxbr      int64  `json:"downloadMaxbr"`
+			Fee                int64  `json:"fee"`
+			Fl                 int64  `json:"fl"`
 			FlLevel            string `json:"flLevel"`
-			Flag               int    `json:"flag"`
+			Flag               int64  `json:"flag"`
 			FreeTrialPrivilege struct {
 				CannotListenReason interface{} `json:"cannotListenReason"`
 				ListenType         interface{} `json:"listenType"`
@@ -106,24 +106,24 @@ type RecommendSongsRespData struct {
 			} `json:"freeTrialPrivilege"`
 			Id             int64       `json:"id"`
 			MaxBrLevel     string      `json:"maxBrLevel"`
-			Maxbr          int         `json:"maxbr"`
+			Maxbr          int64       `json:"maxbr"`
 			PaidBigBang    bool        `json:"paidBigBang"`
-			Payed          int         `json:"payed"`
+			Payed          int64       `json:"payed"`
 			Pc             interface{} `json:"pc"`
-			Pl             int         `json:"pl"`
+			Pl             int64       `json:"pl"`
 			PlLevel        string      `json:"plLevel"`
 			PlayMaxBrLevel string      `json:"playMaxBrLevel"`
-			PlayMaxbr      int         `json:"playMaxbr"`
+			PlayMaxbr      int64       `json:"playMaxbr"`
 			PreSell        bool        `json:"preSell"`
-			RealPayed      int         `json:"realPayed"`
-			RightSource    int         `json:"rightSource"`
+			RealPayed      int64       `json:"realPayed"`
+			RightSource    int64       `json:"rightSource"`
 			Rscl           interface{} `json:"rscl"`
-			Sp             int         `json:"sp"`
-			St             int         `json:"st"`
-			Subp           int         `json:"subp"`
+			Sp             int64       `json:"sp"`
+			St             int64       `json:"st"`
+			Subp           int64       `json:"subp"`
 			Toast          bool        `json:"toast"`
 		} `json:"privilege"`
-		Pst             int            `json:"pst"`
+		Pst             int64          `json:"pst"`
 		PublishTime     int64          `json:"publishTime"`
 		Reason          *string        `json:"reason"`
 		RecommendReason *string        `json:"recommendReason"`
@@ -131,17 +131,17 @@ type RecommendSongsRespData struct {
 		Rt              *string        `json:"rt"`
 		RtUrl           interface{}    `json:"rtUrl"`
 		RtUrls          []interface{}  `json:"rtUrls"`
-		Rtype           int            `json:"rtype"`
+		Rtype           int64          `json:"rtype"`
 		Rurl            interface{}    `json:"rurl"`
-		SId             int            `json:"s_id"`
-		Single          int            `json:"single"`
+		SId             int64          `json:"s_id"`
+		Single          int64          `json:"single"`
 		SongJumpInfo    interface{}    `json:"songJumpInfo"`
 		Sq              *types.Quality `json:"sq"`
-		St              int            `json:"st"`
-		T               int            `json:"t"`
+		St              int64          `json:"st"`
+		T               int64          `json:"t"`
 		TagPicList      interface{}    `json:"tagPicList"`
-		V               int            `json:"v"`
-		Version         int            `json:"version"`
+		V               int64          `json:"v"`
+		Version         int64          `json:"version"`
 	} `json:"dailySongs"`
 	MvResourceInfos interface{}   `json:"mvResourceInfos"`
 	OrderSongs      []interface{} `json:"orderSongs"`

@@ -60,62 +60,62 @@ type CloudListResp struct {
 
 type CloudListRespData struct {
 	SimpleSong CloudListRespDataSimpleSong `json:"simpleSong"`
-	SongId     int                         `json:"songId"`   // 歌曲ID
+	SongId     int64                       `json:"songId"`   // 歌曲ID
 	AddTime    int64                       `json:"addTime"`  // 上传到网盘时间
-	Bitrate    int                         `json:"bitrate"`  //
+	Bitrate    int64                       `json:"bitrate"`  //
 	SongName   string                      `json:"songName"` // 歌曲名称
 	Album      string                      `json:"album"`    // 专辑名称
 	Artist     string                      `json:"artist"`   // 歌手
-	Cover      int                         `json:"cover"`
+	Cover      int64                       `json:"cover"`
 	CoverId    string                      `json:"coverId"`
 	LyricId    string                      `json:"lyricId"`
-	Version    int                         `json:"version"`
-	FileSize   int                         `json:"fileSize"` // 文件大小单位B
+	Version    int64                       `json:"version"`
+	FileSize   int64                       `json:"fileSize"` // 文件大小单位B
 	FileName   string                      `json:"fileName"` // 音乐文件名称例如: 陈琳 - 十二种颜色.flac
 }
 
 type CloudListRespDataSimpleSong struct {
 	Name                 string         `json:"name"`
-	Id                   int            `json:"id"`
-	Pst                  int            `json:"pst"`
-	T                    int            `json:"t"`
+	Id                   int64          `json:"id"`
+	Pst                  int64          `json:"pst"`
+	T                    int64          `json:"t"`
 	Ar                   []types.Artist `json:"ar"`
 	Alia                 []interface{}  `json:"alia"`
 	Pop                  float64        `json:"pop"`
-	St                   int            `json:"st"`
+	St                   int64          `json:"st"`
 	Rt                   string         `json:"rt"`
-	Fee                  int            `json:"fee"`
-	V                    int            `json:"v"`
+	Fee                  int64          `json:"fee"`
+	V                    int64          `json:"v"`
 	Crbt                 interface{}    `json:"crbt"`
 	Cf                   string         `json:"cf"`
 	Al                   types.Album    `json:"al"`
-	Dt                   int            `json:"dt"`
+	Dt                   int64          `json:"dt"`
 	H                    *types.Quality `json:"h"`
 	M                    *types.Quality `json:"m"`
 	L                    *types.Quality `json:"l"`
 	A                    interface{}    `json:"a"`
 	Cd                   string         `json:"cd"`
-	No                   int            `json:"no"`
+	No                   int64          `json:"no"`
 	RtUrl                interface{}    `json:"rtUrl"`
-	Ftype                int            `json:"ftype"`
+	Ftype                int64          `json:"ftype"`
 	RtUrls               []interface{}  `json:"rtUrls"`
-	DjId                 int            `json:"djId"`
-	Copyright            int            `json:"copyright"`
-	SId                  int            `json:"s_id"`
+	DjId                 int64          `json:"djId"`
+	Copyright            int64          `json:"copyright"`
+	SId                  int64          `json:"s_id"`
 	Mark                 int64          `json:"mark"`
-	OriginCoverType      int            `json:"originCoverType"`
+	OriginCoverType      int64          `json:"originCoverType"`
 	OriginSongSimpleData interface{}    `json:"originSongSimpleData"`
-	Single               int            `json:"single"`
+	Single               int64          `json:"single"`
 	NoCopyrightRcmd      struct {
-		Type     int         `json:"type"`
+		Type     int64       `json:"type"`
 		TypeDesc string      `json:"typeDesc"`
 		SongId   interface{} `json:"songId"`
 	} `json:"noCopyrightRcmd"`
-	Cp          int              `json:"cp"`
-	Mv          int              `json:"mv"`
-	Mst         int              `json:"mst"`
+	Cp          int64            `json:"cp"`
+	Mv          int64            `json:"mv"`
+	Mst         int64            `json:"mst"`
 	Rurl        interface{}      `json:"rurl"`
-	Rtype       int              `json:"rtype"`
+	Rtype       int64            `json:"rtype"`
 	PublishTime int64            `json:"publishTime"`
 	Privilege   types.Privileges `json:"privilege"`
 }
@@ -433,9 +433,9 @@ type CloudInfoResp struct {
 	// Code 404: 错误未知,目前在上传文件时文件大于200MB时出现此错误，经后来测试多试了几次重传发现又好了貌似是临时性错误，待确认排查。
 	Code           int64        `json:"code,omitempty"`
 	SongId         string       `json:"songId,omitempty"`
-	WaitTime       int          `json:"waitTime"`
+	WaitTime       int64        `json:"waitTime"`
 	Exists         bool         `json:"exists"`
-	NextUploadTime int          `json:"nextUploadTime"`
+	NextUploadTime int64        `json:"nextUploadTime"`
 	SongIdLong     int          `json:"songIdLong"`
 	PrivateCloud   PrivateCloud `json:"privateCloud"`
 }

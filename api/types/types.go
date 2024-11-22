@@ -44,7 +44,7 @@ type ApiRespCommon[T any] struct {
 // 	Cellphone string `json:"cellphone"` // 手机号
 // 	Header    string `json:"header"`    // Header
 // 	CtCode    string `json:"ctcode"`    // 国家码
-// 	VerifyId  int    `json:"verifyId"`  //
+// 	VerifyId  int64    `json:"verifyId"`  //
 // 	ER        bool   `json:"e_r"`       // 控制相应返回值是否加密，true为加密，false为明文。
 // }
 //
@@ -76,7 +76,7 @@ type ApiRespCommon[T any] struct {
 // // MConfigInfo .
 // type MConfigInfo struct {
 // 	IuRPVVmc3WWul9FT struct {
-// 		Version int    `json:"version"` // 143360
+// 		Version int64    `json:"version"` // 143360
 // 		Appver  string `json:"appver"`  // 同 SendSMSReqHeader.AppVer 格式:2.3.17
 // 	} `json:"IuRPVVmc3WWul9fT"`
 // }

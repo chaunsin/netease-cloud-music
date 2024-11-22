@@ -85,7 +85,7 @@ type ArtistSongsRespSongs struct {
 	Tns             []string       `json:"tns,omitempty"`
 	Privilege       struct {
 		types.Privileges
-		Code    int         `json:"code"`
+		Code    int64       `json:"code"`
 		Message interface{} `json:"message"`
 	} `json:"privilege"`
 }

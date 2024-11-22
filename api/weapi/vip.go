@@ -105,7 +105,7 @@ type VipTaskResp struct {
 
 type VipTaskRespData struct {
 	TaskList []struct {
-		Seq       int    `json:"seq"`
+		Seq       int64  `json:"seq"`
 		SeqName   string `json:"seqName"`
 		TaskItems []struct {
 			Action          string      `json:"action"`

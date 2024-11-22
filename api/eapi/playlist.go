@@ -43,16 +43,16 @@ type PlaylistRespList struct {
 	Subscribed  bool          `json:"subscribed"`
 	Creator     struct {
 		DefaultAvatar     bool     `json:"defaultAvatar"`
-		Province          int      `json:"province"`
-		AuthStatus        int      `json:"authStatus"`
+		Province          int64    `json:"province"`
+		AuthStatus        int64    `json:"authStatus"`
 		Followed          bool     `json:"followed"`
 		AvatarUrl         string   `json:"avatarUrl"`
-		AccountStatus     int      `json:"accountStatus"`
-		Gender            int      `json:"gender"`
-		City              int      `json:"city"`
-		Birthday          int      `json:"birthday"`
-		UserId            int      `json:"userId"`
-		UserType          int      `json:"userType"`
+		AccountStatus     int64    `json:"accountStatus"`
+		Gender            int64    `json:"gender"`
+		City              int64    `json:"city"`
+		Birthday          int64    `json:"birthday"`
+		UserId            int64    `json:"userId"`
+		UserType          int64    `json:"userType"`
 		Nickname          string   `json:"nickname"`
 		Signature         string   `json:"signature"`
 		Description       string   `json:"description"`
@@ -60,16 +60,16 @@ type PlaylistRespList struct {
 		AvatarImgId       int64    `json:"avatarImgId"`
 		BackgroundImgId   int64    `json:"backgroundImgId"`
 		BackgroundUrl     string   `json:"backgroundUrl"`
-		Authority         int      `json:"authority"`
+		Authority         int64    `json:"authority"`
 		Mutual            bool     `json:"mutual"`
 		ExpertTags        []string `json:"expertTags"`
 		Experts           *struct {
 			Field1 string `json:"2"`
 		} `json:"experts"`
-		DjStatus            int         `json:"djStatus"`
-		VipType             int         `json:"vipType"`
+		DjStatus            int64       `json:"djStatus"`
+		VipType             int64       `json:"vipType"`
 		RemarkName          interface{} `json:"remarkName"`
-		AuthenticationTypes int         `json:"authenticationTypes"`
+		AuthenticationTypes int64       `json:"authenticationTypes"`
 		AvatarDetail        interface{} `json:"avatarDetail"`
 		BackgroundImgIdStr  string      `json:"backgroundImgIdStr"`
 		AvatarImgIdStr      string      `json:"avatarImgIdStr"`
@@ -90,29 +90,29 @@ type PlaylistRespList struct {
 		Alg     string `json:"alg"`
 		LogInfo string `json:"logInfo"`
 	} `json:"recommendInfo"`
-	SubscribedCount       int         `json:"subscribedCount"`
-	CloudTrackCount       int         `json:"cloudTrackCount"`
-	UserId                int         `json:"userId"`
-	TotalDuration         int         `json:"totalDuration"`
+	SubscribedCount       int64       `json:"subscribedCount"`
+	CloudTrackCount       int64       `json:"cloudTrackCount"`
+	UserId                int64       `json:"userId"`
+	TotalDuration         int64       `json:"totalDuration"`
 	CoverImgId            int64       `json:"coverImgId"`
-	Privacy               int         `json:"privacy"`
+	Privacy               int64       `json:"privacy"`
 	TrackUpdateTime       int64       `json:"trackUpdateTime"`
-	TrackCount            int         `json:"trackCount"`
+	TrackCount            int64       `json:"trackCount"`
 	UpdateTime            int64       `json:"updateTime"`
 	CommentThreadId       string      `json:"commentThreadId"`
 	CoverImgUrl           string      `json:"coverImgUrl"`
-	SpecialType           int         `json:"specialType"`
+	SpecialType           int64       `json:"specialType"`
 	Anonimous             bool        `json:"anonimous"`
 	CreateTime            int64       `json:"createTime"`
 	HighQuality           bool        `json:"highQuality"`
 	NewImported           bool        `json:"newImported"`
 	TrackNumberUpdateTime int64       `json:"trackNumberUpdateTime"`
 	PlayCount             int64       `json:"playCount"`
-	AdType                int         `json:"adType"`
+	AdType                int64       `json:"adType"`
 	Description           *string     `json:"description"`
 	Tags                  []string    `json:"tags"`
 	Ordered               bool        `json:"ordered"`
-	Status                int         `json:"status"`
+	Status                int64       `json:"status"`
 	Name                  string      `json:"name"`
 	Id                    int64       `json:"id"`
 	CoverImgIdStr         *string     `json:"coverImgId_str"`

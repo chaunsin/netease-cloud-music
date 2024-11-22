@@ -132,32 +132,32 @@ type V3SongDetailResp struct {
 
 type V3SongDetailRespSongs struct {
 	Name string `json:"name"`
-	Id   int    `json:"id"`
-	Pst  int    `json:"pst"`
-	T    int    `json:"t"`
+	Id   int64  `json:"id"`
+	Pst  int64  `json:"pst"`
+	T    int64  `json:"t"`
 	Ar   []struct {
-		Id    int           `json:"id"`
+		Id    int64         `json:"id"`
 		Name  string        `json:"name"`
 		Tns   []interface{} `json:"tns"`
 		Alias []interface{} `json:"alias"`
 	} `json:"ar"`
 	Alia []interface{} `json:"alia"`
 	Pop  float64       `json:"pop"`
-	St   int           `json:"st"`
+	St   int64         `json:"st"`
 	Rt   string        `json:"rt"`
-	Fee  int           `json:"fee"`
-	V    int           `json:"v"`
+	Fee  int64         `json:"fee"`
+	V    int64         `json:"v"`
 	Crbt interface{}   `json:"crbt"`
 	Cf   string        `json:"cf"`
 	Al   struct {
-		Id     int           `json:"id"`
+		Id     int64         `json:"id"`
 		Name   string        `json:"name"`
 		PicUrl string        `json:"picUrl"`
 		Tns    []interface{} `json:"tns"`
 		PicStr string        `json:"pic_str"`
 		Pic    int64         `json:"pic"`
 	} `json:"al"`
-	Dt                   int           `json:"dt"`
+	Dt                   int64         `json:"dt"`
 	H                    types.Quality `json:"h"`
 	M                    types.Quality `json:"m"`
 	L                    types.Quality `json:"l"`
@@ -165,7 +165,7 @@ type V3SongDetailRespSongs struct {
 	Hr                   interface{}   `json:"hr"`
 	A                    interface{}   `json:"a"`
 	Cd                   string        `json:"cd"`
-	No                   int           `json:"no"`
+	No                   int64         `json:"no"`
 	RtUrl                interface{}   `json:"rtUrl"`
 	Ftype                int           `json:"ftype"`
 	RtUrls               []interface{} `json:"rtUrls"`
