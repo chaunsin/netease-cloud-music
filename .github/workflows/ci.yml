@@ -124,7 +124,7 @@ jobs:
       - name: Generate changelog
         id: changelog
         uses: jaywcjlove/changelog-generator@main
-        #if: ${{ env.PREVIOUS_TAG }}
+        if: env.PREVIOUS_TAG
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           filter-author: (jaywcjlove|小弟调调™|dependabot|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
