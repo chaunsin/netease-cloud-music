@@ -24,7 +24,7 @@ jobs:
       - name: Set Env
         run: |
           echo "BUILD_TIME=$(date --rfc-3339=seconds --utc)" >> $GITHUB_ENV
-#          echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_ENV
+          #echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_ENV
           git fetch --prune --unshallow echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_ENV
 
       # Step 1: 检出代码
