@@ -21,15 +21,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Step 1: 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Set Env
         run: |
           echo "BUILD_TIME=$(date --rfc-3339=seconds --utc)" >> $GITHUB_ENV
           #echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_ENV
-          git fetch --prune --unshallow echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_ENV
-
-      # Step 1: 检出代码
-      - name: Checkout code
-        uses: actions/checkout@v4
+          git fetch --prune --unshallow
+          echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo 'no-tag')" >> $GITHUB_ENV
 
       # Step 2: 设置 Go 环境
       - name: Set up Go environment
