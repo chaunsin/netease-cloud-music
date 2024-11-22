@@ -132,6 +132,7 @@ jobs:
         #if: env.PREVIOUS_TAG
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          head-ref: ${{ env.PREVIOUS_TAG }}
           filter-author: (dependabot|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
           filter: '[R|r]elease[d]\s+[v|V]\d(\.\d+){0,2}'
           template: |
