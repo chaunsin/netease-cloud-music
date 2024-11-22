@@ -21,12 +21,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: 检出代码
+      # Step 0: 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # Step 1: 设置环境变量
       - name: Set Env
         run: |
           echo "BUILD_TIME=$(date --rfc-3339=seconds --utc)" >> $GITHUB_ENV
@@ -123,6 +124,8 @@ jobs:
           echo "Generated artifacts:"
           ls ./output
 
+      # Step 9: 生成 changelog
+      # https://github.com/jaywcjlove/changelog-generator
       - name: Generate changelog
         id: changelog
         uses: jaywcjlove/changelog-generator@main
@@ -131,19 +134,19 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           filter-author: (dependabot|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
           filter: '[R|r]elease[d]\s+[v|V]\d(\.\d+){0,2}'
-#          template: |
-#            ## Bugs
-#            {{fix}}
-#            ## Feature
-#            {{feat}}
-#            ## Improve
-#            {{refactor,perf,clean,optimize}}
-#            ## Misc
-#            {{chore,style,ci||🔶 Nothing change}}
-#            ## Other
-#            {{__unknown__}}
+          template: |
+            ## Bugs
+            {{fix}}
+            ## Feature
+            {{feat}}
+            ## Improve
+            {{refactor,perf,clean,optimize}}
+            ## Misc
+            {{chore,style,ci||🔶 Nothing change}}
+            ## Other
+            {{__unknown__}}
 
-      # Step 8: 打印 changelog
+      # Step 10: 打印 changelog
       - name: Print Changelog
         run: |
           echo "Changelog:"
@@ -151,7 +154,7 @@ jobs:
           echo "Compare URL: ${{ steps.changelog.outputs.compareurl }}"
           echo "GitHub Pages Hash: ${{ steps.changelog.outputs.gh-pages-short-hash }}"
 
-      # Step 9: 发布
+      # Step 11: 发布
       # https://github.com/softprops/action-gh-release
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -162,7 +165,6 @@ jobs:
           body: |
             ${{ steps.changelog.outputs.compareurl }}
             ${{ steps.changelog.outputs.changelog }}
-            Document Website: https://raw.githack.com/chaunsin/netease-cloud-music/${{ steps.changelog.outputs.gh-pages-short-hash }}/index.html
           name: ${{github.ref_name}} Releases Test ci release please ignore！！！
           generate_release_notes: true
           fail_on_unmatched_files: true
@@ -179,9 +181,9 @@ jobs:
           body: |
             ${{ steps.changelog.outputs.compareurl }}
             ${{ steps.changelog.outputs.changelog }}
-            Document Website: https://raw.githack.com/chaunsin/netease-cloud-music/${{ steps.changelog.outputs.gh-pages-short-hash }}/index.html
+          name: ${{github.ref_name}} Releases Test ci release please ignore！！！
           generate_release_notes: true
-          prerelease: true
           fail_on_unmatched_files: true
+          prerelease: true
           draft: true
           token: ${{ secrets.GITHUB_TOKEN }}
