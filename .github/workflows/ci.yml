@@ -24,7 +24,8 @@ jobs:
       - name: Set Env
         run: |
           echo "BUILD_TIME=$(date --rfc-3339=seconds --utc)" >> $GITHUB_ENV
-          echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_ENV
+#          echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_ENV
+          git fetch --prune --unshallow echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_ENV
 
       # Step 1: 检出代码
       - name: Checkout code
@@ -124,22 +125,30 @@ jobs:
       - name: Generate changelog
         id: changelog
         uses: jaywcjlove/changelog-generator@main
-        if: env.PREVIOUS_TAG
+        #if: env.PREVIOUS_TAG
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          filter-author: (jaywcjlove|小弟调调™|dependabot|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
+          filter-author: (dependabot|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
           filter: '[R|r]elease[d]\s+[v|V]\d(\.\d+){0,2}'
-          template: |
-            ## Bugs
-            {{fix}}
-            ## Feature
-            {{feat}}
-            ## Improve
-            {{refactor,perf,clean,optimize}}
-            ## Misc 
-            {{chore,style,ci||🔶 Nothing change}}
-            ## Other
-            {{__unknown__}}
+#          template: |
+#            ## Bugs
+#            {{fix}}
+#            ## Feature
+#            {{feat}}
+#            ## Improve
+#            {{refactor,perf,clean,optimize}}
+#            ## Misc
+#            {{chore,style,ci||🔶 Nothing change}}
+#            ## Other
+#            {{__unknown__}}
+
+      # Step 8: 打印 changelog
+      - name: Print Changelog
+        run: |
+          echo "Changelog:"
+          echo "${{ steps.changelog.outputs.changelog }}"
+          echo "Compare URL: ${{ steps.changelog.outputs.compareurl }}"
+          echo "GitHub Pages Hash: ${{ steps.changelog.outputs.gh-pages-short-hash }}"
 
       # Step 9: 发布
       # https://github.com/softprops/action-gh-release
@@ -151,11 +160,9 @@ jobs:
             ./output/*
           body: |
             ${{ steps.changelog.outputs.compareurl }}
-
             ${{ steps.changelog.outputs.changelog }}
-            
             Document Website: https://raw.githack.com/chaunsin/netease-cloud-music/${{ steps.changelog.outputs.gh-pages-short-hash }}/index.html
-          name: ${{github.ref_name}}-Releases Test ci release please ignore！！！
+          name: ${{github.ref_name}} Releases Test ci release please ignore！！！
           generate_release_notes: true
           fail_on_unmatched_files: true
           prerelease: false
@@ -170,9 +177,7 @@ jobs:
             ./output/*
           body: |
             ${{ steps.changelog.outputs.compareurl }}
-
             ${{ steps.changelog.outputs.changelog }}
-            
             Document Website: https://raw.githack.com/chaunsin/netease-cloud-music/${{ steps.changelog.outputs.gh-pages-short-hash }}/index.html
           generate_release_notes: true
           prerelease: true
