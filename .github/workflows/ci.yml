@@ -149,7 +149,13 @@ jobs:
         with:
           files: |
             ./output/*
-          name: "Test ci release please ignore！！！"
+          body: |
+            ${{ steps.changelog.outputs.compareurl }}
+
+            ${{ steps.changelog.outputs.changelog }}
+            
+            Document Website: https://raw.githack.com/chaunsin/netease-cloud-music/${{ steps.changelog.outputs.gh-pages-short-hash }}/index.html
+          name: ${{github.ref_name}}"Test ci release please ignore！！！"
           generate_release_notes: true
           fail_on_unmatched_files: true
           prerelease: false
