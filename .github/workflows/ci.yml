@@ -157,7 +157,7 @@ jobs:
           echo "Changelog:"
           echo "${{ steps.changelog.outputs.changelog }}"
           echo "Compare URL: ${{ steps.changelog.outputs.compareurl }}"
-          echo "GitHub Pages Hash: ${{ steps.changelog.outputs.gh-pages-short-hash }}"
+          echo "GitHub Pages Hash: ${{ steps.changelog.outputs.gh-pages-hash }}"
 
       # Step 11: 发布
       # https://github.com/softprops/action-gh-release
