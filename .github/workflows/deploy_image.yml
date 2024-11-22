@@ -17,6 +17,7 @@ on:
 jobs:
   push:
     name: Push Docker image to multiple registries
+    if: ${{ github.repository == 'chaunsin/netease-cloud-music' }}
     runs-on: ubuntu-latest
     permissions:
       packages: write

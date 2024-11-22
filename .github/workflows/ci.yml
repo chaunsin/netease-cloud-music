@@ -19,6 +19,7 @@ permissions:
 
 jobs:
   build:
+    if: ${{ github.repository == 'chaunsin/netease-cloud-music' }}
     runs-on: ubuntu-latest
     steps:
       # Step 0: 检出代码
@@ -170,7 +171,7 @@ jobs:
           body: |
             ${{ steps.changelog.outputs.compareurl }}
             ${{ steps.changelog.outputs.changelog }}
-          name: ${{github.ref_name}} Releases Test ci release please ignore！！！
+          name: ${{github.ref_name}} Releases
           generate_release_notes: true
           fail_on_unmatched_files: true
           prerelease: false
