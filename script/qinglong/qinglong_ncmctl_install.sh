@@ -29,15 +29,23 @@ set -o pipefail
 set -e
 set -u
 
-# 配置参数
-INSTALL_DIR="/usr/local/bin"         # 安装路径
-BINARY_NAME="ncmctl"                # 程序名称
-BINARY_PATH="$INSTALL_DIR/$BINARY_NAME" # 完整路径
-GITHUB_REPO="chaunsin/netease-cloud-music" # GitHub 仓库
-TEMP_DIR="/tmp/ncmctl_upgrade"      # 临时目录
-ARCH="$(uname -m)"                  # 系统架构
-OS="$(uname -s | tr '[:upper:]' '[:lower:]')" # 系统类型
-LATEST_VERSION=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+# 安装路径
+INSTALL_DIR="/usr/local/bin"
+# 程序名称
+BINARY_NAME="ncmctl"
+# 完整路径
+BINARY_PATH="$INSTALL_DIR/$BINARY_NAME"
+# 仓库
+REPO="chaunsin/netease-cloud-music"
+# 临时目录
+TEMP_DIR="/tmp/ncmctl_upgrade"
+# 系统架构
+ARCH="$(uname -m)"
+# 系统类型
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+# 最新版本
+#LATEST_VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+LATEST_VERSION=$(curl -s "https://gitee.com/api/v5/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
 
 # 系统架构和下载文件映射
 map_architecture() {
@@ -90,8 +98,10 @@ is_installed() {
 # 下载和解压程序
 download_and_extract() {
     echo "Downloading the latest version..."
+
     # 根据架构动态拼接下载 URL
-    DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}-${OS}-${ARCH}.tar.gz"
+    #DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}-${OS}-${ARCH}.tar.gz"
+    DOWNLOAD_URL="https://gitee.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}-${OS}-${ARCH}.tar.gz"
 
     mkdir -p "$TEMP_DIR"
     curl -L "$DOWNLOAD_URL" -o "$TEMP_DIR/$BINARY_NAME.tar.gz" || { echo "Download failed. Exiting."; exit 1; }
@@ -122,11 +132,16 @@ cleanup() {
 # 主函数
 main() {
     map_architecture
-    get_latest_version   # 获取最新版本号
-    is_installed         # 检查是否已安装
-    download_and_extract # 下载和解压程序
-    install_binary       # 安装程序
-    cleanup              # 清理临时文件
+    # 获取最新版本号
+    get_latest_version
+    # 检查是否已安装
+    is_installed
+    # 下载和解压程序
+    download_and_extract
+    # 安装程序
+    install_binary
+    # 清理临时文件
+    cleanup
 }
 
 main
