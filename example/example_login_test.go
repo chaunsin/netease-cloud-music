@@ -9,6 +9,7 @@ import (
 
 	"github.com/chaunsin/netease-cloud-music/api/eapi"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
+	"github.com/skip2/go-qrcode"
 )
 
 // 二维码登录
@@ -27,7 +28,7 @@ func TestWeapiLoginByQrcode(t *testing.T) {
 	}
 
 	// 2. 生成二维码
-	qr, err := api.QrcodeGenerate(ctx, &weapi.QrcodeGenerateReq{CodeKey: key.UniKey})
+	qr, err := api.QrcodeGenerate(ctx, &weapi.QrcodeGenerateReq{CodeKey: key.UniKey, Level: qrcode.Medium})
 	if err != nil {
 		t.Fatalf("QrcodeGenerate: %s", err)
 	}

@@ -34,6 +34,7 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
+	qrcode2 "github.com/skip2/go-qrcode"
 	"github.com/spf13/cobra"
 )
 
@@ -44,6 +45,7 @@ type loginQrcodeCmd struct {
 
 	timeout time.Duration // 登录超时时间
 	dir     string        // 二维码文件路径
+	level   int           // 二维码恢复能力等级
 }
 
 func qrcode(root *Login, l *log.Logger) *cobra.Command {
@@ -66,9 +68,14 @@ func qrcode(root *Login, l *log.Logger) *cobra.Command {
 func (c *loginQrcodeCmd) addFlags() {
 	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Minute*5, "1s、1m")
 	c.cmd.Flags().StringVarP(&c.dir, "dir", "d", "", "qrcode file output path. default ./")
+	c.cmd.Flags().IntVarP(&c.level, "level", "l", 1, "qrcode recovery capacity,0->7% 1->15% 2->25% 3->30% error recovery. default 1->15%")
 }
 
 func (c *loginQrcodeCmd) execute(ctx context.Context, args []string) error {
+	if c.level < 0 || c.level > 3 {
+		return fmt.Errorf("qrcode level must be 0-3")
+	}
+
 	cli, err := api.NewClient(c.root.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
@@ -89,7 +96,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, args []string) error {
 	}
 
 	// 2. 生成二维码
-	qr, err := request.QrcodeGenerate(ctx, &weapi.QrcodeGenerateReq{CodeKey: key.UniKey})
+	qr, err := request.QrcodeGenerate(ctx, &weapi.QrcodeGenerateReq{CodeKey: key.UniKey, Level: qrcode2.RecoveryLevel(c.level)})
 	if err != nil {
 		return fmt.Errorf("QrcodeGenerate: %s", err)
 	}

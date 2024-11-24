@@ -65,6 +65,7 @@ func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*Qr
 
 type QrcodeGenerateReq struct {
 	CodeKey string
+	Level   qrcode.RecoveryLevel // 二维码恢复率
 }
 
 type QrcodeGenerateResp struct {
@@ -80,7 +81,7 @@ func (a *Api) QrcodeGenerate(ctx context.Context, req *QrcodeGenerateReq) (*Qrco
 		reply   QrcodeGenerateResp
 	)
 
-	qr, err := qrcode.New(content, qrcode.High)
+	qr, err := qrcode.New(content, req.Level)
 	if err != nil {
 		return nil, err
 	}

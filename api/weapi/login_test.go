@@ -28,6 +28,7 @@ import (
 
 	"github.com/chaunsin/netease-cloud-music/api/types"
 
+	"github.com/skip2/go-qrcode"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,6 +45,7 @@ func TestQrcodeCreateKey(t *testing.T) {
 func TestQrcodeGetReq(t *testing.T) {
 	var req = QrcodeGenerateReq{
 		CodeKey: "",
+		Level:   qrcode.Medium,
 	}
 	got, err := cli.QrcodeGenerate(ctx, &req)
 	assert.NoError(t, err)
