@@ -45,51 +45,51 @@ type PlaylistDetailResp struct {
 		CoverImgId            int64         `json:"coverImgId"`
 		CoverImgUrl           string        `json:"coverImgUrl"`
 		CoverImgIdStr         string        `json:"coverImgId_str"`
-		AdType                int           `json:"adType"`
-		UserId                int           `json:"userId"`
+		AdType                int64         `json:"adType"`
+		UserId                int64         `json:"userId"`
 		CreateTime            int64         `json:"createTime"`
-		Status                int           `json:"status"`
+		Status                int64         `json:"status"`
 		OpRecommend           bool          `json:"opRecommend"`
 		HighQuality           bool          `json:"highQuality"`
 		NewImported           bool          `json:"newImported"`
 		UpdateTime            int64         `json:"updateTime"`
-		TrackCount            int           `json:"trackCount"`
-		SpecialType           int           `json:"specialType"`
-		Privacy               int           `json:"privacy"`
+		TrackCount            int64         `json:"trackCount"`
+		SpecialType           int64         `json:"specialType"`
+		Privacy               int64         `json:"privacy"`
 		TrackUpdateTime       int64         `json:"trackUpdateTime"`
 		CommentThreadId       string        `json:"commentThreadId"`
-		PlayCount             int           `json:"playCount"`
+		PlayCount             int64         `json:"playCount"`
 		TrackNumberUpdateTime int64         `json:"trackNumberUpdateTime"`
-		SubscribedCount       int           `json:"subscribedCount"`
-		CloudTrackCount       int           `json:"cloudTrackCount"`
+		SubscribedCount       int64         `json:"subscribedCount"`
+		CloudTrackCount       int64         `json:"cloudTrackCount"`
 		Ordered               bool          `json:"ordered"`
 		Description           string        `json:"description"`
 		Tags                  []interface{} `json:"tags"`
 		UpdateFrequency       interface{}   `json:"updateFrequency"`
-		BackgroundCoverId     int           `json:"backgroundCoverId"`
+		BackgroundCoverId     int64         `json:"backgroundCoverId"`
 		BackgroundCoverUrl    interface{}   `json:"backgroundCoverUrl"`
-		TitleImage            int           `json:"titleImage"`
+		TitleImage            int64         `json:"titleImage"`
 		TitleImageUrl         interface{}   `json:"titleImageUrl"`
 		DetailPageTitle       interface{}   `json:"detailPageTitle"`
 		EnglishTitle          interface{}   `json:"englishTitle"`
 		OfficialPlaylistType  interface{}   `json:"officialPlaylistType"`
 		Copied                bool          `json:"copied"`
 		RelateResType         interface{}   `json:"relateResType"`
-		CoverStatus           int           `json:"coverStatus"`
+		CoverStatus           int64         `json:"coverStatus"`
 		Subscribers           []interface{} `json:"subscribers"`
 		Subscribed            interface{}   `json:"subscribed"`
 		Creator               struct {
 			DefaultAvatar       bool        `json:"defaultAvatar"`
-			Province            int         `json:"province"`
-			AuthStatus          int         `json:"authStatus"`
+			Province            int64       `json:"province"`
+			AuthStatus          int64       `json:"authStatus"`
 			Followed            bool        `json:"followed"`
 			AvatarUrl           string      `json:"avatarUrl"`
-			AccountStatus       int         `json:"accountStatus"`
-			Gender              int         `json:"gender"`
-			City                int         `json:"city"`
-			Birthday            int         `json:"birthday"`
-			UserId              int         `json:"userId"`
-			UserType            int         `json:"userType"`
+			AccountStatus       int64       `json:"accountStatus"`
+			Gender              int64       `json:"gender"`
+			City                int64       `json:"city"`
+			Birthday            int64       `json:"birthday"`
+			UserId              int64       `json:"userId"`
+			UserType            int64       `json:"userType"`
 			Nickname            string      `json:"nickname"`
 			Signature           string      `json:"signature"`
 			Description         string      `json:"description"`
@@ -97,14 +97,14 @@ type PlaylistDetailResp struct {
 			AvatarImgId         int64       `json:"avatarImgId"`
 			BackgroundImgId     int64       `json:"backgroundImgId"`
 			BackgroundUrl       string      `json:"backgroundUrl"`
-			Authority           int         `json:"authority"`
+			Authority           int64       `json:"authority"`
 			Mutual              bool        `json:"mutual"`
 			ExpertTags          interface{} `json:"expertTags"`
 			Experts             interface{} `json:"experts"`
-			DjStatus            int         `json:"djStatus"`
-			VipType             int         `json:"vipType"`
+			DjStatus            int64       `json:"djStatus"`
+			VipType             int64       `json:"vipType"`
 			RemarkName          interface{} `json:"remarkName"`
-			AuthenticationTypes int         `json:"authenticationTypes"`
+			AuthenticationTypes int64       `json:"authenticationTypes"`
 			AvatarDetail        struct {
 				UserType        int    `json:"userType"`
 				IdentityLevel   int    `json:"identityLevel"`

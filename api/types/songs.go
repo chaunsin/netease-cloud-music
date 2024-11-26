@@ -92,7 +92,7 @@ type Privileges struct {
 	Flag          int64 `json:"flag"`
 	PreSell       bool  `json:"preSell"`
 	PlayMaxbr     int64 `json:"playMaxbr"`
-	DownloadMaxbr int   `json:"downloadMaxbr"`
+	DownloadMaxbr int64 `json:"downloadMaxbr"`
 	// MaxBrLevel 歌曲最高音质
 	MaxBrLevel         string `json:"maxBrLevel"`
 	PlayMaxBrLevel     string `json:"playMaxBrLevel"`

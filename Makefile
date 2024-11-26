@@ -1,18 +1,26 @@
-export VERSION ?= latest
-export IMAGE?=chaunsin/ncmctl:${VERSION}
+export IMAGE_VERSION ?= latest
+export IMAGE_NAME?=chaunsin/ncmctl:${IMAGE_VERSION}
+CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+COMMIT_HASH := $(shell git rev-parse --short=7 HEAD)
+BUILD_TIME=$(shell date "+%Y/%m/%d %H:%M:%S")
+
+info:
+	@echo "Current Branch: $(CURRENT_BRANCH)"
+	@echo "Current Commit Hash: $(COMMIT_HASH)"
+	@echo "Current Build Time: $(BUILD_TIME)"
 
 test:
 	#go test -v ./..
 
-build:
-	go build -o ncmctl cmd/ncmctl/main.go
+build: info
+	go build -ldflags "-X 'main.Version=$(CURRENT_BRANCH)' -X 'main.Commit=${COMMIT_HASH}' -X 'main.BuildTime=${BUILD_TIME}' -s -w" -o ncmctl cmd/ncmctl/main.go
 
 install:
 	cd cmd/ncmctl && go install .
 
 # 构建镜像
 build-image:
-	DOCKER_BUILDKIT=1 docker build --progress=plain -t $(IMAGE) -f $(PWD)/Dockerfile $(PWD)
+	DOCKER_BUILDKIT=1 docker build --progress=plain -t $(IMAGE_NAME) -f $(PWD)/Dockerfile $(PWD)
 
 # 推送镜像到doker hub
 push-image:

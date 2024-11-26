@@ -50,16 +50,16 @@ type PlaylistRespList struct {
 	Subscribed  bool          `json:"subscribed"`
 	Creator     struct {
 		DefaultAvatar     bool     `json:"defaultAvatar"`
-		Province          int      `json:"province"`
-		AuthStatus        int      `json:"authStatus"`
+		Province          int64    `json:"province"`
+		AuthStatus        int64    `json:"authStatus"`
 		Followed          bool     `json:"followed"`
 		AvatarUrl         string   `json:"avatarUrl"`
-		AccountStatus     int      `json:"accountStatus"`
-		Gender            int      `json:"gender"`
-		City              int      `json:"city"`
-		Birthday          int      `json:"birthday"`
-		UserId            int      `json:"userId"`
-		UserType          int      `json:"userType"`
+		AccountStatus     int64    `json:"accountStatus"`
+		Gender            int64    `json:"gender"`
+		City              int64    `json:"city"`
+		Birthday          int64    `json:"birthday"`
+		UserId            int64    `json:"userId"`
+		UserType          int64    `json:"userType"`
 		Nickname          string   `json:"nickname"`
 		Signature         string   `json:"signature"`
 		Description       string   `json:"description"`
@@ -67,16 +67,16 @@ type PlaylistRespList struct {
 		AvatarImgId       int64    `json:"avatarImgId"`
 		BackgroundImgId   int64    `json:"backgroundImgId"`
 		BackgroundUrl     string   `json:"backgroundUrl"`
-		Authority         int      `json:"authority"`
+		Authority         int64    `json:"authority"`
 		Mutual            bool     `json:"mutual"`
 		ExpertTags        []string `json:"expertTags"`
 		Experts           *struct {
 			Field1 string `json:"2"`
 		} `json:"experts"`
-		DjStatus            int         `json:"djStatus"`
-		VipType             int         `json:"vipType"`
+		DjStatus            int64       `json:"djStatus"`
+		VipType             int64       `json:"vipType"`
 		RemarkName          interface{} `json:"remarkName"`
-		AuthenticationTypes int         `json:"authenticationTypes"`
+		AuthenticationTypes int64       `json:"authenticationTypes"`
 		AvatarDetail        interface{} `json:"avatarDetail"`
 		BackgroundImgIdStr  string      `json:"backgroundImgIdStr"`
 		AvatarImgIdStr      string      `json:"avatarImgIdStr"`
@@ -199,16 +199,16 @@ type PlaylistDetailResp struct {
 		Subscribed            interface{}   `json:"subscribed"`
 		Creator               struct {
 			DefaultAvatar       bool        `json:"defaultAvatar"`
-			Province            int         `json:"province"`
-			AuthStatus          int         `json:"authStatus"`
+			Province            int64       `json:"province"`
+			AuthStatus          int64       `json:"authStatus"`
 			Followed            bool        `json:"followed"`
 			AvatarUrl           string      `json:"avatarUrl"`
-			AccountStatus       int         `json:"accountStatus"`
-			Gender              int         `json:"gender"`
-			City                int         `json:"city"`
-			Birthday            int         `json:"birthday"`
-			UserId              int         `json:"userId"`
-			UserType            int         `json:"userType"`
+			AccountStatus       int64       `json:"accountStatus"`
+			Gender              int64       `json:"gender"`
+			City                int64       `json:"city"`
+			Birthday            int64       `json:"birthday"`
+			UserId              int64       `json:"userId"`
+			UserType            int64       `json:"userType"`
 			Nickname            string      `json:"nickname"`
 			Signature           string      `json:"signature"`
 			Description         string      `json:"description"`
@@ -216,16 +216,16 @@ type PlaylistDetailResp struct {
 			AvatarImgId         int64       `json:"avatarImgId"`
 			BackgroundImgId     int64       `json:"backgroundImgId"`
 			BackgroundUrl       string      `json:"backgroundUrl"`
-			Authority           int         `json:"authority"`
+			Authority           int64       `json:"authority"`
 			Mutual              bool        `json:"mutual"`
 			ExpertTags          interface{} `json:"expertTags"`
 			Experts             interface{} `json:"experts"`
-			DjStatus            int         `json:"djStatus"`
-			VipType             int         `json:"vipType"`
+			DjStatus            int64       `json:"djStatus"`
+			VipType             int64       `json:"vipType"`
 			RemarkName          interface{} `json:"remarkName"`
-			AuthenticationTypes int         `json:"authenticationTypes"`
+			AuthenticationTypes int64       `json:"authenticationTypes"`
 			AvatarDetail        struct {
-				UserType        int    `json:"userType"`
+				UserType        int64  `json:"userType"`
 				IdentityLevel   int    `json:"identityLevel"`
 				IdentityIconUrl string `json:"identityIconUrl"`
 			} `json:"avatarDetail"`

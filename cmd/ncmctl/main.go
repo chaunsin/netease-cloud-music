@@ -27,8 +27,14 @@ import (
 	"github.com/chaunsin/netease-cloud-music/internal/ncmctl"
 )
 
+var (
+	Version   string
+	Commit    string
+	BuildTime string
+)
+
 func main() {
 	c := ncmctl.New()
-	c.Version("v0.0.0")
+	c.Version(Version, BuildTime, Commit)
 	c.Execute()
 }

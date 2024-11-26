@@ -98,13 +98,13 @@ type SignInProgressRespData struct {
 type SignInProgressRespDataStats struct {
 	// CalcType 计算方式 ACCUMULATE:累计签到 CURRENT_INDEX:本周/本月签到情况?待确定 CONTINUOUS:连续签到
 	CalcType            string                              `json:"calcType"`
-	CurrentProgress     int                                 `json:"currentProgress"`
+	CurrentProgress     int64                               `json:"currentProgress"`
 	CurrentSignDesc     interface{}                         `json:"currentSignDesc"`
 	Description         string                              `json:"description"`
 	EndTime             int64                               `json:"endTime"`
-	Id                  int                                 `json:"id"`
+	Id                  int64                               `json:"id"`
 	MaxProgressReachDay string                              `json:"maxProgressReachDay"`
-	MaxProgressReached  int                                 `json:"maxProgressReached"`
+	MaxProgressReached  int64                               `json:"maxProgressReached"`
 	Prizes              []SignInProgressRespDataStatsPrizes `json:"prizes"`
 	RepeatType          string                              `json:"repeatType"` // RepeatType 重复类型 eg:FOUR_WEEKS、NEVER
 	StartDay            string                              `json:"startDay"`
@@ -112,13 +112,13 @@ type SignInProgressRespDataStats struct {
 }
 
 type SignInProgressRespDataStatsPrizes struct {
-	Amount           int    `json:"amount"`
+	Amount           int64  `json:"amount"`
 	Description      string `json:"description"`
 	Name             string `json:"name"`
 	Obtained         bool   `json:"obtained"`
 	ObtainedImageUrl string `json:"obtainedImageUrl"`
 	PrizeImageUrl    string `json:"prizeImageUrl"`
-	Progress         int    `json:"progress"`
+	Progress         int64  `json:"progress"`
 	Type             string `json:"type"`
 	Url              string `json:"url"`
 }
@@ -161,7 +161,7 @@ type SignHappyInfoRespData struct {
 			AuthorName string `json:"authorName"`
 			Content    string `json:"content"`
 		} `json:"hotComments"`
-		Id                int         `json:"id"`
+		Id                int64       `json:"id"`
 		JumpText          interface{} `json:"jumpText"`
 		JumpUrl           string      `json:"jumpUrl"`
 		MainText          string      `json:"mainText"`
@@ -173,18 +173,18 @@ type SignHappyInfoRespData struct {
 		QrCodeWithLogoUrl string      `json:"qrCodeWithLogoUrl"`
 		ResourceAuthor    string      `json:"resourceAuthor"`
 		ResourceCover     string      `json:"resourceCover"`
-		ResourceId        int         `json:"resourceId"`
+		ResourceId        int64       `json:"resourceId"`
 		ResourceName      string      `json:"resourceName"`
-		ResourceType      int         `json:"resourceType"`
+		ResourceType      int64       `json:"resourceType"`
 		ResourceUrl       string      `json:"resourceUrl"`
 		SharePicUrl       string      `json:"sharePicUrl"`
 		SpecialJumpUrl    interface{} `json:"specialJumpUrl"`
 		StartTime         int64       `json:"startTime"`
-		Status            int         `json:"status"`
-		Type              int         `json:"type"`
-		VideoHeight       int         `json:"videoHeight"`
+		Status            int64       `json:"status"`
+		Type              int64       `json:"type"`
+		VideoHeight       int64       `json:"videoHeight"`
 		VideoStrId        interface{} `json:"videoStrId"`
-		VideoWidth        int         `json:"videoWidth"`
+		VideoWidth        int64       `json:"videoWidth"`
 	} `json:"info"`
 }
 
@@ -245,21 +245,21 @@ type YunBeiUserInfoReq struct{}
 type YunBeiUserInfoResp struct {
 	types.RespCommon[any]
 	// Level 账号等级L1~L10
-	Level     int `json:"level"`
+	Level     int64 `json:"level"`
 	UserPoint struct {
 		// Balance 云贝可用数量
-		Balance int `json:"balance"`
+		Balance int64 `json:"balance"`
 		// BlockBalance 云贝冻结数量
-		BlockBalance int `json:"blockBalance"`
+		BlockBalance int64 `json:"blockBalance"`
 		// Status 状态 0:正常 其他待补充
-		Status     int   `json:"status"`
+		Status     int64 `json:"status"`
 		UpdateTime int64 `json:"updateTime"`
-		UserId     int   `json:"userId"`
-		Version    int   `json:"version"`
+		UserId     int64 `json:"userId"`
+		Version    int64 `json:"version"`
 	} `json:"userPoint"`
 	MobileSign       bool        `json:"mobileSign"`
 	PcSign           bool        `json:"pcSign"`
-	Viptype          int         `json:"viptype"`
+	Viptype          int64       `json:"viptype"`
 	Expiretime       int64       `json:"expiretime"`
 	BackupExpireTime int64       `json:"backupExpireTime"`
 	StoreTitle       string      `json:"storeTitle"`
@@ -408,9 +408,9 @@ type YunBeiReceiptAndExpenseRespData struct {
 	// OrderId 订单id
 	OrderId interface{} `json:"orderId"`
 	// PointCost 云贝数量
-	PointCost int `json:"pointCost"`
+	PointCost int64 `json:"pointCost"`
 	// Type 0:云贝过期、购买商品、签到奖励、听歌任务奖励、xxx活动等都是0 2:求歌词 其他待补充
-	Type int `json:"type"`
+	Type int64 `json:"type"`
 	// Variable Fixed描述中使用得变量,展示时进行拼接比如type=2时 fixed="求翻译:" variable="爱如潮水" 则前端展示`求翻译:爱如潮水`
 	Variable string `json:"variable"`
 }
@@ -444,18 +444,18 @@ type YunBeiTaskListResp struct {
 }
 
 type YunBeiTaskListRespData struct {
-	ActionType       int         `json:"actionType"`
+	ActionType       int64       `json:"actionType"`
 	BackgroundPicUrl interface{} `json:"backgroundPicUrl"`
 	// Completed 任务数是否处理
 	Completed        bool        `json:"completed"`
 	CompletedIconUrl interface{} `json:"completedIconUrl"`
-	CompletedPoint   int         `json:"completedPoint"`
+	CompletedPoint   int64       `json:"completedPoint"`
 	ExtInfoMap       interface{} `json:"extInfoMap"`
 	// Link 任务跳转链接 例如: orpheus://songrcmd
 	Link             string      `json:"link"`
 	LinkText         string      `json:"linkText"`
-	Period           int         `json:"period"`
-	Position         int         `json:"position"`
+	Period           int64       `json:"period"`
+	Position         int64       `json:"position"`
 	Status           int         `json:"status"`
 	TargetPoint      int         `json:"targetPoint"`
 	TargetStatus     interface{} `json:"targetStatus"`

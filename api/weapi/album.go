@@ -85,20 +85,20 @@ type AlbumRespSongs struct {
 }
 
 type AlbumRespAlbumArtist struct {
-	AlbumSize   int           `json:"albumSize"`
+	AlbumSize   int64         `json:"albumSize"`
 	Alias       []interface{} `json:"alias"`
 	BriefDesc   string        `json:"briefDesc"`
 	Followed    bool          `json:"followed"`
-	Id          int           `json:"id"`
+	Id          int64         `json:"id"`
 	Img1V1Id    int64         `json:"img1v1Id"`
 	Img1V1IdStr string        `json:"img1v1Id_str"`
 	Img1V1Url   string        `json:"img1v1Url"`
-	MusicSize   int           `json:"musicSize"`
+	MusicSize   int64         `json:"musicSize"`
 	Name        string        `json:"name"`
 	PicId       int64         `json:"picId"`
 	PicIdStr    string        `json:"picId_str"`
 	PicUrl      string        `json:"picUrl"`
-	TopicPerson int           `json:"topicPerson"`
+	TopicPerson int64         `json:"topicPerson"`
 	Trans       string        `json:"trans"`
 }
 
@@ -111,44 +111,44 @@ type AlbumRespAlbum struct {
 	BriefDesc       interface{}            `json:"briefDesc"`
 	CommentThreadId string                 `json:"commentThreadId"`
 	Company         string                 `json:"company"`
-	CompanyId       int                    `json:"companyId"`
-	CopyrightId     int                    `json:"copyrightId"`
+	CompanyId       int64                  `json:"companyId"`
+	CopyrightId     int64                  `json:"copyrightId"`
 	Description     string                 `json:"description"`
-	Id              int                    `json:"id"`
+	Id              int64                  `json:"id"`
 	Info            struct {
-		CommentCount  int `json:"commentCount"`
+		CommentCount  int64 `json:"commentCount"`
 		CommentThread struct {
-			CommentCount     int         `json:"commentCount"`
-			HotCount         int         `json:"hotCount"`
+			CommentCount     int64       `json:"commentCount"`
+			HotCount         int64       `json:"hotCount"`
 			Id               string      `json:"id"`
 			LatestLikedUsers interface{} `json:"latestLikedUsers"`
-			LikedCount       int         `json:"likedCount"`
-			ResourceId       int         `json:"resourceId"`
+			LikedCount       int64       `json:"likedCount"`
+			ResourceId       int64       `json:"resourceId"`
 			ResourceInfo     struct {
 				Creator   interface{} `json:"creator"`
 				EncodedId interface{} `json:"encodedId"`
-				Id        int         `json:"id"`
+				Id        int64       `json:"id"`
 				ImgUrl    string      `json:"imgUrl"`
 				Name      string      `json:"name"`
 				SubTitle  interface{} `json:"subTitle"`
-				UserId    int         `json:"userId"`
+				UserId    int64       `json:"userId"`
 				WebUrl    interface{} `json:"webUrl"`
 			} `json:"resourceInfo"`
-			ResourceOwnerId int    `json:"resourceOwnerId"`
+			ResourceOwnerId int64  `json:"resourceOwnerId"`
 			ResourceTitle   string `json:"resourceTitle"`
-			ResourceType    int    `json:"resourceType"`
-			ShareCount      int    `json:"shareCount"`
+			ResourceType    int64  `json:"resourceType"`
+			ShareCount      int64  `json:"shareCount"`
 		} `json:"commentThread"`
 		Comments         interface{} `json:"comments"`
 		LatestLikedUsers interface{} `json:"latestLikedUsers"`
 		Liked            bool        `json:"liked"`
-		LikedCount       int         `json:"likedCount"`
-		ResourceId       int         `json:"resourceId"`
-		ResourceType     int         `json:"resourceType"`
-		ShareCount       int         `json:"shareCount"`
+		LikedCount       int64       `json:"likedCount"`
+		ResourceId       int64       `json:"resourceId"`
+		ResourceType     int64       `json:"resourceType"`
+		ShareCount       int64       `json:"shareCount"`
 		ThreadId         string      `json:"threadId"`
 	} `json:"info"`
-	Mark        int           `json:"mark"`
+	Mark        int64         `json:"mark"`
 	Name        string        `json:"name"`
 	OnSale      bool          `json:"onSale"`
 	Paid        bool          `json:"paid"`
@@ -157,9 +157,9 @@ type AlbumRespAlbum struct {
 	PicIdStr    string        `json:"picId_str"`
 	PicUrl      string        `json:"picUrl"`
 	PublishTime int64         `json:"publishTime"`
-	Size        int           `json:"size"`
+	Size        int64         `json:"size"`
 	Songs       []interface{} `json:"songs"`
-	Status      int           `json:"status"`
+	Status      int64         `json:"status"`
 	SubType     string        `json:"subType"`
 	Tags        string        `json:"tags"`
 	Type        string        `json:"type"`
