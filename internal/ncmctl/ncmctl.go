@@ -130,8 +130,8 @@ func (c *Root) addFlags() {
 }
 
 func (c *Root) Version(version, buildTime, commitHash string) {
-	c.cmd.Version = fmt.Sprintf("Version: %s\nBuildTime: %s\nCommit: %s\nGoVersion: %s",
-		version, buildTime, commitHash, runtime.Version())
+	c.cmd.Version = fmt.Sprintf(" Version: \t%s\n Go version: \t%s\n Git commit: \t%s\n OS/Arch: \t%s\n Build time: \t%s",
+		version, runtime.Version(), commitHash, runtime.GOOS+"/"+runtime.GOARCH, buildTime)
 }
 
 func (c *Root) Add(command ...*cobra.Command) {

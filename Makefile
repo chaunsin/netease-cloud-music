@@ -2,7 +2,7 @@ export IMAGE_VERSION ?= latest
 export IMAGE_NAME?=chaunsin/ncmctl:${IMAGE_VERSION}
 CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 COMMIT_HASH := $(shell git rev-parse --short=7 HEAD)
-BUILD_TIME=$(shell date "+%Y/%m/%d %H:%M:%S")
+BUILD_TIME=$(shell date "+%Y-%m-%d %H:%M:%S%z")
 
 info:
 	@echo "Current Branch: $(CURRENT_BRANCH)"
