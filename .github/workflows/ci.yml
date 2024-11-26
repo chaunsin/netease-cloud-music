@@ -56,7 +56,7 @@ jobs:
         run: |
           mkdir -p output
           xgo --targets=darwin-10.14/*,windows-6.1/*,linux/amd64,linux/arm64,linux/mips64,linux/mips64le,linux/ppc64le,linux/riscv64 \
-          --ldflags "-linkmode "external" -extldflags "-static" -s -w -X 'main.BuildTime=${{ env.BUILD_TIME }}' -X 'main.Version=${{github.ref_name}}' -X 'main.Commit=${{ env.COMMIT_HASH }}'" \
+          --ldflags "-extldflags "-static" -s -w -X 'main.BuildTime=${{ env.BUILD_TIME }}' -X 'main.Version=${{github.ref_name}}' -X 'main.Commit=${{ env.COMMIT_HASH }}'" \
           -out output/ncmctl ./cmd/ncmctl/main.go
           echo "Build output:"
           tree ./output
