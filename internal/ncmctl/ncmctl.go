@@ -25,7 +25,9 @@ package ncmctl
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/chaunsin/netease-cloud-music/config"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
@@ -60,6 +62,7 @@ func New() *Root {
   ncmctl partner`,
 		},
 	}
+	c.cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
 	c.cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		var (
 			cfgPath = c.Opts.Config
@@ -126,8 +129,9 @@ func (c *Root) addFlags() {
 	c.cmd.PersistentFlags().StringVar(&c.Opts.Home, "home", config.HomeDir, "configuration home path. the home path is used to store running information")
 }
 
-func (c *Root) Version(version string) {
-	c.cmd.Version = version
+func (c *Root) Version(version, buildTime, commitHash string) {
+	c.cmd.Version = fmt.Sprintf("Version: %s\nBuildTime: %s\nCommit: %s\nGoVersion: %s",
+		version, buildTime, commitHash, runtime.Version())
 }
 
 func (c *Root) Add(command ...*cobra.Command) {
@@ -137,5 +141,6 @@ func (c *Root) Add(command ...*cobra.Command) {
 func (c *Root) Execute() {
 	if err := c.cmd.Execute(); err != nil {
 		c.cmd.PrintErrln(err)
+		os.Exit(1)
 	}
 }

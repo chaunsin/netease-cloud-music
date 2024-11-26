@@ -35,6 +35,6 @@ var (
 
 func main() {
 	c := ncmctl.New()
-	c.Version(Version)
+	c.Version(Version, BuildTime, Commit)
 	c.Execute()
 }
