@@ -150,7 +150,7 @@ jobs:
             ## Golang Dependencies
             {{depend,dep,deps}}
             ## Misc
-            {{chore,style,ci||🔶 Nothing change}}
+            {{chore,style,ci,docs,doc,test,script||🔶 Nothing change}}
             ## Other
             {{__unknown__}}
 
