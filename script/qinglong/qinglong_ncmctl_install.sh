@@ -123,6 +123,8 @@ install_binary() {
     echo "Installing $BINARY_NAME..."
     mv "$TEMP_DIR/output/$BINARY_NAME" "$BINARY_PATH" || { echo "Installation failed. Exiting."; exit 1; }
     chmod +x "$BINARY_PATH"
+    # 测试安装情况
+    $BINARY_PATH --version
     echo "$BINARY_NAME installed successfully at $BINARY_PATH (version: $LATEST_VERSION)."
 }
 

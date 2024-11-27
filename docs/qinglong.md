@@ -58,6 +58,14 @@
 
 ![qinglong-1.png](images/qinglong-1.png)
 
+### 2.3 安装ncmctl
+
+首次添加需要手动安装ncmctl,不然需要定时任务时间到了才会去安装。
+
+在青龙面板中，`定时任务`页，找到`ncmctl安装`脚本，并点击`运行`。需要注意安装是否成功。
+
+![qinglong-3.png](images/qinglong-3.png)
+
 ### 2.3 登录
 
 在青龙定时任务中，点击运行`ncmctl扫码登录`任务，查看运行日志，扫描日志中的二维码进行登录。
@@ -73,8 +81,7 @@
 
 ## 3. 常见问题
 
-
-### 3.1.github访问失败超时等问题
+### 3.1 github访问失败超时等问题
 
 拉库时，受到国内网络限制影响，访问GitHub速度慢或者错误，可在仓库地址前加上代理进行加速访问。
 
@@ -90,3 +97,18 @@ https://github.moeyy.xyz/https://github.com/chaunsin/netease-cloud-music.git
 加速代理地址通常不能保证长期有效，请自行查找或参考以下使用。
 
 https://github.com/hunshcn/gh-proxy/issues/116
+
+### 3.2 not found command 错误
+
+通常情况下在首次安装时会出现此问题,原因是没有先执行`ncmctl安装`任务。先执行此任务然后在尝试登录、一键任务等其他操作做。
+
+如果碰到以下错误：
+
+```text
+inglong_ncmctl_install.sh: line 127: /usr/local/bin/ncmctl: cannot execute: required file not found
+qinglong_ncmctl_install.sh: line 252: pop_var_context: head of shell_variables not a function context
+/ql/shell/otask.sh: line 286: pop_var_context: head of shell_variables not a function context
+```
+
+这个错误可能是`ncmctl`命令不能正确执行,对应得命令可能不适配当前的系统架构或者版本、或脚本有问题, 可进入到青龙部署所在的服务器内查看
+`ncmctl`命令是否存在、能否正常运行。
