@@ -93,8 +93,8 @@ ncmctl login qrcode
 ```
 
 **提示:** 使用手机登录网易云音乐app进行扫码授权登录，如果不能识别终端打印的二维码可根据终端输出得文件路径提示找到二维码图片进行扫描,或者copy终端输出得
-`qrcode content: https://www.163.com/xxx` 内容进行自己生成二维码再进行扫描(_粘贴时不要包含`qrcode content: `
-以及结尾空格_)。另外扫码过程中
+`qrcode content: https://www.163.com/xxx` 内容自己生成二维码再进行扫描(_粘贴时不要包含`qrcode content: `
+以及结尾空格_)。扫描有时效性,默认超时时间为5分钟,另外扫码过程中
 **不能退出终端**!!! 如有问题可重复此流程,为避免被风控不要频繁登录。
 
 在线生成二维码工具: https://www.bejson.com/convert/qrcode/#google_vignette

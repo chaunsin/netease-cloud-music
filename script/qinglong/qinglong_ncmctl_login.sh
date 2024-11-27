@@ -25,6 +25,13 @@
 #
 ################################################################################
 
+# name: ncmctl扫码登录
+# 一个用不执行得脚本
+# cron: 0 25 * * *
+
 set -e
+
+ncmctl curl -m GetUserInfo
+
 ncmctl login qrcode
 

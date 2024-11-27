@@ -25,7 +25,7 @@ package weapi
 
 import (
 	"context"
-	neturl "net/url"
+	"net/url"
 	"time"
 
 	"github.com/chaunsin/netease-cloud-music/api"
@@ -42,7 +42,7 @@ func New(client *api.Client) *Api {
 }
 
 func (a *Api) NeedLogin(ctx context.Context) bool {
-	u, _ := neturl.Parse("https://music.163.com")
+	u, _ := url.Parse("https://music.163.com")
 	for _, ck := range a.client.GetClient().Jar.Cookies(u) {
 		// 判断用户是否有登录信息,如果有登录信息,还需要调用接口进行判断,单纯的判断cookie过期时间是不行的
 		if ck.Name == "MUSIC_U" && ck.Expires.Before(time.Now()) {
