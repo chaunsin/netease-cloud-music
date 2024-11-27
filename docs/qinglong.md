@@ -81,8 +81,12 @@
 如：
 
 ```text
-https://github.moeyy.xyz/https://github.com/chaunsin/netease-cloud-music.git
+https://ghproxy.cn/https://github.com/chaunsin/netease-cloud-music.git
+https://ghproxy.cc/https://github.com/chaunsin/netease-cloud-music.git
 https://ghproxy.net/https://github.com/chaunsin/netease-cloud-music.git
+https://github.moeyy.xyz/https://github.com/chaunsin/netease-cloud-music.git
 ```
 
-加速代理地址通常不能保证长期有效，请自行查找使用。
+加速代理地址通常不能保证长期有效，请自行查找或参考以下使用。
+
+https://github.com/hunshcn/gh-proxy/issues/116

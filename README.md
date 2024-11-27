@@ -1,10 +1,10 @@
-# netease-cloud-music
+# 🔱netease-cloud-music🔱
 
 [![GoDoc](https://godoc.org/github.com/chaunsin/netease-cloud-music?status.svg)](https://godoc.org/github.com/chaunsin/netease-cloud-music) [![Go Report Card](https://goreportcard.com/badge/github.com/chaunsin/netease-cloud-music)](https://goreportcard.com/report/github.com/chaunsin/netease-cloud-music) [![ci](https://github.com/chaunsin/netease-cloud-music/actions/workflows/ci.yml/badge.svg)](https://github.com/chaunsin/netease-cloud-music/actions/workflows/ci.yml) [![deploy image](https://github.com/chaunsin/netease-cloud-music/actions/workflows/deploy_image.yml/badge.svg)](https://github.com/chaunsin/netease-cloud-music/actions/workflows/deploy_image.yml)
 
 网易云音乐 Golang API 接口 + 命令行工具套件 + 一键完成任务
 
-# 声明
+# ⚠️ 声明
 
 **本项目仅供个人学习使用,切勿用于商业用途、非法用途使用！！！**
 
@@ -12,7 +12,7 @@
 
 **如有侵权即删！！！**
 
-# 功能
+# 📖 功能
 
 ## 命令行 (ncmctl)
 
@@ -41,7 +41,7 @@
 **提示:**
 目前主要实现了weapi也推荐使用weapi,接口相对较全，如需要其他接口可提 [issue](https://github.com/chaunsin/netease-cloud-music/issues)。
 
-# 要求
+# 💻 要求
 
 - golang >= 1.21
 - makefile (可选)
@@ -50,9 +50,9 @@
 
 # ncmctl
 
-## 安装
+## 🔨 安装
 
-可执行文件安装
+**可执行文件安装**
 
 ```shell
 go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
@@ -67,10 +67,11 @@ cd netease-cloud-music && make install
 
 **提示:** 默认会安装到`$GOPATH/bin`目录下
 
-docker版本镜像获取方式
+**docker版本镜像获取方式**
 
 ```shell
-docker pull chaunsin/ncmctl:latest
+docker pull chaunsin/ncmctl:latest # dockerhub镜像仓库
+docker pull ghcr.io/chaunsin/ncmctl:latest # github镜像仓库
 ```
 
 镜像仓库以及docker使用方式: https://hub.docker.com/r/chaunsin/ncmctl
@@ -84,7 +85,11 @@ cd netease-cloud-music && make build-iamge
 
 **提示:** 自行编译需要安装docker环境,另外受国服环境影响最好开梯子。
 
-## 使用
+**青龙脚本使用方式请参考:** 
+
+[qinglong.md](docs/qinglong.md)
+
+## 🚀 使用
 
 **一、二维码登录**
 
@@ -261,7 +266,7 @@ Use "ncmctl [command] --help" for more information about a command.
 - [云盘上传](example%2Fexample_cloud_upload_test.go)(需要登录)
 - [音乐下载](example%2Fexample_download_test.go)(需要登录)
 
-# 已知问题
+# ❓ 已知问题
 
 ### 1.下载无损音乐品质不准确
 
@@ -286,7 +291,7 @@ task命令是一个服务，默认执行是包含了scrobble、sign、partner子
 
 再说一下scrobble、sign、partner。这几个子命令不是服务，执行之后会立刻执行相应得任务并返回结果，不像task执行需要”到点了“才会执行。
 
-# 鸣谢
+# ❤️ 鸣谢
 
 - https://github.com/Binaryify/NeteaseCloudMusicApi
 - https://github.com/mos9527/pyncm
