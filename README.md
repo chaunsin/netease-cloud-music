@@ -87,6 +87,7 @@ cd netease-cloud-music && make build-iamge
 
 **青龙脚本使用方式请参考:** 
 
+提示: 目前暂时有些问题不能使用,请谅解。
 [qinglong.md](docs/qinglong.md)
 
 ### 🚀 使用
