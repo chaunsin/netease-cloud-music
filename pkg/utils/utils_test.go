@@ -266,3 +266,125 @@ func TestTimeUntilMidnight(t *testing.T) {
 		})
 	}
 }
+
+func TestFilename(t *testing.T) {
+	type args struct {
+		path string
+		new  string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "/",
+			args: args{
+				path: "path//to/file",
+				new:  "_",
+			},
+			want: "path__to_file",
+		},
+		{
+			name: "\\",
+			args: args{
+				path: "path\\\\to\\file",
+				new:  "_",
+			},
+			want: "path__to_file",
+		},
+		{
+			name: ":",
+			args: args{
+				path: "path:to::file",
+				new:  "_",
+			},
+			want: "path_to__file",
+		},
+		{
+			name: "*",
+			args: args{
+				path: "path*to**file",
+				new:  "_",
+			},
+			want: "path_to__file",
+		},
+		{
+			name: "?",
+			args: args{
+				path: "path?to??file",
+				new:  "_",
+			},
+			want: "path_to__file",
+		},
+		{
+			name: "\"",
+			args: args{
+				path: `path"to""file`,
+				new:  "_",
+			},
+			want: "path_to__file",
+		},
+		{
+			name: "<",
+			args: args{
+				path: "path<to<<file",
+				new:  "_",
+			},
+			want: "path_to__file",
+		},
+		{
+			name: ">",
+			args: args{
+				path: "path>to>>file",
+				new:  "_",
+			},
+			want: "path_to__file",
+		},
+		{
+			name: "|",
+			args: args{
+				path: "path|to||file",
+				new:  "_",
+			},
+			want: "path_to__file",
+		},
+		{
+			name: "replace empty",
+			args: args{
+				path: "path|to||file",
+				new:  "",
+			},
+			want: "pathtofile",
+		},
+		{
+			name: "empty1",
+			args: args{
+				path: "",
+				new:  "_",
+			},
+			want: "",
+		},
+		{
+			name: "empty2",
+			args: args{
+				path: "",
+				new:  "",
+			},
+			want: "",
+		},
+		{
+			name: "",
+			args: args{
+				path: "Empty string",
+				new:  "",
+			},
+			want: "Empty string",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, Filename(tt.args.path, tt.args.new), "Filename(%v, %v)", tt.args.path, tt.args.new)
+		})
+	}
+}

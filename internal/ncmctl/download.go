@@ -484,8 +484,8 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	var (
 		// drd = downResp.Data[0]
 		drd      = downResp.Data
-		dest     = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s.%s", music.ArtistString(), music.Name, drd.Type))
-		tempName = fmt.Sprintf("ncmctl-*-%s.tmp", music.Name)
+		dest     = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s.%s", music.ArtistString(), music.NameString(), drd.Type))
+		tempName = fmt.Sprintf("ncmctl-*-%s.tmp", music.NameString())
 	)
 
 	// 创建临时文件
@@ -536,7 +536,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 
 	// 避免文件重名
 	for i := 1; utils.FileExists(dest); i++ {
-		dest = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s(%d).%s", music.ArtistString(), music.Name, i, drd.Type))
+		dest = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s(%d).%s", music.ArtistString(), music.NameString(), i, drd.Type))
 	}
 	if err := os.Rename(file.Name(), dest); err != nil {
 		_ = os.Remove(file.Name())
@@ -556,13 +556,18 @@ type Music struct {
 	Time   int64
 }
 
+// NameString 返回去除特殊符号的歌曲名
+func (m Music) NameString() string {
+	return utils.Filename(m.Name, "_")
+}
+
 func (m Music) ArtistString() string {
 	if len(m.Artist) <= 0 {
 		return ""
 	}
 	var artistList = make([]string, 0, len(m.Artist))
 	for _, ar := range m.Artist {
-		artistList = append(artistList, strings.TrimSpace(ar.Name))
+		artistList = append(artistList, utils.Filename(ar.Name, "_")) // #11 避免文件名中包含特殊字符
 	}
 	return strings.Join(artistList, ",")
 }

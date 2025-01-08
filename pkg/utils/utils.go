@@ -47,6 +47,7 @@ const (
 
 var (
 	parseBytesRegexp = regexp.MustCompile(`(?i)^(\d+)([a-zA-Z]*)$`)
+	filenameRegexp   = regexp.MustCompile("[\\\\/:*?\"<>|]")
 	unitMap          = map[string]int64{
 		"B":  B,
 		"K":  KB,
@@ -242,4 +243,13 @@ func TimeUntilMidnight(timeZone string) (time.Duration, error) {
 	now := time.Now().In(loc)
 	midnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
 	return midnight.Sub(now), nil
+}
+
+// Filename 清理文件名中的非法字符
+func Filename(path string, new ...string) string {
+	path = strings.TrimSpace(path)
+	if len(new) > 0 {
+		return filenameRegexp.ReplaceAllString(path, new[0])
+	}
+	return filenameRegexp.ReplaceAllString(path, "")
 }
