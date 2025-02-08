@@ -1,0 +1,198 @@
+name: ci
+
+on:
+  push:
+    branches: [ "" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "" ]
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        description: "用于手动触发测试"
+        required: true
+        default: "true"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ github.repository == 'chaunsin/netease-cloud-music' }}
+    runs-on: ubuntu-latest
+    steps:
+      # Step 0: 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Step 1: 设置环境变量
+      - name: Set Env
+        run: |
+          echo "BUILD_TIME=$(date --rfc-3339=seconds --utc)" >> $GITHUB_ENV
+          echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_ENV
+          echo "COMMIT_HASH=$(echo "${{ github.sha }}" | cut -c 1-7)" >> $GITHUB_ENV
+
+      # Step 2: 设置 Go 环境
+      - name: Set up Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          check-latest: true
+          cache: true
+
+      # Step 3: 安装xgo以及upx
+      # https://github.com/techknowlogick/xgo
+      - name: Install xgo and upx
+        run: |
+          go install src.techknowlogick.com/xgo@latest
+          #sudo apt-get update
+          #sudo apt-get install upx  
+
+      # Step 4: 编译项目
+      - name: Cross-Compile using xgo
+        run: |
+          mkdir -p output
+          go env -w CGO_ENABLED=0
+          xgo --targets=darwin-10.14/*,windows-6.1/*,linux/amd64,linux/arm64,linux/mips64,linux/mips64le,linux/ppc64le,linux/riscv64 \
+          --ldflags "-extldflags "-static" -s -w -X 'main.BuildTime=${{ env.BUILD_TIME }}' -X 'main.Version=${{github.ref_name}}' -X 'main.Commit=${{ env.COMMIT_HASH }}'" \
+          -out output/ncmctl ./cmd/ncmctl/main.go
+          echo "Build output:"
+          tree ./output
+
+      # Step 5: 压缩文件
+      - name: Compress and upload binaries
+        run: |
+          cp LICENSE output/LICENSE
+          
+          for file in output/*; do
+            filename=$(basename "$file")
+            ext="${filename##*.}"
+          
+            if [[ "$filename" == "LICENSE" ]]; then
+              continue
+            fi
+
+            if [[ "$ext" == "exe" ]]; then
+              new_name="ncmctl.exe"
+            else
+              new_name="ncmctl"
+            fi
+
+            mv "$file" "output/$new_name"
+          
+            ## 使用 UPX 压缩文件
+            #if [[ -x "output/$new_name" ]]; then
+            #  upx --best "output/$new_name"
+            #  file "output/$new_name"
+            #else
+            #  echo "Skipping UPX for non-executable file: $new_name"
+            #  continue
+            #fi
+          
+            sha256_file="output/checksum.sha256"
+            # 去掉路径，仅保留文件名
+            sha256sum "output/$new_name" | sed "s|output/||" > "$sha256_file"
+            echo "SHA256 for $filename: $(cat "$sha256_file")"
+          
+            tarball="output/${filename}.tar.gz"
+            tar -czf "$tarball" output/"$new_name" output/checksum.sha256 output/LICENSE
+          
+            rm -f "output/$new_name" "output/checksum.sha256"
+          done
+
+      # Step 6: 上传压缩包
+      # https://github.com/actions/upload-artifact
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts
+          path: ./output
+          if-no-files-found: error
+
+      # Step 7: 下载压缩包
+      # https://github.com/actions/download-artifact
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: artifacts*
+          path: ./output
+          merge-multiple: true
+
+      # Step 8: 输出当前ref和生成的文件列表
+      - name: Debug Release
+        run: |
+          echo "Current ref: ${{ github.ref }}"
+          echo "Generated artifacts:"
+          tree ./output
+
+      # Step 9: 生成 changelog
+      # https://github.com/jaywcjlove/changelog-generator
+      - name: Generate changelog
+        id: changelog
+        uses: jaywcjlove/changelog-generator@main
+        #if: env.PREVIOUS_TAG
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          head-ref: ${{ env.PREVIOUS_TAG }}
+          filter-author: (dependabot|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
+          filter: '[R|r]elease[d]\s+[v|V]\d(\.\d+){0,2}'
+          template: |
+            ## Bugs
+            {{fix,bug}}
+            ## Feature
+            {{feat,feature}}
+            ## Improve
+            {{refactor,perf,clean,optimize}}
+            ## Deprecated
+            {{deprecated}}
+            ## Golang Dependencies
+            {{depend,dep,deps}}
+            ## Misc
+            {{chore,style,ci,docs,doc,test,script||🔶 Nothing change}}
+            ## Other
+            {{__unknown__}}
+
+      # Step 10: 打印 changelog
+      - name: Print Changelog
+        run: |
+          echo "Changelog:"
+          echo "${{ steps.changelog.outputs.changelog }}"
+          echo "Compare URL: ${{ steps.changelog.outputs.compareurl }}"
+          echo "GitHub Pages Hash: ${{ steps.changelog.outputs.gh-pages-hash }}"
+
+      # Step 11: 发布
+      # https://github.com/softprops/action-gh-release
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./output/*
+          body: |
+            ${{ steps.changelog.outputs.compareurl }}
+            ${{ steps.changelog.outputs.changelog }}
+          name: ${{github.ref_name}} Releases
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          prerelease: false
+          draft: false
+          make_latest: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Debug Release
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled == 'true' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./output/*
+          body: |
+            ${{ steps.changelog.outputs.compareurl }}
+            ${{ steps.changelog.outputs.changelog }}
+          name: ${{github.ref_name}} Releases
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          prerelease: true
+          draft: true
+          token: ${{ secrets.GITHUB_TOKEN }}

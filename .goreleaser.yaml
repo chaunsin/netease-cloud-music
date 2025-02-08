@@ -1,0 +1,113 @@
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+
+# The lines below are called `modelines`. See `:help modeline`
+# Feel free to remove those if you don't want/need to use them.
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+project_name: ncmctl
+
+# 构建输出目录
+dist: ./build
+
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+    # you may remove this if you don't need go generate
+    - go generate ./...
+
+# https://goreleaser.com/customization/builds/
+builds:
+  - env:
+      - CGO_ENABLED=0
+    main: ./cmd/ncmctl/
+    binary: ncmctl
+    ldflags:
+      - -s -w -X "main.Version={{.Version}}" -X "main.Commit={{.ShortCommit}}" -X "main.BuildTime={{.CommitDate}}"
+
+    # Default: [ 'darwin', 'linux', 'windows' ].
+    goos:
+      - linux
+      - windows
+      - darwin
+      - freebsd
+      - openbsd
+      - netbsd
+
+    # Default: [ '386', 'amd64', 'arm64' ]
+    goarch:
+      - amd64
+      - arm
+      - arm64
+      - 386
+      - s390x
+      - ppc64
+      - riscv64
+      - ppc64le
+      - mips
+      - mipsle
+      - mips64
+      - mips64le
+      - loong64
+
+    # Default: v1
+    goamd64:
+      - v1
+      #- v2
+      #- v3
+
+    # Default: 6
+    goarm:
+      #- 5
+      - 6
+      #- 7
+
+    # Default: 'v8.0'
+    goarm64:
+      - v8.0
+      #- v9.0
+
+    # Default: hardfloat
+    gomips:
+      - hardfloat
+      #- softfloat
+
+    # Default: sse2
+    go386:
+      - sse2
+      #- softfloat
+
+    # Default: power8
+    goppc64:
+      - power8
+      #- power9
+
+    # Default: rva20u64
+    goriscv64:
+      - rva22u64
+
+archives:
+  - formats: [ 'tar.gz' ]
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        formats: [ 'zip' ]
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
