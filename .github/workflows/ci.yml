@@ -51,7 +51,33 @@ jobs:
           #sudo apt-get update
           #sudo apt-get install upx  
 
-      # Step 4: 打印 changelog
+      # Step 4: 生成 changelog
+      # https://github.com/jaywcjlove/changelog-generator
+      - name: Generate changelog
+        id: changelog
+        uses: jaywcjlove/changelog-generator@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          head-ref: ${{ env.PREVIOUS_TAG }}
+          filter-author: (dependabot|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
+          filter: '[R|r]elease[d]\s+[v|V]\d(\.\d+){0,2}'
+          template: |
+            ## Bugs
+            {{fix,bug}}
+            ## Feature
+            {{feat,feature}}
+            ## Improve
+            {{refactor,perf,clean,optimize}}
+            ## Deprecated
+            {{deprecated}}
+            ## Golang Dependencies
+            {{depend,dep,deps}}
+            ## Misc
+            {{chore,style,ci,docs,doc,test,script||🔶 Nothing change}}
+            ## Other
+            {{__unknown__}}
+
+      # Step 5: 打印 changelog
       - name: Print Changelog
         run: |
           echo "Changelog:"
@@ -60,7 +86,7 @@ jobs:
           echo "Compare URL: ${{ steps.changelog.outputs.compareurl }}"
           echo "GitHub Pages Hash: ${{ steps.changelog.outputs.gh-pages-hash }}"    
 
-      # Step 5: 发布
+      # Step 6: 发布
       - name: Run GoReleaser
         if: startsWith(github.ref, 'refs/tags/v')
         uses: goreleaser/goreleaser-action@v6
