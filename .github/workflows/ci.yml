@@ -56,8 +56,9 @@ jobs:
         run: |
           echo "Changelog:"
           echo "${{ steps.changelog.outputs.changelog }}"
+          echo "${{ steps.changelog.outputs.changelog }}" > note.md
           echo "Compare URL: ${{ steps.changelog.outputs.compareurl }}"
-          echo "GitHub Pages Hash: ${{ steps.changelog.outputs.gh-pages-hash }}"
+          echo "GitHub Pages Hash: ${{ steps.changelog.outputs.gh-pages-hash }}"    
 
       # Step 5: 发布
       - name: Run GoReleaser
