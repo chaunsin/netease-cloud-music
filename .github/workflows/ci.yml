@@ -51,89 +51,11 @@ jobs:
           #sudo apt-get update
           #sudo apt-get install upx  
 
-      # Step 4: 编译项目
-      - name: Cross-Compile using xgo
-        run: |
-          mkdir -p output
-          go env -w CGO_ENABLED=0
-          xgo --targets=darwin-10.14/*,windows-6.1/*,linux/amd64,linux/arm64,linux/mips64,linux/mips64le,linux/ppc64le,linux/riscv64 \
-          --ldflags "-extldflags "-static" -s -w -X 'main.BuildTime=${{ env.BUILD_TIME }}' -X 'main.Version=${{github.ref_name}}' -X 'main.Commit=${{ env.COMMIT_HASH }}'" \
-          -out output/ncmctl ./cmd/ncmctl/main.go
-          echo "Build output:"
-          tree ./output
-
-      # Step 5: 压缩文件
-      - name: Compress and upload binaries
-        run: |
-          cp LICENSE output/LICENSE
-          
-          for file in output/*; do
-            filename=$(basename "$file")
-            ext="${filename##*.}"
-          
-            if [[ "$filename" == "LICENSE" ]]; then
-              continue
-            fi
-
-            if [[ "$ext" == "exe" ]]; then
-              new_name="ncmctl.exe"
-            else
-              new_name="ncmctl"
-            fi
-
-            mv "$file" "output/$new_name"
-          
-            ## 使用 UPX 压缩文件
-            #if [[ -x "output/$new_name" ]]; then
-            #  upx --best "output/$new_name"
-            #  file "output/$new_name"
-            #else
-            #  echo "Skipping UPX for non-executable file: $new_name"
-            #  continue
-            #fi
-          
-            sha256_file="output/checksum.sha256"
-            # 去掉路径，仅保留文件名
-            sha256sum "output/$new_name" | sed "s|output/||" > "$sha256_file"
-            echo "SHA256 for $filename: $(cat "$sha256_file")"
-          
-            tarball="output/${filename}.tar.gz"
-            tar -czf "$tarball" output/"$new_name" output/checksum.sha256 output/LICENSE
-          
-            rm -f "output/$new_name" "output/checksum.sha256"
-          done
-
-      # Step 6: 上传压缩包
-      # https://github.com/actions/upload-artifact
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: artifacts
-          path: ./output
-          if-no-files-found: error
-
-      # Step 7: 下载压缩包
-      # https://github.com/actions/download-artifact
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: artifacts*
-          path: ./output
-          merge-multiple: true
-
-      # Step 8: 输出当前ref和生成的文件列表
-      - name: Debug Release
-        run: |
-          echo "Current ref: ${{ github.ref }}"
-          echo "Generated artifacts:"
-          tree ./output
-
-      # Step 9: 生成 changelog
+      # Step 4: 生成 changelog
       # https://github.com/jaywcjlove/changelog-generator
       - name: Generate changelog
         id: changelog
         uses: jaywcjlove/changelog-generator@main
-        #if: env.PREVIOUS_TAG
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           head-ref: ${{ env.PREVIOUS_TAG }}
@@ -155,44 +77,27 @@ jobs:
             ## Other
             {{__unknown__}}
 
-      # Step 10: 打印 changelog
+      # Step 5: 打印 changelog
       - name: Print Changelog
         run: |
           echo "Changelog:"
           echo "${{ steps.changelog.outputs.changelog }}"
+          echo "${{ steps.changelog.outputs.changelog }}" > note.md
           echo "Compare URL: ${{ steps.changelog.outputs.compareurl }}"
-          echo "GitHub Pages Hash: ${{ steps.changelog.outputs.gh-pages-hash }}"
+          echo "GitHub Pages Hash: ${{ steps.changelog.outputs.gh-pages-hash }}"    
 
-      # Step 11: 发布
-      # https://github.com/softprops/action-gh-release
-      - name: Create Release
+      # Step 6: 发布
+      - name: Run GoReleaser
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: goreleaser/goreleaser-action@v6
         with:
-          files: |
-            ./output/*
-          body: |
-            ${{ steps.changelog.outputs.compareurl }}
-            ${{ steps.changelog.outputs.changelog }}
-          name: ${{github.ref_name}} Releases
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          prerelease: false
-          draft: false
-          make_latest: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Create Debug Release
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled == 'true' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            ./output/*
-          body: |
-            ${{ steps.changelog.outputs.compareurl }}
-            ${{ steps.changelog.outputs.changelog }}
-          name: ${{github.ref_name}} Releases
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          prerelease: true
-          draft: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # either 'goreleaser' (default) or 'goreleaser-pro'
+          distribution: goreleaser
+          # 'latest', 'nightly', or a semver
+          version: "~> v2"
+          args: release --clean --release-notes=./note.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+          # Your GoReleaser Pro key, if you are using the 'goreleaser-pro' distribution
+          # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
