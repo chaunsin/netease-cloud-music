@@ -53,25 +53,18 @@ LATEST_VERSION=$(curl -s "https://gitee.com/api/v5/repos/$REPO/releases/latest" 
 # 系统架构和下载文件映射
 map_architecture() {
     case "$ARCH" in
-        x86_64) ARCH="amd64" ;;
+        x86_64) ARCH="x86_64" ;;
         aarch64) ARCH="arm64" ;;
+        armv7l) ARCH="armv6" ;;
         mips64) ARCH="mips64" ;;
         mips64el) ARCH="mips64le" ;;
         ppc64le) ARCH="ppc64le" ;;
         riscv64) ARCH="riscv64" ;;
-        i386 | i686) ARCH="386" ;;
+        loongarch64) ARCH="loong64" ;;
+        i386 | i686) ARCH="i386" ;;
+        s390x) ARCH="s390x" ;;
         *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
     esac
-
-    # 对 Darwin 系统做额外处理
-    if [[ "$OS" == "darwin" ]]; then
-        # 检查 Darwin 系统的最低版本（假设以 10.14 作为基准）
-        MACOS_VERSION=$(sw_vers -productVersion | cut -d '.' -f 1,2)
-        case "$MACOS_VERSION" in
-            10.14*) OS="darwin-10.14" ;;
-            *) echo "Unsupported macOS version: $MACOS_VERSION"; exit 1 ;;
-        esac
-    fi
 }
 
 # 获取最新版本号
