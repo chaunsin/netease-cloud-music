@@ -45,7 +45,7 @@ TEMP_DIR="/tmp/ncmctl_upgrade"
 # 系统架构
 ARCH="$(uname -m)"
 # 系统类型
-OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+OS="$(uname -s)"
 # 最新版本
 #LATEST_VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 LATEST_VERSION=$(curl -s "https://gitee.com/api/v5/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
@@ -95,8 +95,8 @@ is_installed() {
 download_and_extract() {
     echo "Downloading the latest version..."
     # 根据架构动态拼接下载 URL
-    #DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}-${OS}-${ARCH}.tar.gz"
-    DOWNLOAD_URL="https://gitee.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}-${OS}-${ARCH}.tar.gz"
+    #DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}_${OS}_${ARCH}.tar.gz"
+    DOWNLOAD_URL="https://gitee.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}_${OS}_${ARCH}.tar.gz"
     echo "Download URL: $DOWNLOAD_URL"
 
     mkdir -p "$TEMP_DIR"
@@ -114,7 +114,7 @@ install_binary() {
         exit 1;
     fi
     echo "Installing $BINARY_NAME..."
-    mv "$TEMP_DIR/output/$BINARY_NAME" "$BINARY_PATH" || { echo "Installation failed. Exiting."; exit 1; }
+    mv "$TEMP_DIR/$BINARY_NAME" "$BINARY_PATH" || { echo "Installation failed. Exiting."; exit 1; }
     chmod +x "$BINARY_PATH"
     # 测试安装情况
     $BINARY_PATH --version
