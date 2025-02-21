@@ -437,8 +437,17 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	}
 	// 歌曲变灰则不能下载
 	if downResp.Data.Code != 200 || downResp.Data.Url == "" {
+		var msg error
+		switch downResp.Data.Code {
+		case -110:
+			msg = fmt.Errorf("无音源(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
+		case -105: // todo: 待确定
+			fallthrough
+		default:
+			msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
+		}
 		log.Warn("资源已下架或无版权(%v) detail: %+v", songId, downResp)
-		return fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
+		return msg
 	}
 
 	// var downReq = &weapi.SongPlayerReq{
