@@ -441,7 +441,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 		switch downResp.Data.Code {
 		case -110:
 			msg = fmt.Errorf("无音源(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
-		case -105: // todo: 待确定
+		case -105: // todo: 待确定完善,目前测试发现,当用户没有会员权益时,会返回-105，其他情况可能也会返回此值
 			fallthrough
 		default:
 			msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
