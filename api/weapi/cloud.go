@@ -143,7 +143,7 @@ func (a *Api) CloudList(ctx context.Context, req *CloudListReq) (*CloudListResp,
 type CloudTokenAllocReq struct {
 	types.ReqCommon
 	Bucket string `json:"bucket,omitempty"`
-	// 文件扩展名 例如mp3
+	// 文件扩展名 例如mp3、m4a、flac
 	Ext      string `json:"ext,omitempty"`
 	Filename string `json:"filename,omitempty"`
 	Local    string `json:"local,omitempty"`
@@ -169,8 +169,8 @@ type CloudTokenAllocResp struct {
 // "resourceId": 36656729598
 // }
 type CloudTokenAllocRespResult struct {
-	Bucket     string `json:"bucket"`
-	Token      string `json:"token"`
+	Bucket     string `json:"bucket"` // 存储桶名称 如:ymusic
+	Token      string `json:"token"`  // 上传使用得token
 	OuterURL   string `json:"outerUrl"`
 	DocID      string `json:"docId"`
 	ObjectKey  string `json:"objectKey"`
@@ -233,6 +233,66 @@ func (a *Api) CloudUploadCheck(ctx context.Context, req *CloudUploadCheckReq) (*
 	}
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type CloudUploadCheckV2Req struct {
+	types.ReqCommon
+	UploadType int64                        `json:"uploadType"` // 0
+	Songs      []CloudUploadCheckV2ReqSongs `json:"songs"`
+}
+
+type cloudUploadCheckV2Req struct {
+	types.ReqCommon
+	UploadType int64  `json:"uploadType"`
+	Songs      string `json:"songs"`
+}
+
+type CloudUploadCheckV2ReqSongs struct {
+	MD5      string `json:"md5"`
+	FileSize int64  `json:"fileSize"`
+	Bitrate  int64  `json:"bitrate"`
+}
+
+type CloudUploadCheckV2Resp struct {
+	types.RespCommon[[]CloudUploadCheckV2RespData]
+}
+
+type CloudUploadCheckV2RespData struct {
+	MD5    string `json:"md5"`
+	SongId string `json:"songId"`
+	Upload int64  `json:"upload"` // 0:说明不需要上传(待确定) 1:未知 2:需要上传
+}
+
+// CloudUploadCheckV2 获取上传云盘token
+// url: 14.har
+// needLogin: 未知
+func (a *Api) CloudUploadCheckV2(ctx context.Context, req *CloudUploadCheckV2Req) (*CloudUploadCheckV2Resp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/cloud/upload/check/v2"
+		reply CloudUploadCheckV2Resp
+		opts  = api.NewOptions()
+	)
+	if req.CSRFToken == "" {
+		csrf, _ := a.client.GetCSRF(url)
+		req.CSRFToken = csrf
+	}
+
+	songs, err := json.Marshal(req.Songs)
+	if err != nil {
+		return nil, fmt.Errorf("json.Marshal(req.Songs) error: %v", err)
+	}
+	request := cloudUploadCheckV2Req{
+		ReqCommon:  req.ReqCommon,
+		UploadType: req.UploadType,
+		Songs:      string(songs),
+	}
+
+	resp, err := a.client.Request(ctx, url, &request, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)
 	}
@@ -433,10 +493,10 @@ type CloudInfoResp struct {
 	// Code 404: 错误未知,目前在上传文件时文件大于200MB时出现此错误，经后来测试多试了几次重传发现又好了貌似是临时性错误，待确认排查。
 	Code           int64        `json:"code,omitempty"`
 	SongId         string       `json:"songId,omitempty"`
+	SongIdLong     int64        `json:"songIdLong"` // songId和songIdLong相等只不过类型不同
 	WaitTime       int64        `json:"waitTime"`
 	Exists         bool         `json:"exists"`
 	NextUploadTime int64        `json:"nextUploadTime"`
-	SongIdLong     int          `json:"songIdLong"`
 	PrivateCloud   PrivateCloud `json:"privateCloud"`
 }
 
@@ -658,7 +718,7 @@ type CloudDelResp struct {
 }
 
 // CloudDel 云盘歌曲删除
-// url:
+// url: 15.har
 // needLogin: 未知
 func (a *Api) CloudDel(ctx context.Context, req *CloudDelReq) (*CloudDelResp, error) {
 	var (

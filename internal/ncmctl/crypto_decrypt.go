@@ -96,7 +96,7 @@ func (c *decryptCmd) execute(ctx context.Context, args []string) error {
 			if err != nil {
 				return fmt.Errorf("parseHar: %w", err)
 			}
-			// fmt.Printf("data:%+v\n", list)
+			log.Debug("parseHar data: %+v", list)
 			for i := range list {
 				if err := c.decryptReq(&list[i], "hex"); err != nil {
 					return fmt.Errorf("decryptReq: %w", err)
@@ -239,7 +239,18 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 		if len(value) < 2 {
 			return nil, fmt.Errorf("")
 		}
-		kind := value[1]
+		// 如果地址是这样 https://music.163.com/api/eapi/nos/token/alloc 则返回eapi
+		var kind = value[1]
+		for _, v := range value {
+			switch v {
+			case "eapi":
+				kind = v
+				break
+			case "weapi":
+				kind = v
+				break
+			}
+		}
 		item.Kind = kind
 		if !isMatch(c.url, _url.Path) {
 			continue
@@ -271,7 +282,7 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 				return nil, fmt.Errorf("parsing not supported: %s ", req.URL)
 			}
 		} else {
-			if pd.MimeType == "application/x-www-form-urlencoded" {
+			if strings.HasPrefix(pd.MimeType, "application/x-www-form-urlencoded") {
 				values, err := url.ParseQuery(pd.Text)
 				if err != nil {
 					return nil, fmt.Errorf("ParseQuery: %w", err)

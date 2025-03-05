@@ -296,7 +296,8 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 			return nil, fmt.Errorf("LinuxApiEncrypt: %w", err)
 		}
 	case CryptoModeAPI:
-		// tips: 不需要加密处理请求
+		// 不需要加密处理请求
+		// todo: 待处理,在/api/xx/接口请求时则不需要参数加密处理,此处需要对结构体转换成map[string]string类型
 	default:
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
