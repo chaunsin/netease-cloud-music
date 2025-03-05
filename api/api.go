@@ -307,7 +307,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 	case http.MethodPost:
 		response, err = request.SetFormData(encryptData).Post(url)
 	case http.MethodGet:
-		resp, err = request.Get(url)
+		response, err = request.Get(url)
 	default:
 		return nil, fmt.Errorf("%s not surpport http method", opts.Method)
 	}

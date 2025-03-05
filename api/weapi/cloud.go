@@ -734,3 +734,36 @@ func (a *Api) CloudDel(ctx context.Context, req *CloudDelReq) (*CloudDelResp, er
 	_ = resp
 	return &reply, nil
 }
+
+type CloudUploadNodeReq struct {
+	Version string `json:"version"`
+}
+
+type CloudUploadNodeResp struct {
+	Lbs    string   `json:"lbs"`    // http://45.127.129.16/lbs
+	Upload []string `json:"upload"` // http://nosup-hz1.127.net
+}
+
+// CloudUploadNode 上传节点获取
+// url: 16.har
+// needLogin: 不需要
+func (a *Api) CloudUploadNode(ctx context.Context, req *CloudUploadNodeReq) (*CloudUploadNodeResp, error) {
+	var (
+		url   = "http://wanproxy.127.net/lbs?version=%s"
+		reply CloudUploadNodeResp
+		opts  = api.NewOptions()
+	)
+	opts.Method = http.MethodGet
+	opts.CryptoMode = api.CryptoModeAPI
+	if req.Version == "" {
+		req.Version = "1.0"
+	}
+	url = fmt.Sprintf(url, req.Version)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
