@@ -232,3 +232,79 @@ func TestHex(t *testing.T) {
 // 	t.Logf("json: %s", string(payload))
 // 	t.Logf("digest: %s\n", digest(url, string(payload)))
 // }
+
+func TestGetCacheKey(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    string
+		want    string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "sample",
+			args: "args123",
+			want: "RFKLrid1HPwKv4hPWldxJA==",
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					t.Errorf("err: %v args: %s", err, i)
+					return false
+				}
+				return true
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := CacheKeyEncrypt(tt.args)
+			if !tt.wantErr(t, err, fmt.Sprintf("CacheKeyEncrypt(%v)", tt.args)) {
+				return
+			}
+			t.Logf("data: %+v\n", got)
+			assert.Equalf(t, tt.want, got, "CacheKeyEncrypt(%v)", tt.args)
+		})
+	}
+}
+
+func TestCacheKeyDecrypt(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    string
+		want    string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "sample",
+			args: "RFKLrid1HPwKv4hPWldxJA==",
+			want: "args123",
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					t.Errorf("err: %v args: %s", err, i)
+					return true
+				}
+				return false
+			},
+		},
+		{
+			name: "真时参数",
+			args: "0cjs/PeKn8i8GZDV84eJ5IqRq/RX1Hok5Oyt1+2iwcgHfZVdOn+GbulSnnhB4gmf",
+			want: "e_r=false&id=10171989900&n=3&s=0",
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					t.Errorf("err: %v args: %s", err, i)
+					return false
+				}
+				return true
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := CacheKeyDecrypt(tt.args)
+			if !tt.wantErr(t, err, fmt.Sprintf("CacheKeyDecrypt(%v)", tt.args)) {
+				return
+			}
+			t.Logf("got: %+v\n", got)
+			assert.Equalf(t, tt.want, got, "CacheKeyDecrypt(%v)", tt.args)
+		})
+	}
+}

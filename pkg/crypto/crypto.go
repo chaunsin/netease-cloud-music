@@ -43,6 +43,7 @@ import (
 
 const (
 	base62      = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	cacheKey    = ")(13daqP@ssw0rd~"
 	iv          = "0102030405060708"
 	presetKey   = "0CoJUm6Qyw8W8jud"
 	linuxApiKey = "rFgB&h#%2?^eDg:Q"
@@ -86,9 +87,9 @@ func aesEncrypt(text, key, iv, mode, format string) (string, error) {
 	var cipherText []byte
 	switch mode {
 	case "cbc":
-		cipherText = encryptCBC(block, []byte(text), []byte(iv))
+		cipherText = aesEncryptCBC(block, []byte(text), []byte(iv))
 	case "ecb":
-		cipherText = encryptECB(block, []byte(text))
+		cipherText = aesEncryptECB(block, []byte(text))
 	default:
 		return "", fmt.Errorf("%s unknown mode", mode)
 	}
@@ -131,9 +132,9 @@ func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 	var text []byte
 	switch mode {
 	case "cbc":
-		text, err = decryptCBC(block, data, []byte(iv))
+		text, err = aesDecryptCBC(block, data, []byte(iv))
 	case "ecb":
-		text, err = decryptECB(block, data)
+		text, err = aesDecryptECB(block, data)
 	default:
 		return nil, fmt.Errorf("%s unknown mode", mode)
 	}
@@ -143,8 +144,8 @@ func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 	return text, nil
 }
 
-// encryptCBC 加密
-func encryptCBC(block cipher.Block, plaintext, iv []byte) []byte {
+// aesEncryptCBC 加密
+func aesEncryptCBC(block cipher.Block, plaintext, iv []byte) []byte {
 	plaintext = pkcs7Padding(plaintext, block.BlockSize())
 	ciphertext := make([]byte, len(plaintext))
 	encrypt := cipher.NewCBCEncrypter(block, iv)
@@ -152,8 +153,8 @@ func encryptCBC(block cipher.Block, plaintext, iv []byte) []byte {
 	return ciphertext
 }
 
-// decryptCBC 解密
-func decryptCBC(block cipher.Block, cipherText, iv []byte) ([]byte, error) {
+// aesDecryptCBC 解密
+func aesDecryptCBC(block cipher.Block, cipherText, iv []byte) ([]byte, error) {
 	if len(iv) != block.BlockSize() {
 		return nil, fmt.Errorf("IV length must be %d bytes", block.BlockSize())
 	}
@@ -164,8 +165,8 @@ func decryptCBC(block cipher.Block, cipherText, iv []byte) ([]byte, error) {
 	return data, nil
 }
 
-// encryptECB 加密
-func encryptECB(block cipher.Block, plaintext []byte) []byte {
+// aesEncryptECB 加密
+func aesEncryptECB(block cipher.Block, plaintext []byte) []byte {
 	plaintext = pkcs7Padding(plaintext, block.BlockSize())
 	ciphertext := make([]byte, len(plaintext))
 	blockSize := block.BlockSize()
@@ -175,8 +176,8 @@ func encryptECB(block cipher.Block, plaintext []byte) []byte {
 	return ciphertext
 }
 
-// decryptECB 解密
-func decryptECB(block cipher.Block, cipherBytes []byte) ([]byte, error) {
+// aesDecryptECB 解密
+func aesDecryptECB(block cipher.Block, cipherBytes []byte) ([]byte, error) {
 	if len(cipherBytes)%block.BlockSize() != 0 {
 		return nil, errors.New("cipherBytes length is not a multiple of block size")
 	}
@@ -302,4 +303,31 @@ func EApiDecrypt(ciphertext, encode string) ([]byte, error) {
 		return nil, fmt.Errorf("aesDecrypt: %w", err)
 	}
 	return plaintext, nil
+}
+
+// CacheKeyEncrypt 生成缓存 key
+func CacheKeyEncrypt(data string) (string, error) {
+	block, err := aes.NewCipher([]byte(cacheKey))
+	if err != nil {
+		return "", fmt.Errorf("NewCipher: %w", err)
+	}
+	encrypted := aesEncryptECB(block, []byte(data))
+	return base64.StdEncoding.EncodeToString(encrypted), nil
+}
+
+// CacheKeyDecrypt 解密缓存 key
+func CacheKeyDecrypt(data string) (string, error) {
+	encrypted, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return "", err
+	}
+	block, err := aes.NewCipher([]byte(cacheKey))
+	if err != nil {
+		return "", fmt.Errorf("NewCipher: %w", err)
+	}
+	decrypted, err := aesDecryptECB(block, encrypted)
+	if err != nil {
+		return "", fmt.Errorf("aesDecryptECB: %w", err)
+	}
+	return string(decrypted), nil
 }
