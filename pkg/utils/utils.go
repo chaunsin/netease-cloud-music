@@ -24,6 +24,7 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -252,4 +253,22 @@ func Filename(path string, new ...string) string {
 		return filenameRegexp.ReplaceAllString(path, new[0])
 	}
 	return filenameRegexp.ReplaceAllString(path, "")
+}
+
+// IsGzipHeader 判断字节数据是否以 Gzip 文件头开头
+// Gzip 文件头特征：前 2 个字节为 0x1F 0x8B，第三个字节为压缩方法（通常 0x08 表示 DEFLATE）
+func IsGzipHeader(data []byte) bool {
+	// Gzip 最小头长度检查
+	if len(data) < 3 {
+		return false
+	}
+
+	// 魔术字节校验
+	magicBytes := []byte{0x1F, 0x8B}
+	if !bytes.Equal(data[:2], magicBytes) {
+		return false
+	}
+
+	// 压缩方法校验（0x08 = DEFLATE）
+	return data[2] == 0x08
 }

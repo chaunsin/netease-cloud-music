@@ -388,3 +388,47 @@ func TestFilename(t *testing.T) {
 		})
 	}
 }
+
+func TestIsGzipHeader(t *testing.T) {
+	tests := []struct {
+		name string
+		args []byte
+		want bool
+	}{
+		{
+			name: "ok",
+			args: []byte{0x1F, 0x8B, 0x08, 'X', 'X', 'X', 'X'},
+			want: true,
+		},
+		{
+			name: "invalid",
+			args: []byte{0x1F, 0x8B, 0x00, 'X', 'X', 'X', 'X'},
+			want: false,
+		},
+		{
+			name: "empty",
+			args: []byte{},
+			want: false,
+		},
+		{
+			name: "short",
+			args: []byte{0x1F, 0x8B, 0x08},
+			want: true,
+		},
+		{
+			name: "too short",
+			args: []byte{0x1F, 0x8B},
+			want: false,
+		},
+		{
+			name: "invalid string",
+			args: []byte("hello gzip"),
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, IsGzipHeader(tt.args), "IsGzipHeader(%v)", tt.args)
+		})
+	}
+}

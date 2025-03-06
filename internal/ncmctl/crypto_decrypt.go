@@ -25,9 +25,11 @@ package ncmctl
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -109,7 +111,7 @@ func (c *decryptCmd) execute(ctx context.Context, args []string) error {
 			if err != nil {
 				return err
 			}
-			return writeFile(c.cmd, opts.Output, content)
+			return writeFile(c.cmd, opts.Output, content) // 执行结束
 		}
 		input = string(data)
 	}
@@ -182,6 +184,8 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 	if p == nil || p.Response.Ciphertext == "" {
 		return fmt.Errorf("response chiphertext is nil or empty")
 	}
+	log.Debug("[decryptRes] response: %+v", p.Response)
+
 	switch p.Kind {
 	case "eapi":
 		{
@@ -196,6 +200,24 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 				// 如果根据标识分隔成3段则说明此数据是包含url和digest摘要形式拼接的数据,反之是结构体数据
 				value = strings.Split(str, "-36cd479b6b5-")
 			)
+			log.Debug("[decryptRes] EApiDecrypt: %s", string(data))
+
+			// 当请返回的内容content-encoding: br时,返回的内容是加密后的需要gzip在次解析,简单来说就是解密流程是这样
+			// 1. br解压缩
+			// 2. 调用eapi解密方法
+			// 3. 调用gzip进行解压缩
+			if utils.IsGzipHeader(data) {
+				gr, err := gzip.NewReader(bytes.NewReader(data))
+				if err != nil {
+					return fmt.Errorf("gzip.NewReader: %w", err)
+				}
+				gdata, err := io.ReadAll(gr)
+				if err != nil {
+					return fmt.Errorf("ReadAll: %w", err)
+				}
+				str = string(gdata)
+				log.Debug("[decryptRes] gzip.NewReader: %s", str)
+			}
 
 			if len(value) == 3 {
 				payload = value[1]
