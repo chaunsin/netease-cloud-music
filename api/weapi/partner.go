@@ -826,3 +826,40 @@ func (a *Api) PartnerExtraReport(ctx context.Context, req *PartnerExtraReportReq
 	_ = resp
 	return &reply, nil
 }
+
+// PartnerContentAntispamReq
+// eapi请求示例参数 {"type":"comment","content":"过去是一段时光的记忆，回不去忘不了","taskId":"185640294","workId":"1561351","header":"{}","e_r":true}
+type PartnerContentAntispamReq struct {
+	types.ReqCommon
+	Type    string `json:"type"`    // 类型 comment:评论
+	Content string `json:"content"` // 内容
+	TaskId  string `json:"taskId"`
+	WorkId  string `json:"workId"`
+}
+
+// PartnerContentAntispamResp
+// 成功响应: {"code":200,"data":{},"message":""}
+type PartnerContentAntispamResp struct {
+	types.RespCommon[any]
+}
+
+// PartnerContentAntispam 内容安审
+// har: 17.har
+func (a *Api) PartnerContentAntispam(ctx context.Context, req *PartnerContentAntispamReq) (*PartnerContentAntispamResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/music/partner/custom/content/antispam"
+		reply PartnerContentAntispamResp
+		opts  = api.NewOptions()
+	)
+	if req.CSRFToken == "" {
+		csrf, _ := a.client.GetCSRF(url)
+		req.CSRFToken = csrf
+	}
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
