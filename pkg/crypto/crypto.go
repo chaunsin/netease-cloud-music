@@ -296,7 +296,7 @@ func EApiEncrypt(url string, object interface{}) (map[string]string, error) {
 	return map[string]string{"params": ciphertext}, nil
 }
 
-// EApiDecrypt 解密,当解析请求参数时encode使用hex,当解析请求响应参数时则为空相当于二进制
+// EApiDecrypt 解密,当解析请求参数是encode使用hex,当解析请求响应参数为空相当于二进制
 func EApiDecrypt(ciphertext, encode string) ([]byte, error) {
 	plaintext, err := aesDecrypt(ciphertext, eApiKey, "", "ecb", encode)
 	if err != nil {
