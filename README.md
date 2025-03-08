@@ -1,4 +1,4 @@
-# 🔱netease-cloud-music🔱
+# netease-cloud-music
 
 [![GoDoc](https://godoc.org/github.com/chaunsin/netease-cloud-music?status.svg)](https://godoc.org/github.com/chaunsin/netease-cloud-music) [![Go Report Card](https://goreportcard.com/badge/github.com/chaunsin/netease-cloud-music)](https://goreportcard.com/report/github.com/chaunsin/netease-cloud-music) [![ci](https://github.com/chaunsin/netease-cloud-music/actions/workflows/ci.yml/badge.svg)](https://github.com/chaunsin/netease-cloud-music/actions/workflows/ci.yml) [![deploy image](https://github.com/chaunsin/netease-cloud-music/actions/workflows/deploy_image.yml/badge.svg)](https://github.com/chaunsin/netease-cloud-music/actions/workflows/deploy_image.yml)
 
@@ -17,11 +17,12 @@
 ### 命令行 (ncmctl)
 
 - [x] 一键每日任务完成(音乐合伙人、云贝签到、刷歌300首)
-- [x] 每日签到(云贝签到,连续签到奖励目前需要手动领取)
-- [x] ~~“音乐合伙人”自动测评(5首基础歌曲 + 2到7首随机额外歌曲测评，另不包含"歌曲推荐"测评) 2025年3月 由于版本更新需要适配,[规则详情](https://music.163.com/#/event?id=30336457500&uid=7872690377) [issue](https://github.com/chaunsin/netease-cloud-music/issues/17)~~
+- [x] 云贝签到(连续签到奖励目前需要手动领取)
+- [x] “音乐合伙人”自动测评(5首基础歌曲 + 2到7首随机额外歌曲测评，另不包含"歌曲推荐"测评)
+  2025年3月[公告](https://music.163.com/#/event?id=30336457500&uid=7872690377)、[规则详情](https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3)
 - [x] 每日刷歌300首(带去重功能)
 - [x] 云盘上传(支持并行批量上传)
-- [x] .ncm文件解析转换为.mp3/.flac(支持并行批量解析)
+- [x] 解密.ncm文件为.mp3/.flac可播放歌曲(支持并行批量解析)。
 - [x] `crypto`支持接口参数加解密便于调试
 - [x] `curl`子命令调用网易云音乐API,无需关心出入参数加解密问题便于调试
     - [ ] 支持动态链接请求
@@ -85,8 +86,7 @@ cd netease-cloud-music && make build-iamge
 
 **提示:** 自行编译需要安装docker环境,另外受国服环境影响最好开梯子。
 
-**青龙脚本使用方式请参考:** 
-
+**青龙脚本使用方式请参考:**
 
 [>> 点我 <<](docs/qinglong.md)
 
@@ -178,7 +178,8 @@ ncmctl download -p 5 'https://music.163.com/#/album?id=34608111'
 ncmctl download --strict 'https://music.163.com/#/artist?id=33400892'
 ```
 
-**提示:** `--strict`为严格默认,当歌曲没有对应品质的音乐时则会忽略下载,如果不指定`--strict`则默认下载次一级的音乐品质。比如指定HR品质没有对应得资源则下载SQ。
+**提示:** `--strict`为严格默认,当歌曲没有对应品质的音乐时则会忽略下载,如果不指定`--strict`
+则默认下载次一级的音乐品质。比如指定HR品质没有对应得资源则下载SQ。
 
 5. 下载某一歌单
 
@@ -203,7 +204,8 @@ ncmctl cloud '/Users/chaunsin/Music/谁为我停留 - 田震.mp3'
 ncmctl cloud '/Users/chaunsin/Music/' 
 ```
 
-**提示:** 默认批量上传数为3,最大为10,可指定`-p`参数设置,同时cloud支持按照自定义过滤条件进行上传详情可使用`-h`参考命令行。另外输入的目录深度不能超过3层。
+**提示:** 默认批量上传数为3,最大为10,可指定`-p`参数设置,同时cloud支持按照自定义过滤条件进行上传详情可使用`-h`
+参考命令行。另外输入的目录深度不能超过3层。
 
 **五、.ncm文件解析**
 
@@ -293,6 +295,12 @@ task命令是一个服务，默认执行是包含了scrobble、sign、partner子
 再说一下scrobble、sign、partner。这几个子命令不是服务，执行之后会立刻执行相应得任务并返回结果，不像task执行需要”到点了“才会执行。
 
 ## ❤️ 鸣谢
+
+### 人员
+
+- [sjpqxuzdly03646](https://github.com/sjpqxuzdly03646) 对"音乐合伙人"功能得支持
+
+### 代码库
 
 - https://github.com/Binaryify/NeteaseCloudMusicApi
 - https://github.com/mos9527/pyncm
