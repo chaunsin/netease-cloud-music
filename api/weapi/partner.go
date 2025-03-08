@@ -31,6 +31,35 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
+type PartnerHotPopupReq struct {
+	types.ReqCommon
+}
+
+type PartnerHotPopupResp struct {
+	types.RespCommon[any]
+}
+
+// PartnerHotPopup 未知
+// har: 18.har
+func (a *Api) PartnerHotPopup(ctx context.Context, req *PartnerHotPopupReq) (*PartnerHotPopupResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/music/partner/user/hot/popup/get"
+		reply PartnerHotPopupResp
+		opts  = api.NewOptions()
+	)
+	if req.CSRFToken == "" {
+		csrf, _ := a.client.GetCSRF(url)
+		req.CSRFToken = csrf
+	}
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
 type PartnerWeekReq struct {
 	types.ReqCommon
 	Period string `json:"period"` // 格式:MMD-1617552000000-37-1
@@ -294,35 +323,45 @@ type PartnerUserinfoReq struct {
 	types.ReqCommon
 }
 
-// PartnerUserinfoResp
-// code:703 非音乐合伙人
+// PartnerUserinfoResp code:703 非音乐合伙人
 type PartnerUserinfoResp struct {
 	types.RespCommon[PartnerUserinfoRespData]
 }
 
 type PartnerUserinfoRespData struct {
-	UserId        int64  `json:"userId"`
-	NickName      string `json:"nickName"`
-	AvatarUrl     string `json:"avatarUrl"`
-	Number        int64  `json:"number"`
-	Title         string `json:"title"`
-	Days          int64  `json:"days"`
-	Integral      int64  `json:"integral"`
-	EvaluateCount int64  `json:"evaluateCount"`
-	PickCount     int64  `json:"pickCount"`
-	// Status 状态: ELIMINATED: 可能是代表本期已经结算或者未满足320分失去测评资格了
+	UserId    int64  `json:"userId"`
+	NickName  string `json:"nickName"`
+	AvatarUrl string `json:"avatarUrl"`
+	Number    int64  `json:"number"`
+	// Title
+	// JUNIOR: 320高级音乐合伙人
+	// SENIOR: 400资深音乐合伙人
+	// (待补充): 480首席音乐合伙人
+	Title string `json:"title"`
+	// Days 成为音乐合伙人多少填
+	Days          int64 `json:"days"`
+	Integral      int64 `json:"integral"`
+	EvaluateCount int64 `json:"evaluateCount"`
+	PickCount     int64 `json:"pickCount"`
+	// Status 状态 NORMAL:正常 ELIMINATED: 未满足320分失去测评资格了
 	Status     string        `json:"status"`
 	PickRights []interface{} `json:"pickRights"`
+	// TitleStats 音乐合伙人身份统计,比如多少次初级音乐合伙人，多少次高级音乐合伙人
 	TitleStats []struct {
+		// Title eg:JUNIOR、SENIOR
 		Title string `json:"title"`
-		Count int64  `json:"count"`
+		// Count 累计次数
+		Count int64 `json:"count"`
 	} `json:"titleStats"`
 	CurrentPeriodRank  interface{} `json:"currentPeriodRank"`
 	RecoverExpiredTime int64       `json:"recoverExpiredTime"`
 	RightType          int64       `json:"rightType"`
+	RecCount           int64       `json:"recCount"`
+	NextPeriodStart    string      `json:"nextPeriodStart"`
 }
 
 // PartnerUserinfo 查询当前用户数据
+// har: 19.har
 func (a *Api) PartnerUserinfo(ctx context.Context, req *PartnerUserinfoReq) (*PartnerUserinfoResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/user/info/get"
@@ -351,12 +390,13 @@ type PartnerLatestResp struct {
 }
 
 type PartnerLatestRespData struct {
-	SectionPeriod       string `json:"sectionPeriod"`
-	Periods             string `json:"periods"`
-	NextPeriodStartTime int64  `json:"nextPeriodStartTime"`
+	SectionPeriod       string `json:"sectionPeriod"`       // MMD-1617552000000-51-4
+	Periods             string `json:"periods"`             // MMD-1617552000000-51
+	NextPeriodStartTime int64  `json:"nextPeriodStartTime"` // 1743350400000
 }
 
 // PartnerLatest 查询下个周期开始时间
+// har: 20.har
 func (a *Api) PartnerLatest(ctx context.Context, req *PartnerLatestReq) (*PartnerLatestResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/latest/settle/period/get"
@@ -387,26 +427,29 @@ type PartnerHomeResp struct {
 type PartnerHomeRespData struct {
 	Period    int64 `json:"period"`
 	Week      int64 `json:"week"`
-	StartDate int64 `json:"startDate"`
-	EndDate   int64 `json:"endDate"`
+	StartDate int64 `json:"startDate"` // eg: 1740931200000
+	EndDate   int64 `json:"endDate"`   // eg: 1740931200000
 	User      struct {
 		UserId    int64  `json:"userId"`
 		NickName  string `json:"nickName"`
 		AvatarUrl string `json:"avatarUrl"`
-		Title     string `json:"title"`
-		Days      int64  `json:"days"`
+		Title     string `json:"title"` // eg: JUNIOR、等
+		Days      int64  `json:"days"`  // 拥有多少多少天音乐合伙人
 		Number    int64  `json:"number"`
 	} `json:"user"`
 	Integral struct {
 		Integral            int64 `json:"integral"`
 		CurrentWeekIntegral int64 `json:"currentWeekIntegral"`
 	} `json:"integral"`
-	Title   interface{} `json:"title"`
-	Banner  interface{} `json:"banner"`
-	BtnDesc interface{} `json:"btnDesc"`
+	Title      interface{} `json:"title"`
+	Banner     interface{} `json:"banner"`
+	BtnDesc    interface{} `json:"btnDesc"`
+	RuleUrl    string      `json:"ruleUrl"` // 音乐合伙人规则图片地支: https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3
+	HotSongDto interface{} `json:"hotSongDto"`
 }
 
 // PartnerHome 查询本周完成任务情况
+// har: 21.har
 func (a *Api) PartnerHome(ctx context.Context, req *PartnerHomeReq) (*PartnerHomeResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/home/get"
@@ -441,28 +484,31 @@ type PartnerWork struct {
 	Name              string `json:"name"`
 	CoverUrl          string `json:"coverUrl"`
 	AuthorName        string `json:"authorName"`
-	LyricType         int64  `json:"lyricType"`
-	LyricContent      string `json:"lyricContent"`
-	Duration          int64  `json:"duration"`
+	LyricType         int64  `json:"lyricType"`    // 歌词格式类型 1
+	LyricContent      string `json:"lyricContent"` // 歌词内容
+	Duration          int64  `json:"duration"`     // 时长单位s
 	SongStartPosition int64  `json:"songStartPosition"`
 	SongEndPosition   int64  `json:"songEndPosition"`
 	Status            string `json:"status"` // NORMAL
 	PlayUrl           string `json:"playUrl"`
-	Source            string `json:"source"` // RANK_INSERT,MUSE,等
+	Source            string `json:"source"` // RANK_INSERT,MUSE,SHARE_RES等
 	GoodRate          int64  `json:"goodRate"`
 	Style             string `json:"style"` // 华语、华语嘻哈说唱、等
+	// SupportExtraEvaTypes 支持的测评类型,歌词、旋律、演唱,根据网易规则有些歌曲只由1到2个维度,
+	// 详情：https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3
+	SupportExtraEvaTypes []int64 `json:"supportExtraEvaTypes"`
 }
 
 type PartnerTaskRespData struct {
 	Id int64 `json:"id"`
-	// 任务数量
+	// 任务数量，一般来说就是下面 Works 得数量目前来说是5
 	Count int64 `json:"count"`
 	// 完成数量
 	CompletedCount int64 `json:"completedCount"`
-	// 完成任务获得的积分老版为10现在3.0版本为8分
+	// 完成所有 Works 任务获得的积分,老版为10现在3.0版本为8分
 	Integral  int64       `json:"integral"`
 	TaskTitle interface{} `json:"taskTitle"`
-	// Works 如果没有测评资格则该任务列表为空
+	// Works 待测评的5首基础歌曲列表,如果没有测评资格则该任务列表为空
 	Works []struct {
 		Work            PartnerWork `json:"work"`
 		Completed       bool        `json:"completed"`
@@ -476,22 +522,26 @@ type PartnerTaskRespData struct {
 			CommentId int64  `json:"commentId"`
 			ThreadId  string `json:"threadId"`
 		} `json:"songCommentInfo"`
+		SupportExtraEvaTypes []int64  `json:"supportExtraEvaTypes"` // 扩展测评类型 歌词、旋律、演唱,对应数值需要待确定 1: 2: 3:
+		ExtraScore           struct{} `json:"extraScore"`
+		TaskSource           int64    `json:"taskSource"`
 	} `json:"works"`
-	// 推荐歌曲列表该列表为新得音乐合伙人3.0功能中增加
+	// 推荐歌曲列表该列表为新得音乐合伙人3.0功能中增加,通常也是5首
 	RecResources []struct {
 		Work           PartnerWork `json:"work"`
-		SpecialTag     interface{} `json:"specialTag"`
+		SpecialTag     []string    `json:"specialTag"`
 		SongCommonTags interface{} `json:"songCommonTags"`
-		ReceivedScore  int         `json:"receivedScore"`
-		QualityScore   int         `json:"qualityScore"`
+		ReceivedScore  int64       `json:"receivedScore"`
+		QualityScore   int64       `json:"qualityScore"`
 		RedHeartSong   bool        `json:"redHeartSong"`
 		Listened       bool        `json:"listened"`
 		CanInteract    bool        `json:"canInteract"`
 		PublishComment bool        `json:"publishComment"`
 		PublishEvent   bool        `json:"publishEvent"`
 		CollectList    bool        `json:"collectList"`
-		TotalTaskNum   int         `json:"totalTaskNum"`
-		FinishTaskNum  int         `json:"finishTaskNum"`
+		TotalTaskNum   int64       `json:"totalTaskNum"`
+		FinishTaskNum  int64       `json:"finishTaskNum"`
+		TaskSource     int64       `json:"taskSource"`
 	} `json:"recResources"`
 	PageTaskType int64 `json:"pageTaskType"`
 	CurRcmdScore int64 `json:"curRcmdScore"`
@@ -500,6 +550,7 @@ type PartnerTaskRespData struct {
 }
 
 // PartnerDailyTask 查询当日任务情况
+// har: 22.har
 func (a *Api) PartnerDailyTask(ctx context.Context, req *PartnerTaskReq) (*PartnerTaskResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/daily/task/get"
@@ -528,10 +579,10 @@ type PartnerPickRightResp struct {
 }
 
 // PartnerPickRightRespData TODO:待补充参数
-type PartnerPickRightRespData struct {
-}
+type PartnerPickRightRespData struct{}
 
 // PartnerPickRight todo:正确数量？
+// har: 23.har
 func (a *Api) PartnerPickRight(ctx context.Context, req *PartnerPickRightReq) (*PartnerPickRightResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/song/pick/right/get"
@@ -560,6 +611,7 @@ type PartnerNoticeResp struct {
 }
 
 // PartnerNotice 是否开启通知？
+// har: 24.har
 func (a *Api) PartnerNotice(ctx context.Context, req *PartnerNoticeReq) (*PartnerNoticeResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/daily/notice/switch/get"
@@ -704,20 +756,21 @@ var PartnerTagsGroup = map[int64][]PartnerTags{
 // PartnerEvaluateReq "{"taskId":118761451,"workId":787080,"score":4,"tags":"4-A-1,4-A-2,4-B-1,4-C-1,4-D-1,4-D-2,4-E-1,4-E-2","customTags":"[\"特别\"]","comment":"","syncYunCircle":false,"syncComment":true,"source":"mp-music-partner","csrf_token":"77bf3a5074699038504234d63d68d917"}"
 type PartnerEvaluateReq struct {
 	types.ReqCommon
-	TaskId        int64       `json:"taskId"`        // 任务id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
-	WorkId        int64       `json:"workId"`        // 哪首歌曲id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
-	Score         int64       `json:"score"`         // 分值1~5
-	Tags          PartnerTags `json:"tags"`          // 音乐标签 多个以逗号分隔
-	CustomTags    string      `json:"customTags"`    // 实际为数组
+	TaskId        string      `json:"taskId"`        // 任务id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
+	WorkId        string      `json:"workId"`        // 哪首歌曲id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
+	Score         string      `json:"score"`         // 分值1~5
+	Tags          PartnerTags `json:"tags"`          // 音乐标签,多个以逗号分隔。貌似扩展音乐可以不打标签
+	CustomTags    string      `json:"customTags"`    // 实际为数组 "[]"
 	Comment       string      `json:"comment"`       // 评论内容
 	SyncYunCircle bool        `json:"syncYunCircle"` // 同步到音乐圈中
 	SyncComment   bool        `json:"syncComment"`   // ?
-	Source        string      `json:"source"`        // 应该表示平台 例如:mp-music-partner
-	ExtraResource bool        `json:"extraResource"` // 当测评更多歌曲时使用
+	Source        string      `json:"source"`        // 应该表示平台,暂时写死:mp-music-partner
+	ExtraScore    string      `json:"extraScore"`    // 扩展评分，对应: 歌词、旋律、演唱 \"{\\\"1\\\":3,\\\"2\\\":3,\\\"3\\\":3}\"
+	ExtraResource bool        `json:"extraResource"` // 当测评扩展更多歌曲时为true
 }
 
 type PartnerEvaluateResp struct {
-	types.RespCommon[any]
+	types.RespCommon[PartnerEvaluateRespData]
 }
 
 type PartnerEvaluateRespData struct {
@@ -725,12 +778,14 @@ type PartnerEvaluateRespData struct {
 		CommentId int64  `json:"commentId"`
 		ThreadId  string `json:"threadId"`
 	} `json:"songCommentInfo"`
-	EvaluateRes       bool  `json:"evaluateRes"`
-	TodayExtendEvaNum int64 `json:"todayExtendEvaNum"` // 应该是今天测评了多少扩展歌曲
-	CurScore          int64 `json:"curScore"`          // 当前歌曲测评得分
+	EvaluateRes       bool               `json:"evaluateRes"`       // 测评结果
+	TodayExtendEvaNum int64              `json:"todayExtendEvaNum"` // 今天测评了多少扩展歌曲
+	CurScore          int64              `json:"curScore"`          // 当前歌曲测评得分,貌似只有在扩展歌曲测评时才返回之,反之返回null
+	ExtraScore        map[string]float64 `json:"extraScore"`        // 额外评分，也就是歌词、旋律、演唱
 }
 
 // PartnerEvaluate 音乐评审提交
+// har: 26.har
 func (a *Api) PartnerEvaluate(ctx context.Context, req *PartnerEvaluateReq) (*PartnerEvaluateResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/work/evaluate"
@@ -759,18 +814,22 @@ type PartnerExtraTaskResp struct {
 }
 
 type PartnerExtraTaskRespData struct {
-	Comment         string        `json:"comment"`
-	Completed       bool          `json:"completed"`
-	CustomTags      []interface{} `json:"customTags"`
-	Score           float64       `json:"score"`
-	SongCommentInfo interface{}   `json:"songCommentInfo"`
-	Tags            []interface{} `json:"tags"`
-	TaskTitleDesc   string        `json:"taskTitleDesc"`
-	UserScore       float64       `json:"userScore"`
-	Work            PartnerWork   `json:"work"`
+	Work                 PartnerWork   `json:"work"`
+	Completed            bool          `json:"completed"`
+	Score                float64       `json:"score"`
+	UserScore            float64       `json:"userScore"`
+	Tags                 []interface{} `json:"tags"`
+	CustomTags           []interface{} `json:"customTags"`
+	Comment              string        `json:"comment"`
+	SongCommentInfo      interface{}   `json:"songCommentInfo"`
+	TaskTitleDesc        string        `json:"taskTitleDesc"`
+	SupportExtraEvaTypes []int64       `json:"supportExtraEvaTypes"`
+	ExtraScore           struct{}      `json:"extraScore"`
+	TaskSource           int64         `json:"taskSource"`
 }
 
-// PartnerExtraTask 扩展听歌任务列表,返回得数据有100首歌(2024年10月21日推出的新功能测评)。
+// PartnerExtraTask 扩展听歌任务列表(2024年10月21日推出的新功能测评)。
+// har: 27.har
 func (a *Api) PartnerExtraTask(ctx context.Context, req *PartnerExtraTaskReq) (*PartnerExtraTaskResp, error) {
 	var (
 		url   = "https://interface.music.163.com/api/music/partner/extra/wait/evaluate/work/list"
@@ -792,10 +851,10 @@ func (a *Api) PartnerExtraTask(ctx context.Context, req *PartnerExtraTaskReq) (*
 
 type PartnerExtraReportReq struct {
 	types.ReqCommon
-	WorkId        int64  `json:"workId"`
-	ResourceId    int64  `json:"resourceId"`
-	BizResourceId string `json:"bizResourceId"`
-	InteractType  string `json:"interactType"` // PLAY_END(目前只知道这个一个)
+	WorkId        string `json:"workId"`        //
+	ResourceId    string `json:"resourceId"`    //
+	BizResourceId string `json:"bizResourceId"` //
+	InteractType  string `json:"interactType"`  // PLAY_END(目前只知道这一个)
 }
 
 type PartnerExtraReportResp struct {
@@ -803,11 +862,12 @@ type PartnerExtraReportResp struct {
 }
 
 type PartnerExtraReportRespData struct {
-	FailedReason   interface{} `json:"failedReason"`
+	FailedReason   interface{} `json:"failedReason"` // 如果不为空,则应改表示失败
 	InteractResult bool        `json:"interactResult"`
 }
 
 // PartnerExtraReport 报告扩展听歌任务(2024年10月21日出的新功能测评)
+// har: 25.har
 func (a *Api) PartnerExtraReport(ctx context.Context, req *PartnerExtraReportReq) (*PartnerExtraReportResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/partner/resource/interact/report"

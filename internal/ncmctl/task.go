@@ -85,7 +85,9 @@ func (c *Task) addFlags() {
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Partner, "partner", false, "enabled partner task")
 	c.cmd.PersistentFlags().StringVar(&c.opts.PartnerOptsCrontab, "partner.cron", "0 18 * * *", "partner crontab expression. usage detail: https://crontab.guru")
-	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.PartnerOpts.Star, "partner.star", []int64{3, 4}, "star level range 1-5")
+	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.PartnerOpts.Star, "partner.star", []int64{3, 4}, "set the base song evaluation score level random range 1-5")
+	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.PartnerOpts.ExtStar, "partner.extStar", []int64{2, 3, 4}, "set the extra song evaluation score level random range 1-5")
+	c.cmd.PersistentFlags().StringVar(&c.opts.PartnerOpts.ExtNum, "partner.extNum", "random", "extra evaluation number of songs,'random' means 2 to 7")
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Scrobble, "scrobble", false, "enabled scrobble task")
 	c.cmd.PersistentFlags().StringVar(&c.opts.ScrobbleOptsCrontab, "scrobble.cron", "0 18 * * *", "scrobble crontab expression. usage detail: https://crontab.guru")
@@ -197,7 +199,7 @@ func (c *Task) execute(ctx context.Context, args []string) error {
 					log.Error("[partner] execute err: %s", err)
 					return
 				}
-				log.Info("execute success")
+				log.Info("[partner] execute success")
 			})
 			if err != nil {
 				return fmt.Errorf("crontab error: %v", err)
