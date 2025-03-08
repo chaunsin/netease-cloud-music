@@ -52,14 +52,10 @@ type Root struct {
 func New() *Root {
 	c := &Root{
 		cmd: &cobra.Command{
-			Use:   "ncmctl",
-			Short: "ncmctl command.",
-			Long:  "ncmctl is a toolbox for netease cloud music.\nMIT License\nCopyright (c) 2024 chaunsin\nhttps://github.com/chaunsin/netease-cloud-music",
-			Example: `  ncmctl cloud
-  ncmctl crypto
-  ncmctl login
-  ncmctl curl
-  ncmctl partner`,
+			Use:     "ncmctl",
+			Short:   "ncmctl command",
+			Long:    "ncmctl is a toolbox for netease cloud music\n\nMIT License Copyright (c) 2024 chaunsin\nhttps://github.com/chaunsin/netease-cloud-music",
+			Example: "  ncmctl cloud\n  ncmctl crypto\n  ncmctl login\n  ncmctl curl\n  ncmctl partner\n  ncmctl scrobble\n  ncmctl sign\n  ncmctl task",
 		},
 	}
 	c.cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)

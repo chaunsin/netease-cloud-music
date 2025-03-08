@@ -26,6 +26,7 @@ package ncmctl
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"slices"
@@ -60,7 +61,7 @@ func NewPartner(root *Root, l *log.Logger) *Partner {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "partner",
-			Short:   "[need login] executive music partner daily reviews\nrule details: https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3",
+			Short:   "[need login] Executive music partner daily reviews, rule details: https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3",
 			Example: "  ncmctl partner (default)\n  ncmctl partner -s 3,4 (set the base song evaluation score level random range 3-4)\n  ncmctl partner -s 3,4 -e 2,3,4 (set the random range of song evaluation rating 3-4, and the random range of additional songs 2-4)\n  ncmctl partner -n 5 (set the number of additional evaluation songs)",
 		},
 	}
@@ -172,15 +173,15 @@ func (c *Partner) do(ctx context.Context) error {
 	switch status := info.Data.Status; status {
 	case "NORMAL":
 	case "ELIMINATED":
-		return fmt.Errorf("您没有测评资格或失去测评资格")
+		return errors.New("您没有测评资格或失去测评资格! ")
 	default:
 		return fmt.Errorf("账号状态异常,未知状态[%s]\n", status)
 	}
 
 	var (
 		baseNum   int64
-		extNum    int64
-		randomNum int32
+		extNum    int64 // 扩展歌曲实际成功执行次数
+		randomNum int32 // 扩展歌曲总共要执行的次数
 	)
 	defer func() {
 		c.cmd.Printf("report: 基础歌曲完成数量(%v) 扩展歌曲完成数量(%v/%v)\n", baseNum, extNum, randomNum)
@@ -272,14 +273,18 @@ func (c *Partner) do(ctx context.Context) error {
 	}
 
 	// 获取扩展任务列表并执行扩展任务测评 2024年10月21日推出的新功能测评
-	var taskId = task.Data.Id
+	var (
+		taskId     = task.Data.Id
+		executeNum int32
+	)
 	if c.opts.ExtNum == "random" {
-		randomNum = 2 + rand.Int31n(6) // 2~7
+		executeNum = 2 + rand.Int31n(6) // 2~7
 	} else {
 		num, _ := strconv.ParseInt(c.opts.ExtNum, 10, 64)
-		randomNum = int32(num)
+		executeNum = int32(num)
 	}
-	if randomNum > 0 {
+	randomNum = executeNum
+	if executeNum > 0 {
 		extraTask, err := request.PartnerExtraTask(ctx, &weapi.PartnerExtraTaskReq{ReqCommon: types.ReqCommon{}})
 		if err != nil {
 			return fmt.Errorf("PartnerExtraTask: %w", err)
@@ -354,8 +359,8 @@ func (c *Partner) do(ctx context.Context) error {
 			switch evaluateResp.Code {
 			case 200:
 				extNum++
-				randomNum--
-				if randomNum <= 0 {
+				executeNum--
+				if executeNum <= 0 {
 					goto end
 				}
 			case 405:

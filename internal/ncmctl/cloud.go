@@ -69,7 +69,7 @@ func NewCloud(root *Root, l *log.Logger) *Cloud {
 		cmd: &cobra.Command{
 			Use:     "cloud",
 			Short:   "[need login] Used to upload music files to netease cloud disk",
-			Example: "  ncmctl cloud -h\n  ncmctl cloud ./mymusic.mp3\n  ncmctl cloud ./my/music/",
+			Example: "  ncmctl cloud -h\n  ncmctl cloud ./mymusic.mp3\n  ncmctl cloud ./my/music/ (Use directory)",
 			Args:    cobra.RangeArgs(0, 1),
 		},
 	}
@@ -84,7 +84,7 @@ func NewCloud(root *Root, l *log.Logger) *Cloud {
 func (c *Cloud) addFlags() {
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 3, "concurrent upload count")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.MinSize, "minsize", "m", "", "upload music minimum file size limit. supporting unit:b、k/kb/KB、m/mb/MB")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Regexp, "regexp", "r", "", "upload music file filter regular expression")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Regexp, "regexp", "r", "", "upload music file name filter regular expression")
 }
 
 func (c *Cloud) Add(command ...*cobra.Command) {
@@ -100,7 +100,7 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 		return fmt.Errorf("parallel must be between 1 and 10")
 	}
 	if len(input) <= 0 {
-		c.cmd.Printf("nothing was entered")
+		c.cmd.Println("nothing was entered")
 		return nil
 	}
 	var (

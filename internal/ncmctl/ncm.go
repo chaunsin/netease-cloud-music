@@ -62,8 +62,8 @@ func NewNCM(root *Root, l *log.Logger) *NCM {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:     "ncm",
-			Short:   "Automatically parses .ncm to mp3/flac",
-			Example: `  ncmctl /music/Hello - Adele.ncm -o ./ncm`,
+			Short:   "Automatically parses xxx.ncm to .mp3/.flac",
+			Example: "  ncmctl /music/Hello - Adele.ncm -o ./ncm\n  ncmctl /music/dir/ -o ./ncm (Use directory)",
 		},
 	}
 	c.addFlags()
@@ -76,7 +76,7 @@ func NewNCM(root *Root, l *log.Logger) *NCM {
 func (c *NCM) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./ncm", "output music dir")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "concurrent decrypt count")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", false, "disable set a music tag")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", false, "disable set a music tag info")
 }
 
 func (c *NCM) validate() error {
@@ -99,7 +99,7 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 		return fmt.Errorf("validate: %w", err)
 	}
 	if len(input) <= 0 {
-		c.cmd.Printf("nothing was entered")
+		c.cmd.Println("nothing was entered")
 		return nil
 	}
 	var fileList = make([]string, 0, len(input))

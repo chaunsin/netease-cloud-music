@@ -66,9 +66,9 @@ func qrcode(root *Login, l *log.Logger) *cobra.Command {
 }
 
 func (c *loginQrcodeCmd) addFlags() {
-	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Minute*5, "1s、1m")
+	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Minute*5, "login timeout, eg: 1s、1m")
 	c.cmd.Flags().StringVarP(&c.dir, "dir", "d", "", "qrcode file output path. default ./")
-	c.cmd.Flags().IntVarP(&c.level, "level", "l", 1, "qrcode recovery capacity,0->7% 1->15% 2->25% 3->30% error recovery. default 1->15%")
+	c.cmd.Flags().IntVarP(&c.level, "level", "l", 1, "qrcode recovery capacity,0->7% 1->15%(default) 2->25% 3->30%")
 }
 
 func (c *loginQrcodeCmd) execute(ctx context.Context, args []string) error {
