@@ -298,7 +298,7 @@ task命令是一个服务，默认执行是包含了scrobble、sign、partner子
 
 ### 人员
 
-- [sjpqxuzdly03646](https://github.com/sjpqxuzdly03646) 对"音乐合伙人"功能得支持
+- [sjpqxuzdly03646](https://github.com/sjpqxuzdly03646) 对"音乐合伙人"功能得支持与帮助
 
 ### 代码库
 
