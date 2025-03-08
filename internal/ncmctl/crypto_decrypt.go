@@ -61,7 +61,7 @@ func decrypt(root *Crypto, l *log.Logger) *cobra.Command {
 	c.cmd = &cobra.Command{
 		Use:     "decrypt",
 		Short:   "Decrypt data",
-		Example: "  ncmctl crypto decrypt -k weapi -e base64 \"ciphertext\"\n  ncmctl crypto decrypt example.har",
+		Example: "  ncmctl crypto decrypt -k weapi 'ciphertext'\n  ncmctl crypto decrypt http_request.har (automatic identification of encryption types)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
 		},
@@ -253,29 +253,36 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 			res  = entry.Response
 			item = Payload{Api: req.URL, Method: req.Method}
 		)
+
 		_url, err := url.Parse(req.URL)
 		if err != nil {
 			return nil, fmt.Errorf("Parse: %w", err)
 		}
-		value := strings.Split(_url.Path, "/")
-		if len(value) < 2 {
-			return nil, fmt.Errorf("")
-		}
-		// 如果地址是这样 https://music.163.com/api/eapi/nos/token/alloc 则返回eapi
-		var kind = value[1]
-		for _, v := range value {
-			switch v {
-			case "eapi":
-				kind = v
-				break
-			case "weapi":
-				kind = v
-				break
-			}
-		}
-		item.Kind = kind
+		// 如果地址不匹配则跳过
 		if !isMatch(c.url, _url.Path) {
 			continue
+		}
+
+		value := strings.Split(_url.Path, "/")
+		var kind string
+		if len(value) >= 2 {
+			// 如果地址是这样 https://music.163.com/api/eapi/nos/token/alloc 则返回eapi
+			kind = value[1]
+			for _, v := range value {
+				switch v {
+				case "eapi":
+					kind = v
+					break
+				case "weapi":
+					kind = v
+					break
+				}
+			}
+			item.Kind = kind
+		} else {
+			log.Warn("request url invalid: %s", _url.Path)
+			// 如果没有匹配到kind,则使用默认的kind
+			item.Kind = c.root.opts.Kind
 		}
 
 		// 解析request请求参数

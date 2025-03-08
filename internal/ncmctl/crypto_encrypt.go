@@ -53,7 +53,7 @@ func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
 	c.cmd = &cobra.Command{
 		Use:     "encrypt",
 		Short:   "Encrypt data",
-		Example: "  ncmctl crypto encrypt -k weapi -u /eapi/sms/captcha/sent",
+		Example: "  ncmctl crypto encrypt -k weapi -u /eapi/sms/captcha/sent\n  ncmctl crypto encrypt -k weapi '{\"key\":\"value\"}'",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
 		},
@@ -63,7 +63,7 @@ func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
 }
 
 func (c *cryptoCmd) addFlags() {
-	c.cmd.Flags().StringVarP(&c.url, "url", "u", "", "url params value")
+	c.cmd.Flags().StringVarP(&c.url, "url", "u", "", "url params value,used closely in 'k=eapi' mode")
 }
 
 func (c *cryptoCmd) execute(ctx context.Context, args []string) error {
@@ -119,7 +119,14 @@ func (c *cryptoCmd) execute(ctx context.Context, args []string) error {
 			return fmt.Errorf("MarshalIndent: %w", err)
 		}
 	case "linux":
-		return fmt.Errorf("%s to be realized", kind)
+		ciphertext, err := crypto.LinuxApiEncrypt(payload)
+		if err != nil {
+			return fmt.Errorf("加密失败: %w", err)
+		}
+		data, err = json.MarshalIndent(ciphertext, "", "\t")
+		if err != nil {
+			return fmt.Errorf("MarshalIndent: %w", err)
+		}
 	default:
 		return fmt.Errorf("%s known kind", kind)
 	}

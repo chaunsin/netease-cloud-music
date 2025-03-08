@@ -48,7 +48,7 @@ func NewCrypto(root *Root, l *log.Logger) *Crypto {
 		cmd: &cobra.Command{
 			Use:     "crypto",
 			Short:   "Crypto is a tool for encrypting and decrypting the http data",
-			Example: `  ncmctl crypto -h\n  ncmctl crypto decrypt -k eapi -i xxx`,
+			Example: `  ncmctl crypto -h\n  ncmctl crypto decrypt -k eapi 'ciphertext'`,
 		},
 	}
 	c.addFlags()
@@ -59,7 +59,7 @@ func NewCrypto(root *Root, l *log.Logger) *Crypto {
 
 func (c *Crypto) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate decrypt file directory location")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "weapi|eapi|linux")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "encryption and decryption mode, weapi|eapi|linux")
 }
 
 func (c *Crypto) Add(command ...*cobra.Command) {
