@@ -28,6 +28,8 @@ builds:
     binary: ncmctl
     ldflags:
       - -s -w -X "main.Version={{.Version}}" -X "main.Commit={{.ShortCommit}}" -X "main.BuildTime={{.CommitDate}}"
+    tags:
+      - timetzdata
 
     # Default: [ 'darwin', 'linux', 'windows' ].
     goos:
