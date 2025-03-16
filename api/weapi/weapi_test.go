@@ -48,7 +48,7 @@ func TestMain(t *testing.M) {
 		Debug:   true,
 		Timeout: 0,
 		Retry:   0,
-		Cookie: cookie.PersistentJarConfig{
+		Cookie: cookie.Config{
 			Options:  nil,
 			Filepath: "../../testdata/cookie.json",
 			Interval: 0,

@@ -38,7 +38,7 @@ func TestSync(t *testing.T) {
 		_ = os.Remove(filepath)
 	})
 
-	jar, err := NewPersistentJar(WithSyncInterval(0), WithFilePath(filepath))
+	jar, err := NewCookie(WithSyncInterval(0), WithFilePath(filepath))
 	assert.NoError(t, err)
 
 	u := &url.URL{Scheme: "https", Host: "example.com"}

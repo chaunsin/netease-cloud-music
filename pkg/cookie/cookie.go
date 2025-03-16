@@ -37,28 +37,28 @@ import (
 	"time"
 )
 
-type PersistentJarConfig struct {
+type Config struct {
 	*Options
 	Filepath string        `json:"filepath" yaml:"filepath"`
 	Interval time.Duration `yaml:"interval" yaml:"interval"`
 	// crypto
 }
 
-func (p PersistentJarConfig) Valid() error {
+func (p Config) Valid() error {
 	return nil
 }
 
-type PersistentJar struct {
+type Cookie struct {
 	jar       *Jar
-	cfg       *PersistentJarConfig
+	cfg       *Config
 	mu        sync.RWMutex
 	async     bool
 	done      chan struct{}
 	closeOnce sync.Once
 }
 
-func NewPersistentJar(opts ...PersistentJarOption) (*PersistentJar, error) {
-	var cfg = PersistentJarConfig{
+func NewCookie(opts ...Option) (*Cookie, error) {
+	var cfg = Config{
 		Options:  nil,
 		Filepath: "./cookie.json",
 		Interval: time.Second * 3,
@@ -75,7 +75,7 @@ func NewPersistentJar(opts ...PersistentJarOption) (*PersistentJar, error) {
 		return nil, fmt.Errorf("new: %w", err)
 	}
 
-	p := PersistentJar{
+	p := Cookie{
 		jar:   jar,
 		cfg:   &cfg,
 		done:  make(chan struct{}),
@@ -93,7 +93,7 @@ func NewPersistentJar(opts ...PersistentJarOption) (*PersistentJar, error) {
 	return &p, nil
 }
 
-func (c *PersistentJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
+func (c *Cookie) SetCookies(u *url.URL, cookies []*http.Cookie) {
 	c.jar.SetCookies(u, cookies)
 	if !c.async {
 		if err := c.export(); err != nil {
@@ -102,11 +102,11 @@ func (c *PersistentJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 	}
 }
 
-func (c *PersistentJar) Cookies(u *url.URL) []*http.Cookie {
+func (c *Cookie) Cookies(u *url.URL) []*http.Cookie {
 	return c.jar.Cookies(u)
 }
 
-func (c *PersistentJar) Close(ctx context.Context) error {
+func (c *Cookie) Close(ctx context.Context) error {
 	c.closeOnce.Do(func() {
 		close(c.done)
 		if err := c.export(); err != nil {
@@ -116,7 +116,7 @@ func (c *PersistentJar) Close(ctx context.Context) error {
 	return nil
 }
 
-func (c *PersistentJar) sync() {
+func (c *Cookie) sync() {
 	tick := time.NewTicker(c.cfg.Interval)
 	defer tick.Stop()
 	for {
@@ -132,7 +132,7 @@ func (c *PersistentJar) sync() {
 	}
 }
 
-func (c *PersistentJar) init() error {
+func (c *Cookie) init() error {
 	// 如果文件存在则读取配置文件
 	if !fileExists(c.cfg.Filepath) {
 		log.Printf("cookie: warnning %s file not found", c.cfg.Filepath)
@@ -182,7 +182,7 @@ func (c *PersistentJar) init() error {
 	return nil
 }
 
-func (c *PersistentJar) export() error {
+func (c *Cookie) export() error {
 	c.jar.mu.Lock()
 	defer c.jar.mu.Unlock()
 
@@ -244,41 +244,41 @@ func fileExists(file string) bool {
 	return !os.IsNotExist(err)
 }
 
-// PersistentJarOption is an option to configure PersistentJarOptions.
-type PersistentJarOption interface {
-	apply(p *PersistentJarConfig)
+// Option is an option to configure PersistentJarOptions.
+type Option interface {
+	apply(p *Config)
 }
 
-type persistentJarOptionFunc func(p *PersistentJarConfig)
+type optionFunc func(p *Config)
 
-func (f persistentJarOptionFunc) apply(p *PersistentJarConfig) {
+func (f optionFunc) apply(p *Config) {
 	f(p)
 }
 
 // WithSyncInterval sets sync time interval
-func WithSyncInterval(interval time.Duration) PersistentJarOption {
-	return persistentJarOptionFunc(func(p *PersistentJarConfig) {
+func WithSyncInterval(interval time.Duration) Option {
+	return optionFunc(func(p *Config) {
 		p.Interval = interval
 	})
 }
 
 // WithFilePath sets the file path.
-func WithFilePath(filePath string) PersistentJarOption {
-	return persistentJarOptionFunc(func(p *PersistentJarConfig) {
+func WithFilePath(filePath string) Option {
+	return optionFunc(func(p *Config) {
 		p.Filepath = filePath
 	})
 }
 
 // WithPublicSuffixList sets the public suffix list.
-func WithPublicSuffixList(list PublicSuffixList) PersistentJarOption {
-	return persistentJarOptionFunc(func(p *PersistentJarConfig) {
+func WithPublicSuffixList(list PublicSuffixList) Option {
+	return optionFunc(func(p *Config) {
 		p.Options.PublicSuffixList = list
 	})
 }
 
 // // WithLogger sets the logger.
-// func WithLogger(logger log.Logger) PersistentJarOption {
-// 	return persistentJarOptionFunc(func(p *PersistentJarConfig) {
+// func WithLogger(logger log.Logger) Option {
+// 	return optionFunc(func(p *Config) {
 // 		p.logger = logger
 // 	})
 // }

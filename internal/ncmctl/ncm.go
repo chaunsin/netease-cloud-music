@@ -184,8 +184,8 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 	return nil
 }
 
-func (c *NCM) decode(path string) error {
-	_ncm, err := ncm.Open(path)
+func (c *NCM) decode(filename string) error {
+	_ncm, err := ncm.Open(filename)
 	if err != nil {
 		return fmt.Errorf("open: %w", err)
 	}
@@ -203,17 +203,17 @@ func (c *NCM) decode(path string) error {
 	}
 
 	var (
-		filename = filepath.Base(path)
-		ext      = filepath.Ext(filename)
-		name     = filename[:len(filename)-len(ext)]
-		extend   = utils.Ternary(format == "", strings.TrimPrefix(ext, "."), format)
-		dest     = filepath.Join(c.opts.Output, name+"."+extend)
+		_filename = filepath.Base(filename)
+		ext       = filepath.Ext(_filename)
+		name      = utils.Filename(strings.TrimSuffix(_filename, ext), "_")
+		extend    = utils.Ternary(format == "", strings.TrimPrefix(ext, "."), format)
+		dest      = filepath.Join(c.opts.Output, name+"."+extend)
 	)
 
 	if err := utils.MkdirIfNotExist(c.opts.Output, 0755); err != nil {
 		return fmt.Errorf("MkdirIfNotExist: %w", err)
 	}
-	tmp, err := os.CreateTemp(os.TempDir(), fmt.Sprintf("tmp-ncm-*-%s.%s", name, extend))
+	tmp, err := os.CreateTemp(c.opts.Output, fmt.Sprintf("ncm-*-%s.%s.tmp", name, extend))
 	if err != nil {
 		return fmt.Errorf("CreateTemp: %w", err)
 	}

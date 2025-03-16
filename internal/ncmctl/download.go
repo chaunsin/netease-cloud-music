@@ -493,12 +493,12 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	var (
 		// drd = downResp.Data[0]
 		drd      = downResp.Data
-		dest     = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s.%s", music.ArtistString(), music.NameString(), drd.Type))
-		tempName = fmt.Sprintf("ncmctl-*-%s.tmp", music.NameString())
+		dest     = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s.%s", music.ArtistString(), music.NameString(), strings.ToLower(drd.Type)))
+		tempName = fmt.Sprintf("download-*-%s.tmp", music.NameString())
 	)
 
 	// 创建临时文件
-	file, err := os.CreateTemp(os.TempDir(), tempName)
+	file, err := os.CreateTemp(c.opts.Output, tempName)
 	if err != nil {
 		return fmt.Errorf("CreateTemp: %w", err)
 	}
@@ -545,7 +545,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 
 	// 避免文件重名
 	for i := 1; utils.FileExists(dest); i++ {
-		dest = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s(%d).%s", music.ArtistString(), music.NameString(), i, drd.Type))
+		dest = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s(%d).%s", music.ArtistString(), music.NameString(), i, strings.ToLower(drd.Type)))
 	}
 	if err := os.Rename(file.Name(), dest); err != nil {
 		_ = os.Remove(file.Name())

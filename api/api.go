@@ -48,10 +48,10 @@ import (
 )
 
 type Config struct {
-	Debug   bool                       `json:"debug" yaml:"debug"`
-	Timeout time.Duration              `json:"timeout" yaml:"timeout"`
-	Retry   int                        `json:"retry" yaml:"retry"`
-	Cookie  cookie.PersistentJarConfig `json:"cookie" yaml:"cookie"`
+	Debug   bool          `json:"debug" yaml:"debug"`
+	Timeout time.Duration `json:"timeout" yaml:"timeout"`
+	Retry   int           `json:"retry" yaml:"retry"`
+	Cookie  cookie.Config `json:"cookie" yaml:"cookie"`
 	// Agent   *Agent                     `json:"agent" yaml:"agent"`
 }
 
@@ -68,7 +68,7 @@ func (c *Config) Validate() error {
 type Client struct {
 	cfg    *Config
 	cli    *resty.Client
-	cookie *cookie.PersistentJar
+	cookie *cookie.Cookie
 	l      *log.Logger
 	// agent  *Agent
 }
@@ -86,7 +86,7 @@ func NewClient(cfg *Config, l *log.Logger) (*Client, error) {
 		return nil, fmt.Errorf("validate: %w", err)
 	}
 
-	var opts = []cookie.PersistentJarOption{
+	var opts = []cookie.Option{
 		cookie.WithSyncInterval(cfg.Cookie.Interval),
 	}
 	if cfg.Cookie.Filepath != "" {
@@ -95,9 +95,9 @@ func NewClient(cfg *Config, l *log.Logger) (*Client, error) {
 	if opt := cfg.Cookie.Options; opt != nil && opt.PublicSuffixList != nil {
 		opts = append(opts, cookie.WithPublicSuffixList(cfg.Cookie.PublicSuffixList))
 	}
-	jar, err := cookie.NewPersistentJar(opts...)
+	jar, err := cookie.NewCookie(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("NewPersistentJar: %w", err)
+		return nil, fmt.Errorf("NewCookie: %w", err)
 	}
 
 	cli := resty.New()

@@ -218,6 +218,7 @@ type TokenRefreshReq struct {
 
 type TokenRefreshResp struct {
 	types.RespCommon[any]
+	BizCode string `json:"bizCode"` // 400貌似刷新不成功
 }
 
 // TokenRefresh 登录token刷新
