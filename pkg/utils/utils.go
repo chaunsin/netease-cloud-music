@@ -131,8 +131,39 @@ func MkdirIfNotExist(path string, perm os.FileMode) error {
 	return nil
 }
 
+// ExpandTilde 扩展波浪号路径
+func ExpandTilde(path string) (string, error) {
+	if len(path) == 0 || path[0] != '~' {
+		return path, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("UserHomeDir: %w", err)
+	}
+
+	// 处理纯 ~ 或 ~/ 路径
+	if path == "~" || (len(path) >= 2 && (path[1] == '/' || path[1] == '\\')) {
+		return filepath.Join(home, path[1:]), nil
+	}
+
+	// todo:
+	// ~file 分为两种情况:
+	// 1：如果 file 是用户名，则指向该用户的主目录。
+	// 例如：~bob 表示用户 bob 的主目录（如 /home/bob）。
+	// 2：如果 file 不是用户名，则可能被解析为字面量（即一个实际的文件名）。
+	// 例如：~file.txt 可能被误认为是用户 file.txt 的主目录，但更常见的是被当作普通文件名处理（需转义或引号包裹）。
+	return path, nil
+}
+
+// CheckPath 检查路径是否存在，并返回是否为目录, 支持~路径检测
 func CheckPath(path string) (exists bool, isDir bool, err error) {
-	stat, err := os.Stat(path)
+	expandedPath, err := ExpandTilde(path)
+	if err != nil {
+		return false, false, fmt.Errorf("ExpandTilde: %w", err)
+	}
+
+	stat, err := os.Stat(expandedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, false, nil // Path does not exist
@@ -169,24 +200,24 @@ func IsUnique[T comparable](arr []T) bool {
 }
 
 var musicExts = map[string]struct{}{
-	".mp3":  struct{}{},
-	".flac": struct{}{},
-	".wav":  struct{}{},
-	".m4a":  struct{}{},
-	".ogg":  struct{}{},
-	".ape":  struct{}{},
-	".wma":  struct{}{},
-	".aac":  struct{}{},
-	".aiff": struct{}{},
-	".ac3":  struct{}{},
-	".dts":  struct{}{},
-	".wv":   struct{}{},
-	".mpc":  struct{}{},
-	".opus": struct{}{},
-	".mka":  struct{}{},
-	".m3u":  struct{}{},
-	".m3u8": struct{}{},
-	".pls":  struct{}{},
+	".mp3":  {},
+	".flac": {},
+	".wav":  {},
+	".m4a":  {},
+	".ogg":  {},
+	".ape":  {},
+	".wma":  {},
+	".aac":  {},
+	".aiff": {},
+	".ac3":  {},
+	".dts":  {},
+	".wv":   {},
+	".mpc":  {},
+	".opus": {},
+	".mka":  {},
+	".m3u":  {},
+	".m3u8": {},
+	".pls":  {},
 }
 
 func IsMusicExt(ext string) bool {

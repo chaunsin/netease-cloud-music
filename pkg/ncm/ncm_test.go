@@ -36,7 +36,8 @@ import (
 )
 
 var (
-	ncmFileName = "../testdata/BOE - 822.ncm"
+	ncmFileName = "./testdata/BOE - 822.ncm"
+	// ncmFileName = "../../testdata/ncm/no_metadata_and_cover.ncm"
 )
 
 func writeJPG(t *testing.T, data io.Reader, dest string) {
@@ -48,6 +49,10 @@ func writeJPG(t *testing.T, data io.Reader, dest string) {
 	outputFile, err := os.Create(dest)
 	assert.NoError(t, err, "创建输出文件失败")
 	defer outputFile.Close()
+
+	t.Cleanup(func() {
+		_ = os.Remove(dest)
+	})
 
 	// 编码并写入JPEG文件
 	err = jpeg.Encode(outputFile, img, &jpeg.Options{Quality: 100})
@@ -64,8 +69,35 @@ func writePNG(t *testing.T, data io.Reader, dest string) {
 	assert.NoError(t, err, "创建输出文件失败")
 	defer outputFile.Close()
 
+	t.Cleanup(func() {
+		_ = os.Remove(dest)
+	})
+
 	// 编码并写入PNG文件
 	assert.NoError(t, png.Encode(outputFile, image), "编码并写入PNG文件失败")
+}
+
+func writeImage(t *testing.T, file io.ReadSeeker, data io.Reader, dest string) {
+	kind, err := DecodeCoverType(file)
+	if err != nil {
+		t.Fatalf("DecodeCoverType: %s", err)
+	}
+	switch kind {
+	case CoverTypeJpeg:
+		dest = dest + ".jpg"
+		writeJPG(t, data, dest)
+	case CoverTypePng:
+		dest = dest + ".png"
+		writePNG(t, data, dest)
+	case CoverTypeBmp:
+		fallthrough
+	case CoverTypeWebp:
+		fallthrough
+	case CoverTypeGif:
+		fallthrough
+	default:
+		assert.Fail(t, "不支持的图片格式:", kind)
+	}
 }
 
 func TestIsNCMFile(t *testing.T) {
@@ -97,42 +129,37 @@ func TestMeta(t *testing.T) {
 }
 
 func TestDecodeCoverType(t *testing.T) {
+	var accepts = []CoverType{
+		CoverTypeJpeg,
+		CoverTypePng,
+		CoverTypeBmp,
+		CoverTypeWebp,
+		CoverTypeGif,
+	}
 	file, err := os.Open(ncmFileName)
 	defer file.Close()
 	assert.NoError(t, err)
 
 	kind, err := DecodeCoverType(file)
-	assert.Contains(t, []CoverType{CoverTypeJpeg, CoverTypePng}, kind)
+	assert.NoError(t, err)
+	assert.Contains(t, accepts, kind)
 }
 
 func TestDecodeCover(t *testing.T) {
-	var (
-		pngFile  = ncmFileName + ".png"
-		jpegFile = ncmFileName + ".jpeg"
-	)
-
-	_ = os.Remove(pngFile)
-	_ = os.Remove(jpegFile)
 	file, err := os.Open(ncmFileName)
 	defer file.Close()
 	assert.NoError(t, err)
 
 	var data = new(bytes.Buffer)
 	assert.NoError(t, DecodeCover(file, data))
-	kind, err := DecodeCoverType(file)
-	switch kind {
-	case CoverTypeJpeg:
-		writeJPG(t, data, jpegFile)
-	case CoverTypePng:
-		writePNG(t, data, pngFile)
-	default:
-		assert.Fail(t, "不支持的图片格式")
-	}
+	writeImage(t, file, data, ncmFileName)
 }
 
 func TestDecodeMusic(t *testing.T) {
 	var name = ncmFileName + ".mp3"
-	_ = os.Remove(name)
+	t.Cleanup(func() {
+		_ = os.Remove(name)
+	})
 	file, err := os.Open(ncmFileName)
 	defer file.Close()
 	assert.NoError(t, err)
@@ -155,35 +182,49 @@ func TestFromReadSeeker(t *testing.T) {
 }
 
 func TestOpen(t *testing.T) {
-	var (
-		pngFile  = ncmFileName + "_open.png"
-		jpegFile = ncmFileName + "_open.jpeg"
-		name     = ncmFileName + "_open.mp3"
-	)
-
-	_ = os.Remove(pngFile)
-	_ = os.Remove(jpegFile)
-	_ = os.Remove(name)
+	var name = ncmFileName + "_open.mp3"
+	t.Cleanup(func() {
+		_ = os.Remove(name)
+	})
 
 	file, err := Open(ncmFileName)
+	if err != nil {
+		t.Fatalf("Open: %s", err)
+	}
 	defer file.Close()
-	assert.NoError(t, err)
 
 	// handler music metadata
 	assert.NotZero(t, file.Metadata())
 
 	// handler cover image
 	var img = new(bytes.Buffer)
-	assert.NoError(t, file.DecodeCover(img))
-	assert.NotZero(t, img.Bytes())
+	if err := file.DecodeCover(img); err != nil {
+		t.Fatalf("DecodeCover: %s", err)
+	}
+	if img.Len() <= 0 {
+		t.Logf("convert len: %v data: %v\n", img.Len(), img.String())
+	}
+
 	ct, err := file.DecodeCoverType()
-	assert.NoError(t, err)
-	assert.Contains(t, []CoverType{CoverTypeJpeg, CoverTypePng}, ct)
+	if err != nil {
+		t.Fatalf("DecodeCoverType: %s", err)
+	}
 	switch ct {
 	case CoverTypeJpeg:
-		writeJPG(t, img, jpegFile)
+		writeJPG(t, img, ncmFileName+"_open.jpeg")
 	case CoverTypePng:
-		writePNG(t, img, pngFile)
+		writePNG(t, img, ncmFileName+"_open.png")
+	case CoverTypeWebp:
+		fallthrough
+	case CoverTypeGif:
+		fallthrough
+	case CoverTypeBmp:
+		fallthrough
+	default:
+		t.Logf("不支持的图片格式:%v \n", ct)
+		if img.Len() > 0 {
+			assert.Fail(t, "不支持的图片格式", ct)
+		}
 	}
 
 	// handler music

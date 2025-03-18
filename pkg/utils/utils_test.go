@@ -26,6 +26,7 @@ package utils
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -429,6 +430,145 @@ func TestIsGzipHeader(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equalf(t, tt.want, IsGzipHeader(tt.args), "IsGzipHeader(%v)", tt.args)
+		})
+	}
+}
+
+func TestCheckPath(t *testing.T) {
+	// 创建临时文件
+	tempFile, err := os.CreateTemp("", "testfile")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	t.Cleanup(func() {
+		// 删除临时文件
+		if err := os.Remove(tempFile.Name()); err != nil {
+			t.Errorf("Failed to remove temp file: %v", err)
+		}
+	})
+
+	tempFilePath := tempFile.Name()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("Failed to get home directory: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		args       string
+		wantExists bool
+		wantIsDir  bool
+		wantErr    assert.ErrorAssertionFunc
+	}{
+		{
+			name:       "file exists",
+			args:       tempFilePath,
+			wantExists: true,
+			wantIsDir:  false,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					t.Errorf("error: %v", err)
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name:       "directory exists",
+			args:       homeDir,
+			wantExists: true,
+			wantIsDir:  true,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					t.Errorf("error: %v", err)
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name:       "file does not exist",
+			args:       filepath.Join("~", "nonexistent", "file"),
+			wantExists: false,
+			wantIsDir:  false,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					t.Errorf("error: %v", err)
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name:       "tilde expanded file exists",
+			args:       filepath.Join("~"),
+			wantExists: true,
+			wantIsDir:  true,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					t.Errorf("error: %v", err)
+					return false
+				}
+				return true
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotExists, gotIsDir, err := CheckPath(tt.args)
+			fmt.Println(gotExists, gotIsDir, err)
+			if !tt.wantErr(t, err, fmt.Sprintf("CheckPath(%v)", tt.args)) {
+				return
+			}
+			assert.Equalf(t, tt.wantExists, gotExists, "CheckPath(%v)", tt.args)
+			assert.Equalf(t, tt.wantIsDir, gotIsDir, "CheckPath(%v)", tt.args)
+		})
+	}
+}
+
+func TestExpandTilde(t *testing.T) {
+	home, err := os.UserHomeDir()
+	assert.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		args    string
+		want    string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "~",
+			args: "~",
+			want: home,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					t.Errorf("error: %v", err)
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name: "~/",
+			args: "~/",
+			want: home,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					t.Errorf("error: %v", err)
+					return false
+				}
+				return true
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ExpandTilde(tt.args)
+			if !tt.wantErr(t, err, fmt.Sprintf("ExpandTilde(%v)", tt.args)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "ExpandTilde(%v)", tt.args)
 		})
 	}
 }

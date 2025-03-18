@@ -128,8 +128,13 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 	}
 
 	// 命令行指定文件上传检验处理
-	for _, file := range slices.Compact(input) {
-		exist, isDir, err := utils.CheckPath(file)
+	for _, fd := range slices.Compact(input) {
+		// 处理自动展开波浪号 ~/file
+		file, err := utils.ExpandTilde(fd)
+		if err != nil {
+			return fmt.Errorf("ExpandTilde: %w", err)
+		}
+		exist, isDir, err := utils.CheckPath(fd)
 		if err != nil {
 			return fmt.Errorf("CheckPath: %w", err)
 		}

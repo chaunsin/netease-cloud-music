@@ -30,6 +30,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"slices"
 	"strings"
 
@@ -105,13 +106,18 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 	var fileList = make([]string, 0, len(input))
 
 	// 处理命令行输入的内容
-	for _, file := range slices.Compact(input) {
-		exist, isDir, err := utils.CheckPath(file)
+	for _, fd := range slices.Compact(input) {
+		// 处理自动展开波浪号 ~/file
+		file, err := utils.ExpandTilde(fd)
+		if err != nil {
+			return fmt.Errorf("ExpandTilde: %w", err)
+		}
+		exist, isDir, err := utils.CheckPath(fd)
 		if err != nil {
 			return fmt.Errorf("CheckPath: %w", err)
 		}
 		if !exist {
-			c.cmd.Printf("%s not found", file)
+			c.cmd.Printf("%s not found\n", fd)
 			return nil
 		}
 
@@ -169,7 +175,14 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 			return fmt.Errorf("acquire: %w", err)
 		}
 		go func(file string) {
-			defer sema.Release(1)
+			defer func() {
+				sema.Release(1)
+				if x := recover(); x != nil {
+					stack := string(debug.Stack())
+					c.cmd.Printf("decode fail [%s]: %v, stack: %v\n", file, x, stack)
+					log.Error("decode fail [%s]: %v, stack:%v", file, x, stack)
+				}
+			}()
 			if err := c.decode(file); err != nil {
 				c.cmd.Printf("decode[%s]: %v\n", file, err)
 				log.Error("decode[%s]: %v", file, err)

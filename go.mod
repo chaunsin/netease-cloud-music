@@ -4,7 +4,7 @@ go 1.21.0
 
 require (
 	github.com/andybalholm/brotli v1.1.1
-	github.com/bogem/id3v2 v1.2.0
+	github.com/bogem/id3v2/v2 v2.1.4
 	github.com/chaunsin/go-har v0.0.0-20250114074418-11a8c338c2b5
 	github.com/cheggaaa/pb/v3 v3.1.7
 	github.com/dgraph-io/badger/v4 v4.5.1

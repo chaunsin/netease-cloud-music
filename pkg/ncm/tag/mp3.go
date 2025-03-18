@@ -26,25 +26,32 @@ package tag
 import (
 	"fmt"
 
-	"github.com/bogem/id3v2"
+	"github.com/bogem/id3v2/v2"
 )
 
 type Mp3 struct {
-	tag *id3v2.Tag
+	tag      *id3v2.Tag
+	encoding id3v2.Encoding
 }
 
-func NewMp3(path string) (*Mp3, error) {
+func NewMp3(path string, encoding ...id3v2.Encoding) (*Mp3, error) {
 	tag, err := id3v2.Open(path, id3v2.Options{Parse: true})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("id3v2.Open: %w", err)
 	}
-	mp3 := Mp3{tag: tag}
-	return &mp3, nil
+	var encode = id3v2.EncodingUTF8
+	if len(encoding) > 0 {
+		encode = encoding[0]
+	}
+	// https://github.com/chaunsin/netease-cloud-music/issues/21#issuecomment-2728279324
+	// https://github.com/n10v/id3v2/issues/88
+	tag.SetDefaultEncoding(encode) //
+	return &Mp3{tag: tag, encoding: encode}, nil
 }
 
 func (m *Mp3) SetCover(buf []byte, mime string) error {
 	m.tag.AddAttachedPicture(id3v2.PictureFrame{
-		Encoding:    id3v2.EncodingISO,
+		Encoding:    m.encoding,
 		MimeType:    mime,
 		PictureType: id3v2.PTFrontCover,
 		Description: "Front cover",
@@ -55,7 +62,7 @@ func (m *Mp3) SetCover(buf []byte, mime string) error {
 
 func (m *Mp3) SetCoverUrl(coverUrl string) error {
 	m.tag.AddAttachedPicture(id3v2.PictureFrame{
-		Encoding:    id3v2.EncodingISO,
+		Encoding:    m.encoding,
 		MimeType:    "-->",
 		PictureType: id3v2.PTFrontCover,
 		Description: "Front cover",
@@ -91,8 +98,8 @@ func (m *Mp3) SetArtist(artists []string) error {
 func (m *Mp3) SetComment(comment string) error {
 	if frames := m.tag.GetFrames(m.tag.CommonID("Comments")); len(frames) == 0 {
 		m.tag.AddCommentFrame(id3v2.CommentFrame{
-			Encoding:    id3v2.EncodingISO,
-			Language:    "XXX",
+			Encoding:    m.encoding,
+			Language:    "XXX", // ?
 			Description: "",
 			Text:        comment,
 		})
@@ -102,7 +109,8 @@ func (m *Mp3) SetComment(comment string) error {
 
 func (m *Mp3) Save() error {
 	if err := m.tag.Save(); err != nil {
-		return fmt.Errorf("save: %w", err)
+		_ = m.tag.Close()
+		return fmt.Errorf("vesion:%v id3v2.Save: %w", m.tag.Version(), err)
 	}
 	return m.tag.Close()
 }

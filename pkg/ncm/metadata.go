@@ -23,7 +23,10 @@
 
 package ncm
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type Artist struct {
 	Name string
@@ -33,11 +36,24 @@ type Artist struct {
 func (a *Artist) UnmarshalJSON(data []byte) error {
 	var v []interface{}
 	if err := json.Unmarshal(data, &v); err != nil {
-		return err
+		return fmt.Errorf("ncm: parse artist data %v err: %w", string(data), err)
 	}
 
-	a.Name = v[0].(string)
-	a.Id = int64(v[1].(float64))
+	if len(v) != 2 {
+		fmt.Printf("ncm: parse artist err,len:%v type:%T value:%+v\n", len(v), v, v)
+	}
+
+	var ok bool
+	a.Name, ok = v[0].(string)
+	if !ok {
+		fmt.Printf("ncm: parse artist.name err type:%T value:%+v\n", v, v)
+	}
+	id, ok := v[1].(float64)
+	if !ok {
+		fmt.Printf("ncm: parse artist.id err type:%T value:%+v\n", v, v)
+		return nil
+	}
+	a.Id = int64(id)
 	return nil
 }
 

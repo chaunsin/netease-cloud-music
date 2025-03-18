@@ -32,9 +32,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
-
-	"github.com/dhowden/tag"
 )
 
 // IsNCMFile check whether the file is ncm file
@@ -133,45 +130,63 @@ func DecodeMeta(rs io.ReadSeeker) (*Metadata, error) {
 	}
 
 	var meta Metadata
-	// metaLen <= 0 that means no metadata, use detect music header magic.
+	// metaLen <= 0 that means no metadata
 	if metaLen <= 0 {
-		// whether a decoded key is successful
-		box, err := DecodeKey(rs)
-		if err != nil {
-			return nil, fmt.Errorf("DecodeKey: %w", err)
-		}
-
-		// skip get cover image data
-		if err := DecodeCover(rs, io.Discard); err != nil {
-			return nil, fmt.Errorf("DecodeCover: %w", err)
-		}
-
-		// get music header magic
-		var data = make([]byte, 11)
-		if _, err := rs.Read(data); err != nil {
-			if err == io.EOF {
-			} else {
-				return nil, err
-			}
-		}
-		for i := 0; i < len(data); i++ {
-			j := byte((i + 1) & 0xff)
-			bj := box[j]
-			data[i] ^= box[(bj+box[(bj+j)&0xff])&0xff]
-		}
-
-		m, err := tag.ReadFrom(bytes.NewReader(data))
-		if err != nil {
-			return nil, fmt.Errorf("tag.ReadFrom: %w", err)
-		}
-
-		// no metadata see as a music type
 		meta.mt = "music"
-		meta.music.Format = strings.ToLower(string(m.FileType()))
-		// usually empty, try your best to get information
-		meta.music.Name = m.Title()
-		meta.music.Album = m.Album()
+		meta.music = &MetadataMusic{
+			Format: "mp3", // todo: 没有元数据目前则默认为MP3,这可能不符合实际得扩展后缀
+		}
 		return &meta, nil
+		// // // whether a decoded key is successful
+		// // box, err := DecodeKey(rs)
+		// // if err != nil {
+		// // 	return nil, fmt.Errorf("DecodeKey: %w", err)
+		// // }
+		// //
+		// // // skip get cover image data
+		// // if err := DecodeCover(rs, io.Discard); err != nil {
+		// // 	return nil, fmt.Errorf("DecodeCover: %w", err)
+		// // }
+		//
+		// // whether a decoded key is successful
+		// box, err := decodeKey(rs)
+		// if err != nil {
+		// 	return nil, fmt.Errorf("decodeKey: %w", err)
+		// }
+		//
+		// // skip get cover image data
+		// _, _, err = decodeCover(rs)
+		// if err != nil {
+		// 	return nil, fmt.Errorf("decodeCover: %w", err)
+		// }
+		//
+		// // get music header magic
+		// var data = make([]byte, 11)
+		// if _, err := rs.Read(data); err != nil {
+		// 	if err == io.EOF {
+		// 	} else {
+		// 		return nil, err
+		// 	}
+		// }
+		// for i := 0; i < len(data); i++ {
+		// 	j := byte((i + 1) & 0xff)
+		// 	bj := box[j]
+		// 	data[i] ^= box[(bj+box[(bj+j)&0xff])&0xff]
+		// }
+		//
+		// m, err := tag.ReadFrom(bytes.NewReader(data))
+		// if err != nil {
+		// 	return nil, fmt.Errorf("tag.ReadFrom: %w", err)
+		// }
+		//
+		// // no metadata see as a music type
+		// meta.mt = "music"
+		// meta.music = &MetadataMusic{
+		// 	Format: strings.ToLower(string(m.FileType()))
+		// 	Name:   m.Title(), // usually empty, try your best to get information
+		// 	Album:  m.Album(),
+		// }
+		// return &meta, nil
 	}
 
 	var metadata = make([]byte, metaLen)
@@ -258,6 +273,11 @@ func decodeCover(rs io.ReadSeeker) ([]byte, int64, error) {
 	if err != nil {
 		return nil, 0, fmt.Errorf("readUint32.imgBuf: %w", err)
 	}
+	// imgLen <= 0 that means no cover image
+	if imgLen <= 0 {
+		fmt.Println("ncm: invalid cover image length or no cover data")
+		return nil, 0, nil
+	}
 
 	// detect a cover image type
 	var imgType = make([]byte, 8)
@@ -289,13 +309,15 @@ func DecodeCover(rs io.ReadSeeker, w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("decodeCover: %w", err)
 	}
+
+	// write image type
 	if _, err := w.Write(imgType); err != nil {
 		return fmt.Errorf("write imgType: %w", err)
 	}
 
 	// copy image data to w
 	if _, err := io.Copy(w, io.LimitReader(rs, imgLen)); err != nil {
-		return err
+		return fmt.Errorf("io.Copy: %w", err)
 	}
 	return nil
 }
@@ -389,43 +411,108 @@ func FromReadSeeker(rs io.ReadSeeker) (*NCM, error) {
 			return nil, fmt.Errorf("readUint32.metaBuf: %w", err)
 		}
 
-		// read metadata
-		var metadata = make([]byte, metaLen)
-		if _, err = rs.Read(metadata); err != nil {
-			return nil, fmt.Errorf("metadata: %w", err)
-		}
-		for i := range metadata {
-			metadata[i] ^= 0x63
-		}
+		// means no metadata
+		if metaLen <= 0 {
+			// // current offset
+			// offset, err := rs.Seek(0, io.SeekCurrent)
+			// if err != nil {
+			// 	return nil, fmt.Errorf("rs.Seek: %w", err)
+			// }
+			//
+			// // skip get cover image data, len(imgType) == 8
+			// imgType, imgLen, err := decodeCover(rs)
+			// if err != nil {
+			// 	return nil, fmt.Errorf("decodeCover: %w", err)
+			// }
+			//
+			// // get music header magic
+			// var data = make([]byte, 11) // 11
+			// if _, err := rs.Read(data); err != nil {
+			// 	if err == io.EOF {
+			// 	} else {
+			// 		return nil, err
+			// 	}
+			// }
+			// for i := 0; i < len(data); i++ {
+			// 	j := byte((i + 1) & 0xff)
+			// 	bj := box[j]
+			// 	data[i] ^= box[(bj+box[(bj+j)&0xff])&0xff]
+			// }
+			//
+			// // 全部加载到内容中了需要优化
+			// var musicByte bytes.Buffer
+			// _, err = decryptMusic(box, rs, &musicByte)
+			// if err != nil {
+			// 	return nil, fmt.Errorf("decryptMusic: %w", err)
+			// }
+			//
+			// m, err := tag.ReadFrom(bytes.NewReader(musicByte.Bytes()))
+			// if err != nil {
+			// 	return nil, fmt.Errorf("tag.ReadFrom: %w", err)
+			// }
+			//
+			// // seek back
+			// var back = -(int64(len(imgType)) + imgLen + 11)
+			// _ = back
+			// _ = offset
+			// fmt.Println("imgType:", len(imgType), "imgLen:", imgLen, "data:", len(data))
+			// // _, err = rs.Seek(back, io.SeekCurrent)
+			// _, err = rs.Seek(offset, io.SeekStart)
+			// if err != nil {
+			// 	return nil, fmt.Errorf("Seek(%v): %w", back, err)
+			// }
+			//
+			// // no metadata see as a music type
+			// meta := Metadata{mt: "music", music: &MetadataMusic{}}
+			// meta.music.Format = strings.ToLower(string(m.FileType()))
+			// // usually empty, try your best to get information
+			// meta.music.Name = m.Title()
+			// meta.music.Album = m.Album()
+			// fmt.Printf("music: %+v\n", meta.music)
 
-		// 22 = len(`163 key(Don't modify):`)
-		var modifyData = make([]byte, base64.StdEncoding.DecodedLen(len(metadata)-22))
-		if _, err = base64.StdEncoding.Decode(modifyData, metadata[22:]); err != nil {
-			return nil, err
-		}
-
-		meta, err := decryptAes128Ecb(aesModifyKey, fixBlockSize(modifyData))
-		if err != nil {
-			return nil, fmt.Errorf("decryptAes128Ecb: %w", err)
-		}
-
-		var sep = bytes.IndexByte(meta, ':')
-		if sep == -1 {
-			return nil, errors.New("invalid ncm meta file")
-		}
-
-		var md = Metadata{mt: MetadataType(meta[:sep])}
-		switch md.mt {
-		case "music":
-			if err := json.Unmarshal(meta[sep+1:], &md.music); err != nil {
-				return nil, fmt.Errorf("json.Unmarshal.music: %w", err)
+			// todo: 没有元数据目前则默认为MP3,这可能不符合实际得扩展后缀
+			ncm.metadata = &Metadata{mt: "music", music: &MetadataMusic{Format: "mp3"}}
+		} else {
+			// read metadata
+			var metadata = make([]byte, metaLen)
+			if _, err = rs.Read(metadata); err != nil {
+				return nil, fmt.Errorf("metadata: %w", err)
 			}
-		case "dj":
-			if err := json.Unmarshal(meta[sep+1:], &md.dj); err != nil {
-				return nil, fmt.Errorf("json.Unmarshal.dj: %w", err)
+			for i := range metadata {
+				metadata[i] ^= 0x63
 			}
+
+			// 22 = len(`163 key(Don't modify):`)
+			var modifyData = make([]byte, base64.StdEncoding.DecodedLen(len(metadata)-22))
+			if _, err = base64.StdEncoding.Decode(modifyData, metadata[22:]); err != nil {
+				return nil, err
+			}
+
+			meta, err := decryptAes128Ecb(aesModifyKey, fixBlockSize(modifyData))
+			if err != nil {
+				return nil, fmt.Errorf("decryptAes128Ecb: %w", err)
+			}
+
+			var sep = bytes.IndexByte(meta, ':')
+			if sep == -1 {
+				return nil, errors.New("invalid ncm meta file")
+			}
+
+			var md = Metadata{mt: MetadataType(meta[:sep])}
+			switch md.mt {
+			case "music":
+				if err := json.Unmarshal(meta[sep+1:], &md.music); err != nil {
+					return nil, fmt.Errorf("json.Unmarshal.music: %w", err)
+				}
+			case "dj":
+				if err := json.Unmarshal(meta[sep+1:], &md.dj); err != nil {
+					return nil, fmt.Errorf("json.Unmarshal.dj: %w", err)
+				}
+			default:
+				return nil, fmt.Errorf("unknown ncm meta type: %s", md.mt)
+			}
+			ncm.metadata = &md
 		}
-		ncm.metadata = &md
 	}
 
 	// decode cover
@@ -474,8 +561,11 @@ func (n *NCM) DecodeCoverType() (CoverType, error) {
 	if err != nil {
 		return CoverTypeUnknown, fmt.Errorf("readUint32.imgBuf: %w", err)
 	}
+	// image data can length 0
 	if imgLen <= 0 {
-		return CoverTypeUnknown, errors.New("invalid cover image length")
+		// return CoverTypeUnknown, errors.New("invalid cover image length or no cover data")
+		// fmt.Println("ncm: invalid cover image length or no cover data")
+		return CoverTypeUnknown, nil
 	}
 
 	// detect a cover image type
@@ -501,6 +591,11 @@ func (n *NCM) DecodeCover(w io.Writer) error {
 	imgLen, err := readUint32(imgBuf, n.rs)
 	if err != nil {
 		return fmt.Errorf("readUint32.imgBuf: %w", err)
+	}
+	// image data can length 0
+	if imgLen <= 0 {
+		// return errors.New("invalid cover image length or no cover data")
+		// fmt.Println("ncm: invalid cover image length or no cover data")
 	}
 
 	// copy image data to w
