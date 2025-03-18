@@ -84,7 +84,7 @@ type GetUserInfoDetailResp struct {
 		NewFollows                int64         `json:"newFollows"`    // 粉丝数量 和上面的Followeds不知有何区别
 	} `json:"profile"`
 	PeopleCanSeeMyPlayRecord bool `json:"peopleCanSeeMyPlayRecord"`
-	// 绑定账号信息，比如是否有手机号绑定
+	// Bindings 绑定账号信息，比如是否有手机号绑定 see: Api.GetUserBindings()
 	Bindings []struct {
 		ExpiresIn    int         `json:"expiresIn"`
 		RefreshTime  int         `json:"refreshTime"`
@@ -115,6 +115,42 @@ func (a *Api) GetUserInfoDetail(ctx context.Context, req *GetUserInfoDetailReq) 
 	var (
 		url   = fmt.Sprintf("https://interface.music.163.com/weapi/w/v1/user/detail/%v", req.UserId)
 		reply GetUserInfoDetailResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type GetUserBindingsReq struct {
+	UserId int64 `json:"userId"`
+}
+
+type GetUserBindingsResp struct {
+	Code     int64 `json:"code"`
+	Bindings []struct {
+		TokenJsonStr string `json:"tokenJsonStr"`
+		ExpiresIn    int64  `json:"expiresIn"`
+		BindingTime  int64  `json:"bindingTime"`
+		RefreshTime  int64  `json:"refreshTime"`
+		Url          string `json:"url"`
+		Expired      bool   `json:"expired"`
+		UserId       int64  `json:"userId"`
+		Id           int64  `json:"id"`
+		Type         int64  `json:"type"` // 1:手机号 5:qq 其他暂时未知
+	} `json:"bindings"`
+}
+
+// GetUserBindings 获取用户绑定账号信息
+// har:
+func (a *Api) GetUserBindings(ctx context.Context, req *GetUserBindingsReq) (*GetUserBindingsResp, error) {
+	var (
+		url   = fmt.Sprintf("https://interface.music.163.com/weapi/w/v1/user/bindings/%v", req.UserId)
+		reply GetUserBindingsResp
 		opts  = api.NewOptions()
 	)
 
