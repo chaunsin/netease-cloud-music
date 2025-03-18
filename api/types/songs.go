@@ -56,6 +56,7 @@ type ChargeInfo struct {
 }
 
 type FreeTrialPrivilege struct {
+	FreeLimitTagType   interface{} `json:"freeLimitTagType"`
 	CannotListenReason interface{} `json:"cannotListenReason"`
 	ListenType         interface{} `json:"listenType"`
 	PlayReason         interface{} `json:"playReason"`

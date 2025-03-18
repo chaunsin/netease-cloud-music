@@ -344,3 +344,160 @@ func (a *Api) PlaylistDetail(ctx context.Context, req *PlaylistDetailReq) (*Play
 	_ = resp
 	return &reply, nil
 }
+
+type RadioReq struct {
+	types.ReqCommon
+	ImageFm string `json:"imageFm"` // 1: 私人漫游
+}
+
+type RadioResp struct {
+	types.RespCommon[[]RadioRespData]
+	PopAdjust bool        `json:"popAdjust"`
+	Tag       interface{} `json:"tag"`
+}
+
+type RadioRespDataMusic struct {
+	Name        interface{} `json:"name"`
+	Id          int64       `json:"id"`
+	Size        int64       `json:"size"`
+	Extension   string      `json:"extension"`
+	Sr          int64       `json:"sr"`
+	DfsId       int64       `json:"dfsId"`
+	Bitrate     int64       `json:"bitrate"`
+	PlayTime    int64       `json:"playTime"`
+	VolumeDelta float64     `json:"volumeDelta"`
+}
+
+type RadioRespDataArtist struct {
+	Name      string        `json:"name"`
+	Id        int64         `json:"id"`
+	PicId     int64         `json:"picId"`
+	Img1V1Id  int64         `json:"img1v1Id"`
+	BriefDesc string        `json:"briefDesc"`
+	PicUrl    string        `json:"picUrl"`
+	Img1V1Url string        `json:"img1v1Url"`
+	AlbumSize int64         `json:"albumSize"`
+	Alias     []interface{} `json:"alias"`
+	Trans     string        `json:"trans"`
+	MusicSize int64         `json:"musicSize"`
+}
+
+type RadioRespData struct {
+	Name        string                `json:"name"`
+	Id          int64                 `json:"id"`
+	Position    int64                 `json:"position"`
+	Alias       []interface{}         `json:"alias"`
+	Status      int64                 `json:"status"`
+	Fee         int64                 `json:"fee"`
+	CopyrightId int64                 `json:"copyrightId"`
+	Disc        string                `json:"disc"`
+	No          int64                 `json:"no"`
+	Artists     []RadioRespDataArtist `json:"artists"`
+	Album       struct {
+		Name            string                `json:"name"`
+		Id              int64                 `json:"id"`
+		Type            string                `json:"type"`
+		Size            int64                 `json:"size"`
+		PicId           int64                 `json:"picId"`
+		BlurPicUrl      string                `json:"blurPicUrl"`
+		CompanyId       int64                 `json:"companyId"`
+		Pic             int64                 `json:"pic"`
+		PicUrl          string                `json:"picUrl"`
+		PublishTime     int64                 `json:"publishTime"`
+		Description     string                `json:"description"`
+		Tags            string                `json:"tags"`
+		Company         string                `json:"company"`
+		BriefDesc       string                `json:"briefDesc"`
+		Artist          RadioRespDataArtist   `json:"artist"`
+		Songs           []interface{}         `json:"songs"`
+		Alias           []interface{}         `json:"alias"`
+		Status          int64                 `json:"status"`
+		CopyrightId     int64                 `json:"copyrightId"`
+		CommentThreadId string                `json:"commentThreadId"`
+		Artists         []RadioRespDataArtist `json:"artists"`
+		SubType         string                `json:"subType"`
+		TransName       interface{}           `json:"transName"`
+		PicIdStr        string                `json:"picId_str,omitempty"`
+	} `json:"album"`
+	Starred         bool               `json:"starred"`
+	Popularity      float64            `json:"popularity"`
+	Score           int64              `json:"score"`
+	StarredNum      int64              `json:"starredNum"`
+	Duration        int64              `json:"duration"`
+	PlayedNum       int64              `json:"playedNum"`
+	DayPlays        int64              `json:"dayPlays"`
+	HearTime        int64              `json:"hearTime"`
+	Ringtone        *string            `json:"ringtone"`
+	Crbt            interface{}        `json:"crbt"`
+	Audition        interface{}        `json:"audition"`
+	CopyFrom        string             `json:"copyFrom"`
+	CommentThreadId string             `json:"commentThreadId"`
+	RtUrl           interface{}        `json:"rtUrl"`
+	Ftype           int64              `json:"ftype"`
+	RtUrls          []interface{}      `json:"rtUrls"`
+	Copyright       int64              `json:"copyright"`
+	TransName       interface{}        `json:"transName"`
+	Sign            interface{}        `json:"sign"`
+	HMusic          RadioRespDataMusic `json:"hMusic"`
+	MMusic          RadioRespDataMusic `json:"mMusic"`
+	LMusic          RadioRespDataMusic `json:"lMusic"`
+	BMusic          RadioRespDataMusic `json:"bMusic"`
+	Rtype           int64              `json:"rtype"`
+	Rurl            interface{}        `json:"rurl"`
+	Mvid            int64              `json:"mvid"`
+	Mp3Url          interface{}        `json:"mp3Url"`
+	Privilege       struct {
+		Id                 int64                    `json:"id"`
+		Fee                int64                    `json:"fee"`
+		Payed              int64                    `json:"payed"`
+		RealPayed          int64                    `json:"realPayed"`
+		St                 int64                    `json:"st"`
+		Pl                 int64                    `json:"pl"`
+		Dl                 int64                    `json:"dl"`
+		Sp                 int64                    `json:"sp"`
+		Cp                 int64                    `json:"cp"`
+		Subp               int64                    `json:"subp"`
+		Cs                 bool                     `json:"cs"`
+		Maxbr              int64                    `json:"maxbr"`
+		Fl                 int64                    `json:"fl"`
+		Pc                 interface{}              `json:"pc"`
+		Toast              bool                     `json:"toast"`
+		Flag               int64                    `json:"flag"`
+		PaidBigBang        bool                     `json:"paidBigBang"`
+		PreSell            bool                     `json:"preSell"`
+		PlayMaxbr          int64                    `json:"playMaxbr"`
+		DownloadMaxbr      int64                    `json:"downloadMaxbr"`
+		MaxBrLevel         string                   `json:"maxBrLevel"`
+		PlayMaxBrLevel     string                   `json:"playMaxBrLevel"`
+		DownloadMaxBrLevel string                   `json:"downloadMaxBrLevel"`
+		PlLevel            string                   `json:"plLevel"`
+		DlLevel            string                   `json:"dlLevel"`
+		FlLevel            string                   `json:"flLevel"`
+		Rscl               interface{}              `json:"rscl"`
+		FreeTrialPrivilege types.FreeTrialPrivilege `json:"freeTrialPrivilege"`
+		RightSource        int64                    `json:"rightSource"`
+		ChargeInfoList     []types.ChargeInfo       `json:"chargeInfoList"`
+		Code               int64                    `json:"code"`
+		Message            interface{}              `json:"message"`
+		PlLevels           interface{}              `json:"plLevels"`
+		DlLevels           interface{}              `json:"dlLevels"`
+	} `json:"privilege"`
+	Alg string `json:"alg"`
+}
+
+// Radio 私人漫游歌单,当参数为1时,可能也有别的类型
+// har: 32.har
+func (a *Api) Radio(ctx context.Context, req *RadioReq) (*RadioResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/v1/radio/get"
+		reply RadioResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
