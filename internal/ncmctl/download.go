@@ -469,6 +469,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	// 	return fmt.Errorf("资源已下架或无版权(%v) code: %v", songId, downResp.Data[0].Code)
 	// }
 
+	// todo: 待解决传入得音质和下载的品质不准确问题，尝试传入os=pc
 	// var downReq = &weapi.SongPlayerV1Req{
 	// 	Ids:         []int64{songId},
 	// 	Level:       types.Level(c.opts.Level),

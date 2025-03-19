@@ -70,7 +70,6 @@ func NewCurl(root *Root, l *log.Logger) *Curl {
 	c.cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return c.execute(cmd.Context(), args)
 	}
-
 	return c
 }
 

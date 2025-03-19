@@ -218,10 +218,11 @@ type TokenRefreshReq struct {
 
 type TokenRefreshResp struct {
 	types.RespCommon[any]
-	BizCode string `json:"bizCode"` // 400貌似刷新不成功
+	BizCode string `json:"bizCode"` // 201:貌似刷新成功 400:貌似刷新不成功
 }
 
 // TokenRefresh 登录token刷新
+// har:
 func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRefreshResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/login/token/refresh"
@@ -241,6 +242,9 @@ func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRef
 	// "checkToken":"9ca17ae2e6ffcda170e2e6ee88fb7db79eaf96f0409ab48aa3c54b929e9ab0d670b1ee8891d55fed93fd85b52af0feaec3b92af8f1e1a2e65293eb8c91c45b869a9fa6d45e948997daec44ad9b98a6cc70b59dee9e"
 	// 其中header结构体中得字段X-antiCheatToken也传和checkToken同样之
 
+	// 经测试MUSIC_R_U需要传参,否则会返回bizCode返回400错误
+	// opts.SetHeader("x-anticheattoken", "9ca17ae2e6ffcda170e2e6ee88fb7db79eaf96f0409ab48aa3c54b929e9ab0d670b1ee8891d55fed93fd85b52af0feaec3b92af8f1e1a2e65293eb8c91c45b869a9fa6d45e948997daec44ad9b98a6cc70b59dee9e")
+	// opts.SetCookies(&http.Cookie{Name: "MUSIC_R_U", Value: "00C572559E9EC4370FB21EB2CDFC28BA79632C61958228B75DA68C65488B3719DE982C68ED14E9026C527B9896FC29CF399F86469F18716A44AAC30F6FEF8A40BCD5575D6D311B95ACE21C05E94AF988B7"})
 	opts.SetCookies(&http.Cookie{Name: "os", Value: "pc"}) // 解决400问题
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {

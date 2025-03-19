@@ -474,7 +474,7 @@ type SongDownloadUrlV1RespData struct {
 // SongDownloadUrlV1 获取客户端歌曲下载链接
 // url:
 // needLogin: 未知
-// 说明: 使用 `/song/url/v1` 接口获取的是歌曲试听 url, 但存在部分歌曲在非 VIP 账号上可以下载无损音质而不能试听无损音质, 使用此接口可使非 VIP 账号获取这些歌曲的无损音频
+// 说明: 使用 `/api/song/enhance/player/url/v1` 接口获取的是歌曲试听 url, 非 VIP 账号最高只能获取 `极高` 音质，但免费类型的歌曲(`fee == 0`)使用本接口可最高获取`Hi-Res`音质的url。
 func (a *Api) SongDownloadUrlV1(ctx context.Context, req *SongDownloadUrlV1Req) (*SongDownloadUrlV1Resp, error) {
 	var (
 		url   = "https://music.163.com/weapi/song/enhance/download/url/v1"
