@@ -328,7 +328,6 @@ type PlaylistDetailResp struct {
 // PlaylistDetail 歌单列表
 // url: testdata/har/7.har
 // needLogin: 不需要认证
-// https://music.163.com/api/v6/playlist/detail?id=1981392816
 func (a *Api) PlaylistDetail(ctx context.Context, req *PlaylistDetailReq) (*PlaylistDetailResp, error) {
 	var (
 		url   = "https://music.163.com/api/v6/playlist/detail?id=" + req.Id
@@ -487,6 +486,7 @@ type RadioRespData struct {
 
 // Radio 私人漫游歌单,当参数为1时,可能也有别的类型
 // har: 32.har
+// todo: 目前只返回3条数据,分页参数待分析
 func (a *Api) Radio(ctx context.Context, req *RadioReq) (*RadioResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/v1/radio/get"

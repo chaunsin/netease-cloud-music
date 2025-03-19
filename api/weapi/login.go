@@ -233,6 +233,14 @@ func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRef
 		req.CSRFToken = csrf
 	}
 
+	// 以下参数分析从eapi中分析得来
+	// 请求头重需要传,此外此token也在v6/playlist中也有使用:
+	// x-anticheattoken=9ca17ae2e6ffcda170e2e6ee88fb7db79eaf96f0409ab48aa3c54b929e9ab0d670b1ee8891d55fed93fd85b52af0feaec3b92af8f1e1a2e65293eb8c91c45b869a9fa6d45e948997daec44ad9b98a6cc70b59dee9e
+	// MUSIC_R_U=00C572559E9EC4370FB21EB2CDFC28BA79632C61958228B75DA68C65488B3719DE982C68ED14E9026C527B9896FC29CF399F86469F18716A44AAC30F6FEF8A40BCD5575D6D311B95ACE21C05E94AF988B7
+	// 参数中要传：
+	// "checkToken":"9ca17ae2e6ffcda170e2e6ee88fb7db79eaf96f0409ab48aa3c54b929e9ab0d670b1ee8891d55fed93fd85b52af0feaec3b92af8f1e1a2e65293eb8c91c45b869a9fa6d45e948997daec44ad9b98a6cc70b59dee9e"
+	// 其中header结构体中得字段X-antiCheatToken也传和checkToken同样之
+
 	opts.SetCookies(&http.Cookie{Name: "os", Value: "pc"}) // 解决400问题
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
