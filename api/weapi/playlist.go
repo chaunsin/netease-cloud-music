@@ -346,7 +346,7 @@ func (a *Api) PlaylistDetail(ctx context.Context, req *PlaylistDetailReq) (*Play
 
 type RadioReq struct {
 	types.ReqCommon
-	ImageFm string `json:"imageFm"` // 1: 私人漫游
+	ImageFm string `json:"imageFm"` // 0: 1: 待分析
 }
 
 type RadioResp struct {
@@ -484,9 +484,9 @@ type RadioRespData struct {
 	Alg string `json:"alg"`
 }
 
-// Radio 私人漫游歌单,当参数为1时,可能也有别的类型
+// Radio 私人漫游歌单
 // har: 32.har
-// todo: 目前只返回3条数据,分页参数待分析
+// todo: 目前貌似今日首次进入为1,然后之后都为0，另外接口没有发现分页参数，另外貌似每次调用返回结果都不一样
 func (a *Api) Radio(ctx context.Context, req *RadioReq) (*RadioResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/v1/radio/get"

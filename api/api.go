@@ -217,7 +217,8 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 		SetHeader("Content-Type", "application/x-www-form-urlencoded").
 		SetHeader("Accept-language", "zh-CN,zh-Hans;q=0.9").
 		SetHeader("Referer", "https://music.163.com").
-		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034")
+		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034").
+		SetCookie(&http.Cookie{Name: "__remember_me", Value: "true", Domain: ""})
 	// SetHeader("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.1 Chrome/121.0.0.0 Mobile Safari/537.36")
 
 	// append
@@ -241,7 +242,6 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 		// dataHeader.Add("resolution", getCookie(options.cookies, "resolution", "1920x1080"))
 		// dataHeader.Add("__csrf", getCookie(options.cookies, "__csrf"))
 		// dataHeader.Add("os", getCookie(options.cookies, "os", "android"))
-		// dataHeader.Add("channel", getCookie(options.cookies, "channel"))
 		// dataHeader.Add("channel", getCookie(options.cookies, "channel"))
 		// dataHeader.Add("requestId", fmt.Sprintf("%d_%04d", time.Now().UnixNano()/1000000, r.Intn(1000)))
 		// if c := getCookie(options.cookies, "MUSIC_U"); c != "" {
