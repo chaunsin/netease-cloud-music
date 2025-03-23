@@ -26,6 +26,7 @@ package crypto
 import (
 	"crypto/md5"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -163,7 +164,30 @@ func TestEApiEncrypt(t *testing.T) {
 		want    map[string]string
 		wantErr assert.ErrorAssertionFunc
 	}{
-		// TODO: Add test cases.
+		{
+			name: "sample",
+			args: args{"/test/url", "test value"},
+			want: map[string]string{"params": "E556EA4892989E4A1B98043B56CD3C77C6DBE3D0261A0FA8ACF45E2882DBABFD13F52E05D9EF39C101A7A46DD0E0CD0979A2DD9CE30975861F6F4E86855FE00AD841C36BA90177218D0D8D32A54A0DC4"},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					t.Errorf("err: %v args: %s", err, i)
+					return false
+				}
+				return true
+			},
+		},
+		// {
+		// 	name: "无url参数情况",
+		// 	args: args{"", `{"code":200,"data":true}`},
+		// 	want: map[string]string{"params": "DCC52B3013E9B66C038F8E027E580ECEDF84E0F44CB93FC365BED7B646A9BC08"},
+		// 	wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+		// 		if err != nil {
+		// 			t.Errorf("err: %v args: %s", err, i)
+		// 			return false
+		// 		}
+		// 		return true
+		// 	},
+		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -297,6 +321,96 @@ func TestCacheKeyDecrypt(t *testing.T) {
 			}
 			t.Logf("got: %+v\n", got)
 			assert.Equalf(t, tt.want, got, "CacheKeyDecrypt(%v)", tt.args)
+		})
+	}
+}
+
+func TestDLLEncodeID(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    string
+		want    string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "sample",
+			args: `7F3DB13E-3B90-5859-ACCC-E5BD694285A8%7CB5961B82-C81E-40E9-9164-5BE49896353A`,
+			want: "7ciIN1SujXn_nJUbCEIOBA==",
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					t.Errorf("err: %v args: %s", err, i)
+					return false
+				}
+				return true
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := DLLEncodeID(tt.args)
+			if !tt.wantErr(t, err, fmt.Sprintf("DLLEncodeID(%v)", tt.args)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "DLLEncodeID(%v)", tt.args)
+		})
+	}
+}
+
+func TestAnonymous(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    string
+		want    string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "sample",
+			args: "7F3DB13E-3B90-5859-ACCC-E5BD694285A8%7CB5961B82-C81E-40E9-9164-5BE49896353A",
+			want: "N0YzREIxM0UtM0I5MC01ODU5LUFDQ0MtRTVCRDY5NDI4NUE4JTdDQjU5NjFCODItQzgxRS00MEU5LTkxNjQtNUJFNDk4OTYzNTNBIDdjaUlOMVN1alhuX25KVWJDRUlPQkE9PQ==",
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				if err != nil {
+					t.Errorf("err: %v args: %s", err, i)
+					return false
+				}
+				return true
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Anonymous(tt.args)
+			if !tt.wantErr(t, err, fmt.Sprintf("Anonymous(%v)", tt.args)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "Anonymous(%v)", tt.args)
+		})
+	}
+}
+
+func TestGenerateWNMCID(t *testing.T) {
+	var validate = func(data string) bool {
+		parts := strings.Split(data, ".")
+		return len(parts) == 4 &&
+			len(parts[0]) == 6 &&
+			parts[3] == "0" &&
+			len(parts[1]) >= 10 // 时间戳至少10位
+	}
+
+	tests := []struct {
+		name string
+		want bool
+	}{
+		{
+			name: "sample",
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GenerateWNMCID()
+			if validate(got) != tt.want {
+				t.Errorf("GenerateWNMCID() = %v, want %v", tt.want, tt.want)
+			}
 		})
 	}
 }
