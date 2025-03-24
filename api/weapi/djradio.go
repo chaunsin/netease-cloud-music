@@ -1,3 +1,26 @@
+// MIT License
+//
+// Copyright (c) 2025 chaunsin
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+
 package weapi
 
 import (
@@ -68,8 +91,8 @@ type DjRadioSubResp struct {
 			Type       int64       `json:"type"`
 			Id         int64       `json:"id"`
 			Content    string      `json:"content"`
-			Height     *int        `json:"height"`
-			Width      *int        `json:"width"`
+			Height     *int64      `json:"height"`
+			Width      *int64      `json:"width"`
 			TimeStamp  interface{} `json:"timeStamp"`
 			NestedData interface{} `json:"nestedData"`
 		} `json:"descPicList"`

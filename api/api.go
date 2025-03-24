@@ -44,7 +44,6 @@ import (
 	"github.com/andybalholm/brotli"
 	"github.com/cheggaaa/pb/v3"
 	"github.com/go-resty/resty/v2"
-	// "github.com/google/brotli/go/cbrotli"
 )
 
 type Config struct {
@@ -322,7 +321,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 		// tips: api接口返回数据是明文
 		decryptData = response.Body()
 	case CryptoModeEAPI:
-		// TODO: 貌似eapi接口返回数据是否是是明文,跟传入参数有关系e_r: true有关true为加密，false为铭文。采用反射处理。
+		// TODO: 貌似eapi接口返回数据是否是是明文,跟传入参数有关系e_r: true有关true为加密，false为明文。此处考虑采用反射处理。
 		// see: https://gitlab.com/Binaryify/neteasecloudmusicapi/-/commit/58e9865b70e41197c2ab75c46a775fc45d6efa6e
 		// decryptData, err = crypto.EApiDecrypt(string(response.Body()), "")
 		// if err != nil {
@@ -438,8 +437,6 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 		}
 		resp.SetBody(bodyBytes)
 	case "br":
-		// bodyBytes, err := cbrotli.Decode(resp.Body())
-		// 使用纯go实现
 		r := brotli.NewReader(bytes.NewReader(resp.Body()))
 		bodyBytes, err := io.ReadAll(r)
 		if err != nil {

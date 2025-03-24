@@ -548,6 +548,11 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	for i := 1; utils.FileExists(dest); i++ {
 		dest = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s(%d).%s", music.ArtistString(), music.NameString(), i, strings.ToLower(drd.Type)))
 	}
+	// 显示关闭文件避免Windows系统无法重命名错误:The process cannot access the file because it is being used by another process
+	if err := file.Close(); err != nil {
+		log.Error("close %s file err: %s", file.Name(), err)
+		_ = os.Remove(file.Name())
+	}
 	if err := os.Rename(file.Name(), dest); err != nil {
 		_ = os.Remove(file.Name())
 		return fmt.Errorf("rename: %w", err)

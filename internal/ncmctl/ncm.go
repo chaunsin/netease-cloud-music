@@ -249,7 +249,11 @@ func (c *NCM) decode(filename string) error {
 	for i := 1; utils.FileExists(dest); i++ {
 		dest = filepath.Join(c.opts.Output, fmt.Sprintf("%s(%d).%s", name, i, extend))
 	}
-
+	// 显示关闭文件避免Windows系统无法重命名错误:The process cannot access the file because it is being used by another process
+	if err := tmp.Close(); err != nil {
+		log.Error("close %s file err: %s", tmp.Name(), err)
+		_ = os.Remove(tmp.Name())
+	}
 	if err := os.Rename(tmp.Name(), dest); err != nil {
 		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("rename: %w", err)
