@@ -232,19 +232,20 @@ func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInf
 	return &reply, nil
 }
 
-type RefreshTokenReq struct {
+type TokenRefreshReq struct {
 }
 
-type RefreshTokenResp struct {
+type TokenRefreshResp struct {
 	types.RespCommon[any]
 }
 
-// RefreshToken token刷新
-// url: https://app.apifox.com/project/3870894
-func (a *Api) RefreshToken(ctx context.Context, req *RefreshTokenReq) (*RefreshTokenResp, error) {
+// TokenRefresh token刷新
+// har:
+// todo:400错误
+func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRefreshResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/login/token/refresh"
-		reply RefreshTokenResp
+		reply TokenRefreshResp
 		opts  = api.NewOptions()
 	)
 	opts.CryptoMode = api.CryptoModeEAPI

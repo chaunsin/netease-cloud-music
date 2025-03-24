@@ -30,6 +30,7 @@ import (
 
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
+	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 
 	"github.com/skip2/go-qrcode"
 )
@@ -218,10 +219,11 @@ type TokenRefreshReq struct {
 
 type TokenRefreshResp struct {
 	types.RespCommon[any]
-	BizCode string `json:"bizCode"` // 400貌似刷新不成功
+	BizCode string `json:"bizCode"` // 201:貌似刷新成功 400:貌似刷新不成功 504:貌似token已经过期了或者无效了
 }
 
 // TokenRefresh 登录token刷新
+// har:
 func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRefreshResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/login/token/refresh"
@@ -233,7 +235,52 @@ func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRef
 		req.CSRFToken = csrf
 	}
 
+	// 以下参数分析从eapi中分析得来
+	// 请求头重需要传,此外此token也在v6/playlist中也有使用:
+	// x-anticheattoken=9ca17ae2e6ffcda170e2e6ee88fb7db79eaf96f0409ab48aa3c54b929e9ab0d670b1ee8891d55fed93fd85b52af0feaec3b92af8f1e1a2e65293eb8c91c45b869a9fa6d45e948997daec44ad9b98a6cc70b59dee9e
+	// MUSIC_R_U=00C572559E9EC4370FB21EB2CDFC28BA79632C61958228B75DA68C65488B3719DE982C68ED14E9026C527B9896FC29CF399F86469F18716A44AAC30F6FEF8A40BCD5575D6D311B95ACE21C05E94AF988B7
+	// 参数中要传：
+	// "checkToken":"9ca17ae2e6ffcda170e2e6ee88fb7db79eaf96f0409ab48aa3c54b929e9ab0d670b1ee8891d55fed93fd85b52af0feaec3b92af8f1e1a2e65293eb8c91c45b869a9fa6d45e948997daec44ad9b98a6cc70b59dee9e"
+	// 其中header结构体中得字段X-antiCheatToken也传和checkToken同样之
+
+	// 经测试MUSIC_R_U需要传参,否则会返回bizCode返回400错误
+	// opts.SetHeader("x-anticheattoken", "9ca17ae2e6ffcda170e2e6ee88fb7db79eaf96f0409ab48aa3c54b929e9ab0d670b1ee8891d55fed93fd85b52af0feaec3b92af8f1e1a2e65293eb8c91c45b869a9fa6d45e948997daec44ad9b98a6cc70b59dee9e")
+	// opts.SetCookies(&http.Cookie{Name: "MUSIC_R_U", Value: "00C572559E9EC4370FB21EB2CDFC28BA79632C61958228B75DA68C65488B3719DE982C68ED14E9026C527B9896FC29CF399F86469F18716A44AAC30F6FEF8A40BCD5575D6D311B95ACE21C05E94AF988B7"})
 	opts.SetCookies(&http.Cookie{Name: "os", Value: "pc"}) // 解决400问题
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type RegisterAnonymousReq struct {
+	types.ReqCommon
+	Username string `json:"username"` // 设备id如果为空则设备id为ncmctl
+}
+
+type RegisterAnonymousResp struct {
+	types.RespCommon[any]
+}
+
+// RegisterAnonymous 匿名用户注册
+// har: 33.har
+func (a *Api) RegisterAnonymous(ctx context.Context, req *RegisterAnonymousReq) (*RegisterAnonymousResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/register/anonimous"
+		reply RegisterAnonymousResp
+		opts  = api.NewOptions()
+	)
+	if req.Username == "" {
+		req.Username = "ncmctl" // 默认用户名
+	}
+	username, err := crypto.Anonymous(req.Username)
+	if err != nil {
+		return nil, fmt.Errorf("Anonymous: %w", err)
+	}
+	req.Username = username
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)

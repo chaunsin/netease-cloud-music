@@ -39,10 +39,12 @@ import (
 	"math/big"
 	"math/rand"
 	"strings"
+	"time"
 )
 
 const (
 	base62      = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	idXORKey1   = "3go8&$8*3*3h0k(2)2"
 	cacheKey    = ")(13daqP@ssw0rd~"
 	iv          = "0102030405060708"
 	presetKey   = "0CoJUm6Qyw8W8jud"
@@ -278,6 +280,8 @@ func LinuxApiDecrypt(cipherText string) ([]byte, error) {
 
 // EApiEncrypt 加密
 // 通常在MAC、windows、android、ios中使用
+// todo: 貌似当url为空时存在问题,网易接口加密返回中有不带url的情况，
+// 例如: DCC52B3013E9B66C038F8E027E580ECEDF84E0F44CB93FC365BED7B646A9BC08
 func EApiEncrypt(url string, object interface{}) (map[string]string, error) {
 	// 需要替换路由地址,不然会出现接口未找到错误
 	url = strings.Replace(url, "eapi", "api", 1)
@@ -330,4 +334,56 @@ func CacheKeyDecrypt(data string) (string, error) {
 		return "", fmt.Errorf("aesDecryptECB: %w", err)
 	}
 	return string(decrypted), nil
+}
+
+func DLLEncodeID(someID string) (string, error) {
+	inputBytes := []byte(someID)
+	xor := make([]byte, len(inputBytes))
+	keyLength := len(idXORKey1)
+
+	// 执行异或操作
+	for i, c := range inputBytes {
+		xor[i] = c ^ idXORKey1[i%keyLength]
+	}
+
+	// 计算MD5哈希+Base64编码
+	hasher := md5.New()
+	hasher.Write(xor)
+	return base64.URLEncoding.EncodeToString(hasher.Sum(nil)), nil
+}
+
+// Anonymous 匿名用户生成
+func Anonymous(deviceId string) (string, error) {
+	encodedID, err := DLLEncodeID(deviceId)
+	if err != nil {
+		return "", err
+	}
+	fmt.Println("encodedID:", encodedID)
+	// 构建username内容
+	content := fmt.Sprintf("%s %s", deviceId, encodedID)
+	username := base64.URLEncoding.EncodeToString([]byte(content))
+	return username, nil
+}
+
+// GenerateWNMCID 生成WNMCID
+// 生成规则: 6位随机小写字母 + 当前时间戳（毫秒） + 默认抓取版本号 + 0
+// 例如: "abcdef.1633557080686.01.0"
+// 作用: 貌似是网易云音乐的抓取标识,或者用于爬虫标识等作用
+func GenerateWNMCID() string {
+	const (
+		crawlerVersion = "01" // 默认抓取版本号
+		charset        = "abcdefghijklmnopqrstuvwxyz"
+	)
+	// 1. 生成6位随机小写字母
+	b := make([]byte, 6)
+	for i := range b {
+		// 从字符集中随机选取字符（0-25）
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+
+	// 2. 获取当前时间戳（毫秒）
+	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
+
+	// 3. 拼接最终字符串
+	return fmt.Sprintf("%s.%d.%s.0", string(b), timestamp, crawlerVersion)
 }

@@ -196,6 +196,8 @@ type SongMusicQualityReq struct {
 
 type SongMusicQualityResp struct {
 	types.RespCommon[SongMusicQualityRespData]
+	Success bool
+	Error   bool
 }
 
 type SongMusicQualityRespData struct {
@@ -207,7 +209,7 @@ type SongMusicQualityRespData struct {
 }
 
 // SongMusicQuality 根据歌曲id获取支持哪些音质.其中types.Quality部位nil得则代表支持得品质
-// url:
+// har: 35.har
 // needLogin: 未知
 func (a *Api) SongMusicQuality(ctx context.Context, req *SongMusicQualityReq) (*SongMusicQualityResp, error) {
 	var (
@@ -298,8 +300,9 @@ type SongPlayerV1Req struct {
 	types.ReqCommon
 	Ids         types.IntsString `json:"ids"`         // 歌曲id eg: 2016588459_1289504343 下滑线前位歌曲id, todo: 后位目前未知,不过不传下划线后面的内容也是可以正常返回得
 	Level       types.Level      `json:"level"`       // 音乐质量
-	EncodeType  string           `json:"encodeType"`  // 音乐格式 eg: mp3、flac(可能还有其他类型) 作用未知
+	EncodeType  string           `json:"encodeType"`  // 音乐格式 eg: mp3、aac、flac(可能还有其他类型) 作用未知
 	ImmerseType string           `json:"immerseType"` // 只有Level为sky时生效(可能还有其他类型)
+	TrialMode   string           `json:"trialMode"`   // 试听模式 36:(貌似是私人漫游场景) 还有其他模式待探索
 }
 
 type SongPlayerV1Resp struct {
@@ -343,6 +346,7 @@ type SongPlayerRespV1Data struct {
 // 提示:
 // 1.获取的歌曲url有时效性,失效时间目前测试为20分钟,过期访问则会出现403错误
 // 2.杜比全景声音质需要设备支持，不同的设备可能会返回不同码率的url。cookie需要传入os=pc保证返回正常码率的url。
+// todo: 当试听时(测试得场景来自私人漫游)则参数传递为: {"ids":"["1955097630"]","level":"exhigh","encodeType":"aac","immerseType":"c51","trialMode":"36"}
 func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerV1Req) (*SongPlayerV1Resp, error) {
 	var (
 		url   = "https://music.163.com/weapi/song/enhance/player/url/v1"
@@ -474,7 +478,7 @@ type SongDownloadUrlV1RespData struct {
 // SongDownloadUrlV1 获取客户端歌曲下载链接
 // url:
 // needLogin: 未知
-// 说明: 使用 `/song/url/v1` 接口获取的是歌曲试听 url, 但存在部分歌曲在非 VIP 账号上可以下载无损音质而不能试听无损音质, 使用此接口可使非 VIP 账号获取这些歌曲的无损音频
+// 说明: 使用 `/api/song/enhance/player/url/v1` 接口获取的是歌曲试听 url, 非 VIP 账号最高只能获取 `极高` 音质，但免费类型的歌曲(`fee == 0`)使用本接口可最高获取`Hi-Res`音质的url。
 func (a *Api) SongDownloadUrlV1(ctx context.Context, req *SongDownloadUrlV1Req) (*SongDownloadUrlV1Resp, error) {
 	var (
 		url   = "https://music.163.com/weapi/song/enhance/download/url/v1"

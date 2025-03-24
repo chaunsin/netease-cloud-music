@@ -44,7 +44,6 @@ import (
 	"github.com/andybalholm/brotli"
 	"github.com/cheggaaa/pb/v3"
 	"github.com/go-resty/resty/v2"
-	// "github.com/google/brotli/go/cbrotli"
 )
 
 type Config struct {
@@ -217,7 +216,8 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 		SetHeader("Content-Type", "application/x-www-form-urlencoded").
 		SetHeader("Accept-language", "zh-CN,zh-Hans;q=0.9").
 		SetHeader("Referer", "https://music.163.com").
-		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034")
+		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034").
+		SetCookie(&http.Cookie{Name: "__remember_me", Value: "true", Domain: ""})
 	// SetHeader("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.1 Chrome/121.0.0.0 Mobile Safari/537.36")
 
 	// append
@@ -241,7 +241,6 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 		// dataHeader.Add("resolution", getCookie(options.cookies, "resolution", "1920x1080"))
 		// dataHeader.Add("__csrf", getCookie(options.cookies, "__csrf"))
 		// dataHeader.Add("os", getCookie(options.cookies, "os", "android"))
-		// dataHeader.Add("channel", getCookie(options.cookies, "channel"))
 		// dataHeader.Add("channel", getCookie(options.cookies, "channel"))
 		// dataHeader.Add("requestId", fmt.Sprintf("%d_%04d", time.Now().UnixNano()/1000000, r.Intn(1000)))
 		// if c := getCookie(options.cookies, "MUSIC_U"); c != "" {
@@ -322,7 +321,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 		// tips: api接口返回数据是明文
 		decryptData = response.Body()
 	case CryptoModeEAPI:
-		// TODO: 貌似eapi接口返回数据是否是是明文,跟传入参数有关系e_r: true有关true为加密，false为铭文。采用反射处理。
+		// TODO: 貌似eapi接口返回数据是否是是明文,跟传入参数有关系e_r: true有关true为加密，false为明文。此处考虑采用反射处理。
 		// see: https://gitlab.com/Binaryify/neteasecloudmusicapi/-/commit/58e9865b70e41197c2ab75c46a775fc45d6efa6e
 		// decryptData, err = crypto.EApiDecrypt(string(response.Body()), "")
 		// if err != nil {
@@ -438,8 +437,6 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 		}
 		resp.SetBody(bodyBytes)
 	case "br":
-		// bodyBytes, err := cbrotli.Decode(resp.Body())
-		// 使用纯go实现
 		r := brotli.NewReader(bytes.NewReader(resp.Body()))
 		bodyBytes, err := io.ReadAll(r)
 		if err != nil {
