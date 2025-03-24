@@ -735,11 +735,20 @@ type YunBeiSignInProgressRespDataLotteryConfig struct {
 		// Note 提示描述 例如: 云贝直接充值到账，详情可至账单查看
 		Note string `json:"note"`
 	} `json:"baseGrant"`
-	ExtraseLotteryId int `json:"extraseLotteryId"`
+	ExtraGrant       *ExtraGrant `json:"extraGrant"`
+	ExtraseLotteryId int         `json:"extraseLotteryId"`
 	// BaseLotteryStatus 签到奖励状态 0:未领取 1:已领取
 	BaseLotteryStatus  int `json:"baseLotteryStatus"`
 	ExtraLotteryId     int `json:"extraLotteryId"`
 	ExtraLotteryStatus int `json:"extraLotteryStatus"`
+}
+
+type ExtraGrant struct {
+	Id      int         `json:"id"`
+	Name    string      `json:"name"` // eg: 连续签到抽奖机会
+	IconUrl interface{} `json:"iconUrl"`
+	Type    int         `json:"type"`
+	Note    interface{} `json:"note"`
 }
 
 // YunBeiSignInProgress 获取签到阶段奖励列表
@@ -839,6 +848,37 @@ func (a *Api) YunBeiRecommendConfig(ctx context.Context, req *YunBeiRecommendCon
 	var (
 		url   = "https://music.163.com/weapi/pointmall/recommend/config"
 		reply YunBeiRecommendConfigResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiBalanceReq struct {
+	types.ReqCommon
+}
+
+type YunBeiBalanceResp struct {
+	types.ApiRespCommon[YunBeiBalanceRespData]
+}
+
+type YunBeiBalanceRespData struct {
+	UserId       int64 `json:"userId"`       // 用户id
+	Balance      int64 `json:"balance"`      // 可用数量
+	BlockBalance int64 `json:"blockBalance"` // 冻结数量
+}
+
+// YunBeiBalance 云贝余额
+// har: 39.har
+func (a *Api) YunBeiBalance(ctx context.Context, req *YunBeiBalanceReq) (*YunBeiBalanceResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/middle/mall/balance"
+		reply YunBeiBalanceResp
 		opts  = api.NewOptions()
 	)
 

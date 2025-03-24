@@ -501,3 +501,55 @@ func (a *Api) Radio(ctx context.Context, req *RadioReq) (*RadioResp, error) {
 	_ = resp
 	return &reply, nil
 }
+
+type PCRecentListenListReq struct {
+	types.ReqCommon
+}
+
+type PCRecentListenListResp struct {
+	types.RespCommon[PCRecentListenListRespData]
+}
+
+type PCRecentListenListRespData struct {
+	Title     string `json:"title"` // eg: 最近常听
+	Resources []struct {
+		ResourceId       int64       `json:"resourceId"` // 资源id,可以是歌单、或者其它类型,根据ResourceType来决定
+		ResourceCode     interface{} `json:"resourceCode"`
+		ResourceType     string      `json:"resourceType"` // list:歌单 userfm:私人漫游
+		SubResourceId    string      `json:"subResourceId"`
+		Title            string      `json:"title"` // eg:摇滚、私人漫游、等等
+		Tag              string      `json:"tag"`   // eg:歌单、漫游、等等
+		CoverUrlList     []string    `json:"coverUrlList"`
+		LandingUrl       string      `json:"landingUrl"`
+		Update           bool        `json:"update"`
+		PlayOrUpdateTime int64       `json:"playOrUpdateTime"`
+		SimilarFmType    interface{} `json:"similarFmType"`
+		DateNum          interface{} `json:"dateNum"`
+		Star             bool        `json:"star"`
+		CoverCenter      bool        `json:"coverCenter"`
+		CoverExt         *struct {
+			CoverId   string      `json:"coverId"`
+			CoverType string      `json:"coverType"`
+			CoverAlg  interface{} `json:"coverAlg"`
+		} `json:"coverExt"`
+		SongIdList interface{} `json:"songIdList"`
+		PlayIndex  interface{} `json:"playIndex"`
+	} `json:"resources"`
+}
+
+// PCRecentListenList PC端查看最近播放歌单
+// har: 38.har
+func (a *Api) PCRecentListenList(ctx context.Context, req *PCRecentListenListReq) (*PCRecentListenListResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/pc/recent/listen/list"
+		reply PCRecentListenListResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
