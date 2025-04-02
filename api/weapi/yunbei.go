@@ -302,7 +302,7 @@ type YunBeiSignInRespData struct {
 	Sign bool `json:"sign"`
 }
 
-// YunBeiSignIn 云贝中心每日签到 该接口应该新版本接口,该接口签到成功后可在云贝中心看到奖励,而 SignIn() 签到成功后看不到奖励
+// YunBeiSignIn 云贝中心每日签到.该接口签到成功后可在云贝中心看到奖励,而 SignIn() 签到成功后看不到奖励
 // url:
 // needLogin: 是
 func (a *Api) YunBeiSignIn(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSignInResp, error) {
@@ -456,34 +456,34 @@ type YunBeiTaskListRespData struct {
 	LinkText         string      `json:"linkText"`
 	Period           int64       `json:"period"`
 	Position         int64       `json:"position"`
-	Status           int         `json:"status"`
-	TargetPoint      int         `json:"targetPoint"`
+	Status           int64       `json:"status"`
+	TargetPoint      int64       `json:"targetPoint"`
 	TargetStatus     interface{} `json:"targetStatus"`
-	TargetUserTaskId int         `json:"targetUserTaskId"`
+	TargetUserTaskId int64       `json:"targetUserTaskId"`
 	// TaskDescription 任务描述
 	TaskDescription string `json:"taskDescription"`
 	// TaskId 任务id
-	TaskId int `json:"taskId"`
+	TaskId int64 `json:"taskId"`
 	// TaskName 任务名称
 	TaskName string `json:"taskName"`
 	// TaskPoint 任务云贝奖励数量
-	TaskPoint       int `json:"taskPoint"`
+	TaskPoint       int64 `json:"taskPoint"`
 	TaskPointDetail []struct {
-		ProgressRate     int    `json:"progressRate"`
+		ProgressRate     int64  `json:"progressRate"`
 		RewardExtendInfo string `json:"rewardExtendInfo"`
-		RewardId         int    `json:"rewardId"`
-		RewardType       int    `json:"rewardType"`
-		SortValue        int    `json:"sortValue"`
-		StageType        int    `json:"stageType"`
-		Status           int    `json:"status"`
-		SumTarget        int    `json:"sumTarget"`
-		Times            int    `json:"times"`
-		UserMissionId    int    `json:"userMissionId"`
-		Value            int    `json:"value"`
-		Worth            int    `json:"worth"`
+		RewardId         int64  `json:"rewardId"`
+		RewardType       int64  `json:"rewardType"`
+		SortValue        int64  `json:"sortValue"`
+		StageType        int64  `json:"stageType"`
+		Status           int64  `json:"status"`
+		SumTarget        int64  `json:"sumTarget"`
+		Times            int64  `json:"times"`
+		UserMissionId    int64  `json:"userMissionId"`
+		Value            int64  `json:"value"`
+		Worth            int64  `json:"worth"`
 	} `json:"taskPointDetail"`
 	TaskType    string      `json:"taskType"`
-	UserTaskId  int         `json:"userTaskId"`
+	UserTaskId  int64       `json:"userTaskId"`
 	WebPicUrl   string      `json:"webPicUrl"`
 	WordsPicUrl interface{} `json:"wordsPicUrl"`
 }
@@ -516,39 +516,39 @@ type YunBeiTaskListRespV3Data struct {
 	Newbie interface{} `json:"newbie"`
 	Normal struct {
 		List []struct {
-			ActionType       int         `json:"actionType"`
+			ActionType       int64       `json:"actionType"`
 			BackgroundPicUrl interface{} `json:"backgroundPicUrl"`
 			Completed        bool        `json:"completed"`
 			CompletedIconUrl interface{} `json:"completedIconUrl"`
-			CompletedPoint   int         `json:"completedPoint"`
+			CompletedPoint   int64       `json:"completedPoint"`
 			ExtInfoMap       *struct {
 				MissionCode string `json:"missionCode"`
 			} `json:"extInfoMap"`
 			Link             string      `json:"link"`
 			LinkText         string      `json:"linkText"`
-			Period           int         `json:"period"`
-			Position         int         `json:"position"`
-			Status           int         `json:"status"`
-			TargetPoint      int         `json:"targetPoint"`
+			Period           int64       `json:"period"`
+			Position         int64       `json:"position"`
+			Status           int64       `json:"status"`
+			TargetPoint      int64       `json:"targetPoint"`
 			TargetStatus     interface{} `json:"targetStatus"`
-			TargetUserTaskId int         `json:"targetUserTaskId"`
+			TargetUserTaskId int64       `json:"targetUserTaskId"`
 			TaskDescription  string      `json:"taskDescription"`
-			TaskId           int         `json:"taskId"`
+			TaskId           int64       `json:"taskId"`
 			TaskName         string      `json:"taskName"`
-			TaskPoint        int         `json:"taskPoint"`
+			TaskPoint        int64       `json:"taskPoint"`
 			TaskPointDetail  []struct {
-				ProgressRate     int    `json:"progressRate"`
+				ProgressRate     int64  `json:"progressRate"`
 				RewardExtendInfo string `json:"rewardExtendInfo"`
-				RewardId         int    `json:"rewardId"`
-				RewardType       int    `json:"rewardType"`
-				SortValue        int    `json:"sortValue"`
-				StageType        int    `json:"stageType"`
-				Status           int    `json:"status"`
-				SumTarget        int    `json:"sumTarget"`
-				Times            int    `json:"times"`
+				RewardId         int64  `json:"rewardId"`
+				RewardType       int64  `json:"rewardType"`
+				SortValue        int64  `json:"sortValue"`
+				StageType        int64  `json:"stageType"`
+				Status           int64  `json:"status"`
+				SumTarget        int64  `json:"sumTarget"`
+				Times            int64  `json:"times"`
 				UserMissionId    int64  `json:"userMissionId"`
-				Value            int    `json:"value"`
-				Worth            int    `json:"worth"`
+				Value            int64  `json:"value"`
+				Worth            int64  `json:"worth"`
 			} `json:"taskPointDetail"`
 			TaskType    string      `json:"taskType"`
 			UserTaskId  int64       `json:"userTaskId"`
@@ -587,20 +587,20 @@ type YunBeiTaskTodoResp struct {
 
 type YunBeiTaskTodoRespData struct {
 	// Completed 任务数是否处理
-	Completed   bool `json:"completed"`
-	DepositCode int  `json:"depositCode"`
-	ExpireTime  int  `json:"expireTime"`
+	Completed   bool  `json:"completed"`
+	DepositCode int64 `json:"depositCode"`
+	ExpireTime  int64 `json:"expireTime"`
 	// Link 任务跳转链接 例如: orpheus://songrcmd
 	Link   string `json:"link"`
-	Period int    `json:"period"`
+	Period int64  `json:"period"`
 	// TaskName 任务名称
 	TaskName string `json:"taskName"`
 	// TaskPoint 任务云贝奖励数量
-	TaskPoint  int   `json:"taskPoint"`
+	TaskPoint  int64 `json:"taskPoint"`
 	UserTaskId int64 `json:"userTaskId"`
 }
 
-// YunBeiTaskTodo 获取用户云贝todo任务列表,返回得列表中只包含未完成的任务。
+// YunBeiTaskTodo 获取用户云贝 todo任务列表,返回得列表中只包含未完成的任务。
 // url:
 // needLogin: 是
 func (a *Api) YunBeiTaskTodo(ctx context.Context, req *YunBeiTaskTodoReq) (*YunBeiTaskTodoResp, error) {
@@ -666,7 +666,7 @@ type YunBeiSignInCalendarRespData struct {
 }
 
 // YunBeiSignInCalendar 获取签到日历情况
-// url:
+// url: 41.har
 // needLogin: 是
 func (a *Api) YunBeiSignInCalendar(ctx context.Context, req *YunBeiSignInCalendarReq) (*YunBeiSignInCalendarResp, error) {
 	var (
@@ -716,43 +716,43 @@ type YunBeiSignInProgressResp struct {
 
 type YunBeiSignInProgressRespData struct {
 	ReSignJumpUrl string `json:"reSignJumpUrl,omitempty"`
-	// ExtraCount 再签几天到可以获得奖励
+	// ExtraCount 待分析: 再签几天到可以获得奖励(此理论不对)
 	ExtraCount    int64                                       `json:"extraCount,omitempty"`
 	ExtInfo       string                                      `json:"extInfo,omitempty"`
 	LotteryConfig []YunBeiSignInProgressRespDataLotteryConfig `json:"lotteryConfig,omitempty"`
 }
 
 type YunBeiSignInProgressRespDataLotteryConfig struct {
-	// SignDay 签到天数
-	SignDay int `json:"signDay"`
+	// SignDay 签到多少天可以获得奖励
+	SignDay int64 `json:"signDay"`
 	// BaseGrant 签到奖励相关描述
 	BaseGrant struct {
-		Id int `json:"id"`
+		Id int64 `json:"id"`
 		// Name 签到奖励描述 例如: 3云贝
 		Name    string `json:"name"`
 		IconUrl string `json:"iconUrl"`
-		Type    int    `json:"type"`
+		Type    int64  `json:"type"`
 		// Note 提示描述 例如: 云贝直接充值到账，详情可至账单查看
 		Note string `json:"note"`
 	} `json:"baseGrant"`
-	ExtraGrant       *ExtraGrant `json:"extraGrant"`
-	ExtraseLotteryId int         `json:"extraseLotteryId"`
+	ExtraGrant    *ExtraGrant `json:"extraGrant"`
+	BaseLotteryId int64       `json:"baseLotteryId"`
 	// BaseLotteryStatus 签到奖励状态 0:未领取 1:已领取
-	BaseLotteryStatus  int `json:"baseLotteryStatus"`
-	ExtraLotteryId     int `json:"extraLotteryId"`
-	ExtraLotteryStatus int `json:"extraLotteryStatus"`
+	BaseLotteryStatus  int64 `json:"baseLotteryStatus"`
+	ExtraLotteryId     int64 `json:"extraLotteryId"`
+	ExtraLotteryStatus int64 `json:"extraLotteryStatus"`
 }
 
 type ExtraGrant struct {
-	Id      int         `json:"id"`
+	Id      int64       `json:"id"`
 	Name    string      `json:"name"` // eg: 连续签到抽奖机会
 	IconUrl interface{} `json:"iconUrl"`
-	Type    int         `json:"type"`
+	Type    int64       `json:"type"`
 	Note    interface{} `json:"note"`
 }
 
 // YunBeiSignInProgress 获取签到阶段奖励列表
-// url:
+// url: 40.har
 // needLogin: 是
 func (a *Api) YunBeiSignInProgress(ctx context.Context, req *YunBeiSignInProgressReq) (*YunBeiSignInProgressResp, error) {
 	var (
@@ -776,9 +776,9 @@ type YunBeiNewJudgeResp struct {
 }
 
 type YunBeiNewJudgeRespData struct {
-	Count       int `json:"count"`
-	DetailId    int `json:"detailId"`
-	DepositCode int `json:"depositCode"`
+	Count       int64 `json:"count"`
+	DetailId    int64 `json:"detailId"`
+	DepositCode int64 `json:"depositCode"`
 }
 
 // YunBeiNewJudge TODO: 未知
@@ -806,8 +806,8 @@ type YunBeiExpireResp struct {
 }
 
 type YunBeiExpireRespData struct {
-	ExpireAmount int `json:"expireAmount"`
-	Day          int `json:"day"`
+	ExpireAmount int64 `json:"expireAmount"`
+	Day          int64 `json:"day"`
 }
 
 // YunBeiExpire TODO: 应该是获取云贝过期数量
@@ -835,10 +835,10 @@ type YunBeiRecommendConfigResp struct {
 }
 
 type YunBeiRecommendConfigRespData struct {
-	RedeemCount      int    `json:"redeemCount"`
-	RedeemFlag       int    `json:"redeemFlag"`
+	RedeemCount      int64  `json:"redeemCount"`
+	RedeemFlag       int64  `json:"redeemFlag"`
 	RedeemProductIds string `json:"redeemProductIds"`
-	RefreshTime      int    `json:"refreshTime"`
+	RefreshTime      int64  `json:"refreshTime"`
 }
 
 // YunBeiRecommendConfig 推荐配置
