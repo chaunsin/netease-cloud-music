@@ -37,19 +37,34 @@
 
 set -e
 
+# 定义环境变量任务开关,默认开启
+NCMCTL_QINGLONG_SIGN=${NCMCTL_QINGLONG_SIGN:-true}
+NCMCTL_QINGLONG_SCROBBLE=${NCMCTL_QINGLONG_SCROBBLE:-true}
+NCMCTL_QINGLONG_PARTNER=${NCMCTL_QINGLONG_PARTNER:-true}
+
+# 将变量值转换为小写
+to_lower() {
+  echo "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 # 执行每日云贝签到任务
-echo "执行每日云贝签到任务"
-ncmctl sign
-echo "执行每日云贝签到任务完成"
+if [[ "$(to_lower "${NCMCTL_QINGLONG_SIGN}")" == "true" ]]; then
+  echo ">>> 执行每日云贝签到任务 <<<"
+  ncmctl sign
+  echo "--- 执行每日云贝签到任务完成 ---"
+fi
 
-# 执行刷歌任务
-echo "执行刷歌任务"
-ncmctl scrobble
-echo "执行刷歌任务完成"
+# 执行刷歌任务,注意如果已经刷到了满级则需要关闭此功能，不然会出现封号风险。
+if [[ "$(to_lower "${NCMCTL_QINGLONG_SCROBBLE}")" == "true" ]]; then
+  echo ">>> 执行刷歌任务 <<<"
+  ncmctl scrobble
+  echo "--- 执行刷歌任务完成 ---"
+fi
 
-# 执行音乐合伙人签到任务,注意如果有没有此功能权限则注释掉此处配置，不然会出现错误。
-echo "执行音乐合伙人签到任务"
-ncmctl partner
-echo "执行音乐合伙人签到任务完成"
-
+# 执行音乐合伙人签到任务,注意如果有没有此功能权限则设置为false，不然会出现错误。
+if [[ "$(to_lower "${NCMCTL_QINGLONG_PARTNER}")" == "true" ]]; then
+  echo ">>> 执行音乐合伙人签到任务 <<<"
+  ncmctl partner
+  echo "--- 执行音乐合伙人签到任务完成 ---"
+fi
 
