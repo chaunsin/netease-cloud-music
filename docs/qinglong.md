@@ -1,6 +1,6 @@
 # 在青龙(qinglong)中运行
 
-思路是，在青龙容器中安装`ncmctl`二进制包，利用青龙的拉取命令或订阅功能，拉取本仓库源码，添加cron定时任务，并定时运行相应的Task。
+基本思路是在青龙容器中安装`ncmctl`二进制包，利用青龙的拉取命令或订阅功能，拉取本仓库源码，添加cron定时任务，并定时运行相应的Task。
 
 ## 1. 准备工作
 
@@ -14,7 +14,7 @@
 
 需提前安装好青龙面板工具,如果没安装则移步参考官方安装教程 [青龙面板安装](https://github.com/whyour/qinglong)。
 
-本人安装的版本为`2.17.12`
+本人示例安装的版本为`2.17.12`
 
 如果已经安装则跳过此步骤。
 
@@ -68,7 +68,7 @@
 
 ![qinglong-3.png](images/qinglong-3.png)
 
-### 2.3 登录
+### 2.4 登录
 
 在青龙定时任务中，点击运行`ncmctl扫码登录`任务，查看运行日志，扫描日志中的二维码进行登录。
 
@@ -80,6 +80,19 @@
 **不能退出**!!! 如有问题可重复此流程,为避免被风控不要频繁登录。
 
 在线生成二维码工具: https://www.bejson.com/convert/qrcode/#google_vignette
+
+### 2.5 环境变量配置
+
+默认情况下,此脚本会执行所有定时任务，如需关闭某些任务可以添加环境变量进行相应的控制。
+
+目前环境变量主要有三个
+
+- `NCMCTL_QINGLONG_SIGN` 是否开启云贝签到 true: 开启(默认) false: 关闭
+- `NCMCTL_QINGLONG_SCROBBLE` 是否开启刷歌 true: 开启(默认) false: 关闭
+- `NCMCTL_QINGLONG_PARTNER` 是否开启音乐合伙人 true: 开启(默认) false: 关闭
+
+**提示**:
+如果没有相应的权限，或已经彻底完成得任务，建议关闭不然会有封号的风险,相关问题参考: https://github.com/chaunsin/netease-cloud-music/issues/24
 
 ## 3. 常见问题
 
