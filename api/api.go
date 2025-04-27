@@ -164,6 +164,10 @@ func (c *Client) Cookies() []*http.Cookie {
 	return make([]*http.Cookie, 0)
 }
 
+func (c *Client) SetCookies(url *neturl.URL, cookies []*http.Cookie) {
+	c.cookie.SetCookies(url, cookies)
+}
+
 // GetCSRF 获取csrf 一般用于weapi接口中使用
 func (c *Client) GetCSRF(url string) (string, bool) {
 	uri, err := neturl.Parse(url)

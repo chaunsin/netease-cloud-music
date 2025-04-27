@@ -3,6 +3,10 @@ package ncmctl
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
 
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
@@ -21,7 +25,7 @@ type loginCookieCloudCmd struct {
 
 }
 
-func loginCookieCloud(root *Login, l *log.Logger) *cobra.Command {
+func cookieCloud(root *Login, l *log.Logger) *cobra.Command {
 	c := &loginCookieCloudCmd{
 		root: root,
 		l:    l,
@@ -60,16 +64,50 @@ func (c *loginCookieCloudCmd) execute(ctx context.Context, _ []string) error {
 	defer cli.Close(ctx)
 	request := weapi.New(cli)
 
-	cookieCloudRef := &cookieCloud{
+	cookieCli := &cookieCloudClient{
 		server:   c.server,
 		uuid:     c.uuid,
 		password: c.password,
 	}
-	cookie, err := cookieCloudRef.FetchCookie()
+	cookieData, err := cookieCli.DownloadCookieData()
 	if err != nil {
 		return fmt.Errorf("error while fetching and decrypting cookie: %s", err)
 	}
-	fmt.Println("cookie:", string(cookie))
+
+	cnt := 0
+	for domain, cookies := range cookieData {
+		if !strings.HasSuffix(domain, "music.163.com") {
+			continue
+		}
+		// Parse the domain into a URL (adjust scheme if needed)
+		u, err := url.Parse("https://music.163.com")
+		if err != nil {
+			return fmt.Errorf("failed to parse domain URL: %v", err)
+		}
+
+		// Convert custom cookie type to http.Cookie
+		var httpCookies []*http.Cookie
+		for _, cookie := range cookies {
+			secs := int64(cookie.ExpirationDate)
+			nsecs := int64((cookie.ExpirationDate - float64(secs)) * 1e9)
+			httpCookies = append(httpCookies, &http.Cookie{
+				Domain:   domain, // Use original domain value
+				Expires:  time.Unix(secs, nsecs),
+				HttpOnly: cookie.HttpOnly,
+				Name:     cookie.Name,
+				Path:     cookie.Path,
+				Secure:   cookie.Secure,
+				Value:    cookie.Value,
+			})
+		}
+		cli.SetCookies(u, httpCookies)
+		cnt++
+	}
+
+	if cnt == 0 {
+		return fmt.Errorf("no cookies found. 请确定你已经登录网页版网易云音乐，并且cookiecloud已经完成上传")
+	}
+
 	// 查询登录信息是否成功
 	user, err := request.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
 	if err != nil {

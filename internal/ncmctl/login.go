@@ -52,7 +52,7 @@ func NewLogin(root *Root, l *log.Logger) *Login {
 	}
 	c.addFlags()
 	c.Add(qrcode(c, l))
-	c.Add(loginCookieCloud(c, l))
+	c.Add(cookieCloud(c, l))
 
 	return c
 }

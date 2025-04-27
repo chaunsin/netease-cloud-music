@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"log"
 	"net/http"
 )
 
@@ -27,13 +26,32 @@ type cookieCloudBody struct {
 	Encrypted string `json:"encrypted,omitempty"`
 }
 
-type cookieCloud struct {
+type cookieCloudClient struct {
 	server   string
 	uuid     string
 	password string
 }
 
-func (c *cookieCloud) FetchCookie() ([]byte, error) {
+type cookieEntry struct {
+	Domain         string  `json:"domain"`
+	ExpirationDate float64 `json:"expirationDate"`
+	HostOnly       bool    `json:"hostOnly"`
+	HttpOnly       bool    `json:"httpOnly"`
+	Name           string  `json:"name"`
+	Path           string  `json:"path"`
+	SameSite       string  `json:"sameSite"`
+	Secure         bool    `json:"secure"`
+	Session        bool    `json:"session"`
+	StoreId        string  `json:"storeId"`
+	Value          string  `json:"value"`
+}
+type cookieCloudResult struct {
+	CookieData map[string][]cookieEntry `json:"cookie_data"`
+	// LocalStorageData interface {} `json:"local_storage_data"`
+	// UpdateTime string `json:"update_time"`
+}
+
+func (c *cookieCloudClient) DownloadCookieData() (map[string][]cookieEntry, error) {
 	var data *cookieCloudBody
 	res, err := http.Get(c.server + "/get/" + c.uuid)
 	if err != nil {
@@ -54,11 +72,18 @@ func (c *cookieCloud) FetchCookie() ([]byte, error) {
 	keyPassword := md5String(c.uuid, "-", c.password)[:16]
 	decrypted, err := decryptCryptoJsAesMsg(keyPassword, data.Encrypted)
 	if err != nil {
-		log.Fatalf("Failed to decrypt: %v", err)
+		return nil, fmt.Errorf("failed to decrypt: %v", err)
 	}
-	fmt.Printf("Decrypted: %s\n", decrypted)
-	return decrypted, nil
+	var result *cookieCloudResult
+	err = json.Unmarshal(decrypted, &result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse decrypted data as json: %v", err)
+	}
+
+	return result.CookieData, nil
 }
+
+// Copied from https://github.com/easychen/CookieCloud?tab=readme-ov-file#go-decryption-algorithm
 
 // Decrypt a CryptoJS.AES.encrypt(msg, password) encrypted msg.
 // ciphertext is the result of CryptoJS.AES.encrypt(), which is the base64 string of
