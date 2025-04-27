@@ -288,3 +288,179 @@ func (a *Api) RegisterAnonymous(ctx context.Context, req *RegisterAnonymousReq) 
 	_ = resp
 	return &reply, nil
 }
+
+type SendSMSReq struct {
+	Cellphone string `json:"cellphone"`
+	CtCode    int64  `json:"ctcode"`
+}
+
+type SendSMSResp struct {
+	types.RespCommon[bool]
+}
+
+// SendSMS 发送验证码
+// 注意: 验证码 24h 内最多发送五次
+func (a *Api) SendSMS(ctx context.Context, req *SendSMSReq) (*SendSMSResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/sms/captcha/sent"
+		reply SendSMSResp
+		opts  = api.NewOptions()
+	)
+	if req.CtCode <= 0 {
+		req.CtCode = 86
+	}
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type SMSVerifyReq struct {
+	Cellphone string `json:"cellphone"`
+	Captcha   string `json:"captcha"`
+	CtCode    int64  `json:"ctcode"`
+}
+
+type SMSVerifyResp struct {
+	types.RespCommon[bool]
+}
+
+// SMSVerify 验证码验证
+func (a *Api) SMSVerify(ctx context.Context, req *SMSVerifyReq) (*SMSVerifyResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/sms/captcha/verify"
+		reply SMSVerifyResp
+		opts  = api.NewOptions()
+	)
+	if req.CtCode <= 0 {
+		req.CtCode = 86
+	}
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type LoginCellphoneReq struct {
+	Phone       string `json:"phone"`
+	Countrycode int64  `json:"countrycode"`
+	Remember    bool   `json:"remember"`
+	Password    string `json:"password"`
+	Captcha     string `json:"captcha"`
+}
+
+type LoginCellphoneResp struct {
+	types.RespCommon[any]
+	LoginType int64                        `json:"loginType"`
+	Token     string                       `json:"token"` // MUSIC_U
+	Account   LoginCellphoneRespAccount    `json:"account"`
+	Profile   LoginCellphoneRespProfile    `json:"profile"`
+	Bindings  []LoginCellphoneRespBindings `json:"bindings"`
+}
+
+type LoginCellphoneRespAccount struct {
+	Id                 int64  `json:"id"`
+	UserName           string `json:"userName"`
+	Type               int64  `json:"type"`
+	Status             int64  `json:"status"`
+	WhitelistAuthority int64  `json:"whitelistAuthority"`
+	CreateTime         int64  `json:"createTime"`
+	Salt               string `json:"salt"`
+	TokenVersion       int64  `json:"tokenVersion"`
+	Ban                int64  `json:"ban"`
+	BaoyueVersion      int64  `json:"baoyueVersion"`
+	DonateVersion      int64  `json:"donateVersion"`
+	VipType            int64  `json:"vipType"`
+	ViptypeVersion     int64  `json:"viptypeVersion"`
+	AnonimousUser      bool   `json:"anonimousUser"`
+	Uninitialized      bool   `json:"uninitialized"`
+}
+
+type LoginCellphoneRespProfile struct {
+	AvatarUrl                 string      `json:"avatarUrl"`
+	VipType                   int64       `json:"vipType"`
+	AuthStatus                int64       `json:"authStatus"`
+	DjStatus                  int64       `json:"djStatus"`
+	DetailDescription         string      `json:"detailDescription"`
+	Experts                   struct{}    `json:"experts"`
+	ExpertTags                interface{} `json:"expertTags"`
+	AccountStatus             int64       `json:"accountStatus"`
+	Nickname                  string      `json:"nickname"`
+	Birthday                  int64       `json:"birthday"`
+	Gender                    int64       `json:"gender"`
+	Province                  int64       `json:"province"`
+	City                      int64       `json:"city"`
+	AvatarImgId               int64       `json:"avatarImgId"`
+	BackgroundImgId           int64       `json:"backgroundImgId"`
+	UserType                  int64       `json:"userType"`
+	DefaultAvatar             bool        `json:"defaultAvatar"`
+	Mutual                    bool        `json:"mutual"`
+	RemarkName                interface{} `json:"remarkName"`
+	AvatarImgIdStr            string      `json:"avatarImgIdStr"`
+	BackgroundImgIdStr        string      `json:"backgroundImgIdStr"`
+	Followed                  bool        `json:"followed"`
+	BackgroundUrl             string      `json:"backgroundUrl"`
+	Description               string      `json:"description"`
+	UserId                    int64       `json:"userId"`
+	Signature                 string      `json:"signature"`
+	Authority                 int64       `json:"authority"`
+	AvatarImgIdStr1           string      `json:"avatarImgId_str"`
+	Followeds                 int64       `json:"followeds"`
+	Follows                   int64       `json:"follows"`
+	EventCount                int64       `json:"eventCount"`
+	AvatarDetail              interface{} `json:"avatarDetail"`
+	PlaylistCount             int64       `json:"playlistCount"`
+	PlaylistBeSubscribedCount int64       `json:"playlistBeSubscribedCount"`
+}
+
+type LoginCellphoneRespBindings struct {
+	BindingTime  int64  `json:"bindingTime"`
+	RefreshTime  int64  `json:"refreshTime"`
+	TokenJsonStr string `json:"tokenJsonStr"` // type:1 {\"countrycode\":\"\",\"cellphone\":\"18888888888\",\"hasPassword\":true} type:5 "{\"access_token\":\"xxx\",\"refresh_token\":\"xxxx\",\"avatarUrl\":\"http://xxxx\",\"openid\":\"xxx\",\"nickname\":\"流浪\",\"expires_in\":7776000}",
+	ExpiresIn    int64  `json:"expiresIn"`
+	Url          string `json:"url"`
+	Expired      bool   `json:"expired"`
+	UserId       int64  `json:"userId"`
+	Id           int64  `json:"id"`
+	Type         int64  `json:"type"` // 1:设置登录密码 5:qq
+}
+
+// LoginCellphone 手机号登录
+func (a *Api) LoginCellphone(ctx context.Context, req *LoginCellphoneReq) (*LoginCellphoneResp, error) {
+	var (
+		url    = "https://interface.music.163.com/eapi/w/login/cellphone" // use weapi 出现 8821需要行为验证码验证
+		reply  LoginCellphoneResp
+		opts   = api.NewOptions()
+		params = make(map[string]interface{})
+	)
+	opts.CryptoMode = api.CryptoModeEAPI
+	if req.Countrycode <= 0 {
+		req.Countrycode = 86
+	}
+	if req.Password == "" && req.Captcha == "" {
+		return nil, fmt.Errorf("password or captcha is empty")
+	}
+	if req.Password != "" {
+		params["password"] = crypto.HexDigest(req.Password)
+	}
+	if req.Captcha != "" {
+		params["captcha"] = req.Captcha
+	}
+	params["phone"] = req.Phone
+	params["countrycode"] = req.Countrycode
+	params["remember"] = fmt.Sprintf("%v", req.Remember)
+	params["type"] = "1" // ?
+
+	resp, err := a.client.Request(ctx, url, params, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}

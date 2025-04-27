@@ -414,3 +414,22 @@ func TestGenerateWNMCID(t *testing.T) {
 		})
 	}
 }
+
+func TestHexDigest(t *testing.T) {
+	tests := []struct {
+		input  []byte
+		expect string
+	}{
+		{[]byte{0x00}, "93b885adfe0da089cdf634904fd59f71"},
+		{[]byte{0xAB, 0xCD}, "7838496fd0586421bbb500bb6f472f13"},
+		{[]byte{0x0A, 0x1F}, "22094d34279aa1ba36fa7094cfc90eeb"},
+		{[]byte{}, "d41d8cd98f00b204e9800998ecf8427e"},
+	}
+
+	for _, tt := range tests {
+		got := HexDigest(string(tt.input))
+		if got != tt.expect {
+			t.Errorf("HexDigest(%x) = %s, want %s", tt.input, got, tt.expect)
+		}
+	}
+}

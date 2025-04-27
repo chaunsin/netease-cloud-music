@@ -387,3 +387,9 @@ func GenerateWNMCID() string {
 	// 3. 拼接最终字符串
 	return fmt.Sprintf("%s.%d.%s.0", string(b), timestamp, crawlerVersion)
 }
+
+func HexDigest(text string) string {
+	hasher := md5.New()
+	hasher.Write([]byte(text))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
