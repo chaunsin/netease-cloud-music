@@ -32,8 +32,8 @@ func cookieCloud(root *Login, l *log.Logger) *cobra.Command {
 	}
 	c.cmd = &cobra.Command{
 		Use:     "cookiecloud",
-		Short:   "use cookiecloud login",
-		Example: "  ncmctl login cookiecloud",
+		Short:   "use cookiecloud login, https://github.com/easychen/CookieCloud",
+		Example: "  ncmctl login cookiecloud -u 'xxx' -p 'yyy'",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
 		},
