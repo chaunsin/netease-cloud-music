@@ -3,6 +3,7 @@ module github.com/chaunsin/netease-cloud-music
 go 1.21.0
 
 require (
+	codeberg.org/sbinet/mozcookie v0.4.0
 	github.com/andybalholm/brotli v1.1.1
 	github.com/bogem/id3v2/v2 v2.1.4
 	github.com/chaunsin/go-har v0.0.0-20250114074418-11a8c338c2b5

@@ -29,14 +29,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type LoginOpts struct {
-	Account string
-}
-
 type Login struct {
 	root *Root
 	cmd  *cobra.Command
-	opts LoginOpts
 	l    *log.Logger
 }
 
@@ -47,20 +42,19 @@ func NewLogin(root *Root, l *log.Logger) *Login {
 		cmd: &cobra.Command{
 			Use:     "login",
 			Short:   "Login netease cloud music",
-			Example: "  ncmctl login -h\n  ncmctl login qrcode\n  ncmctl login phone 188xxxx8888\n  ncmctl login cookiecloud",
+			Example: "  ncmctl login -h\n  ncmctl login qrcode\n  ncmctl login phone\n  ncmctl login cookiecloud\n  ncmctl login cookie",
 		},
 	}
 	c.addFlags()
 	c.Add(qrcode(c, l))
 	c.Add(phone(c, l))
 	c.Add(cookieCloud(c, l))
+	c.Add(cookie(c, l))
 
 	return c
 }
 
-func (c *Login) addFlags() {
-	// c.cmd.PersistentFlags().StringVarP(&c.opts.Account, "account", "a", "", "ncm login -a xxx")
-}
+func (c *Login) addFlags() {}
 
 func (c *Login) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)

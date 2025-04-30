@@ -548,7 +548,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	for i := 1; utils.FileExists(dest); i++ {
 		dest = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s(%d).%s", music.ArtistString(), music.NameString(), i, strings.ToLower(drd.Type)))
 	}
-	// 显示关闭文件避免Windows系统无法重命名错误:The process cannot access the file because it is being used by another process
+	// 显示关闭文件避免Windows系统无法重命名错误: The process cannot access the file because it is being used by another process
 	if err := file.Close(); err != nil {
 		log.Error("close %s file err: %s", file.Name(), err)
 		_ = os.Remove(file.Name())
@@ -561,39 +561,4 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 		return fmt.Errorf("chmod: %w", err)
 	}
 	return nil
-}
-
-type Music struct {
-	Id     int64
-	Name   string
-	Artist []types.Artist
-	Album  types.Album
-	Time   int64
-}
-
-// NameString 返回去除特殊符号的歌曲名
-func (m Music) NameString() string {
-	return utils.Filename(m.Name, "_")
-}
-
-func (m Music) ArtistString() string {
-	if len(m.Artist) <= 0 {
-		return ""
-	}
-	var artistList = make([]string, 0, len(m.Artist))
-	for _, ar := range m.Artist {
-		artistList = append(artistList, utils.Filename(ar.Name, "_")) // #11 避免文件名中包含特殊字符
-	}
-	return strings.Join(artistList, ",")
-}
-
-func (m Music) String() string {
-	var (
-		seconds = m.Time / 1000 // 毫秒换成秒
-		hours   = seconds / 3600
-		minutes = (seconds % 3600) / 60
-		secs    = seconds % 60
-		format  = fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
-	)
-	return fmt.Sprintf("%s-%s(%v) [%s]", m.ArtistString(), m.Name, m.Id, format)
 }

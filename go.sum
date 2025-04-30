@@ -1,4 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
+codeberg.org/sbinet/mozcookie v0.4.0 h1:yLAExtO4O4KFyLS1wq+wz2KJEDEaWg7n17SIc3cVo5M=
+codeberg.org/sbinet/mozcookie v0.4.0/go.mod h1:FDrgbt8WYUmTEfOo0cSQaRAcDJ6csNI1orUpL7gQW6U=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/VividCortex/ewma v1.2.0 h1:f58SaIzcDXrSy3kWaHNvuJgJ3Nmz59Zji6XoJR/q1ow=
 github.com/VividCortex/ewma v1.2.0/go.mod h1:nz4BbCtbLyFDeC9SUHbtcT5644juEuWfUAUnGx7j5l4=

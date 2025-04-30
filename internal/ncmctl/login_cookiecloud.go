@@ -58,7 +58,8 @@ func cookieCloud(root *Login, l *log.Logger) *cobra.Command {
 	}
 	c.cmd = &cobra.Command{
 		Use:     "cookiecloud",
-		Short:   "use cookiecloud login\n  detail: https://github.com/easychen/CookieCloud",
+		Long:    "What is cookiecloud?\n  detail: https://github.com/easychen/CookieCloud",
+		Short:   "use cookiecloud login",
 		Example: "  ncmctl login cookiecloud -u <your uuid> -p <your password> -s http://127.0.0.1:8088",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
@@ -119,11 +120,11 @@ func (c *loginCookieCloudCmd) execute(_ctx context.Context, args []string) error
 	if len(headers) > 0 {
 		cc.SetHeaders(headers)
 	}
-	resp, err := cc.Get(ctx, &cookiecloud.GetReq{Uuid: c.uuid})
+	resp, err := cc.Get(ctx, &cookiecloud.GetReq{Uuid: c.uuid, Password: c.password})
 	if err != nil {
 		return fmt.Errorf("cookiecloud.Get: %w", err)
 	}
-	c.cmd.Printf("cookie最后更新时间为: %s", resp.UpdateTime)
+	c.cmd.Printf("cookie最后更新时间为: %s\n", resp.UpdateTime)
 	var cnt int
 	for domain, cookies := range resp.CookieData {
 		if !strings.HasSuffix(domain, "music.163.com") {
@@ -137,18 +138,20 @@ func (c *loginCookieCloudCmd) execute(_ctx context.Context, args []string) error
 
 		// Convert a custom cookie type to http.Cookie
 		var httpCookies []*http.Cookie
-		for _, cookie := range cookies {
-			if cookie.Name == "MUSIC_U" {
+		for _, v := range cookies {
+			if v.Name == "MUSIC_U" {
 				cnt++
 			}
 			httpCookies = append(httpCookies, &http.Cookie{
 				Domain:   domain, // Use original domain value
-				Expires:  cookie.GetExpired(),
-				HttpOnly: cookie.HttpOnly,
-				Name:     cookie.Name,
-				Path:     cookie.Path,
-				Secure:   cookie.Secure,
-				Value:    cookie.Value,
+				Expires:  v.GetExpired(),
+				HttpOnly: v.HttpOnly,
+				Name:     v.Name,
+				Path:     v.Path,
+				Secure:   v.Secure,
+				Value:    v.Value,
+				SameSite: sameSite(v.SameSite),
+				// Quoted:   false,
 			})
 		}
 		if len(httpCookies) > 0 {

@@ -24,13 +24,18 @@
 package ncmctl
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/chaunsin/netease-cloud-music/api/types"
+	"github.com/chaunsin/netease-cloud-music/pkg/cookiecloud"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
 	"github.com/spf13/cobra"
@@ -89,4 +94,102 @@ func Parse(source string) (string, int64, error) {
 		return "", 0, err
 	}
 	return matched[1], id, nil
+}
+
+// IsPrint returns whether s is ASCII and printable according to
+// https://tools.ietf.org/html/rfc20#section-4.2.
+func isPrint(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < ' ' || s[i] > '~' {
+			return false
+		}
+	}
+	return true
+}
+
+// ToLower returns the lowercase version of s if s is ASCII and printable.
+func toLower(s string) (lower string, ok bool) {
+	if !isPrint(s) {
+		return "", false
+	}
+	return strings.ToLower(s), true
+}
+
+func sameSite(val string) http.SameSite {
+	lowerVal, ascii := toLower(val)
+	if !ascii {
+		return http.SameSiteDefaultMode
+	}
+	switch lowerVal {
+	case "strict":
+		return http.SameSiteStrictMode
+	case "lax":
+		return http.SameSiteLaxMode
+	case "none":
+		return http.SameSiteNoneMode
+	case "unspecified": // is means http.SameSiteDefaultMode or http.SameSiteNoneMode ?
+		return http.SameSiteDefaultMode
+	default:
+		return http.SameSiteDefaultMode
+	}
+}
+
+// ParseCookeJson 解析cookie.json文件
+func ParseCookeJson(r io.Reader) ([]*http.Cookie, error) {
+	var (
+		temp    []cookiecloud.CookieData
+		cookies []*http.Cookie
+	)
+	if err := json.NewDecoder(r).Decode(&temp); err != nil {
+		return nil, fmt.Errorf("could not read cookies: %+v", err)
+	}
+	for _, v := range temp {
+		cookies = append(cookies, &http.Cookie{
+			Domain:   v.Domain,
+			Expires:  v.GetExpired(),
+			HttpOnly: v.HttpOnly,
+			Name:     v.Name,
+			Path:     v.Path,
+			Secure:   v.Secure,
+			Value:    v.Value,
+			SameSite: sameSite(v.SameSite),
+			// Quoted:   false,
+		})
+	}
+	return cookies, nil
+}
+
+type Music struct {
+	Id     int64
+	Name   string
+	Artist []types.Artist
+	Album  types.Album
+	Time   int64
+}
+
+// NameString 返回去除特殊符号的歌曲名
+func (m Music) NameString() string {
+	return utils.Filename(m.Name, "_")
+}
+
+func (m Music) ArtistString() string {
+	if len(m.Artist) <= 0 {
+		return ""
+	}
+	var artistList = make([]string, 0, len(m.Artist))
+	for _, ar := range m.Artist {
+		artistList = append(artistList, utils.Filename(ar.Name, "_")) // #11 避免文件名中包含特殊字符
+	}
+	return strings.Join(artistList, ",")
+}
+
+func (m Music) String() string {
+	var (
+		seconds = m.Time / 1000 // 毫秒换成秒
+		hours   = seconds / 3600
+		minutes = (seconds % 3600) / 60
+		secs    = seconds % 60
+		format  = fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
+	)
+	return fmt.Sprintf("%s-%s(%v) [%s]", m.ArtistString(), m.Name, m.Id, format)
 }
