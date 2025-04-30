@@ -44,7 +44,7 @@
 
 ## 💻 要求
 
-- golang >= 1.21
+- golang >= 1.23
 - makefile (可选)
 - git (可选)
 - docker (可选)
