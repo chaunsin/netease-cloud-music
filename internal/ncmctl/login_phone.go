@@ -104,7 +104,7 @@ func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
 		if sms.Code == 200 && sms.Data {
 			c.cmd.Println("send sms success")
 		} else {
-			return fmt.Errorf("send sms failed, code: %d, msg: %s", sms.Code, sms.Msg)
+			return fmt.Errorf("send sms failed, code: %d, msg: %s\n", sms.Code, sms.Msg)
 		}
 
 		// 等待用户在终端输入验证码
@@ -134,7 +134,7 @@ func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
 			c.cmd.Println("verify sms success")
 		} else {
 			fail++
-			c.cmd.Printf("verify sms failed, code: %d, msg: %s", verify.Code, verify.Msg)
+			c.cmd.Printf("verify sms failed, code: %d, msg: %s\n", verify.Code, verify.Msg)
 			goto retry
 		}
 	}

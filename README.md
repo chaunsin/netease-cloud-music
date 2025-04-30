@@ -92,7 +92,106 @@ cd netease-cloud-music && make build-iamge
 
 ### 🚀 使用
 
-**一、二维码登录**
+**一、登录**
+
+目前支持5种登录方式
+
+<details>
+  <summary>详情</summary>
+  <pre>
+
+**一、短信登录**
+
+```shell
+ncmctl login phone 188xxx8888
+```
+
+执行成功并发送了短信验内容如下：
+
+```shell
+send sms success
+please input sms captcha: 
+```
+
+根据上述内容提示，输入短信验证码进行登录,成功内容如下：
+
+```shell
+verify sms success
+login success: &{RespCommon:{Code:200 Message: Msg: Data:<nil>} Account:0xc00036a070 Profile:0xc0005a8180}
+```
+
+**注意: 发送短信每日有限制,请不要频繁登录避免风控。**
+
+**二、手机号密码登录**
+
+使用密码登录方式,需要在网易云中设置账号允许手机号密码登录方式,如果未设置请先设置。
+
+```shell
+ncmctl login phone 188xxx8888 -p 123456
+```
+
+密码登录方式容易出现安全风险相关问题,未必会成功。
+
+**三、cookie登录**
+
+当使用此工具按照正常流程登录失败、或者因风控等原因不能登录，可以尝试使用cookie登录,cookie登录属于保底方案。
+
+cookie内容得获取方式有很多，比如可以通过浏览器安装插件的方式进行获取，可参考使用工具 [Cookie Editor](https://chromewebstore.google.com/detail/cookie-editor/ookdjilphngeeeghgngjabigmpepanpl)
+或其他cookie导出工具。
+
+```shell
+# 以下二选一
+# 导入cookie字符串文本内容
+ncmctl login cookie 'cookie字符串内容'
+# 导入cookie文件内容
+ncmctl login cookie -f cookie.txt
+```
+
+cookie内容支持三种类型格式 `-f`
+
+- header
+- json
+- [netscape](https://docs.cyotek.com/cyowcopy/1.10/netscapecookieformat.html)
+
+详情使用，以及文件格式规则可查看 `ncmctl login cookie -h` 介绍
+
+**注意: 不要泄露密码。**
+
+**四、cookiecloud登录**
+
+cookiecloud
+还是cookie另一种登录方式,cookiecloud也是浏览器cookie管理插件工具得一种，它得特点是浏览器可以自动同步cookie到云端，并对cookie内容进行加密存储，业务场景上可直接从云端拉取cookie内容到本地,以供后续使用。
+
+cookiecloud详细介绍:
+
+- https://github.com/easychen/CookieCloud/blob/master/README_cn.md 介绍
+- https://juejin.cn/post/7190963442017108027 使用教程
+- https://chromewebstore.google.com/detail/cookiecloud/ffjiejobkoibkjlhjnlgmcnnigeelbdl chrome插件地址
+
+操作流程:
+
+1. 安装cookiecloud插件
+2. 配置好cookiecloud相关配置
+3. 网页端保证成功登录到网易云音乐
+4. 为了保证即时同步,点击【手动同步】按钮同步到服务器。
+5. 执行`ncmctl`并指定账号、密码、服务端地址,执行登录操作。
+
+```shell
+ncmctl login cookiecloud -u <user> -p <password> -s http://0.0.0.0:8088
+```
+
+cookiecloud登录方式跟cookie方式相比会方便很多,不需要手动拷贝cookie内容,只需要配置好账号、密码、服务端地址,直接从云端拉取cookie内容到本地。
+
+**注意:**
+
+1. 保证服务端地址、账号、密码正确性,否则登录失败。
+2. 如果登录出现cookie找不到等相关错误,请在浏览器插件中手动同步cookie到云端，或退出网易云账号,重新登录重复上述操作流程。
+3. 如果使用第三方未知安全的cookiecloud服务器,请自行承担风险。
+
+**五、~~二维码登录~~**
+
+> ⚠️ **Warning:** 目前由于网易云风控严重, 暂不支持扫码登录,会出现 **8821 需要行为验证码验证**
+> 错误.[相关详情](https://github.com/chaunsin/netease-cloud-music/issues/26)
 
 ```shell
 ncmctl login qrcode
@@ -104,6 +203,8 @@ ncmctl login qrcode
 **不能退出终端**!!! 如有问题可重复此流程,为避免被风控不要频繁登录。
 
 在线生成二维码工具: https://www.bejson.com/convert/qrcode/#google_vignette
+</pre>
+</details>
 
 **二、一键执行每日所有任务**
 
@@ -111,7 +212,7 @@ ncmctl login qrcode
 ncmctl task
 ```
 
-**提示:** 默认task包含
+默认task包含
 
 - sign (签到)
 - partner (音乐合伙人)
@@ -162,7 +263,7 @@ ncmctl download -l hires '1820944399'
 ncmctl download -l SQ 'https://music.163.com/song?id=1820944399' -o ./download/ 
 ```
 
-**提示:** 支持得音质有(从低到高) `standard/128 < higher/192 < exhigh/HQ/320 < lossless/SQ < hires/HR` 参数可指定任意别名。
+支持得音质有(从低到高) `standard/128 < higher/192 < exhigh/HQ/320 < lossless/SQ < hires/HR` 参数可指定任意别名。
 
 3. 下载某一张专辑所有音乐,批量下载数量5(最大值20)
 
@@ -170,7 +271,7 @@ ncmctl download -l SQ 'https://music.163.com/song?id=1820944399' -o ./download/
 ncmctl download -p 5 'https://music.163.com/#/album?id=34608111'
 ```
 
-**提示:** 默认批量下载到当前`download`目录下面，音质为无损(SQ)
+默认批量下载到当前`download`目录下面，音质为无损(SQ)
 
 4. 下载某一歌手的所有音乐
 
@@ -204,7 +305,7 @@ ncmctl cloud '/Users/chaunsin/Music/谁为我停留 - 田震.mp3'
 ncmctl cloud '/Users/chaunsin/Music/' 
 ```
 
-**提示:** 默认批量上传数为3,最大为10,可指定`-p`参数设置,同时cloud支持按照自定义过滤条件进行上传详情可使用`-h`
+默认批量上传数为3,最大为10,可指定`-p`参数设置,同时cloud支持按照自定义过滤条件进行上传详情可使用`-h`
 参考命令行。另外输入的目录深度不能超过3层。
 
 **五、.ncm文件解析**
@@ -215,51 +316,15 @@ ncmctl cloud '/Users/chaunsin/Music/'
 ncmctl ncm '/Users/chaunsin/Music/' -o ./ncm
 ```
 
-**提示:** 支持批量解析,默认参数为10，可以指定`-p`参数设置数量。同样输入的目录深度不能超过3层。
+支持批量解析,默认参数为10，可以指定`-p`参数设置数量。同样输入的目录深度不能超过3层。
 
 **六、其他命令**
 
+使用以下命令查看帮助
+
 ```shell
-$ ncmctl --help
-ncmctl is a toolbox for netease cloud music.
-
-Usage:
-  ncmctl [command]
-
-Examples:
-  ncmctl cloud
-  ncmctl crypto
-  ncmctl login
-  ncmctl curl
-  ncmctl partner
-
-Available Commands:
-  cloud       [need login] Used to upload music files to netease cloud disk
-  completion  Generate the autocompletion script for the specified shell
-  crypto      Crypto is a tool for encrypting and decrypting the http data
-  curl        Like curl invoke netease cloud music api
-  download    [need login] Download songs
-  help        Help about any command
-  login       Login netease cloud music
-  logout      Logout netease cloud music
-  ncm         Automatically parses .ncm to mp3/flac
-  partner     [need login] Executive music partner daily reviews
-  scrobble    [need login] Scrobble execute refresh 300 songs
-  sign        [need login] Sign perform daily cloud shell check-in and vip check-in
-  task        [need login] Daily tasks are executed asynchronously [partner、scrobble、sign]
-
-Flags:
-  -c, --config string   configuration file path
-      --debug           run in debug mode
-  -h, --help            help for ncmctl
-      --home string     configuration home path. the home path is used to store running information (default "/Users/chaunsin")
-  -v, --version         version for ncmctl
-
-Use "ncmctl [command] --help" for more information about a command.
-
+ncmctl -h
 ```
-
-**提示:** 内容以实际命令行为准
 
 ## api
 
@@ -299,6 +364,7 @@ task命令是一个服务，默认执行是包含了scrobble、sign、partner子
 ### 人员
 
 - [sjpqxuzdly03646](https://github.com/sjpqxuzdly03646) 对"音乐合伙人"功能得支持与帮助
+- [stkevintan](https://github.com/stkevintan) 提供cookiecloud登录方式
 
 ### 代码库
 

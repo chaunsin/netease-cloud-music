@@ -70,7 +70,133 @@
 
 ### 2.4 登录
 
-在青龙定时任务中，点击运行`ncmctl扫码登录`任务，查看运行日志，扫描日志中的二维码进行登录。
+目前支持5种登录方式
+
+#### 2.4.1 短信登录
+
+默认为短信验证码登录。登录前请先在青龙中设置好环境变量在执行`ncmctl登录`任务。
+
+环境变量配置：
+
+```shell
+# 登录方式手机号
+export NCMCTL_QINGLONG_LOGIN_MODE=phone
+# 登录手机号,替换成你自己的手机号。
+export NCMCTL_QINGLONG_LOGIN_ACCOUNT=188xxxx8888
+```
+
+设置成功之后,点击`ncmctl登录`,成功之后终端会输出以下内容
+
+```shell
+Executing: ncmctl login phone 188xxxx8888
+send sms success
+please input sms captcha: 
+```
+
+根据上述内容提示，输入短信验证码进行登录,成功内容如下：
+
+```shell
+verify sms success
+login success: &{RespCommon:{Code:200 Message: Msg: Data:<nil>} Account:0xc00036a070 Profile:0xc0005a8180}
+```
+
+**注意: 发送短信每日有限制,请不要频繁登录避免风控。**
+
+#### 2.4.2 手机号密码登录
+
+环境变量配置：
+
+```shell
+# 登录方式手机号
+export NCMCTL_QINGLONG_LOGIN_MODE=phone
+# 登录手机号,替换成你自己的手机号。
+export NCMCTL_QINGLONG_LOGIN_ACCOUNT=188xxxx8888
+# 登录密码,替换成你自己的实际密码
+export NCMCTL_QINGLONG_LOGIN_PASSWORD=123456
+```
+
+使用密码登录方式,需要在网易云中设置账号允许手机号密码登录方式,如果未设置请先设置。
+
+**注意: 不要泄露密码。**
+
+#### 2.4.3 cookie登录
+
+当使用此工具按照正常流程登录失败、或者因风控等原因不能登录，可以尝试使用cookie登录,cookie登录属于保底方案。
+
+cookie内容得获取方式有很多，比如可以通过浏览器安装插件的方式进行获取，可参考使用工具 [Cookie Editor](https://chromewebstore.google.com/detail/cookie-editor/ookdjilphngeeeghgngjabigmpepanpl)
+或其他cookie导出工具。
+
+环境变量配置：
+
+以下二选一
+
+```shell
+# 导入cookie字符串文本内容
+export NCMCTL_QINGLONG_LOGIN_COOKIE=string_content
+# 导入cookie文件内容
+export NCMCTL_QINGLONG_LOGIN_COOKIE=./cookie.text
+```
+
+cookie内容支持三种类型格式
+
+- header
+- json
+- [Netscape](https://docs.cyotek.com/cyowcopy/1.10/netscapecookieformat.html)
+
+详情使用，以及文件格式规则可查看 `ncmctl login cookie -h` 介绍
+
+#### 2.4.3 cookiecloud登录
+
+cookiecloud还是cookie另一种登录方式,cookiecloud也是浏览器cookie管理插件工具得一种，它得特点是浏览器可以自动同步cookie到云端，并对cookie内容进行加密存储，业务场景上可直接从云端拉取cookie内容到本地,以供后续使用。
+
+cookiecloud详细介绍:
+
+- https://github.com/easychen/CookieCloud/blob/master/README_cn.md 介绍
+- https://juejin.cn/post/7190963442017108027 使用教程
+- https://chromewebstore.google.com/detail/cookiecloud/ffjiejobkoibkjlhjnlgmcnnigeelbdl chrome插件地址
+
+操作流程:
+
+1. 安装cookiecloud插件
+2. 配置好cookiecloud相关配置
+3. 网页端保证成功登录到网易云音乐
+4. 为了保证即时同步,点击【手动同步】按钮同步到服务器。
+5. 配置环境变量(环境变量内容要和步骤2中得内容要一致)
+6. 执行`ncmctl登录`任务
+
+环境变量配置：
+
+```shell
+# 登录方式cookiecloud
+export NCMCTL_QINGLONG_LOGIN_MODE=cookiecloud
+# 登录cookiecloud账号,替换成你自己的cookiecloud账号,也就是 "用户KEY · UUID"
+export NCMCTL_QINGLONG_LOGIN_ACCOUNT=qZMVzxGoybHYbYEJM12345
+# 登录cookiecloud密码,替换成你自己的实际密码 "端对端加密密码"
+export NCMCTL_QINGLONG_LOGIN_PASSWORD=kTduz4A61D4a9LwS712345
+# cookiecloud 服务端访问地址,替换成你自己的服务端地址
+export NCMCTL_QINGLONG_LOGIN_COOKIECLOUD_SERVER=http://127.0.0.1:8088
+```
+
+cookiecloud登录方式跟cookie方式相比会方便很多,不需要手动拷贝cookie内容,只需要配置好账号、密码、服务端地址,直接从云端拉取cookie内容到本地。
+
+**注意:**
+
+1. 保证服务端地址、账号、密码正确性,否则登录失败。
+2. 如果登录出现cookie找不到等相关错误,请在浏览器插件中手动同步cookie到云端，或退出网易云账号,重新登录重复上述操作流程。
+3. 如果使用第三方未知安全的cookiecloud服务器,请自行承担风险。
+
+#### ~~2.4.4 手机扫码登录~~
+
+> ⚠️ **Warning:** 目前由于网易云风控严重, 暂不支持扫码登录,会出现`8821 需要行为验证码验证`
+> 错误.[相关详情](https://github.com/chaunsin/netease-cloud-music/issues/26)
+
+环境变量配置：
+
+```shell
+export NCMCTL_QINGLONG_LOGIN_MODE=qrcode
+```
+
+设置完环境变量,在青龙定时任务中，点击运行`ncmctl登录`任务，查看运行日志，扫描日志中的二维码进行登录。
 
 ![qinglong-2.png](images/qinglong-2.png)
 
@@ -81,11 +207,11 @@
 
 在线生成二维码工具: https://www.bejson.com/convert/qrcode/#google_vignette
 
-### 2.5 环境变量配置
+### 2.5 定时任务相关环境变量配置
 
 默认情况下,此脚本会执行所有定时任务，如需关闭某些任务可以添加环境变量进行相应的控制。
 
-目前环境变量主要有三个
+环境变量主要有三个
 
 - `NCMCTL_QINGLONG_SIGN` 是否开启云贝签到 true: 开启(默认) false: 关闭
 - `NCMCTL_QINGLONG_SCROBBLE` 是否开启刷歌 true: 开启(默认) false: 关闭
