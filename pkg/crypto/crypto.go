@@ -86,12 +86,17 @@ func aesEncrypt(text, key, iv, mode, format string) (string, error) {
 		return "", fmt.Errorf("NewCipher: %w", err)
 	}
 
+	padding, err := Pkcs7Padding([]byte(text), block.BlockSize())
+	if err != nil {
+		return "", fmt.Errorf("Pkcs7Padding: %w", err)
+	}
+
 	var cipherText []byte
 	switch mode {
 	case "cbc":
-		cipherText = aesEncryptCBC(block, []byte(text), []byte(iv))
+		cipherText = AesEncryptCBC(block, padding, []byte(iv))
 	case "ecb":
-		cipherText = aesEncryptECB(block, []byte(text))
+		cipherText = AesEncryptECB(block, padding)
 	default:
 		return "", fmt.Errorf("%s unknown mode", mode)
 	}
@@ -134,29 +139,34 @@ func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 	var text []byte
 	switch mode {
 	case "cbc":
-		text, err = aesDecryptCBC(block, data, []byte(iv))
+		// 这里不需要Pkcs7UnPadding?
+		text, err = AesDecryptCBC(block, data, []byte(iv))
 	case "ecb":
-		text, err = aesDecryptECB(block, data)
+		text, err = AesDecryptECB(block, data)
 	default:
 		return nil, fmt.Errorf("%s unknown mode", mode)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("mode: %w", err)
 	}
+
+	text, err = Pkcs7UnPadding(text)
+	if err != nil {
+		return nil, fmt.Errorf("Pkcs7UnPadding: %w", err)
+	}
 	return text, nil
 }
 
-// aesEncryptCBC 加密
-func aesEncryptCBC(block cipher.Block, plaintext, iv []byte) []byte {
-	plaintext = pkcs7Padding(plaintext, block.BlockSize())
+// AesEncryptCBC 加密
+func AesEncryptCBC(block cipher.Block, plaintext, iv []byte) []byte {
 	ciphertext := make([]byte, len(plaintext))
 	encrypt := cipher.NewCBCEncrypter(block, iv)
 	encrypt.CryptBlocks(ciphertext, plaintext)
 	return ciphertext
 }
 
-// aesDecryptCBC 解密
-func aesDecryptCBC(block cipher.Block, cipherText, iv []byte) ([]byte, error) {
+// AesDecryptCBC 解密
+func AesDecryptCBC(block cipher.Block, cipherText, iv []byte) ([]byte, error) {
 	if len(iv) != block.BlockSize() {
 		return nil, fmt.Errorf("IV length must be %d bytes", block.BlockSize())
 	}
@@ -167,9 +177,8 @@ func aesDecryptCBC(block cipher.Block, cipherText, iv []byte) ([]byte, error) {
 	return data, nil
 }
 
-// aesEncryptECB 加密
-func aesEncryptECB(block cipher.Block, plaintext []byte) []byte {
-	plaintext = pkcs7Padding(plaintext, block.BlockSize())
+// AesEncryptECB 加密
+func AesEncryptECB(block cipher.Block, plaintext []byte) []byte {
 	ciphertext := make([]byte, len(plaintext))
 	blockSize := block.BlockSize()
 	for i := 0; i < len(plaintext); i += blockSize {
@@ -178,8 +187,8 @@ func aesEncryptECB(block cipher.Block, plaintext []byte) []byte {
 	return ciphertext
 }
 
-// aesDecryptECB 解密
-func aesDecryptECB(block cipher.Block, cipherBytes []byte) ([]byte, error) {
+// AesDecryptECB 解密
+func AesDecryptECB(block cipher.Block, cipherBytes []byte) ([]byte, error) {
 	if len(cipherBytes)%block.BlockSize() != 0 {
 		return nil, errors.New("cipherBytes length is not a multiple of block size")
 	}
@@ -187,11 +196,11 @@ func aesDecryptECB(block cipher.Block, cipherBytes []byte) ([]byte, error) {
 	for i := 0; i < len(cipherBytes); i += block.BlockSize() {
 		block.Decrypt(decrypted[i:i+block.BlockSize()], cipherBytes[i:i+block.BlockSize()])
 	}
-	return pkcs7UnPadding(decrypted), nil
+	return decrypted, nil
 }
 
-// rsaEncrypt 公钥加密无填充方式
-func rsaEncrypt(ciphertext, key string) (string, error) {
+// RsaEncrypt 公钥加密无填充方式
+func RsaEncrypt(ciphertext, key string) (string, error) {
 	block, _ := pem.Decode([]byte(key))
 	if block == nil {
 		return "", errors.New("failed to parse PEM block containing the public key")
@@ -211,18 +220,42 @@ func rsaEncrypt(ciphertext, key string) (string, error) {
 	return hex.EncodeToString(encryptedBytes), nil
 }
 
-// pkcs7Padding 补码
-func pkcs7Padding(ciphertext []byte, blockSize int) []byte {
-	padding := blockSize - len(ciphertext)%blockSize
-	pad := bytes.Repeat([]byte{byte(padding)}, padding)
-	return append(ciphertext, pad...)
+// Pkcs7Padding 补码,严格遵循 RFC 5652 规范
+func Pkcs7Padding(data []byte, blockSize int) ([]byte, error) {
+	if blockSize <= 0 || blockSize > 255 {
+		return nil, errors.New("pkcs7: invalid block size")
+	}
+
+	padding := blockSize - (len(data) % blockSize)
+	if padding == 0 {
+		padding = blockSize // 必须添加完整填充块
+	}
+
+	// 验证填充值有效性
+	if padding < 1 || padding > blockSize {
+		return nil, errors.New("pkcs7: invalid padding size")
+	}
+	return append(data, bytes.Repeat([]byte{byte(padding)}, padding)...), nil
 }
 
-// pkcs7UnPadding 去码
-func pkcs7UnPadding(origData []byte) []byte {
-	length := len(origData)
-	pad := int(origData[length-1])
-	return origData[:(length - pad)]
+// Pkcs7UnPadding 去码
+func Pkcs7UnPadding(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return nil, errors.New("pkcs7: empty input data")
+	}
+
+	padding := int(data[len(data)-1])
+	if padding < 1 || padding > len(data) {
+		return nil, errors.New("pkcs7: invalid padding size")
+	}
+
+	// 验证所有填充字节一致
+	for i := len(data) - padding; i < len(data); i++ {
+		if int(data[i]) != padding {
+			return nil, errors.New("pkcs7: invalid padding content")
+		}
+	}
+	return data[:len(data)-padding], nil
 }
 
 // WeApiEncrypt 加密
@@ -240,9 +273,9 @@ func WeApiEncrypt(object interface{}) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("aesEncrypt: %w", err)
 	}
-	encSecKey, err := rsaEncrypt(reverseString(secretKey), publicKey)
+	encSecKey, err := RsaEncrypt(reverseString(secretKey), publicKey)
 	if err != nil {
-		return nil, fmt.Errorf("rsaEncrypt: %w", err)
+		return nil, fmt.Errorf("RsaEncrypt: %w", err)
 	}
 	return map[string]string{
 		"params":    params,
@@ -315,7 +348,11 @@ func CacheKeyEncrypt(data string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("NewCipher: %w", err)
 	}
-	encrypted := aesEncryptECB(block, []byte(data))
+	padding, err := Pkcs7Padding([]byte(data), block.BlockSize())
+	if err != nil {
+		return "", fmt.Errorf("Pkcs7Padding: %w", err)
+	}
+	encrypted := AesEncryptECB(block, padding)
 	return base64.StdEncoding.EncodeToString(encrypted), nil
 }
 
@@ -329,11 +366,15 @@ func CacheKeyDecrypt(data string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("NewCipher: %w", err)
 	}
-	decrypted, err := aesDecryptECB(block, encrypted)
+	decrypted, err := AesDecryptECB(block, encrypted)
 	if err != nil {
-		return "", fmt.Errorf("aesDecryptECB: %w", err)
+		return "", fmt.Errorf("AesDecryptECB: %w", err)
 	}
-	return string(decrypted), nil
+	plaintext, err := Pkcs7UnPadding(decrypted)
+	if err != nil {
+		return "", fmt.Errorf("Pkcs7UnPadding: %w", err)
+	}
+	return string(plaintext), nil
 }
 
 func DLLEncodeID(someID string) (string, error) {
@@ -358,7 +399,7 @@ func Anonymous(deviceId string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("encodedID:", encodedID)
+	// fmt.Println("encodedID:", encodedID)
 	// 构建username内容
 	content := fmt.Sprintf("%s %s", deviceId, encodedID)
 	username := base64.URLEncoding.EncodeToString([]byte(content))

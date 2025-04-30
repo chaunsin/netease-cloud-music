@@ -156,12 +156,14 @@ func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 	return http.Cookie{}, false
 }
 
-// Cookies 获取当前所有cookies
-func (c *Client) Cookies() []*http.Cookie {
-	if c.cli != nil {
-		return c.cli.R().Cookies
-	}
-	return make([]*http.Cookie, 0)
+// GetCookies 获取cookies
+func (c *Client) GetCookies(url *neturl.URL) []*http.Cookie {
+	return c.cookie.Cookies(url)
+}
+
+// SetCookies 设置cookies
+func (c *Client) SetCookies(url *neturl.URL, cookies []*http.Cookie) {
+	c.cookie.SetCookies(url, cookies)
 }
 
 // GetCSRF 获取csrf 一般用于weapi接口中使用

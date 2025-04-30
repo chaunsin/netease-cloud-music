@@ -47,12 +47,13 @@ func NewLogin(root *Root, l *log.Logger) *Login {
 		cmd: &cobra.Command{
 			Use:     "login",
 			Short:   "Login netease cloud music",
-			Example: "  ncmctl login -h\n  ncmctl login qrcode\n  ncmctl login phone 188xxxx8888",
+			Example: "  ncmctl login -h\n  ncmctl login qrcode\n  ncmctl login phone 188xxxx8888\n  ncmctl login cookiecloud",
 		},
 	}
 	c.addFlags()
 	c.Add(qrcode(c, l))
 	c.Add(phone(c, l))
+	c.Add(cookieCloud(c, l))
 
 	return c
 }
