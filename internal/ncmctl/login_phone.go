@@ -66,7 +66,7 @@ func phone(root *Login, l *log.Logger) *cobra.Command {
 func (c *loginPhoneCmd) addFlags() {
 	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Minute*10, "login timeout, eg: 1s、1m")
 	c.cmd.Flags().Int64Var(&c.countrycode, "countrycode", 86, "country code")
-	c.cmd.Flags().StringVar(&c.password, "p", "", "use when logging in with a password.")
+	c.cmd.Flags().StringVarP(&c.password, "password", "p", "", "use when logging in with a password.")
 }
 
 func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
@@ -150,7 +150,7 @@ func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
 		return fmt.Errorf("LoginCellphone: %s", err)
 	}
 	if login.Code != 200 {
-		return fmt.Errorf("login failed, code: %d, msg: %s", login.Code, login.Msg)
+		return fmt.Errorf("login failed, code: %d, msg: %s, message: %s", login.Code, login.Msg, login.Message)
 	}
 
 	// 查询登录信息是否成功

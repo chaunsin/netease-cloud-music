@@ -37,7 +37,7 @@ import (
 
 type QrcodeCreateKeyReq struct {
 	types.ReqCommon
-	Type int64 `json:"type"`
+	Type int64 `json:"type"` // 1: 貌似是web端 3: 貌似移动端
 }
 
 type QrcodeCreateKeyResp struct {
@@ -455,7 +455,7 @@ func (a *Api) LoginCellphone(ctx context.Context, req *LoginCellphoneReq) (*Logi
 	params["phone"] = req.Phone
 	params["countrycode"] = req.Countrycode
 	params["remember"] = fmt.Sprintf("%v", req.Remember)
-	params["type"] = "1" // ?
+	params["type"] = "1" // 0: 貌似是邮箱登录 1: 手机号登录
 
 	resp, err := a.client.Request(ctx, url, params, &reply, opts)
 	if err != nil {

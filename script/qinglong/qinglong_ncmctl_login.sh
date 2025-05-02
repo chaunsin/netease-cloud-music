@@ -30,8 +30,8 @@
 
 set -e
 
-# NCMCTL_QINGLONG_LOGIN_MODE 登录模式 [phone|qrcode|cookie|cookiecloud] 默认短信登录
-NCMCTL_QINGLONG_LOGIN_MODE=${NCMCTL_QINGLONG_LOGIN_MODE:-phone}
+# NCMCTL_QINGLONG_LOGIN_MODE 登录模式 [phone|qrcode|cookie|cookiecloud] 默认cookiecloud
+NCMCTL_QINGLONG_LOGIN_MODE=${NCMCTL_QINGLONG_LOGIN_MODE:-cookiecloud}
 # NCMCTL_QINGLONG_LOGIN_ACCOUNT 登录账号
 NCMCTL_QINGLONG_LOGIN_ACCOUNT=${NCMCTL_QINGLONG_LOGIN_ACCOUNT:-''}
 # NCMCTL_QINGLONG_LOGIN_PASSWORD 登录密码
@@ -56,7 +56,7 @@ case "${NCMCTL_QINGLONG_LOGIN_MODE}" in
         login_args+=("${NCMCTL_QINGLONG_LOGIN_ACCOUNT}")
 
         if [[ -n "${NCMCTL_QINGLONG_LOGIN_PASSWORD}" ]]; then
-            login_args+=(-s "${NCMCTL_QINGLONG_LOGIN_PASSWORD}")
+            login_args+=(-p "${NCMCTL_QINGLONG_LOGIN_PASSWORD}")
         fi
         ;;
 

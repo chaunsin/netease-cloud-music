@@ -74,33 +74,32 @@
 
 #### 2.4.1 短信登录
 
-默认为短信验证码登录。登录前请先在青龙中设置好环境变量在执行`ncmctl登录`任务。
+由于青龙脚本执行时没有地方可以输入短信验证码，没法完整自动化登录流程，因此需要手动进入青龙终端中才能执行短信登录方式。
 
-环境变量配置：
+流程如下:
 
-```shell
-# 登录方式手机号
-export NCMCTL_QINGLONG_LOGIN_MODE=phone
-# 登录手机号,替换成你自己的手机号。
-export NCMCTL_QINGLONG_LOGIN_ACCOUNT=188xxxx8888
-```
-
-设置成功之后,点击`ncmctl登录`,成功之后终端会输出以下内容
+1. 进入青龙终端中
+2. 找到`ncmctl`安装目录,通常在`/usr/local/bin`运行`ncmctl`，成功之后终端会输出以下内容
 
 ```shell
-Executing: ncmctl login phone 188xxxx8888
+# 替换成你自己得手机号
+ncmctl login phone 188xxxx8888
 send sms success
 please input sms captcha: 
 ```
 
-根据上述内容提示，输入短信验证码进行登录,成功内容如下：
+3. 根据上述内容提示，输入短信验证码进行登录,成功内容如下
 
 ```shell
 verify sms success
 login success: &{RespCommon:{Code:200 Message: Msg: Data:<nil>} Account:0xc00036a070 Profile:0xc0005a8180}
 ```
 
-**注意: 发送短信每日有限制,请不要频繁登录避免风控。**
+**注意:**
+
+1. 发送短信每日有限制,请不要频繁登录避免风控。
+2. 有时显示`send sms success`
+   但等了很久依然没有收到短信,可能是短信运营商抽风,可以重新发送短信或者稍后再试。如果尝试多次还是失败，可能账号因某些原因入了黑名单,具体验证方式可以登录网易云网页端走短信登录正规流程看是否能收到短信。
 
 #### 2.4.2 手机号密码登录
 
@@ -117,11 +116,13 @@ export NCMCTL_QINGLONG_LOGIN_PASSWORD=123456
 
 使用密码登录方式,需要在网易云中设置账号允许手机号密码登录方式,如果未设置请先设置。
 
+密码登录方式容易出现安全风险相关问题,`8821 需要行为验证码验证`未必会成功,可作为尝试登录的一种方式。
+
 **注意: 不要泄露密码。**
 
 #### 2.4.3 cookie登录
 
-当使用此工具按照正常流程登录失败、或者因风控等原因不能登录，可以尝试使用cookie登录,cookie登录属于保底方案。
+当使用`ncmctl`进行手机号登录、扫码登录等场景失败时，可以尝试使用cookie登录,cookie登录属于保底方案。
 
 cookie内容得获取方式有很多，比如可以通过浏览器安装插件的方式进行获取，可参考使用工具 [Cookie Editor](https://chromewebstore.google.com/detail/cookie-editor/ookdjilphngeeeghgngjabigmpepanpl)
 或其他cookie导出工具。
@@ -145,7 +146,7 @@ cookie内容支持三种类型格式
 
 详情使用，以及文件格式规则可查看 `ncmctl login cookie -h` 介绍
 
-#### 2.4.3 cookiecloud登录
+#### 2.4.3 cookiecloud登录(默认登录方式)
 
 cookiecloud还是cookie另一种登录方式,cookiecloud也是浏览器cookie管理插件工具得一种，它得特点是浏览器可以自动同步cookie到云端，并对cookie内容进行加密存储，业务场景上可直接从云端拉取cookie内容到本地,以供后续使用。
 

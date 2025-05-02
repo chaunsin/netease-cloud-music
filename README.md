@@ -97,7 +97,7 @@ cd netease-cloud-music && make build-iamge
 目前支持5种登录方式
 
 <details>
-  <summary>详情</summary>
+  <summary>点击查看详情</summary>
   <pre>
 
 **一、短信登录**
@@ -113,14 +113,18 @@ send sms success
 please input sms captcha: 
 ```
 
-根据上述内容提示，输入短信验证码进行登录,成功内容如下：
+根据上述内容提示，请在终端输入短信验证码进行登录,成功内容如下：
 
 ```shell
 verify sms success
 login success: &{RespCommon:{Code:200 Message: Msg: Data:<nil>} Account:0xc00036a070 Profile:0xc0005a8180}
 ```
 
-**注意: 发送短信每日有限制,请不要频繁登录避免风控。**
+**注意:**
+
+1. 发送短信每日有限制,请不要频繁登录避免风控。
+2. 有时显示**send sms success**
+   但等了很久依然没有收到短信,可能是短信运营商抽风,可以重新发送短信或者稍后再试。如果尝试多次还是失败，可能账号因某些原因入了黑名单,具体验证方式可以登录网易云网页端走短信登录正规流程看是否能收到短信。
 
 **二、手机号密码登录**
 
@@ -130,7 +134,7 @@ login success: &{RespCommon:{Code:200 Message: Msg: Data:<nil>} Account:0xc00036
 ncmctl login phone 188xxx8888 -p 123456
 ```
 
-密码登录方式容易出现安全风险相关问题,未必会成功。
+密码登录方式容易出现安全风险相关问题,`8821 需要行为验证码验证`未必会成功,可作为尝试登录的一种方式。
 
 **三、cookie登录**
 
