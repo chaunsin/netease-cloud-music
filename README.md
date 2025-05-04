@@ -15,7 +15,12 @@
 ## ✨ 功能
 
 ### 命令行 (ncmctl)
-
+- [x] 登录
+  - [x] 短信登录
+  - [x] cookie方式登录
+  - [x] [cookiecloud](https://github.com/easychen/CookieCloud/blob/master/README_cn.md)方式登录
+  - [x] ~~扫码登录~~
+  - [x] ~~手机号密码登录~~    
 - [x] 一键每日任务完成(音乐合伙人、云贝签到、刷歌300首)
 - [x] 云贝签到(自动领取签到奖励)
 - [x] “音乐合伙人”自动测评(5首基础歌曲 + 2到7首随机额外歌曲测评，另不包含"歌曲推荐"测评)
