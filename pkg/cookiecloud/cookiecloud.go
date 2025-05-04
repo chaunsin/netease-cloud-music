@@ -134,16 +134,14 @@ func (c *Client) Get(ctx context.Context, req *GetReq) (*GetResp, error) {
 	)
 
 	// 云端解密
+	var method = resty.MethodGet
 	if req.CloudDecryption {
+		method = resty.MethodPost
 		cli = cli.SetBody(map[string]string{
 			"password": req.Password,
 		})
 	}
 
-	var method = resty.MethodGet
-	if req.CloudDecryption {
-		method = resty.MethodPost
-	}
 	var res, err = cli.SetResult(&resp).Execute(method, "/get/"+req.Uuid)
 
 	if err != nil {
