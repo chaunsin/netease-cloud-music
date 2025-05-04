@@ -134,11 +134,16 @@ func (c *Client) Get(ctx context.Context, req *GetReq) (*GetResp, error) {
 	)
 
 	// 云端解密
+	var method = resty.MethodGet
 	if req.CloudDecryption {
-		cli = cli.SetBody(req)
+		method = resty.MethodPost
+		cli = cli.SetBody(map[string]string{
+			"password": req.Password,
+		})
 	}
 
-	res, err := cli.SetResult(&resp).Post("/get/" + req.Uuid)
+	var res, err = cli.SetResult(&resp).Execute(method, "/get/"+req.Uuid)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to request server: %v", err)
 	}
@@ -146,7 +151,7 @@ func (c *Client) Get(ctx context.Context, req *GetReq) (*GetResp, error) {
 		return nil, fmt.Errorf("uuid %s not found", req.Uuid)
 	}
 	if res.StatusCode() != 200 {
-		return nil, fmt.Errorf("server return status %d body %+V", res.StatusCode(), resp)
+		return nil, fmt.Errorf("server return status %d body %+v", res.StatusCode(), resp)
 	}
 	if req.CloudDecryption {
 		return &resp, nil
