@@ -105,6 +105,30 @@ func (c *SignIn) execute(ctx context.Context) error {
 		c.cmd.Println("yunbei repeat signed in")
 	}
 
+	// 获取签到进度
+	progress, err := request.YunBeiSignInProgress(ctx, &weapi.YunBeiSignInProgressReq{})
+	if err != nil {
+		return fmt.Errorf("YunBeiSignInProgress: %w", err)
+	}
+	for _, v := range progress.Data.LotteryConfig {
+		if v.BaseLotteryId <= 0 || v.ExtraLotteryId <= 0 {
+			continue
+		}
+		log.Debug("天数=%v,奖励内容=%v,id=%v,status=%v",
+			v.SignDay, v.BaseGrant.Name, v.BaseLotteryId, v.BaseLotteryStatus)
+		// 领取奖励
+		reply, err := request.YunBeiSignLottery(ctx, &weapi.YunBeiSignLotteryReq{
+			UserLotteryId: fmt.Sprintf("%d", v.BaseLotteryId),
+		})
+		if err != nil {
+			log.Error("YunBeiSignLottery(%v): %w", v.BaseLotteryId, err)
+		}
+		if reply.Data {
+			c.cmd.Printf("天数=%v,奖励内容=%v 领取成功\n", v.SignDay, v.BaseGrant.Name)
+		}
+		// todo: 满勤签到领取抽奖机会使用ExtraLotteryId,同时也是YunBeiSignLottery方法?
+	}
+
 	// // 完成当前时刻可以领取的任务奖励
 	// task, err := request.YunBeiTaskListV3(ctx, &weapi.YunBeiTaskListV3Req{})
 	// if err != nil {

@@ -735,9 +735,10 @@ type YunBeiSignInProgressRespDataLotteryConfig struct {
 		// Note 提示描述 例如: 云贝直接充值到账，详情可至账单查看
 		Note string `json:"note"`
 	} `json:"baseGrant"`
-	ExtraGrant    *ExtraGrant `json:"extraGrant"`
-	BaseLotteryId int64       `json:"baseLotteryId"`
-	// BaseLotteryStatus 签到奖励状态 0:未领取 1:已领取
+	ExtraGrant *ExtraGrant `json:"extraGrant"`
+	// BaseLotteryId 签到奖励id,当可以领取时则有值,反之id为0
+	BaseLotteryId int64 `json:"baseLotteryId"`
+	// BaseLotteryStatus 签到奖励状态 0:可领取或未达成？ 1:已领取
 	BaseLotteryStatus  int64 `json:"baseLotteryStatus"`
 	ExtraLotteryId     int64 `json:"extraLotteryId"`
 	ExtraLotteryStatus int64 `json:"extraLotteryStatus"`
@@ -864,7 +865,7 @@ type YunBeiBalanceReq struct {
 }
 
 type YunBeiBalanceResp struct {
-	types.ApiRespCommon[YunBeiBalanceRespData]
+	types.RespCommon[YunBeiBalanceRespData]
 }
 
 type YunBeiBalanceRespData struct {
@@ -879,6 +880,32 @@ func (a *Api) YunBeiBalance(ctx context.Context, req *YunBeiBalanceReq) (*YunBei
 	var (
 		url   = "https://interface.music.163.com/weapi/middle/mall/balance"
 		reply YunBeiBalanceResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiSignLotteryReq struct {
+	types.ReqCommon
+	UserLotteryId string `json:"userLotteryId"` // 对应 YunBeiSignInProgressRespDataLotteryConfig 中得BaseLotteryId字段
+}
+
+type YunBeiSignLotteryResp struct {
+	types.RespCommon[bool] // true: 领取成功,如果领取过则为false
+}
+
+// YunBeiSignLottery 每日签到云贝领取
+// har: 42.har
+func (a *Api) YunBeiSignLottery(ctx context.Context, req *YunBeiSignLotteryReq) (*YunBeiSignLotteryResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/pointmall/user/sign/lottery/get"
+		reply YunBeiSignLotteryResp
 		opts  = api.NewOptions()
 	)
 

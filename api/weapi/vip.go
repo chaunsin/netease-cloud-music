@@ -109,39 +109,39 @@ type VipTaskRespData struct {
 		SeqName   string `json:"seqName"`
 		TaskItems []struct {
 			Action          string      `json:"action"`
-			ActionType      int         `json:"actionType"`
-			BasicTaskId     int         `json:"basicTaskId"`
+			ActionType      int64       `json:"actionType"`
+			BasicTaskId     int64       `json:"basicTaskId"`
 			BusinessIdent   interface{} `json:"businessIdent"`
-			CurrentProgress int         `json:"currentProgress"`
+			CurrentProgress int64       `json:"currentProgress"`
 			Description     string      `json:"description"`
-			GrowthPoint     int         `json:"growthPoint"`
+			GrowthPoint     int64       `json:"growthPoint"`
 			IconUrl         string      `json:"iconUrl"`
-			MissionId       int         `json:"missionId"`
+			MissionId       int64       `json:"missionId"`
 			Name            string      `json:"name"`
 			NeedReceive     bool        `json:"needReceive"`
-			Period          int         `json:"period"`
-			ProgressType    int         `json:"progressType"`
-			RuleId          int         `json:"ruleId"`
-			SeqTag          int         `json:"seqTag"`
+			Period          int64       `json:"period"`
+			ProgressType    int64       `json:"progressType"`
+			RuleId          int64       `json:"ruleId"`
+			SeqTag          int64       `json:"seqTag"`
 			ShowProgress    bool        `json:"showProgress"`
-			SortValue       int         `json:"sortValue"`
-			Status          int         `json:"status"`
-			TagId           int         `json:"tagId"`
-			TargetWorth     int         `json:"targetWorth"`
+			SortValue       int64       `json:"sortValue"`
+			Status          int64       `json:"status"`
+			TagId           int64       `json:"tagId"`
+			TargetWorth     int64       `json:"targetWorth"`
 			Targets         interface{} `json:"targets"`
 			TaskId          string      `json:"taskId"`
 			TaskTag         string      `json:"taskTag"`
-			TotalUngetScore int         `json:"totalUngetScore"`
-			Type            int         `json:"type"`
+			TotalUngetScore int64       `json:"totalUngetScore"`
+			Type            int64       `json:"type"`
 			TypeCode        interface{} `json:"typeCode"`
 			UnGetIds        []string    `json:"unGetIds"`
-			UpdateTime      int         `json:"updateTime"`
+			UpdateTime      int64       `json:"updateTime"`
 			Url             string      `json:"url"`
 			UserMissionId   interface{} `json:"userMissionId"`
 		} `json:"taskItems"`
-		TaskType int `json:"taskType"`
+		TaskType int64 `json:"taskType"`
 	} `json:"taskList"`
-	TaskScore int `json:"taskScore"`
+	TaskScore int64 `json:"taskScore"`
 }
 
 // VipTask vip任务列表 todo:该任务列表应该是旧接口貌似
@@ -169,39 +169,39 @@ type VipTaskV2Resp struct {
 }
 
 type VipTaskV2RespData struct {
-	MaxScore      int `json:"maxScore"`
-	ScoreDuration int `json:"scoreDuration"`
-	TaskScore     int `json:"taskScore"`
-	UnGetAllScore int `json:"unGetAllScore"`
+	MaxScore      int64 `json:"maxScore"`
+	ScoreDuration int64 `json:"scoreDuration"`
+	TaskScore     int64 `json:"taskScore"`
+	UnGetAllScore int64 `json:"unGetAllScore"`
 	TaskList      []struct {
-		Seq       int    `json:"seq"`
+		Seq       int64  `json:"seq"`
 		SeqName   string `json:"seqName"`
 		TaskItems []struct {
 			CurrentInfo struct {
 				Action          string      `json:"action"`
-				ActionType      int         `json:"actionType"`
-				BasicTaskId     int         `json:"basicTaskId"`
+				ActionType      int64       `json:"actionType"`
+				BasicTaskId     int64       `json:"basicTaskId"`
 				BusinessIdent   interface{} `json:"businessIdent"`
-				CurrentProgress int         `json:"currentProgress"`
+				CurrentProgress int64       `json:"currentProgress"`
 				Description     string      `json:"description"`
-				GrowthPoint     int         `json:"growthPoint"`
+				GrowthPoint     int64       `json:"growthPoint"`
 				IconUrl         string      `json:"iconUrl"`
-				MissionId       int         `json:"missionId"`
+				MissionId       int64       `json:"missionId"`
 				Name            string      `json:"name"`
 				NeedReceive     bool        `json:"needReceive"`
-				Period          int         `json:"period"`
-				ProgressType    int         `json:"progressType"`
-				RuleId          int         `json:"ruleId"`
-				SeqTag          int         `json:"seqTag"`
+				Period          int64       `json:"period"`
+				ProgressType    int64       `json:"progressType"`
+				RuleId          int64       `json:"ruleId"`
+				SeqTag          int64       `json:"seqTag"`
 				ShowProgress    bool        `json:"showProgress"`
-				SortValue       int         `json:"sortValue"`
-				Status          int         `json:"status"`
-				TagId           int         `json:"tagId"`
-				TargetWorth     int         `json:"targetWorth"`
+				SortValue       int64       `json:"sortValue"`
+				Status          int64       `json:"status"`
+				TagId           int64       `json:"tagId"`
+				TargetWorth     int64       `json:"targetWorth"`
 				TaskId          string      `json:"taskId"`
 				TaskTag         string      `json:"taskTag"`
-				TotalUngetScore int         `json:"totalUngetScore"`
-				Type            int         `json:"type"`
+				TotalUngetScore int64       `json:"totalUngetScore"`
+				Type            int64       `json:"type"`
 				TypeCode        interface{} `json:"typeCode"`
 				UnGetIds        interface{} `json:"unGetIds"`
 				UpdateTime      int64       `json:"updateTime"`
@@ -210,7 +210,7 @@ type VipTaskV2RespData struct {
 			} `json:"currentInfo"`
 			SubList interface{} `json:"subList"`
 		} `json:"taskItems"`
-		TaskType int `json:"taskType"`
+		TaskType int64 `json:"taskType"`
 	} `json:"taskList"`
 }
 
@@ -249,8 +249,8 @@ type VipInfoRespData struct {
 		IsSignDeduct    bool   `json:"isSignDeduct"`
 		IsSignIap       bool   `json:"isSignIap"`
 		IsSignIapDeduct bool   `json:"isSignIapDeduct"`
-		VipCode         int    `json:"vipCode"`
-		VipLevel        int    `json:"vipLevel"`
+		VipCode         int64  `json:"vipCode"`
+		VipLevel        int64  `json:"vipLevel"`
 	} `json:"associator"`
 	MusicPackage struct {
 		DynamicIconUrl  string `json:"dynamicIconUrl"`
@@ -260,13 +260,13 @@ type VipInfoRespData struct {
 		IsSignDeduct    bool   `json:"isSignDeduct"`
 		IsSignIap       bool   `json:"isSignIap"`
 		IsSignIapDeduct bool   `json:"isSignIapDeduct"`
-		VipCode         int    `json:"vipCode"`
-		VipLevel        int    `json:"vipLevel"`
+		VipCode         int64  `json:"vipCode"`
+		VipLevel        int64  `json:"vipLevel"`
 	} `json:"musicPackage"`
-	RedVipAnnualCount     int         `json:"redVipAnnualCount"`
+	RedVipAnnualCount     int64       `json:"redVipAnnualCount"`
 	RedVipDynamicIconUrl  interface{} `json:"redVipDynamicIconUrl"`
 	RedVipDynamicIconUrl2 interface{} `json:"redVipDynamicIconUrl2"`
-	RedVipLevel           int         `json:"redVipLevel"`
+	RedVipLevel           int64       `json:"redVipLevel"`
 	RedVipLevelIcon       string      `json:"redVipLevelIcon"`
 	Redplus               struct {
 		DynamicIconUrl  string `json:"dynamicIconUrl"`
@@ -276,8 +276,8 @@ type VipInfoRespData struct {
 		IsSignDeduct    bool   `json:"isSignDeduct"`
 		IsSignIap       bool   `json:"isSignIap"`
 		IsSignIapDeduct bool   `json:"isSignIapDeduct"`
-		VipCode         int    `json:"vipCode"`
-		VipLevel        int    `json:"vipLevel"`
+		VipCode         int64  `json:"vipCode"`
+		VipLevel        int64  `json:"vipLevel"`
 	} `json:"redplus"`
 }
 
@@ -316,8 +316,8 @@ type VipClientInfoRespData struct {
 		IsSignDeduct    bool        `json:"isSignDeduct"`
 		IsSignIap       bool        `json:"isSignIap"`
 		IsSignIapDeduct bool        `json:"isSignIapDeduct"`
-		VipCode         int         `json:"vipCode"`
-		VipLevel        int         `json:"vipLevel"`
+		VipCode         int64       `json:"vipCode"`
+		VipLevel        int64       `json:"vipLevel"`
 	} `json:"albumVip"`
 	Associator struct {
 		DynamicIconUrl  interface{} `json:"dynamicIconUrl"`
@@ -327,8 +327,8 @@ type VipClientInfoRespData struct {
 		IsSignDeduct    bool        `json:"isSignDeduct"`
 		IsSignIap       bool        `json:"isSignIap"`
 		IsSignIapDeduct bool        `json:"isSignIapDeduct"`
-		VipCode         int         `json:"vipCode"`
-		VipLevel        int         `json:"vipLevel"`
+		VipCode         int64       `json:"vipCode"`
+		VipLevel        int64       `json:"vipLevel"`
 	} `json:"associator"`
 	MusicPackage struct {
 		DynamicIconUrl  interface{} `json:"dynamicIconUrl"`
@@ -338,13 +338,13 @@ type VipClientInfoRespData struct {
 		IsSignDeduct    bool        `json:"isSignDeduct"`
 		IsSignIap       bool        `json:"isSignIap"`
 		IsSignIapDeduct bool        `json:"isSignIapDeduct"`
-		VipCode         int         `json:"vipCode"`
-		VipLevel        int         `json:"vipLevel"`
+		VipCode         int64       `json:"vipCode"`
+		VipLevel        int64       `json:"vipLevel"`
 	} `json:"musicPackage"`
-	Now               int64 `json:"now"`
+	Now               int64 `json:"now"` // eg: 1746370409099
 	OldCacheProtocol  bool  `json:"oldCacheProtocol"`
-	RedVipAnnualCount int   `json:"redVipAnnualCount"`
-	RedVipLevel       int   `json:"redVipLevel"`
+	RedVipAnnualCount int64 `json:"redVipAnnualCount"`
+	RedVipLevel       int64 `json:"redVipLevel"`
 	Redplus           struct {
 		DynamicIconUrl  interface{} `json:"dynamicIconUrl"`
 		ExpireTime      int64       `json:"expireTime"`
@@ -353,13 +353,13 @@ type VipClientInfoRespData struct {
 		IsSignDeduct    bool        `json:"isSignDeduct"`
 		IsSignIap       bool        `json:"isSignIap"`
 		IsSignIapDeduct bool        `json:"isSignIapDeduct"`
-		VipCode         int         `json:"vipCode"`
-		VipLevel        int         `json:"vipLevel"`
+		VipCode         int64       `json:"vipCode"`
+		VipLevel        int64       `json:"vipLevel"`
 	} `json:"redplus"`
-	RelationOtherUserId               int `json:"relationOtherUserId"`
-	RelationOtherUserRedVipExpireTime int `json:"relationOtherUserRedVipExpireTime"`
-	RelationType                      int `json:"relationType"`
-	UserId                            int `json:"userId"`
+	RelationOtherUserId               int64 `json:"relationOtherUserId"`
+	RelationOtherUserRedVipExpireTime int64 `json:"relationOtherUserRedVipExpireTime"`
+	RelationType                      int64 `json:"relationType"`
+	UserId                            int64 `json:"userId"`
 	VoiceBookVip                      struct {
 		DynamicIconUrl  interface{} `json:"dynamicIconUrl"`
 		ExpireTime      int64       `json:"expireTime"`
@@ -368,8 +368,8 @@ type VipClientInfoRespData struct {
 		IsSignDeduct    bool        `json:"isSignDeduct"`
 		IsSignIap       bool        `json:"isSignIap"`
 		IsSignIapDeduct bool        `json:"isSignIapDeduct"`
-		VipCode         int         `json:"vipCode"`
-		VipLevel        int         `json:"vipLevel"`
+		VipCode         int64       `json:"vipCode"`
+		VipLevel        int64       `json:"vipLevel"`
 	} `json:"voiceBookVip"`
 }
 
