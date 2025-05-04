@@ -123,7 +123,7 @@ func fakeServer(t *testing.T, now time.Time) *httptest.Server {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		if r.Method != http.MethodPost {
+		if r.Method != http.MethodPost && r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
