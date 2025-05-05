@@ -416,7 +416,7 @@ type YunBeiReceiptAndExpenseRespData struct {
 }
 
 // YunBeiReceipt 获取用户云贝收入记录列表
-// url:
+// har:
 // needLogin: 是
 // todo: 迁移到合适的包中
 func (a *Api) YunBeiReceipt(ctx context.Context, req *YunBeiReceiptReq) (*YunBeiReceiptResp, error) {
@@ -619,23 +619,17 @@ func (a *Api) YunBeiTaskTodo(ctx context.Context, req *YunBeiTaskTodoReq) (*YunB
 }
 
 type YunBeiTaskFinishReq struct {
-	Period      string `json:"period"`
-	UserTaskId  string `json:"userTaskId"`
-	DepositCode string `json:"depositCode"`
+	Period      string `json:"period"`      // eg: 1
+	UserTaskId  string `json:"userTaskId"`  // eg: 293239602686
+	DepositCode string `json:"depositCode"` // eg: 1304
 }
 
 type YunBeiTaskFinishResp struct {
-	Code    string // 此接口code返回类型为string
-	Success bool
-	Message string
-	Data    any
-	Ignore  bool
-	Present bool
-	Empty   bool
+	types.RespCommon[bool]
 }
 
 // YunBeiTaskFinish 获取完成云贝任务奖励,一次只能领取一个,网易一键领取是调用了多次该接口实现。
-// url:
+// har: 66.har
 // needLogin: 是
 func (a *Api) YunBeiTaskFinish(ctx context.Context, req *YunBeiTaskFinishReq) (*YunBeiTaskFinishResp, error) {
 	var (
@@ -686,7 +680,6 @@ func (a *Api) YunBeiSignInCalendar(ctx context.Context, req *YunBeiSignInCalenda
 type YunBeiSignInJudgeReq struct{}
 
 type YunBeiSignInJudgeResp struct {
-	// data true 为已签到
 	types.RespCommon[bool]
 }
 
@@ -906,6 +899,560 @@ func (a *Api) YunBeiSignLottery(ctx context.Context, req *YunBeiSignLotteryReq) 
 	var (
 		url   = "https://interface.music.163.com/weapi/pointmall/user/sign/lottery/get"
 		reply YunBeiSignLotteryResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiSquareBlockCategoryReq struct {
+	types.ReqCommon
+}
+
+type YunBeiSquareBlockCategoryResp struct {
+	types.RespCommon[YunBeiSquareBlockCategoryRespData]
+}
+
+type YunBeiSquareBlockCategoryRespData struct {
+	BlockCategoryList []YunBeiSquareBlockCategoryRespDataBlockCategoryList `json:"blockCategoryList"`
+}
+
+type YunBeiSquareBlockCategoryRespDataBlockCategoryList struct {
+	Id                   int                                                                      `json:"id"`
+	Name                 string                                                                   `json:"name"`
+	ImageUrl             string                                                                   `json:"imageUrl"`
+	SecondCategoryVOList []YunBeiSquareBlockCategoryRespDataBlockCategoryListSecondCategoryVOList `json:"secondCategoryVOList"`
+}
+
+type YunBeiSquareBlockCategoryRespDataBlockCategoryListSecondCategoryVOList struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// YunBeiSquareBlockCategory 兑换好礼集合列表 eg: 推荐、运存专区、个性定制、专享权益...
+// har: 60.har
+// needLogin: 未知
+func (a *Api) YunBeiSquareBlockCategory(ctx context.Context, req *YunBeiSquareBlockCategoryReq) (*YunBeiSquareBlockCategoryResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/yunbei-center/square/block/list/category"
+		reply YunBeiSquareBlockCategoryResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiRecommendReq struct {
+	types.ReqCommon
+}
+
+type YunBeiRecommendResp struct {
+	types.RespCommon[[]YunBeiRecommendRespData]
+}
+
+type YunBeiRecommendRespData struct {
+	Id             int         `json:"id"`
+	Name           string      `json:"name"`
+	CoverIdStr     string      `json:"coverIdStr"`
+	CoverUrl       string      `json:"coverUrl"`
+	SpecialType    int         `json:"specialType"`
+	AllowDupBuy    bool        `json:"allowDupBuy"`
+	Price          int         `json:"price"`
+	Status         int         `json:"status"`
+	ListPicUrl     string      `json:"listPicUrl"`
+	Sales          int         `json:"sales"`
+	RmbOriginPrice string      `json:"rmbOriginPrice"`
+	SkuId          int         `json:"skuId"`
+	ExtItemType    interface{} `json:"extItemType"`
+	ExtItemId      interface{} `json:"extItemId"`
+	CnySkuId       int         `json:"cnySkuId"`
+	CnyProductId   int         `json:"cnyProductId"`
+	ShowTagName    string      `json:"showTagName"`
+	ListWebPicUrl  interface{} `json:"listWebPicUrl"`
+	SupportShare   int         `json:"supportShare"`
+	ShowType       int         `json:"showType"`
+	InnerLabel     string      `json:"innerLabel"`
+	DayLimit       int         `json:"dayLimit"`
+}
+
+// YunBeiRecommend 推荐列表。貌似废弃了
+// har: 61.har
+// needLogin: 未知
+func (a *Api) YunBeiRecommend(ctx context.Context, req *YunBeiRecommendReq) (*YunBeiRecommendResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/pointmall/point/recommend"
+		reply YunBeiRecommendResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiCoinRecordInsertReq struct {
+	types.ReqCommon
+	ReqId string `json:"reqId"` // eg: 6c63b960-d8fe-446a-b640-b8be30ff99c2
+}
+
+type YunBeiCoinRecordInsertResp struct {
+	types.RespCommon[any]
+}
+
+// YunBeiCoinRecordInsert todo: 广告相关后续分析
+// har: 62.har
+// needLogin: 未知
+func (a *Api) YunBeiCoinRecordInsert(ctx context.Context, req *YunBeiCoinRecordInsertReq) (*YunBeiCoinRecordInsertResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/ad/listening/new/yunbei/coin/record/insert"
+		reply YunBeiCoinRecordInsertResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiProductListReq struct {
+	types.ReqCommon
+	Limit  string `json:"limit"`
+	Offset string `json:"offset"` // TODO: 需要明确是否有此字段
+}
+
+type YunBeiProductListResp struct {
+	types.RespCommon[YunBeiProductListRespData]
+}
+
+type YunBeiProductListRespData struct {
+	RedirectCategoryId int64                                `json:"redirectCategoryId"`
+	OrderList          []YunBeiProductListRespDataOrderList `json:"orderList"`
+}
+
+type YunBeiProductListRespDataOrderList struct {
+	ProductId       int    `json:"productId"`
+	UserId          int    `json:"userId"`
+	NickName        string `json:"nickName"`
+	AvatarUrl       string `json:"avatarUrl"`
+	ProductShowName string `json:"productShowName"`
+	CategoryId      int    `json:"categoryId"`
+}
+
+// YunBeiProductList 貌似是【兑好礼】中的推荐列表。待确认
+// har: 63.har
+// needLogin: 未知
+func (a *Api) YunBeiProductList(ctx context.Context, req *YunBeiProductListReq) (*YunBeiProductListResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/pointmall/special/product/list"
+		reply YunBeiProductListResp
+		opts  = api.NewOptions()
+	)
+	if req.Limit == "" {
+		req.Limit = "20"
+	}
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiSignHolidayReq struct {
+	types.ReqCommon
+}
+
+type YunBeiSignHolidayResp struct {
+	types.RespCommon[string] // 电力满格 快乐无限🥳
+}
+
+// YunBeiSignHoliday 提示内容
+// har: 64.har
+// needLogin: 未知
+func (a *Api) YunBeiSignHoliday(ctx context.Context, req *YunBeiSignHolidayReq) (*YunBeiSignHolidayResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/pointmall/user/sign/holiday"
+		reply YunBeiSignHolidayResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiTodayRecommendCardReq struct {
+	types.ReqCommon
+	Scene string `json:"scene"` // eg: 0
+}
+
+type YunBeiTodayRecommendCardResp struct {
+	types.RespCommon[[]YunBeiTodayRecommendCardRespData]
+}
+
+type YunBeiTodayRecommendCardRespData struct {
+	Background string `json:"background"`
+	Overlay    string `json:"overlay"`
+	Theme      string `json:"theme"`
+	DateDesc   string `json:"dateDesc"`
+}
+
+// YunBeiTodayRecommendCard 获取今日推荐背景相关属性
+// har: 65.har
+// needLogin: 未知
+func (a *Api) YunBeiTodayRecommendCard(ctx context.Context, req *YunBeiTodayRecommendCardReq) (*YunBeiTodayRecommendCardResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/pointmall/today/recommend/card"
+		reply YunBeiTodayRecommendCardResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiActivityReserveReq struct {
+	types.ReqCommon
+}
+
+type YunBeiActivityReserveResp struct {
+	types.RespCommon[YunBeiActivityReserveRespData]
+	Success bool `json:"success"`
+}
+
+type YunBeiActivityReserveRespData struct {
+	Type          string `json:"type"`          // eg: NO_PREV_BOOKED
+	CurrentAmount int    `json:"currentAmount"` // 当前可领取的数量
+	ImgUrl        string `json:"imgUrl"`
+	Title         string `json:"title"`
+	SubTitle      string `json:"subTitle"`
+	ButtonTitle   string `json:"buttonTitle"`
+	Countdown     int    `json:"countdown"` // 倒计时
+}
+
+// YunBeiActivityReserve 预约领取云贝任务查询
+// har: 67.har
+// needLogin: 未知
+func (a *Api) YunBeiActivityReserve(ctx context.Context, req *YunBeiActivityReserveReq) (*YunBeiActivityReserveResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/eapi/new/yunbei/activity/reserve/info/simple"
+		reply YunBeiActivityReserveResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiMergeConvertReq struct {
+	types.ReqCommon
+}
+
+type YunBeiMergeConvertResp struct {
+	types.RespCommon[int64]
+}
+
+// YunBeiMergeConvert todo: 未知
+// har: 68.har
+// needLogin: 未知
+func (a *Api) YunBeiMergeConvert(ctx context.Context, req *YunBeiMergeConvertReq) (*YunBeiMergeConvertResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/pointmall/merge/convert"
+		reply YunBeiMergeConvertResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiDragonJudgePopupReq struct {
+	types.ReqCommon
+}
+
+type YunBeiDragonJudgePopupResp struct {
+	types.RespCommon[YunBeiDragonJudgePopupRespData]
+}
+
+type YunBeiDragonJudgePopupRespData struct {
+	Code    int         `json:"code"`
+	Message interface{} `json:"message"`
+	Data    bool        `json:"data"`
+}
+
+// YunBeiDragonJudgePopup todo: 未知
+// har: 69.har
+// needLogin: 未知
+func (a *Api) YunBeiDragonJudgePopup(ctx context.Context, req *YunBeiDragonJudgePopupReq) (*YunBeiDragonJudgePopupResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/yunbei/user/dragon/judge/popup"
+		reply YunBeiDragonJudgePopupResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiSignCalenderDayReq struct {
+	types.ReqCommon
+	Month string `json:"month"` // eg: 5
+	Day   string `json:"day"`   // eg: 5
+}
+
+type YunBeiSignCalenderDayResp struct {
+	types.RespCommon[YunBeiSignCalenderDayRespData]
+}
+
+type YunBeiSignCalenderDayRespData struct{}
+
+// YunBeiSignCalenderDay todo: 未知
+// har: 70.har
+// needLogin: 未知
+func (a *Api) YunBeiSignCalenderDay(ctx context.Context, req *YunBeiSignCalenderDayReq) (*YunBeiSignCalenderDayResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/pointmall/sign/calendar/day"
+		reply YunBeiSignCalenderDayResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiSignRemindReq struct {
+	types.ReqCommon
+}
+
+type YunBeiSignRemindResp struct {
+	types.RespCommon[int64] // 0:关闭 1:开启
+}
+
+// YunBeiSignRemind 是否开启签到提醒
+// har: 71.har
+// needLogin: 未知
+func (a *Api) YunBeiSignRemind(ctx context.Context, req *YunBeiSignRemindReq) (*YunBeiSignRemindResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/pointmall/extra/sign/remind"
+		reply YunBeiSignRemindResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiSceneResourceReq struct {
+	types.ReqCommon
+}
+
+type YunBeiSceneResourceResp struct {
+	types.RespCommon[YunBeiSceneResourceRespData]
+}
+
+type YunBeiSceneResourceRespData struct {
+	ExclusivePositionCodes []interface{} `json:"exclusivePositionCodes"`
+	Hints                  []struct {
+		Template struct {
+			TemplateType int `json:"templateType"`
+		} `json:"template"`
+		Data struct {
+			Extra struct {
+				Duration int `json:"duration"`
+				Log      struct {
+				} `json:"log"`
+				ConstructLogId    string `json:"constructLogId"`
+				IconType          int    `json:"iconType"`
+				ShowType          string `json:"showType"`
+				StartTime         int    `json:"startTime"`
+				Position          int    `json:"position"`
+				EndTime           int    `json:"endTime"`
+				GeneralizedObject []struct {
+					CreativeReachId              string `json:"creativeReachId"`
+					Summary                      string `json:"summary"`
+					SubIndex                     int    `json:"subIndex"`
+					ResourceId                   string `json:"resourceId"`
+					Code                         string `json:"code"`
+					ResourceFrequencyControlCode struct {
+						PositionCode string `json:"positionCode"`
+					} `json:"resourceFrequencyControlCode"`
+					TrpId string `json:"trp_id"`
+					Log   struct {
+						SCtrp string `json:"s_ctrp"`
+					} `json:"log"`
+					PositionCode string `json:"positionCode"`
+					TemplateId   int    `json:"templateId"`
+					CreativeId   int    `json:"creativeId"`
+					Scene        string `json:"scene"`
+					TrpType      string `json:"trp_type"`
+					PlanId       string `json:"planId"`
+					SCtrp        string `json:"s_ctrp"`
+					ResourceType string `json:"resourceType"`
+					ChannelCode  string `json:"channelCode"`
+				} `json:"generalizedObject"`
+				LogMap struct {
+					Fgid string `json:"fgid"`
+				} `json:"logMap"`
+			} `json:"extra"`
+		} `json:"data"`
+		Position struct {
+			Code string `json:"code"`
+		} `json:"position"`
+	} `json:"hints"`
+	FixedActions []string `json:"fixedActions"`
+	Message      string   `json:"message"`
+	Trp          struct {
+		Rules []string `json:"rules"`
+	} `json:"trp"`
+}
+
+// YunBeiSceneResource todo: 未知应该是展示资源样式使用,需要补充request参数。另外需要迁移到合适的文件中。
+// har: 72.har
+// needLogin: 未知
+func (a *Api) YunBeiSceneResource(ctx context.Context, req *YunBeiSceneResourceReq) (*YunBeiSceneResourceResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/link/scene/show/resource"
+		reply YunBeiSceneResourceResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiPositionResourceReq struct {
+	types.ReqCommon
+	PositionCode string `json:"positionCode"` // eg: yunbei_banner
+}
+
+type YunBeiPositionResourceResp struct {
+	types.RespCommon[YunBeiPositionResourceRespData]
+	Trp struct {
+		Rules []string `json:"rules"`
+	} `json:"trp"`
+}
+
+type YunBeiPositionResourceRespData struct {
+	LibraLogList    []interface{} `json:"libraLogList"`
+	ExposureRecords string        `json:"exposureRecords"`
+}
+
+// YunBeiPositionResource todo: 未知应该是展示资源样式使用。另外需要迁移到合适的文件中。
+// har: 73.har
+// needLogin: 未知
+func (a *Api) YunBeiPositionResource(ctx context.Context, req *YunBeiPositionResourceReq) (*YunBeiPositionResourceResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/link/position/show/resource"
+		reply YunBeiPositionResourceResp
+		opts  = api.NewOptions()
+	)
+	if req.PositionCode != "" {
+		url = url + "?positionCode=" + req.PositionCode
+	}
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiMultiTerminalWidgetCalenderReq struct {
+	types.ReqCommon
+	Suggest string `json:"suggest"`
+}
+
+type YunBeiMultiTerminalWidgetCalenderResp struct {
+	types.RespCommon[YunBeiMultiTerminalWidgetCalenderRespData]
+}
+
+type YunBeiMultiTerminalWidgetCalenderRespData struct {
+	Texts           []string `json:"texts"`
+	Origin          string   `json:"origin"`
+	SongId          int      `json:"songId"`
+	CommentId       int64    `json:"commentId"`
+	SongName        string   `json:"songName"`
+	CoverUrl        string   `json:"coverUrl"`
+	SingerName      string   `json:"singerName"`
+	CommentCalendar struct {
+		Festival                  interface{} `json:"festival"`
+		DateImg                   interface{} `json:"dateImg"`
+		BigBackground             string      `json:"bigBackground"`
+		Background                string      `json:"background"`
+		FontColor                 interface{} `json:"fontColor"`
+		AndroidRoundedCornerImg   string      `json:"androidRoundedCornerImg"`
+		AndroidSmallWidgetMainImg interface{} `json:"androidSmallWidgetMainImg"`
+		MonthImg                  string      `json:"monthImg"`
+		Month                     int         `json:"month"`
+		Day                       int         `json:"day"`
+		DayOfWeek                 int         `json:"dayOfWeek"`
+		DayImg                    string      `json:"dayImg"`
+		DateColor                 interface{} `json:"dateColor"`
+		LogoColor                 interface{} `json:"logoColor"`
+		ContentColor              interface{} `json:"contentColor"`
+		DescColor                 interface{} `json:"descColor"`
+		MusicNameColor            interface{} `json:"musicNameColor"`
+		MusicArtistColor          interface{} `json:"musicArtistColor"`
+		PlayBtnColor              interface{} `json:"playBtnColor"`
+	} `json:"commentCalendar"`
+}
+
+// YunBeiMultiTerminalWidgetCalender todo: 貌似好像是签到成功之后返回的日历信息，需要确认。另外需要迁移到合适的文件中。
+// har: 74.har
+// needLogin: 未知
+func (a *Api) YunBeiMultiTerminalWidgetCalender(ctx context.Context, req *YunBeiMultiTerminalWidgetCalenderReq) (*YunBeiMultiTerminalWidgetCalenderResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/music/multi/terminal/widget/24/comment/calendar" // 24是动态参数？
+		reply YunBeiMultiTerminalWidgetCalenderResp
 		opts  = api.NewOptions()
 	)
 
