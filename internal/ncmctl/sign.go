@@ -104,9 +104,9 @@ func (c *SignIn) execute(ctx context.Context) error {
 		return fmt.Errorf("YunBeiSignIn: %+v", resp)
 	}
 	if resp.Data.Sign {
-		c.cmd.Println("yunbei signed in success")
+		c.cmd.Println("云贝签到成功")
 	} else {
-		c.cmd.Println("yunbei repeat signed in")
+		c.cmd.Println("云贝已签到")
 	}
 
 	// 获取签到进度
@@ -160,6 +160,45 @@ func (c *SignIn) execute(ctx context.Context) error {
 	// 	}
 	// 	c.cmd.Printf("[%s] finish\n", v.TaskName)
 	// }
+
+	// 查询vip权益
+	vip, err := request.VipGrowPoint(ctx, &weapi.VipGrowPointReq{})
+	if err != nil {
+		return fmt.Errorf("VipGrowPoint: %w", err)
+	}
+	if vip.Code != 200 {
+		return fmt.Errorf("VipGrowPoint: %+v", vip)
+	}
+	if vip.Data.UserLevel.LatestVipStatus != 1 {
+		c.cmd.Printf("vip status invalid: %v\n", vip.Data.UserLevel.LatestVipStatus)
+		return nil
+	}
+	if vip.Data.UserLevel.MaxLevel {
+		c.cmd.Println("vip等级已达到最大值")
+		return nil
+	}
+
+	// 黑胶乐签
+	vipSign, err := request.VipTaskSign(ctx, &weapi.VipTaskSignReq{IsNew: ""}) // 使用isNew=1?
+	if err != nil {
+		return fmt.Errorf("VipTaskSign: %w", err)
+	}
+	if vipSign.Data {
+		c.cmd.Println("vip黑胶乐签成功")
+	} else {
+		c.cmd.Printf("vip黑胶乐签失败: %+v", vipSign)
+	}
+
+	// 领取当前时刻所有可领得成长值
+	reward, err := request.VipRewardGetAll(ctx, &weapi.VipRewardGetAllReq{})
+	if err != nil {
+		return fmt.Errorf("VipRewardGetAll: %w", err)
+	}
+	if reward.Data.Result {
+		c.cmd.Println("vip成长值领取成功")
+	} else {
+		c.cmd.Printf("vip成长值领取失败: %+v", reward)
+	}
 
 	// 刷新token过期时间
 	refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})

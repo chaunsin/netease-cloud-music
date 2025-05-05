@@ -488,7 +488,7 @@ type YunBeiTaskListRespData struct {
 	WordsPicUrl interface{} `json:"wordsPicUrl"`
 }
 
-// YunBeiTaskList 获取用户云贝任务列表
+// YunBeiTaskList 获取用户云贝任务列表,常规任务
 // url:
 // needLogin: 是
 func (a *Api) YunBeiTaskList(ctx context.Context, req *YunBeiTaskListReq) (*YunBeiTaskListResp, error) {
