@@ -1567,3 +1567,51 @@ func (a *Api) YunBeiMultiTerminalWidgetCalender(ctx context.Context, req *YunBei
 	_ = resp
 	return &reply, nil
 }
+
+type YunBeiDayVipInfoReq struct {
+	types.ReqCommon
+}
+
+type YunBeiDayVipInfoResp struct {
+	types.RespCommon[YunBeiDayVipInfoRespData]
+}
+
+type YunBeiDayVipInfoRespData struct {
+	ReqId                        string      `json:"reqId"`
+	SkuCode                      int64       `json:"skuCode"`
+	SkuImgUrl                    string      `json:"skuImgUrl"`
+	CurrentStageOriginCoinAmount int64       `json:"currentStageOriginCoinAmount"` // 兑换需要的原价云贝数量
+	CurrentStageActualCoinAmount int64       `json:"currentStageActualCoinAmount"` // 当前兑换需要的实际云贝数量
+	CurrentUserCoinAmount        int64       `json:"currentUserCoinAmount"`        // 当前用户的当前阶段可用的云贝数量
+	CurrentStage                 int64       `json:"currentStage"`
+	CurrentStageCompleted        bool        `json:"currentStageCompleted"`
+	TodayHasNext                 bool        `json:"todayHasNext"`
+	TodayUnlockNext              interface{} `json:"todayUnlockNext"`
+	ButtonTitle                  string      `json:"buttonTitle"` // eg: 去兑换
+	CurrentButtonStatus          int64       `json:"currentButtonStatus"`
+	UnlockCoinAmount             interface{} `json:"unlockCoinAmount"`
+	ActionUrl                    interface{} `json:"actionUrl"`
+	BubbleDisplayed              interface{} `json:"bubbleDisplayed"`
+	BubbleCoinAmount             interface{} `json:"bubbleCoinAmount"`
+	SubButtonTitle               interface{} `json:"subButtonTitle"`
+	SubActionUrl                 interface{} `json:"subActionUrl"`
+	SubTitle                     string      `json:"subTitle"` // eg: 金币已集齐，快去兑换VIP吧~
+}
+
+// YunBeiDayVipInfo 「显示福利」黑胶vip天卡兑换信息查询
+// har: 74.har
+// needLogin: 未知
+func (a *Api) YunBeiDayVipInfo(ctx context.Context, req *YunBeiDayVipInfoReq) (*YunBeiDayVipInfoResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/ad/listening/new/yunbei/center/day/vip/info"
+		reply YunBeiDayVipInfoResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
