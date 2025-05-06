@@ -25,7 +25,9 @@ package weapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	neturl "net/url"
 
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
@@ -600,7 +602,7 @@ type YunBeiTaskTodoRespData struct {
 	UserTaskId int64 `json:"userTaskId"`
 }
 
-// YunBeiTaskTodo 获取用户云贝 todo任务列表,返回得列表中只包含未完成的任务。
+// YunBeiTaskTodo 返回未完成的任务列表。
 // url:
 // needLogin: 是
 func (a *Api) YunBeiTaskTodo(ctx context.Context, req *YunBeiTaskTodoReq) (*YunBeiTaskTodoResp, error) {
@@ -628,7 +630,7 @@ type YunBeiTaskFinishResp struct {
 	types.RespCommon[bool]
 }
 
-// YunBeiTaskFinish 获取完成云贝任务奖励,一次只能领取一个,网易一键领取是调用了多次该接口实现。
+// YunBeiTaskFinish 完成云贝任务奖励,一次只能领取一个,网易一键领取是调用了多次该接口实现。
 // har: 66.har
 // needLogin: 是
 func (a *Api) YunBeiTaskFinish(ctx context.Context, req *YunBeiTaskFinishReq) (*YunBeiTaskFinishResp, error) {
@@ -893,7 +895,7 @@ type YunBeiSignLotteryResp struct {
 	types.RespCommon[bool] // true: 领取成功,如果领取过则为false
 }
 
-// YunBeiSignLottery 每日签到云贝领取
+// YunBeiSignLottery 每日连续签到云贝领取
 // har: 42.har
 func (a *Api) YunBeiSignLottery(ctx context.Context, req *YunBeiSignLotteryReq) (*YunBeiSignLotteryResp, error) {
 	var (
@@ -923,18 +925,18 @@ type YunBeiSquareBlockCategoryRespData struct {
 }
 
 type YunBeiSquareBlockCategoryRespDataBlockCategoryList struct {
-	Id                   int                                                                      `json:"id"`
+	Id                   int64                                                                    `json:"id"`
 	Name                 string                                                                   `json:"name"`
 	ImageUrl             string                                                                   `json:"imageUrl"`
 	SecondCategoryVOList []YunBeiSquareBlockCategoryRespDataBlockCategoryListSecondCategoryVOList `json:"secondCategoryVOList"`
 }
 
 type YunBeiSquareBlockCategoryRespDataBlockCategoryListSecondCategoryVOList struct {
-	Id   int    `json:"id"`
+	Id   int64  `json:"id"`
 	Name string `json:"name"`
 }
 
-// YunBeiSquareBlockCategory 兑换好礼集合列表 eg: 推荐、运存专区、个性定制、专享权益...
+// YunBeiSquareBlockCategory 兑换好礼集合列表 eg: 推荐、云村专区、个性定制、专享权益...
 // har: 60.har
 // needLogin: 未知
 func (a *Api) YunBeiSquareBlockCategory(ctx context.Context, req *YunBeiSquareBlockCategoryReq) (*YunBeiSquareBlockCategoryResp, error) {
@@ -961,28 +963,28 @@ type YunBeiRecommendResp struct {
 }
 
 type YunBeiRecommendRespData struct {
-	Id             int         `json:"id"`
+	Id             int64       `json:"id"`
 	Name           string      `json:"name"`
 	CoverIdStr     string      `json:"coverIdStr"`
 	CoverUrl       string      `json:"coverUrl"`
-	SpecialType    int         `json:"specialType"`
+	SpecialType    int64       `json:"specialType"`
 	AllowDupBuy    bool        `json:"allowDupBuy"`
-	Price          int         `json:"price"`
-	Status         int         `json:"status"`
+	Price          int64       `json:"price"`
+	Status         int64       `json:"status"`
 	ListPicUrl     string      `json:"listPicUrl"`
-	Sales          int         `json:"sales"`
+	Sales          int64       `json:"sales"`
 	RmbOriginPrice string      `json:"rmbOriginPrice"`
-	SkuId          int         `json:"skuId"`
+	SkuId          int64       `json:"skuId"`
 	ExtItemType    interface{} `json:"extItemType"`
 	ExtItemId      interface{} `json:"extItemId"`
-	CnySkuId       int         `json:"cnySkuId"`
-	CnyProductId   int         `json:"cnyProductId"`
+	CnySkuId       int64       `json:"cnySkuId"`
+	CnyProductId   int64       `json:"cnyProductId"`
 	ShowTagName    string      `json:"showTagName"`
 	ListWebPicUrl  interface{} `json:"listWebPicUrl"`
-	SupportShare   int         `json:"supportShare"`
-	ShowType       int         `json:"showType"`
+	SupportShare   int64       `json:"supportShare"`
+	ShowType       int64       `json:"showType"`
 	InnerLabel     string      `json:"innerLabel"`
-	DayLimit       int         `json:"dayLimit"`
+	DayLimit       int64       `json:"dayLimit"`
 }
 
 // YunBeiRecommend 推荐列表。貌似废弃了
@@ -994,6 +996,108 @@ func (a *Api) YunBeiRecommend(ctx context.Context, req *YunBeiRecommendReq) (*Yu
 		reply YunBeiRecommendResp
 		opts  = api.NewOptions()
 	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiTaskRecommendV2Req struct {
+	types.ReqCommon
+	AdExtJson YunBeiTaskRecommendV2ReqAdExtJson `json:"adExtJson"`
+}
+
+// YunBeiTaskRecommendV2ReqAdExtJson
+// {"resolution":{"width":450,"height":800},"idfa":"","openudid":"","imei":"","aaid":"","mobilename":"","android_id":"","terminal":"","mac":"","network":0,"op":"","manufacturer":"","oaid":"","teenMode":false,"adReqId":"1289504343_1746441620734_49400","sceneInfo":{"songId":"","gameId":""}}
+type YunBeiTaskRecommendV2ReqAdExtJson struct {
+	Resolution struct {
+		Width  int64 `json:"width"`
+		Height int64 `json:"height"`
+	} `json:"resolution"`
+	Idfa         string `json:"idfa"`
+	Openudid     string `json:"openudid"`
+	Imei         string `json:"imei"`
+	Aaid         string `json:"aaid"`
+	Mobilename   string `json:"mobilename"`
+	AndroidId    string `json:"android_id"`
+	Terminal     string `json:"terminal"`
+	Mac          string `json:"mac"`
+	Network      int64  `json:"network"`
+	Op           string `json:"op"`
+	Manufacturer string `json:"manufacturer"`
+	Oaid         string `json:"oaid"`
+	TeenMode     bool   `json:"teenMode"`
+	AdReqId      string `json:"adReqId"`
+	SceneInfo    struct {
+		SongId string `json:"songId"`
+		GameId string `json:"gameId"`
+	} `json:"sceneInfo"`
+}
+
+type YunBeiTaskRecommendV2Resp struct {
+	types.RespCommon[[]YunBeiTaskRecommendV2RespData]
+}
+
+type YunBeiTaskRecommendV2RespData struct {
+	TaskId           int64       `json:"taskId"`
+	UserTaskId       int64       `json:"userTaskId"`
+	TaskName         string      `json:"taskName"`
+	TaskPoint        int64       `json:"taskPoint"`
+	WebPicUrl        string      `json:"webPicUrl"`
+	CompletedIconUrl interface{} `json:"completedIconUrl"`
+	BackgroundPicUrl interface{} `json:"backgroundPicUrl"`
+	WordsPicUrl      interface{} `json:"wordsPicUrl"`
+	Link             string      `json:"link"`
+	LinkText         string      `json:"linkText"`
+	Completed        bool        `json:"completed"`
+	CompletedPoint   int64       `json:"completedPoint"`
+	Status           int64       `json:"status"`
+	TargetStatus     interface{} `json:"targetStatus"`
+	TargetPoint      int64       `json:"targetPoint"`
+	TargetUserTaskId int64       `json:"targetUserTaskId"`
+	TaskDescription  string      `json:"taskDescription"`
+	Position         int64       `json:"position"`
+	ActionType       int64       `json:"actionType"`
+	TaskType         string      `json:"taskType"`
+	ExtInfoMap       struct {
+		MissionCode string `json:"missionCode"`
+	} `json:"extInfoMap"`
+	TaskPointDetail []struct {
+		UserMissionId    int64  `json:"userMissionId"`
+		SortValue        int64  `json:"sortValue"`
+		StageType        int64  `json:"stageType"`
+		Times            int64  `json:"times"`
+		Value            int64  `json:"value"`
+		ProgressRate     int64  `json:"progressRate"`
+		SumTarget        int64  `json:"sumTarget"`
+		RewardId         int64  `json:"rewardId"`
+		RewardType       int64  `json:"rewardType"`
+		Worth            int64  `json:"worth"`
+		RewardExtendInfo string `json:"rewardExtendInfo"`
+		Status           int64  `json:"status"`
+	} `json:"taskPointDetail"`
+	Period    int64  `json:"period"`
+	SubAction string `json:"subAction"`
+}
+
+// YunBeiTaskRecommendV2 「做任务得云贝」列表. 另外此接口同样的参数每次调用的结果也相同。
+// har: 75.har
+// needLogin: 未知
+func (a *Api) YunBeiTaskRecommendV2(ctx context.Context, req *YunBeiTaskRecommendV2Req) (*YunBeiTaskRecommendV2Resp, error) {
+	var (
+		url   = "https://interface3.music.163.com/weapi/usertool/task/recommend/v2?adExtJson="
+		reply YunBeiTaskRecommendV2Resp
+		opts  = api.NewOptions()
+	)
+	data, err := json.Marshal(req.AdExtJson)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("data: %+v\n", string(data))
+	url += neturl.QueryEscape(string(data))
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
@@ -1046,12 +1150,12 @@ type YunBeiProductListRespData struct {
 }
 
 type YunBeiProductListRespDataOrderList struct {
-	ProductId       int    `json:"productId"`
-	UserId          int    `json:"userId"`
+	ProductId       int64  `json:"productId"`
+	UserId          int64  `json:"userId"`
 	NickName        string `json:"nickName"`
 	AvatarUrl       string `json:"avatarUrl"`
 	ProductShowName string `json:"productShowName"`
-	CategoryId      int    `json:"categoryId"`
+	CategoryId      int64  `json:"categoryId"`
 }
 
 // YunBeiProductList 貌似是【兑好礼】中的推荐列表。待确认
@@ -1146,12 +1250,12 @@ type YunBeiActivityReserveResp struct {
 
 type YunBeiActivityReserveRespData struct {
 	Type          string `json:"type"`          // eg: NO_PREV_BOOKED
-	CurrentAmount int    `json:"currentAmount"` // 当前可领取的数量
+	CurrentAmount int64  `json:"currentAmount"` // 当前可领取的数量
 	ImgUrl        string `json:"imgUrl"`
 	Title         string `json:"title"`
 	SubTitle      string `json:"subTitle"`
 	ButtonTitle   string `json:"buttonTitle"`
-	Countdown     int    `json:"countdown"` // 倒计时
+	Countdown     int64  `json:"countdown"` // 倒计时
 }
 
 // YunBeiActivityReserve 预约领取云贝任务查询
@@ -1207,7 +1311,7 @@ type YunBeiDragonJudgePopupResp struct {
 }
 
 type YunBeiDragonJudgePopupRespData struct {
-	Code    int         `json:"code"`
+	Code    int64       `json:"code"`
 	Message interface{} `json:"message"`
 	Data    bool        `json:"data"`
 }
@@ -1298,23 +1402,23 @@ type YunBeiSceneResourceRespData struct {
 	ExclusivePositionCodes []interface{} `json:"exclusivePositionCodes"`
 	Hints                  []struct {
 		Template struct {
-			TemplateType int `json:"templateType"`
+			TemplateType int64 `json:"templateType"`
 		} `json:"template"`
 		Data struct {
 			Extra struct {
-				Duration int `json:"duration"`
+				Duration int64 `json:"duration"`
 				Log      struct {
 				} `json:"log"`
 				ConstructLogId    string `json:"constructLogId"`
-				IconType          int    `json:"iconType"`
+				IconType          int64  `json:"iconType"`
 				ShowType          string `json:"showType"`
-				StartTime         int    `json:"startTime"`
-				Position          int    `json:"position"`
-				EndTime           int    `json:"endTime"`
+				StartTime         int64  `json:"startTime"`
+				Position          int64  `json:"position"`
+				EndTime           int64  `json:"endTime"`
 				GeneralizedObject []struct {
 					CreativeReachId              string `json:"creativeReachId"`
 					Summary                      string `json:"summary"`
-					SubIndex                     int    `json:"subIndex"`
+					SubIndex                     int64  `json:"subIndex"`
 					ResourceId                   string `json:"resourceId"`
 					Code                         string `json:"code"`
 					ResourceFrequencyControlCode struct {
@@ -1325,8 +1429,8 @@ type YunBeiSceneResourceRespData struct {
 						SCtrp string `json:"s_ctrp"`
 					} `json:"log"`
 					PositionCode string `json:"positionCode"`
-					TemplateId   int    `json:"templateId"`
-					CreativeId   int    `json:"creativeId"`
+					TemplateId   int64  `json:"templateId"`
+					CreativeId   int64  `json:"creativeId"`
 					Scene        string `json:"scene"`
 					TrpType      string `json:"trp_type"`
 					PlanId       string `json:"planId"`
@@ -1418,7 +1522,7 @@ type YunBeiMultiTerminalWidgetCalenderResp struct {
 type YunBeiMultiTerminalWidgetCalenderRespData struct {
 	Texts           []string `json:"texts"`
 	Origin          string   `json:"origin"`
-	SongId          int      `json:"songId"`
+	SongId          int64    `json:"songId"`
 	CommentId       int64    `json:"commentId"`
 	SongName        string   `json:"songName"`
 	CoverUrl        string   `json:"coverUrl"`
@@ -1432,9 +1536,9 @@ type YunBeiMultiTerminalWidgetCalenderRespData struct {
 		AndroidRoundedCornerImg   string      `json:"androidRoundedCornerImg"`
 		AndroidSmallWidgetMainImg interface{} `json:"androidSmallWidgetMainImg"`
 		MonthImg                  string      `json:"monthImg"`
-		Month                     int         `json:"month"`
-		Day                       int         `json:"day"`
-		DayOfWeek                 int         `json:"dayOfWeek"`
+		Month                     int64       `json:"month"`
+		Day                       int64       `json:"day"`
+		DayOfWeek                 int64       `json:"dayOfWeek"`
 		DayImg                    string      `json:"dayImg"`
 		DateColor                 interface{} `json:"dateColor"`
 		LogoColor                 interface{} `json:"logoColor"`
