@@ -21,7 +21,7 @@
   - [x] [cookiecloud](https://github.com/easychen/CookieCloud/blob/master/README_cn.md)方式登录
   - [x] ~~扫码登录~~
   - [x] ~~手机号密码登录~~    
-- [x] 一键每日任务完成(音乐合伙人、云贝签到、刷歌300首)
+- [x] 一键每日任务完成(音乐合伙人、云贝签到、vip签到、刷歌300首)
 - [x] 云贝签到(自动领取签到奖励)
 - [x] “音乐合伙人”自动测评(5首基础歌曲 + 2到7首随机额外歌曲测评，另不包含"歌曲推荐"测评)
   2025年3月[公告](https://music.163.com/#/event?id=30336457500&uid=7872690377)、[规则详情](https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3)
@@ -139,7 +139,9 @@ login success: &{RespCommon:{Code:200 Message: Msg: Data:<nil>} Account:0xc00036
 ncmctl login phone 188xxx8888 -p 123456
 ```
 
-密码登录方式容易出现安全风险相关问题,`8821 需要行为验证码验证`未必会成功,可作为尝试登录的一种方式。
+密码登录方式容易出现安全风险相关问题: **8821 需要行为验证码验证** 未必会成功,可作为尝试登录的一种方式。
+
+**注意: 不要泄露密码。**
 
 **三、cookie登录**
 
@@ -162,9 +164,7 @@ cookie内容支持三种类型格式 `-f`
 - json
 - [netscape](https://docs.cyotek.com/cyowcopy/1.10/netscapecookieformat.html)
 
-详情使用，以及文件格式规则可查看 `ncmctl login cookie -h` 介绍
-
-**注意: 不要泄露密码。**
+详细使用，以及文件格式规则可查看 `ncmctl login cookie -h` 介绍
 
 **四、cookiecloud登录**
 
