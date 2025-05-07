@@ -133,33 +133,32 @@ func (c *SignIn) execute(ctx context.Context) error {
 			}
 			// todo: 满勤签到领取抽奖机会使用ExtraLotteryId,同时也是YunBeiSignLottery方法?
 		}
-	}
 
-	// // 完成当前时刻可以领取的任务奖励
-	// task, err := request.YunBeiTaskListV3(ctx, &weapi.YunBeiTaskListV3Req{})
-	// if err != nil {
-	// 	return fmt.Errorf("YunBeiTaskTodo: %w", err)
-	// }
-	// for _, v := range task.Data.Normal.List {
-	// 	if !v.Completed {
-	// 		continue
-	// 	}
-	//
-	// 	// todo: 获取depositCode
-	//
-	// 	reply, err := request.YunBeiTaskFinish(ctx, &weapi.YunBeiTaskFinishReq{
-	// 		Period:      fmt.Sprintf("%d", v.Period),
-	// 		UserTaskId:  fmt.Sprintf("%d", v.UserTaskId),
-	// 		DepositCode: fmt.Sprintf("%d", v.DepositCode),
-	// 	})
-	// 	if err != nil {
-	// 		log.Error("YunBeiTaskFinish(%v): %w", v.UserTaskId, err)
-	// 	}
-	// 	if reply.Code != "200" {
-	// 		log.Error("YunBeiTaskFinish(%v) detail:%+v", v.UserTaskId, reply)
-	// 	}
-	// 	c.cmd.Printf("[%s] finish\n", v.TaskName)
-	// }
+		// 完成当前时刻可以领取的任务奖励
+		task, err := request.YunBeiTaskTodo(ctx, &weapi.YunBeiTaskTodoReq{})
+		if err != nil {
+			return fmt.Errorf("YunBeiTaskTodo: %w", err)
+		}
+		for _, v := range task.Data {
+			if !v.Completed {
+				continue
+			}
+
+			reply, err := request.YunBeiTaskFinish(ctx, &weapi.YunBeiTaskFinishReq{
+				Period:      fmt.Sprintf("%d", v.Period),
+				UserTaskId:  fmt.Sprintf("%d", v.UserTaskId),
+				DepositCode: fmt.Sprintf("%d", v.DepositCode),
+			})
+			if err != nil {
+				log.Error("YunBeiTaskFinish(%v): %w", v.UserTaskId, err)
+			}
+			if reply.Code != 200 {
+				log.Error("YunBeiTaskFinish(%v) detail:%+v", v.UserTaskId, reply)
+			} else {
+				c.cmd.Printf("云贝 [%s] 任务完成获得云贝数量 %v\n", v.TaskName, v.TaskPoint)
+			}
+		}
+	}
 
 	// 查询vip权益
 	vip, err := request.VipGrowPoint(ctx, &weapi.VipGrowPointReq{})
@@ -190,14 +189,16 @@ func (c *SignIn) execute(ctx context.Context) error {
 	}
 
 	// 领取当前时刻所有可领得成长值
-	reward, err := request.VipRewardGetAll(ctx, &weapi.VipRewardGetAllReq{})
-	if err != nil {
-		return fmt.Errorf("VipRewardGetAll: %w", err)
-	}
-	if reward.Data.Result {
-		c.cmd.Println("vip成长值领取成功")
-	} else {
-		c.cmd.Printf("vip成长值领取失败: %+v", reward)
+	if c.opts.Automatic {
+		reward, err := request.VipRewardGetAll(ctx, &weapi.VipRewardGetAllReq{})
+		if err != nil {
+			return fmt.Errorf("VipRewardGetAll: %w", err)
+		}
+		if reward.Data.Result {
+			c.cmd.Println("vip成长值领取成功")
+		} else {
+			c.cmd.Printf("vip成长值领取失败: %+v", reward)
+		}
 	}
 
 	// 刷新token过期时间

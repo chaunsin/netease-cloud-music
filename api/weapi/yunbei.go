@@ -1249,7 +1249,7 @@ type YunBeiActivityReserveResp struct {
 }
 
 type YunBeiActivityReserveRespData struct {
-	Type          string `json:"type"`          // eg: NO_PREV_BOOKED
+	Type          string `json:"type"`          // eg: NO_PREV_BOOKED:? PREV_CLAIMED_NO_BOOKED:未预约,PREV_CLAIMED_BOOKED:已预约
 	CurrentAmount int64  `json:"currentAmount"` // 当前可领取的数量
 	ImgUrl        string `json:"imgUrl"`
 	Title         string `json:"title"`
@@ -1263,7 +1263,7 @@ type YunBeiActivityReserveRespData struct {
 // needLogin: 未知
 func (a *Api) YunBeiActivityReserve(ctx context.Context, req *YunBeiActivityReserveReq) (*YunBeiActivityReserveResp, error) {
 	var (
-		url   = "https://interface3.music.163.com/eapi/new/yunbei/activity/reserve/info/simple"
+		url   = "https://interface3.music.163.com/weapi/new/yunbei/activity/reserve/info/simple"
 		reply YunBeiActivityReserveResp
 		opts  = api.NewOptions()
 	)
@@ -1599,7 +1599,7 @@ type YunBeiDayVipInfoRespData struct {
 }
 
 // YunBeiDayVipInfo 「显示福利」黑胶vip天卡兑换信息查询
-// har: 74.har
+// har: 76.har
 // needLogin: 未知
 func (a *Api) YunBeiDayVipInfo(ctx context.Context, req *YunBeiDayVipInfoReq) (*YunBeiDayVipInfoResp, error) {
 	var (
