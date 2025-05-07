@@ -277,6 +277,7 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 			defer sema.Release(1)
 			if err := c.upload(ctx, request, filename, bar); err != nil {
 				fail.Add(1)
+				c.cmd.Printf("%s upload failed: %s", filepath.Base(filename), err)
 				log.Error("upload(%s): %s", filename, err)
 			}
 		}(v)
@@ -404,7 +405,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 	}
 	log.Debug("CloudInfo resp: %+v\n", infoResp)
 	if infoResp.Code != 200 {
-		return fmt.Errorf("CloudInfo: %+v", infoResp)
+		return fmt.Errorf("CloudInfo: %+v", infoResp.RespCommon)
 	}
 
 	// todo: 此步骤貌似是判断上传文件转码状态,具体有待商榷,另外此处貌似不用进行重试处理？

@@ -490,8 +490,11 @@ type CloudInfoReq struct {
 }
 
 type CloudInfoResp struct {
-	// Code 404: 错误未知,目前在上传文件时文件大于200MB时出现此错误，经后来测试多试了几次重传发现又好了貌似是临时性错误，待确认排查。
-	Code           int64        `json:"code,omitempty"`
+	// Code
+	// 404: 错误未知,目前在上传文件时文件大于200MB时出现此错误，经后来测试多试了几次重传发现又好了貌似是临时性错误，待确认排查。
+	// 410: 涉嫌违规,无法上传
+	types.RespCommon[any]
+	// Code           int64        `json:"code,omitempty"`
 	SongId         string       `json:"songId,omitempty"`
 	SongIdLong     int64        `json:"songIdLong"` // songId和songIdLong相等只不过类型不同
 	WaitTime       int64        `json:"waitTime"`
