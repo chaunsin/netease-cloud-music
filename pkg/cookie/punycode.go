@@ -34,6 +34,9 @@ const (
 // The "while h < length(input)" line in the specification becomes "for
 // remaining != 0" in the Go code, because len(s) in Go is in bytes, not runes.
 func encode(prefix, s string) (string, error) {
+	if len(s) > (1<<31-1)/2 { // Ensure 2*len(s) does not overflow
+		return "", fmt.Errorf("input string is too large to encode")
+	}
 	output := make([]byte, len(prefix), len(prefix)+1+2*len(s))
 	copy(output, prefix)
 	delta, n, bias := int32(0), initialN, initialBias
