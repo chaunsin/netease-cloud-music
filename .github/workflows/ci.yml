@@ -62,10 +62,10 @@ jobs:
           filter-author: (dependabot|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
           filter: '[R|r]elease[d]\s+[v|V]\d(\.\d+){0,2}'
           template: |
-            ## Bugs
-            {{fix,bug}}
             ## Feature
             {{feat,feature}}
+            ## Bugs
+            {{fix,bug}}
             ## Improve
             {{refactor,perf,clean,optimize,enhance}}
             ## Deprecated
