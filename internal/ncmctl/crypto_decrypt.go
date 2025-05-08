@@ -166,7 +166,7 @@ func (c *decryptCmd) decryptReq(p *Payload, encode string) error {
 				payload = str
 			}
 			p.Request.RawPlaintext = str
-			p.Request.Plaintext = payload
+			p.Request.Plaintext = []byte(payload)
 		}
 	case "weapi":
 		return fmt.Errorf("this [%s] method is not supported", p.Kind)
@@ -224,7 +224,7 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 			} else {
 				payload = str
 			}
-			p.Response.Plaintext = payload
+			p.Response.Plaintext = []byte(payload)
 		}
 	case "weapi":
 		return fmt.Errorf("this [%s] method is not supported", p.Kind)
@@ -369,14 +369,14 @@ type Payload struct {
 }
 
 type Request struct {
-	Ciphertext   string `json:"ciphertext,omitempty"`
-	RawPlaintext string `json:"rawPlaintext,omitempty"`
-	Url          string `json:"url,omitempty"`
-	Digest       string `json:"digest,omitempty"`
-	Plaintext    string `json:"plaintext,omitempty"`
+	Ciphertext   string          `json:"ciphertext,omitempty"`
+	RawPlaintext string          `json:"rawPlaintext,omitempty"`
+	Url          string          `json:"url,omitempty"`
+	Digest       string          `json:"digest,omitempty"`
+	Plaintext    json.RawMessage `json:"plaintext,omitempty"`
 }
 
 type Response struct {
-	Ciphertext string `json:"ciphertext,omitempty"`
-	Plaintext  string `json:"plaintext,omitempty"`
+	Ciphertext string          `json:"ciphertext,omitempty"`
+	Plaintext  json.RawMessage `json:"plaintext,omitempty"`
 }
