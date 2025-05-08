@@ -424,6 +424,7 @@ retry:
 	if statusResp.Code != 200 {
 		log.Error("CloudMusicStatus #%v resp: %+v\n", retryNum, statusResp)
 	}
+	// v.Status=9得条件下出现过云盘上传成功的情况,即使不走下面的CloudPublish逻辑,目前暂时未找到原因
 	if v, ok := statusResp.Statuses[infoResp.SongId]; ok && v.Status != 0 {
 		log.Warn("CloudMusicStatus status: %v retry #%v\n", statusResp.Statuses, retryNum)
 		time.Sleep(time.Second * 30)

@@ -116,11 +116,11 @@ func (c *SignIn) execute(ctx context.Context) error {
 			return fmt.Errorf("YunBeiSignInProgress: %w", err)
 		}
 		for _, v := range progress.Data.LotteryConfig {
-			if v.BaseLotteryId <= 0 || v.ExtraLotteryId <= 0 {
+			if v.BaseLotteryId <= 0 && v.ExtraLotteryId <= 0 {
 				continue
 			}
-			log.Debug("天数=%v,奖励内容=%v,id=%v,status=%v",
-				v.SignDay, v.BaseGrant.Name, v.BaseLotteryId, v.BaseLotteryStatus)
+			log.Debug("天数=%v,奖励内容=%v,id=%v,extId=%v,status=%v",
+				v.SignDay, v.BaseGrant.Name, v.BaseLotteryId, v.ExtraLotteryId, v.BaseLotteryStatus)
 			// 领取奖励
 			reply, err := request.YunBeiSignLottery(ctx, &weapi.YunBeiSignLotteryReq{
 				UserLotteryId: fmt.Sprintf("%d", v.BaseLotteryId),
@@ -129,7 +129,7 @@ func (c *SignIn) execute(ctx context.Context) error {
 				log.Error("YunBeiSignLottery(%v): %w", v.BaseLotteryId, err)
 			}
 			if reply.Data {
-				c.cmd.Printf("天数=%v,奖励内容=%v 领取成功\n", v.SignDay, v.BaseGrant.Name)
+				c.cmd.Printf("云贝连续签到天数=%v,奖励内容=%v 领取成功\n", v.SignDay, v.BaseGrant.Name)
 			}
 			// todo: 满勤签到领取抽奖机会使用ExtraLotteryId,同时也是YunBeiSignLottery方法?
 		}
