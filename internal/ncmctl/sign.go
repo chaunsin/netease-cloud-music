@@ -183,9 +183,9 @@ func (c *SignIn) execute(ctx context.Context) error {
 		return fmt.Errorf("VipTaskSign: %w", err)
 	}
 	if vipSign.Data {
-		c.cmd.Println("vip黑胶乐签成功")
+		c.cmd.Println("vip乐签成功")
 	} else {
-		c.cmd.Printf("vip黑胶乐签失败: %+v", vipSign)
+		c.cmd.Printf("vip乐签失败: %+v", vipSign)
 	}
 
 	// 领取当前时刻所有可领得成长值
