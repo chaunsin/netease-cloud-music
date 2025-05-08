@@ -144,7 +144,7 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 	)
 
 	decoder := json.NewDecoder(strings.NewReader(c.opts.Data))
-	// decoder.DisallowUnknownFields()
+	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(instance.Addr().Interface()); err != nil {
 		return fmt.Errorf("Decode: %w", err)
 	}
