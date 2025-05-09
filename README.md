@@ -249,7 +249,7 @@ ncmctl task --scrobble.cron "0 20 * * *"
 提示:
 
 - 需要登录
-- 本命令会以服务得方式一直持续运行,如要退出,请使用`ctrl+c`退出。
+- 本命令会以服务得方式持续运行,如要退出,请使用`ctrl+c`退出。
 - `ncmctl` 采用标准的[crontab](https://zh.wikipedia.org/wiki/Cron)
   表达式进行管理。crontab表达式编写工具[>>>点我<<<](https://crontab.guru/)
 
