@@ -223,7 +223,7 @@ ncmctl task
 
 默认task包含
 
-- sign (签到)
+- sign (云贝签到+vip签到)
 - partner (音乐合伙人)
 - scrobble (刷歌300首)
 
