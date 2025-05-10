@@ -536,7 +536,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	}
 	if m := hex.EncodeToString(m.Sum(nil)); m != drd.Md5 {
 		_ = os.Remove(file.Name())
-		return fmt.Errorf("md5 not match, want=%s, got=%s", drd.Md5, m)
+		return fmt.Errorf("file %v md5 not match, want=%s, got=%s", file.Name(), drd.Md5, m)
 	}
 
 	// 设置歌曲tag值

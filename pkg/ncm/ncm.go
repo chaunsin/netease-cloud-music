@@ -96,6 +96,7 @@ func decodeKey(rs io.ReadSeeker) ([]byte, error) {
 }
 
 // DecodeMeta decode meta info
+// see: https://stageguard.top/2019/10/27/analyze-163-music-key/#%E6%B3%A8%E9%87%8A%E5%9C%A8%E5%93%AA%EF%BC%9F
 func DecodeMeta(rs io.ReadSeeker) (*Metadata, error) {
 	if rs == nil {
 		return nil, errors.New("io.ReadSeeker is nil")

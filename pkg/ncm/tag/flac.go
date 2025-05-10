@@ -93,6 +93,7 @@ func (f *Flac) SetCover(buf []byte, mime string) error {
 }
 
 func (f *Flac) SetCoverUrl(coverUrl string) error {
+	// flacpicture.NewFromImageData()
 	picture := &flacpicture.MetadataBlockPicture{
 		PictureType: flacpicture.PictureTypeFrontCover,
 		MIME:        "-->",

@@ -53,8 +53,8 @@ LATEST_VERSION=$(curl -s "https://gitee.com/api/v5/repos/$REPO/releases/latest" 
 # 系统架构和下载文件映射
 map_architecture() {
     case "$ARCH" in
-        x86_64) ARCH="x86_64" ;;
-        aarch64) ARCH="arm64" ;;
+        x86_64|amd64) ARCH="x86_64" ;;
+        aarch64|arm64) ARCH="arm64" ;;
         armv7l) ARCH="armv6" ;;
         mips64) ARCH="mips64" ;;
         mips64el) ARCH="mips64le" ;;
@@ -94,16 +94,39 @@ is_installed() {
 # 下载和解压程序
 download_and_extract() {
     echo "Downloading the latest version..."
-    # 根据架构动态拼接下载 URL
-    #DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}_${OS}_${ARCH}.tar.gz"
-    DOWNLOAD_URL="https://gitee.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}_${OS}_${ARCH}.tar.gz"
-    echo "Download URL: $DOWNLOAD_URL"
+    #local download_url="https://github.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}_${OS}_${ARCH}.tar.gz"
+    local download_url="https://gitee.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}_${OS}_${ARCH}.tar.gz"
+    local retry_count=0
+    local tar_file="$TEMP_DIR/$BINARY_NAME.tar.gz"
 
+    echo "Download URL: $download_url"
     mkdir -p "$TEMP_DIR"
-    curl -L "$DOWNLOAD_URL" -o "$TEMP_DIR/$BINARY_NAME.tar.gz" || { echo "Download failed. Exiting."; exit 1; }
+
+    # 带重试的下载
+    while (( retry_count < MAX_RETRIES )); do
+        if curl -LfS --progress-bar "$download_url" -o "$tar_file"; then
+            echo "Download successful."
+            break
+        else
+            retry_count=$((retry_count + 1))
+            echo "Download failed. Retrying ($retry_count/$MAX_RETRIES)..."
+            sleep 2
+        fi
+    done
+
+    if (( retry_count >= MAX_RETRIES )); then
+        echo "Download failed after $MAX_RETRIES attempts. Exiting."
+        exit 1
+    fi
+
+    # 检查文件是否合法
+    if ! tar -tzf "$tar_file" &>/dev/null; then
+        echo "Downloaded file is corrupted or invalid. Verify the URL: $download_url"
+        exit 1
+    fi
 
     echo "Extracting files..."
-    tar -xzf "$TEMP_DIR/$BINARY_NAME.tar.gz" -C "$TEMP_DIR" || { echo "Extraction failed. Exiting."; exit 1; }
+    tar -xzf "$tar_file" -C "$TEMP_DIR" || { echo "Extraction failed. Exiting."; exit 1; }
 }
 
 # 安装程序
