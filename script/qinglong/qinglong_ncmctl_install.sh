@@ -49,6 +49,8 @@ OS="$(uname -s)"
 # 最新版本
 #LATEST_VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 LATEST_VERSION=$(curl -s "https://gitee.com/api/v5/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+# 重试次数默认3次
+MAX_RETRIES=${MAX_RETRIES:-3}
 
 # 系统架构和下载文件映射
 map_architecture() {
