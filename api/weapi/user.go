@@ -37,8 +37,8 @@ type GetUserInfoDetailReq struct {
 }
 
 type GetUserInfoDetailResp struct {
-	Code        int64 `json:"code"` // 200:成功 404:未找到用户
-	Level       int64 `json:"level"`
+	Code        int64 `json:"code"`  // 200:成功 404:未找到用户
+	Level       int64 `json:"level"` // 账号等级
 	ListenSongs int64 `json:"listenSongs"`
 	// UserPoint 云贝信息
 	UserPoint struct {
@@ -59,35 +59,35 @@ type GetUserInfoDetailResp struct {
 			Age        bool `json:"age"`
 			VillageAge bool `json:"villageAge"`
 		} `json:"privacyItemUnlimit"`
-		AvatarDetail      interface{} `json:"avatarDetail"`
-		AvatarImgId       int64       `json:"avatarImgId"`
-		Birthday          int64       `json:"birthday"` // eg: 851875200000
-		Gender            int64       `json:"gender"`   // 性别 0:未知
-		Nickname          string      `json:"nickname"`
-		DefaultAvatar     bool        `json:"defaultAvatar"`
-		AvatarUrl         string      `json:"avatarUrl"`
-		BackgroundImgId   int64       `json:"backgroundImgId"`
-		BackgroundUrl     string      `json:"backgroundUrl"`
-		UserType          int64       `json:"userType"`
-		Province          int64       `json:"province"`
-		VipType           int64       `json:"vipType"` // 0:无vip
-		AccountStatus     int64       `json:"accountStatus"`
-		RemarkName        interface{} `json:"remarkName"`
-		Followed          int64       `json:"followed"`
-		Mutual            int64       `json:"mutual"`
-		DjStatus          int64       `json:"djStatus"`
-		City              int64       `json:"city"`
-		DetailDescription string      `json:"detailDescription"`
-		CreateTime        int64       `json:"createTime"`
-		Experts           struct {
-		} `json:"experts"`
+		AvatarDetail              interface{}   `json:"avatarDetail"`
+		CreateTime                int64         `json:"createTime"`
+		AvatarImgId               int64         `json:"avatarImgId"`
+		Birthday                  int64         `json:"birthday"` // eg: 851875200000
+		Gender                    int64         `json:"gender"`   // 性别 0:未知
+		Nickname                  string        `json:"nickname"`
+		VipType                   int64         `json:"vipType"` // 0:无vip
+		Mutual                    bool          `json:"mutual"`
+		RemarkName                interface{}   `json:"remarkName"`
+		AccountStatus             int64         `json:"accountStatus"`
 		AuthStatus                int64         `json:"authStatus"`
+		AvatarUrl                 string        `json:"avatarUrl"`
+		BackgroundImgId           int64         `json:"backgroundImgId"`
+		BackgroundUrl             string        `json:"backgroundUrl"`
+		City                      int64         `json:"city"`
+		DetailDescription         string        `json:"detailDescription"`
+		DjStatus                  int64         `json:"djStatus"`
 		ExpertTags                interface{}   `json:"expertTags"`
+		Followed                  bool          `json:"followed"`
+		Province                  int64         `json:"province"`
+		UserType                  int64         `json:"userType"`
+		DefaultAvatar             bool          `json:"defaultAvatar"`
+		Experts                   struct{}      `json:"experts"`
 		AvatarImgIdStr            string        `json:"avatarImgIdStr"`
 		BackgroundImgIdStr        string        `json:"backgroundImgIdStr"`
 		Description               string        `json:"description"`
 		UserId                    int64         `json:"userId"`
 		Signature                 string        `json:"signature"` // 简介
+		Y                         int64         `json:"y"`
 		Authority                 int64         `json:"authority"`
 		Followeds                 int64         `json:"followeds"` // 粉丝数量 和下面的 NewFollows 粉丝数量不值有何区别
 		Follows                   int64         `json:"follows"`
@@ -109,21 +109,21 @@ type GetUserInfoDetailResp struct {
 	PeopleCanSeeMyPlayRecord bool `json:"peopleCanSeeMyPlayRecord"`
 	// Bindings 绑定账号信息，比如是否有手机号绑定 see: Api.GetUserBindings()
 	Bindings []struct {
-		ExpiresIn    int         `json:"expiresIn"`
-		RefreshTime  int         `json:"refreshTime"`
+		ExpiresIn    int64       `json:"expiresIn"`
+		RefreshTime  int64       `json:"refreshTime"`
 		BindingTime  int64       `json:"bindingTime"`
 		TokenJsonStr interface{} `json:"tokenJsonStr"`
 		Url          string      `json:"url"`
 		Expired      bool        `json:"expired"`
-		UserId       int         `json:"userId"`
+		UserId       int64       `json:"userId"`
 		Id           int64       `json:"id"`
-		Type         int         `json:"type"` // 1:手机号 5:qq 其他暂时未知
+		Type         int64       `json:"type"` // 1:手机号 5:qq 其他暂时未知
 	} `json:"bindings"`
 	AdValid    bool  `json:"adValid"`
 	NewUser    bool  `json:"newUser"`
 	RecallUser bool  `json:"recallUser"`
 	CreateTime int64 `json:"createTime"`
-	CreateDays int   `json:"createDays"`
+	CreateDays int64 `json:"createDays"` // 创建账号天数
 	// 村民证
 	ProfileVillageInfo struct {
 		Title     string `json:"title"`

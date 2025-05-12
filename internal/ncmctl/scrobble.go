@@ -109,6 +109,19 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	}
 	var uid = fmt.Sprintf("%v", user.Account.Id)
 
+	// 判断是否满级，满级则不再执行。
+	detail, err := request.GetUserInfoDetail(ctx, &weapi.GetUserInfoDetailReq{UserId: user.Account.Id})
+	if err != nil {
+		return fmt.Errorf("GetUserInfoDetail: %w", err)
+	}
+	if detail.Code != 200 {
+		return fmt.Errorf("GetUserInfoDetail: %w", err)
+	}
+	if detail.Level >= 10 {
+		c.cmd.Println("账号已满级")
+		return nil
+	}
+
 	// 刷新token过期时间
 	defer func() {
 		refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})

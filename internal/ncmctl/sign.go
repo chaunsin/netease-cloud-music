@@ -169,7 +169,7 @@ func (c *SignIn) execute(ctx context.Context) error {
 		return fmt.Errorf("VipGrowPoint: %+v", vip)
 	}
 	if vip.Data.UserLevel.LatestVipStatus != 1 {
-		c.cmd.Printf("vip status invalid: %v\n", vip.Data.UserLevel.LatestVipStatus)
+		c.cmd.Printf("暂无会员权益: %v\n", vip.Data.UserLevel.LatestVipStatus)
 		return nil
 	}
 	if vip.Data.UserLevel.MaxLevel {

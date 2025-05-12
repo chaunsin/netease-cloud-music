@@ -406,12 +406,12 @@ type VipGrowPointRespData struct {
 		GrowthPoint     int64       `json:"growthPoint"` // 当前成长值
 		LevelName       string      `json:"levelName"`   // 黑胶·肆
 		YesterdayPoint  int64       `json:"yesterdayPoint"`
-		VipType         int64       `json:"vipType"`
+		VipType         int64       `json:"vipType"`    // -2:过期？
 		ExtJson         string      `json:"extJson"`    // eg: "{\"yearMonth\":\"20255\",\"lastDay\":\"202554\",\"lastDayScore\":-6,\"todayScore\":6,\"currentDay\":\"202555\",\"totalScore\":0,\"monthTaskTotalScore\":6}"
 		ExpireTime      int64       `json:"expireTime"` // 1746892799000,
 		AvatarUrl       interface{} `json:"avatarUrl"`
-		LatestVipType   int64       `json:"latestVipType"`   // 100:领取的赠送
-		LatestVipStatus int64       `json:"latestVipStatus"` // 1: 貌似正常
+		LatestVipType   int64       `json:"latestVipType"`   // 100:领取的赠送？
+		LatestVipStatus int64       `json:"latestVipStatus"` // 0:失效或关闭 1: 貌似正常
 		Normal          bool        `json:"normal"`
 		MaxLevel        bool        `json:"maxLevel"` // true: 最高等级
 	} `json:"userLevel"`
