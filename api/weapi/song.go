@@ -240,10 +240,10 @@ type SongPlayerReq struct {
 }
 
 type SongPlayerResp struct {
-	types.RespCommon[[]SongPlayerReqData]
+	types.RespCommon[[]SongPlayerRespData]
 }
 
-type SongPlayerReqData struct {
+type SongPlayerRespData struct {
 	Id                     int64                        `json:"id"`
 	Url                    string                       `json:"url"`
 	Br                     int64                        `json:"br"`
@@ -259,7 +259,7 @@ type SongPlayerReqData struct {
 	Payed                  int64                        `json:"payed"`
 	Flag                   int64                        `json:"flag"`
 	CanExtend              bool                         `json:"canExtend"`
-	FreeTrialInfo          interface{}                  `json:"freeTrialInfo"`
+	FreeTrialInfo          types.FreeTrialInfo          `json:"freeTrialInfo"`
 	Level                  string                       `json:"level"` // 通常所说的音质水平 eg: standard、exhigh、higher、lossless、hires
 	EncodeType             string                       `json:"encodeType"`
 	ChannelLayout          interface{}                  `json:"channelLayout"`
@@ -325,7 +325,7 @@ type SongPlayerRespV1Data struct {
 	Payed                  int64                        `json:"payed"`
 	Flag                   int64                        `json:"flag"`
 	CanExtend              bool                         `json:"canExtend"`
-	FreeTrialInfo          interface{}                  `json:"freeTrialInfo"`
+	FreeTrialInfo          types.FreeTrialInfo          `json:"freeTrialInfo"`
 	Level                  string                       `json:"level"`      // 音质水平 see: types.Level
 	EncodeType             string                       `json:"encodeType"` // eg: mp3
 	ChannelLayout          interface{}                  `json:"channelLayout"`
@@ -392,7 +392,7 @@ type SongDownloadUrlRespData struct {
 	Fee                    int64                        `json:"fee"`
 	Flag                   int64                        `json:"flag"`
 	FreeTimeTrialPrivilege types.FreeTimeTrialPrivilege `json:"freeTimeTrialPrivilege"`
-	FreeTrialInfo          interface{}                  `json:"freeTrialInfo"`
+	FreeTrialInfo          types.FreeTrialInfo          `json:"freeTrialInfo"`
 	FreeTrialPrivilege     types.FreeTrialPrivilege     `json:"freeTrialPrivilege"`
 	Gain                   float64                      `json:"gain"`
 	Id                     int64                        `json:"id"`
@@ -455,7 +455,7 @@ type SongDownloadUrlV1RespData struct {
 	Fee                    int64                        `json:"fee"`
 	Flag                   int64                        `json:"flag"`
 	FreeTimeTrialPrivilege types.FreeTimeTrialPrivilege `json:"freeTimeTrialPrivilege"`
-	FreeTrialInfo          interface{}                  `json:"freeTrialInfo"`
+	FreeTrialInfo          types.FreeTrialInfo          `json:"freeTrialInfo"`
 	FreeTrialPrivilege     types.FreeTrialPrivilege     `json:"freeTrialPrivilege"`
 	Gain                   float64                      `json:"gain"`
 	Id                     int64                        `json:"id"`

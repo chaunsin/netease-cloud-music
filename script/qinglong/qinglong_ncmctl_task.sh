@@ -31,15 +31,19 @@
 ########################################################################
 # 注意:                                                                 #
 #  1.需要提前安装`ncmctl`可执行文件                                        #
-#  2.执行前需要保证登录状态,也就是走完`ncmctl login qrcode`流程               #
-#  3.音乐合伙人资格不是所有人都有,因此如果没有此功能则需要注释掉配置，不然会出现错误。#
+#  2.执行前需要保证登录状态,也就是走完登录流程                                #
+#  3.已完成的任务，或不再需要执行的任务则建议关闭相应的任务，避免风控被风控。      #
 #########################################################################
 
 set -e
 
-# 定义环境变量任务开关,默认开启
+# 是否开启每日签到任务,默认开启
 NCMCTL_QINGLONG_SIGN=${NCMCTL_QINGLONG_SIGN:-true}
+# 每日签到任务是否自动领取奖励，默认关闭
+NCMCTL_QINGLONG_SIGN_AUTOMATIC=${NCMCTL_QINGLONG_SIGN_AUTOMATIC:-false}
+# 是否开启刷歌功能，默认开启
 NCMCTL_QINGLONG_SCROBBLE=${NCMCTL_QINGLONG_SCROBBLE:-true}
+# 是否开启音乐合伙人签到功能，默认开启
 NCMCTL_QINGLONG_PARTNER=${NCMCTL_QINGLONG_PARTNER:-true}
 
 # 将变量值转换为小写
@@ -47,11 +51,11 @@ to_lower() {
   echo "$1" | tr '[:upper:]' '[:lower:]'
 }
 
-# 执行每日云贝签到任务
+# 执行每日签到任务
 if [[ "$(to_lower "${NCMCTL_QINGLONG_SIGN}")" == "true" ]]; then
-  echo ">>> 执行每日云贝签到任务 <<<"
-  ncmctl sign
-  echo "--- 执行每日云贝签到任务完成 ---"
+  echo ">>> 执行每日签到任务 <<<"
+  ncmctl sign "--automatic=$(to_lower "${NCMCTL_QINGLONG_SIGN_AUTOMATIC}")"
+  echo "--- 执行每日签到任务完成 ---"
 fi
 
 # 执行刷歌任务,注意如果已经刷到了满级则需要关闭此功能，不然会出现封号风险。

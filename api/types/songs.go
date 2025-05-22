@@ -25,7 +25,7 @@ package types
 
 import "fmt"
 
-// Artist 歌手信息
+// Artist 歌手信息.
 type Artist struct {
 	// Id 歌手id
 	Id int64 `json:"id"`
@@ -35,7 +35,7 @@ type Artist struct {
 	Alias []interface{} `json:"alias"`
 }
 
-// Album 专辑信息
+// Album 专辑信息.
 type Album struct {
 	// Id 专辑id
 	Id int64 `json:"id"`
@@ -125,4 +125,11 @@ func (f Free) String() string {
 	default:
 		return fmt.Sprintf("%d:未知", f)
 	}
+}
+
+// FreeTrialInfo 试听信息？
+// see: https://github.com/Binaryify/NeteaseCloudMusicApi/issues/1713
+type FreeTrialInfo struct {
+	Start int64 `json:"start"`
+	End   int64 `json:"end"`
 }

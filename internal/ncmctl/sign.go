@@ -63,7 +63,7 @@ func NewSignIn(root *Root, l *log.Logger) *SignIn {
 }
 
 func (c *SignIn) addFlags() {
-	c.cmd.Flags().BoolVarP(&c.opts.Automatic, "automatic", "a", true, "automatically claim sign-in rewards")
+	c.cmd.Flags().BoolVarP(&c.opts.Automatic, "automatic", "a", false, "automatically claim sign-in rewards")
 }
 
 func (c *SignIn) validate() error {

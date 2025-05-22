@@ -253,6 +253,8 @@ ncmctl task --scrobble.cron "0 20 * * *"
 - `ncmctl` 采用标准的[crontab](https://zh.wikipedia.org/wiki/Cron)
   表达式进行管理。crontab表达式编写工具[>>>点我<<<](https://crontab.guru/)
 
+> ⚠️ **Warning:** 目前每日签到任务默认关闭自动领取奖励功能,原因是有封号风险,如果还是想开启则指定`--sign.automatic` 参数进行开启。
+
 **三、音乐下载**
 
 1. 下载Hi-Res品质音乐
