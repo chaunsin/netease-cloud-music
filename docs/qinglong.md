@@ -24,12 +24,12 @@
 
 两种方式，任选其一即可：
 
-#### 2.1.1 方式一：订阅管理
+#### 2.1.1 方式一：订阅管理(推荐方式)
 
 在`订阅管理`管理导航栏中，右上角`创建订阅`，填入以下信息：
 
 ```text
-名称：ncmctl
+名称：网易云音乐
 类型：公开仓库
 链接：https://github.com/chaunsin/netease-cloud-music.git
 定时类型：interval
@@ -47,12 +47,15 @@
 打开青龙面板，`定时任务`页，右上角`创建任务`，填入以下信息：
 
 ```text
-名称：拉取ncmctl库
-命令：ql repo https://github.com/chaunsin/netease-cloud-music.git "qinglong_ncmctl_"
-定时规则：0 10 * * *
+名称: 网易云音乐
+命令: ql repo https://github.com/chaunsin/netease-cloud-music.git qinglong_ncmctl_ "" "" "" sh
+定时类型: 常规定时
+定时规则: 0 10 * * *
 ```
 
 保存后，点击`运行`按钮，运行拉库,并注意运行状态及日志，如果拉库成功，会自动添加ncmctl相关的task任务。
+
+`ql`命令使用介绍: https://qinglong.online/guide/user-guide/basic-explanation
 
 ### 2.2 检查定时任务
 
