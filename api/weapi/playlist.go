@@ -553,3 +553,33 @@ func (a *Api) PCRecentListenList(ctx context.Context, req *PCRecentListenListReq
 	_ = resp
 	return &reply, nil
 }
+
+type PlaylistAddOrDelReq struct {
+	Op       string           `json:"op"`       // 增加歌曲为add,删除为del
+	Pid      int64            `json:"pid"`      // 歌单id
+	TrackIds types.IntsString `json:"trackIds"` // 歌曲id (传入格式如types.IntsString{349823, 423521})
+	Imme     bool             `json:"imme"`     // 是否立刻上传(默认为true),实际检测不会产生太大影响,猜测为了防止阻塞残留
+}
+
+type PlaylistAddOrDelResp struct {
+	types.RespCommon[any]
+	TrackIds   string `json:"trackIds"`   // 成功添加的歌曲id(返回为string类型数组如"[349823,423521]")
+	Count      int64  `json:"count"`      // 该歌单歌曲数量(添加后)
+	CloudCount int64  `json:"cloudCount"` // 该歌单内云盘歌曲数量(添加后)
+}
+
+// PlaylistAddOrDel 对歌单添加或删除歌曲
+// code message:502 歌单歌曲重复, 404 歌单不存在(包含没有权限添加的歌单), 400 当前歌曲已下架，无法收藏哦(包含不存在的歌曲id)
+func (a *Api) PlaylistAddOrDel(ctx context.Context, req *PlaylistAddOrDelReq) (*PlaylistAddOrDelResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/playlist/manipulate/tracks"
+		reply PlaylistAddOrDelResp
+		opts  = api.NewOptions()
+	)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
