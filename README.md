@@ -56,7 +56,7 @@
 - git (可选)
 - docker (可选)
 
-## ncmctl
+## 🎄 ncmctl
 
 ### 🔨 安装
 
@@ -343,7 +343,7 @@ ncmctl ncm '/Users/chaunsin/Music/' -o ./ncm
 ncmctl -h
 ```
 
-## api
+## 📚 api
 
 参考如下
 
