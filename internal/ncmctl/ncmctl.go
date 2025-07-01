@@ -36,6 +36,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const title = "                       _    _\n ___  ___  _____  ___ | |_ | |\n|   ||  _||     ||  _||  _|| |\n|_|_||___||_|_|_||___||_|  |_|\n"
+
 type RootOpts struct {
 	Debug  bool   // 是否开启命令行debug模式
 	Config string // 配置文件路径
@@ -54,7 +56,7 @@ func New() *Root {
 		cmd: &cobra.Command{
 			Use:     "ncmctl",
 			Short:   "ncmctl command",
-			Long:    "ncmctl is a toolbox for netease cloud music\n\nMIT License Copyright (c) 2024 chaunsin\nhttps://github.com/chaunsin/netease-cloud-music",
+			Long:    "ncmctl is a toolbox for netease cloud music\n\nMIT License Copyright (c) 2024 chaunsin\nhttps://github.com/chaunsin/netease-cloud-music\n" + title,
 			Example: "  ncmctl cloud\n  ncmctl crypto\n  ncmctl login\n  ncmctl curl\n  ncmctl partner\n  ncmctl scrobble\n  ncmctl sign\n  ncmctl task",
 		},
 	}
@@ -126,8 +128,8 @@ func (c *Root) addFlags() {
 }
 
 func (c *Root) Version(version, buildTime, commitHash string) {
-	c.cmd.Version = fmt.Sprintf(" Version: \t%s\n Go version: \t%s\n Git commit: \t%s\n OS/Arch: \t%s\n Build time: \t%s",
-		version, runtime.Version(), commitHash, runtime.GOOS+"/"+runtime.GOARCH, buildTime)
+	c.cmd.Version = fmt.Sprintf("%s\n Version: \t%s\n Go version: \t%s\n Git commit: \t%s\n OS/Arch: \t%s\n Build time: \t%s",
+		title, version, runtime.Version(), commitHash, runtime.GOOS+"/"+runtime.GOARCH, buildTime)
 }
 
 func (c *Root) Add(command ...*cobra.Command) {
