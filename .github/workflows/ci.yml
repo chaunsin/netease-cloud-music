@@ -2,11 +2,11 @@ name: ci
 
 on:
   push:
-    branches: [ "" ]
+#    branches: [ "" ]
     tags:
       - 'v*'
   pull_request:
-    branches: [ "" ]
+#    branches: [ "" ]
   workflow_dispatch:
     inputs:
       debug_enabled:
