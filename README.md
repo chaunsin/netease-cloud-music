@@ -60,11 +60,11 @@
 
 ### 🔨 安装
 
-**下载安装**
+**1. 下载安装**
 
 https://github.com/chaunsin/netease-cloud-music/releases
 
-**源码安装**
+**2. 源码安装**
 
 ```shell
 go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
@@ -79,7 +79,7 @@ cd netease-cloud-music && make install
 
 **提示:** 默认会安装到`$GOPATH/bin`目录下
 
-**docker版本安装**
+**3. docker版本安装**
 
 ```shell
 docker pull chaunsin/ncmctl:latest # dockerhub镜像仓库
@@ -97,7 +97,7 @@ cd netease-cloud-music && make build-iamge
 
 **提示:** 自行编译需要安装docker环境,另外受国服环境影响最好开梯子。
 
-**青龙脚本安装:**
+**4. 青龙脚本安装:**
 
 [>> 点我 <<](docs/qinglong.md)
 
