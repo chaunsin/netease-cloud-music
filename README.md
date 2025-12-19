@@ -18,7 +18,7 @@
 
 ### 命令行 (ncmctl)
 - [x] 登录
-  - [x] 短信登录
+  - [x] ~~短信登录~~
   - [x] cookie方式登录
   - [x] [cookiecloud](https://github.com/easychen/CookieCloud/blob/master/README_cn.md)方式登录
   - [x] ~~扫码登录~~
