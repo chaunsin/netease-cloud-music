@@ -11,9 +11,9 @@ import (
 
 	"github.com/bogem/id3v2/v2"
 	"github.com/chaunsin/netease-cloud-music/pkg/ncm"
-	"github.com/go-flac/flacpicture"
-	"github.com/go-flac/flacvorbis"
-	"github.com/go-flac/go-flac"
+	"github.com/go-flac/flacpicture/v2"
+	"github.com/go-flac/flacvorbis/v2"
+	"github.com/go-flac/go-flac/v2"
 	_ "golang.org/x/image/webp" // register webp decoder
 )
 

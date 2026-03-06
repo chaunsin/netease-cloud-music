@@ -60,11 +60,13 @@ func fixedWidthName(s string, width int) string {
 }
 
 type DownloadOpts struct {
-	Output   string // 输出目录
-	Parallel int64  // 并发下载数量
-	Level    string // 歌曲品质 types.Level
-	Strict   bool   // 严格模式。当开起时指定的歌曲品质不符合要求,则不进行下载
-	Tag      bool
+	Output      string // 输出目录
+	Parallel    int64  // 并发下载数量
+	Level       string // 歌曲品质 types.Level
+	EncodeType  string // 编码类型
+	ImmerseType string // 沉浸式类型
+	Strict      bool   // 严格模式。当开起时指定的歌曲品质不符合要求,则不进行下载
+	Tag         bool
 }
 
 type Download struct {
@@ -98,6 +100,8 @@ func (c *Download) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./download", "music file output path")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 5, "concurrent download count")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Level, "level", "l", string(types.LevelLossless), "song quality level. support: standard/128,higher/192,exhigh/HQ/320,lossless/SQ,hires/HR")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.EncodeType, "encode-type", "", "flac", "song encode type")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.ImmerseType, "immerse-type", "", "c51", "song immerse type")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Strict, "strict", false, "strict mode. when the downloaded song does not find the corresponding quality, it will not be downloaded.")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", true, "whether to set song tag information,default enable")
 }
@@ -466,8 +470,8 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	var downReq = &weapi.SongPlayerV1Req{
 		Ids:         types.IntsString{songId},
 		Level:       types.Level(c.opts.Level),
-		EncodeType:  "flac",
-		ImmerseType: "c51",
+		EncodeType:  c.opts.EncodeType,
+		ImmerseType: c.opts.ImmerseType,
 	}
 	downResp, err := request.SongPlayerV1(ctx, downReq)
 	if err != nil {
