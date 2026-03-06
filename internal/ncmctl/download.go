@@ -44,9 +44,20 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/ncm"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
+	pb "github.com/cheggaaa/pb/v3"
+	"github.com/mattn/go-runewidth"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/semaphore"
 )
+
+const (
+	barNameWidth        = 35
+	downloadBarTemplate = `{{string . "prefix"}} {{bar . }} {{percent . "%6.2f%%"}}`
+)
+
+func fixedWidthName(s string, width int) string {
+	return runewidth.FillRight(runewidth.Truncate(s, width, ".."), width)
+}
 
 type DownloadOpts struct {
 	Output   string // 输出目录
@@ -181,28 +192,26 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 	}
 
 	var (
-		//total  = int64(len(songs))
 		failed atomic.Int64
 		sema   = semaphore.NewWeighted(c.opts.Parallel)
-		pm     = NewProgressManager()
 	)
-	defer func() {
-		pm.Stop()
-		//c.cmd.Printf("report total: %v success: %v failed: %v\n", total, total-failed.Load(), failed.Load())
-	}()
 
-	for i, song := range songs {
+	pool, err := pb.StartPool()
+	if err != nil {
+		return fmt.Errorf("StartPool: %w", err)
+	}
+	defer pool.Stop()
+
+	for _, song := range songs {
 		var song = song
-		var order = i
 		if err := sema.Acquire(ctx, 1); err != nil {
 			return fmt.Errorf("acquire: %w", err)
 		}
 		go func() {
 			defer sema.Release(1)
-			if err := c.download(ctx, cli, request, &song, pm, order); err != nil {
+			if err := c.download(ctx, cli, request, &song, pool); err != nil {
 				failed.Add(1)
 				log.Error("download %s err: %v", song.String(), err)
-				pm.Log(fmt.Sprintf("download %s err: %v", song.String(), err))
 				return
 			}
 		}()
@@ -433,7 +442,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 	return list, nil
 }
 
-func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi.Api, music *Music, pm *ProgressManager, order int) error {
+func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi.Api, music *Music, pool *pb.Pool) error {
 	var (
 		songId    = music.Id
 		songIdStr = fmt.Sprintf("%d", songId)
@@ -499,22 +508,14 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	defer file.Close()
 
 	// 下载
-	// 创建进度条
-	tracker := &ProgressTracker{
-		Total:    drd.Size,
-		Filename: fmt.Sprintf("%s - %s", music.ArtistString(), music.NameString()),
-		Order:    order,
-	}
-	pm.Add(tracker)
-	defer pm.Finish(tracker)
+	bar := pb.New64(drd.Size).
+		Set(pb.Bytes, true).
+		Set("prefix", fixedWidthName(fmt.Sprintf("%s - %s", music.ArtistString(), music.NameString()), barNameWidth)).
+		SetTemplateString(downloadBarTemplate)
+	pool.Add(bar)
+	defer bar.Finish()
 
-	// 包装 writer
-	writer := &ProgressWriter{
-		Writer:  file,
-		Tracker: tracker,
-	}
-
-	resp, err := cli.Download(ctx, drd.Url, nil, nil, writer, nil)
+	resp, err := cli.Download(ctx, drd.Url, nil, nil, file, bar)
 	if err != nil {
 		_ = os.Remove(file.Name())
 		return fmt.Errorf("download: %w", err)
