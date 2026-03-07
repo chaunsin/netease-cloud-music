@@ -78,7 +78,7 @@ func digest(url, data string) string {
 	return fmt.Sprintf("%x", md5.Sum([]byte(message)))
 }
 
-// aesEncrypt 加密
+// aesEncrypt 加密.
 func aesEncrypt(text, key, iv, mode, format string) (string, error) {
 	// fmt.Printf("[aesEncrypt] request mode=%s format=%s\n", mode, format)
 	block, err := aes.NewCipher([]byte(key))
@@ -113,7 +113,7 @@ func aesEncrypt(text, key, iv, mode, format string) (string, error) {
 	}
 }
 
-// aesDecrypt 解密
+// aesDecrypt 解密.
 func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 	// fmt.Printf("[aesDecrypt] request mode=%s format=%s\n", mode, format)
 	block, err := aes.NewCipher([]byte(key))
@@ -157,7 +157,7 @@ func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 	return text, nil
 }
 
-// AesEncryptCBC 加密
+// AesEncryptCBC 加密.
 func AesEncryptCBC(block cipher.Block, plaintext, iv []byte) []byte {
 	ciphertext := make([]byte, len(plaintext))
 	encrypt := cipher.NewCBCEncrypter(block, iv)
@@ -165,7 +165,7 @@ func AesEncryptCBC(block cipher.Block, plaintext, iv []byte) []byte {
 	return ciphertext
 }
 
-// AesDecryptCBC 解密
+// AesDecryptCBC 解密.
 func AesDecryptCBC(block cipher.Block, cipherText, iv []byte) ([]byte, error) {
 	if len(iv) != block.BlockSize() {
 		return nil, fmt.Errorf("IV length must be %d bytes", block.BlockSize())
@@ -177,7 +177,7 @@ func AesDecryptCBC(block cipher.Block, cipherText, iv []byte) ([]byte, error) {
 	return data, nil
 }
 
-// AesEncryptECB 加密
+// AesEncryptECB 加密.
 func AesEncryptECB(block cipher.Block, plaintext []byte) []byte {
 	ciphertext := make([]byte, len(plaintext))
 	blockSize := block.BlockSize()
@@ -187,7 +187,7 @@ func AesEncryptECB(block cipher.Block, plaintext []byte) []byte {
 	return ciphertext
 }
 
-// AesDecryptECB 解密
+// AesDecryptECB 解密.
 func AesDecryptECB(block cipher.Block, cipherBytes []byte) ([]byte, error) {
 	if len(cipherBytes)%block.BlockSize() != 0 {
 		return nil, errors.New("cipherBytes length is not a multiple of block size")
@@ -199,7 +199,7 @@ func AesDecryptECB(block cipher.Block, cipherBytes []byte) ([]byte, error) {
 	return decrypted, nil
 }
 
-// RsaEncrypt 公钥加密无填充方式
+// RsaEncrypt 公钥加密无填充方式.
 func RsaEncrypt(ciphertext, key string) (string, error) {
 	block, _ := pem.Decode([]byte(key))
 	if block == nil {
@@ -220,7 +220,7 @@ func RsaEncrypt(ciphertext, key string) (string, error) {
 	return hex.EncodeToString(encryptedBytes), nil
 }
 
-// Pkcs7Padding 补码,严格遵循 RFC 5652 规范
+// Pkcs7Padding 补码,严格遵循 RFC 5652 规范.
 func Pkcs7Padding(data []byte, blockSize int) ([]byte, error) {
 	if blockSize <= 0 || blockSize > 255 {
 		return nil, errors.New("pkcs7: invalid block size")
@@ -238,7 +238,7 @@ func Pkcs7Padding(data []byte, blockSize int) ([]byte, error) {
 	return append(data, bytes.Repeat([]byte{byte(padding)}, padding)...), nil
 }
 
-// Pkcs7UnPadding 去码
+// Pkcs7UnPadding 去码.
 func Pkcs7UnPadding(data []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, errors.New("pkcs7: empty input data")
@@ -258,13 +258,13 @@ func Pkcs7UnPadding(data []byte) ([]byte, error) {
 	return data[:len(data)-padding], nil
 }
 
-// WeApiEncrypt 加密
+// WeApiEncrypt 加密.
 func WeApiEncrypt(object interface{}) (map[string]string, error) {
-	var secretKey = randomKey()
 	data, err := json.Marshal(object)
 	if err != nil {
 		return nil, err
 	}
+	var secretKey = randomKey()
 	encryptText, err := aesEncrypt(string(data), presetKey, iv, "cbc", "base64")
 	if err != nil {
 		return nil, fmt.Errorf("aesEncrypt: %w", err)
@@ -283,13 +283,13 @@ func WeApiEncrypt(object interface{}) (map[string]string, error) {
 	}, nil
 }
 
-// WeApiDecrypt 解密 TODO: 由于拿不到私钥则不能解密
+// WeApiDecrypt 解密 TODO: 由于拿不到私钥则不能解密.
 func WeApiDecrypt(params, encSecKey string) (map[string]string, error) {
 	panic("unrealized")
 	return nil, nil
 }
 
-// LinuxApiEncrypt 加密
+// LinuxApiEncrypt 加密.
 func LinuxApiEncrypt(object interface{}) (map[string]string, error) {
 	data, err := json.Marshal(object)
 	if err != nil {
@@ -302,7 +302,7 @@ func LinuxApiEncrypt(object interface{}) (map[string]string, error) {
 	return map[string]string{"eparams": ciphertext}, nil
 }
 
-// LinuxApiDecrypt 解密
+// LinuxApiDecrypt 解密.
 func LinuxApiDecrypt(cipherText string) ([]byte, error) {
 	plaintext, err := aesDecrypt(cipherText, linuxApiKey, "", "ecb", "hex")
 	if err != nil {
@@ -314,7 +314,7 @@ func LinuxApiDecrypt(cipherText string) ([]byte, error) {
 // EApiEncrypt 加密
 // 通常在MAC、windows、android、ios中使用
 // todo: 貌似当url为空时存在问题,网易接口加密返回中有不带url的情况，
-// 例如: DCC52B3013E9B66C038F8E027E580ECEDF84E0F44CB93FC365BED7B646A9BC08
+// 例如: DCC52B3013E9B66C038F8E027E580ECEDF84E0F44CB93FC365BED7B646A9BC08 .
 func EApiEncrypt(url string, object interface{}) (map[string]string, error) {
 	// 需要替换路由地址,不然会出现接口未找到错误
 	url = strings.Replace(url, "eapi", "api", 1)
@@ -333,7 +333,7 @@ func EApiEncrypt(url string, object interface{}) (map[string]string, error) {
 	return map[string]string{"params": ciphertext}, nil
 }
 
-// EApiDecrypt 解密,当解析请求参数是encode使用hex,当解析请求响应参数为空相当于二进制
+// EApiDecrypt 解密,当解析请求参数是encode使用hex,当解析请求响应参数为空相当于二进制.
 func EApiDecrypt(ciphertext, encode string) ([]byte, error) {
 	plaintext, err := aesDecrypt(ciphertext, eApiKey, "", "ecb", encode)
 	if err != nil {
@@ -342,7 +342,7 @@ func EApiDecrypt(ciphertext, encode string) ([]byte, error) {
 	return plaintext, nil
 }
 
-// CacheKeyEncrypt 生成缓存 key
+// CacheKeyEncrypt 生成缓存 key.
 func CacheKeyEncrypt(data string) (string, error) {
 	block, err := aes.NewCipher([]byte(cacheKey))
 	if err != nil {
@@ -356,7 +356,7 @@ func CacheKeyEncrypt(data string) (string, error) {
 	return base64.StdEncoding.EncodeToString(encrypted), nil
 }
 
-// CacheKeyDecrypt 解密缓存 key
+// CacheKeyDecrypt 解密缓存 key.
 func CacheKeyDecrypt(data string) (string, error) {
 	encrypted, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {
@@ -377,6 +377,17 @@ func CacheKeyDecrypt(data string) (string, error) {
 	return string(plaintext), nil
 }
 
+// HexDigest .
+func HexDigest(text string) string {
+	hasher := md5.New()
+	hasher.Write([]byte(text))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+// DLLEncodeID
+// region cloudmusic.dll (Windows) security.
+// XORs bytes then returns its base64 MD5 hash. Used in encodeAnonymousId
+// Searching for ID_XOR_KEY_1 in cloudmusic.dll will get you to their implementation.
 func DLLEncodeID(someID string) (string, error) {
 	inputBytes := []byte(someID)
 	xor := make([]byte, len(inputBytes))
@@ -393,7 +404,7 @@ func DLLEncodeID(someID string) (string, error) {
 	return base64.URLEncoding.EncodeToString(hasher.Sum(nil)), nil
 }
 
-// Anonymous 匿名用户生成
+// Anonymous 匿名用户生成.
 func Anonymous(deviceId string) (string, error) {
 	encodedID, err := DLLEncodeID(deviceId)
 	if err != nil {
@@ -409,7 +420,7 @@ func Anonymous(deviceId string) (string, error) {
 // GenerateWNMCID 生成WNMCID
 // 生成规则: 6位随机小写字母 + 当前时间戳（毫秒） + 默认抓取版本号 + 0
 // 例如: "abcdef.1633557080686.01.0"
-// 作用: 貌似是网易云音乐的抓取标识,或者用于爬虫标识等作用
+// 作用: 貌似是网易云音乐的抓取标识,或者用于爬虫标识等作用.
 func GenerateWNMCID() string {
 	const (
 		crawlerVersion = "01" // 默认抓取版本号
@@ -429,8 +440,8 @@ func GenerateWNMCID() string {
 	return fmt.Sprintf("%s.%d.%s.0", string(b), timestamp, crawlerVersion)
 }
 
-func HexDigest(text string) string {
-	hasher := md5.New()
-	hasher.Write([]byte(text))
-	return hex.EncodeToString(hasher.Sum(nil))
+// GenerateChainId 生成ChainId 用于web login
+// 规则: "{version}_{s_device_id}_{platform}_{action}_{timestamp}" .
+func GenerateChainId(deviceId string) string {
+	return fmt.Sprintf("v1_%s_web_%s_%d", deviceId, "login", time.Now().UnixMilli())
 }
