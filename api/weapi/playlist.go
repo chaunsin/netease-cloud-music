@@ -330,10 +330,17 @@ type PlaylistDetailResp struct {
 // needLogin: 不需要认证
 func (a *Api) PlaylistDetail(ctx context.Context, req *PlaylistDetailReq) (*PlaylistDetailResp, error) {
 	var (
-		url   = "https://music.163.com/api/v6/playlist/detail?id=" + req.Id
+		url   = "https://music.163.com/api/v6/playlist/detail"
 		reply PlaylistDetailResp
 		opts  = api.NewOptions()
 	)
+
+	if req.N == "" {
+		req.N = "100000"
+	}
+	if req.S == "" {
+		req.S = "8"
+	}
 
 	opts.CryptoMode = api.CryptoModeAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -555,7 +562,7 @@ func (a *Api) PCRecentListenList(ctx context.Context, req *PCRecentListenListReq
 }
 
 type PlaylistAddOrDelReq struct {
-	Op       string           `json:"op"`       // 增加歌曲为add,删除为del
+	Op       string           `json:"op"`       // 增加歌曲为add,删除为del,更新顺序为update
 	Pid      int64            `json:"pid"`      // 歌单id
 	TrackIds types.IntsString `json:"trackIds"` // 歌曲id (传入格式如types.IntsString{349823, 423521})
 	Imme     bool             `json:"imme"`     // 是否立刻上传(默认为true),实际检测不会产生太大影响,猜测为了防止阻塞残留

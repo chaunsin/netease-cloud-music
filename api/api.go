@@ -299,6 +299,18 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 	case CryptoModeAPI:
 		// 不需要加密处理请求
 		// todo: 待处理,在/api/xx/接口请求时则不需要参数加密处理,此处需要对结构体转换成map[string]string类型
+		b, err := json.Marshal(req)
+		if err != nil {
+			return nil, fmt.Errorf("json.Marshal: %w", err)
+		}
+		var m map[string]interface{}
+		if err := json.Unmarshal(b, &m); err != nil {
+			return nil, fmt.Errorf("json.Unmarshal: %w", err)
+		}
+		encryptData = make(map[string]string)
+		for k, v := range m {
+			encryptData[k] = fmt.Sprint(v)
+		}
 	default:
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
