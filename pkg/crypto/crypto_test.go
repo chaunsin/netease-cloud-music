@@ -26,7 +26,6 @@ package crypto
 import (
 	"crypto/md5"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -383,34 +382,6 @@ func TestAnonymous(t *testing.T) {
 				return
 			}
 			assert.Equalf(t, tt.want, got, "Anonymous(%v)", tt.args)
-		})
-	}
-}
-
-func TestGenerateWNMCID(t *testing.T) {
-	var validate = func(data string) bool {
-		parts := strings.Split(data, ".")
-		return len(parts) == 4 &&
-			len(parts[0]) == 6 &&
-			parts[3] == "0" &&
-			len(parts[1]) >= 10 // 时间戳至少10位
-	}
-
-	tests := []struct {
-		name string
-		want bool
-	}{
-		{
-			name: "sample",
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := GenerateWNMCID()
-			if validate(got) != tt.want {
-				t.Errorf("GenerateWNMCID() = %v, want %v", tt.want, tt.want)
-			}
 		})
 	}
 }

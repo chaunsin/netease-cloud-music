@@ -44,8 +44,9 @@ func TestQrcodeCreateKey(t *testing.T) {
 
 func TestQrcodeGetReq(t *testing.T) {
 	var req = QrcodeGenerateReq{
-		CodeKey: "",
-		Level:   qrcode.Medium,
+		CodeKey:  "",
+		Level:    qrcode.Medium,
+		Platform: "web",
 	}
 	got, err := cli.QrcodeGenerate(ctx, &req)
 	assert.NoError(t, err)

@@ -28,6 +28,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -35,6 +36,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -58,7 +61,7 @@ var (
 	}
 )
 
-// ParseBytes 将输入字符串转换为字节数
+// ParseBytes 将输入字符串转换为字节数.
 func ParseBytes(input string) (int64, error) {
 	if input == "" {
 		return 0, nil
@@ -94,7 +97,7 @@ func ParseBytes(input string) (int64, error) {
 	return value * multiplier, nil
 }
 
-// FileExists 判断文件是否存在
+// FileExists 判断文件是否存在.
 func FileExists(path string) bool {
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
@@ -103,7 +106,7 @@ func FileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// DirExists 判断目录是否存在
+// DirExists 判断目录是否存在.
 func DirExists(dirPath string) bool {
 	info, err := os.Stat(dirPath)
 	if os.IsNotExist(err) {
@@ -112,7 +115,7 @@ func DirExists(dirPath string) bool {
 	return err == nil && info.IsDir()
 }
 
-// IsFile 判断是否为文件
+// IsFile 判断是否为文件.
 func IsFile(path string) bool {
 	d, err := os.Stat(path)
 	if err != nil {
@@ -131,7 +134,7 @@ func MkdirIfNotExist(path string, perm os.FileMode) error {
 	return nil
 }
 
-// ExpandTilde 扩展波浪号路径
+// ExpandTilde 扩展波浪号路径.
 func ExpandTilde(path string) (string, error) {
 	if len(path) == 0 || path[0] != '~' {
 		return path, nil
@@ -156,7 +159,7 @@ func ExpandTilde(path string) (string, error) {
 	return path, nil
 }
 
-// CheckPath 检查路径是否存在，并返回是否为目录, 支持~路径检测
+// CheckPath 检查路径是否存在，并返回是否为目录, 支持~路径检测.
 func CheckPath(path string) (exists bool, isDir bool, err error) {
 	expandedPath, err := ExpandTilde(path)
 	if err != nil {
@@ -180,7 +183,7 @@ func MD5Hex(data []byte) (string, error) {
 	return hex.EncodeToString(m.Sum(nil)), err
 }
 
-// Ternary is a generic function that mimics a ternary expression
+// Ternary is a generic function that mimics a ternary expression.
 func Ternary[T any](condition bool, trueVal, falseVal T) T {
 	if condition {
 		return trueVal
@@ -256,7 +259,7 @@ func SplitSlice[T any](input []T, chunkSize int) ([][]T, error) {
 	return result, nil
 }
 
-// TimeUntilMidnight 计算当前时间到明天零点的时间差
+// TimeUntilMidnight 计算当前时间到明天零点的时间差.
 func TimeUntilMidnight(timeZone string) (time.Duration, error) {
 	var (
 		loc *time.Location
@@ -277,7 +280,7 @@ func TimeUntilMidnight(timeZone string) (time.Duration, error) {
 	return midnight.Sub(now), nil
 }
 
-// Filename 清理文件名中的非法字符
+// Filename 清理文件名中的非法字符.
 func Filename(path string, new ...string) string {
 	path = strings.TrimSpace(path)
 	if len(new) > 0 {
@@ -287,7 +290,7 @@ func Filename(path string, new ...string) string {
 }
 
 // IsGzipHeader 判断字节数据是否以 Gzip 文件头开头
-// Gzip 文件头特征：前 2 个字节为 0x1F 0x8B，第三个字节为压缩方法（通常 0x08 表示 DEFLATE）
+// Gzip 文件头特征：前 2 个字节为 0x1F 0x8B，第三个字节为压缩方法（通常 0x08 表示 DEFLATE）.
 func IsGzipHeader(data []byte) bool {
 	// Gzip 最小头长度检查
 	if len(data) < 3 {
@@ -302,4 +305,52 @@ func IsGzipHeader(data []byte) bool {
 
 	// 压缩方法校验（0x08 = DEFLATE）
 	return data[2] == 0x08
+}
+
+// GenerateWNMCID 生成WNMCID
+// 生成规则: 6位随机小写字母 + 当前时间戳（毫秒） + 默认抓取版本号 + 0
+// 例如: "abcdef.1633557080686.01.0"
+// 作用: 貌似是网易云音乐的抓取标识,或者用于爬虫标识等作用.
+func GenerateWNMCID() string {
+	const (
+		crawlerVersion = "01" // 默认抓取版本号
+		charset        = "abcdefghijklmnopqrstuvwxyz"
+	)
+	// 1. 生成6位随机小写字母
+	b := make([]byte, 6)
+	for i := range b {
+		// 从字符集中随机选取字符（0-25）
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+
+	// 2. 获取当前时间戳（毫秒）
+	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
+
+	// 3. 拼接最终字符串
+	return fmt.Sprintf("%s.%d.%s.0", string(b), timestamp, crawlerVersion)
+}
+
+// GenerateChainId 生成ChainId 用于web login
+// 规则: "{version}_{s_device_id}_{platform}_{action}_{timestamp}" .
+func GenerateChainId(deviceId string) string {
+	return fmt.Sprintf("v1_%s_web_%s_%d", deviceId, "login", time.Now().UnixMilli())
+}
+
+// GenerateDeviceId 生成设备ID
+// 目前发现有两种格式设备id
+// 格式1: 52位十六进制字符串 (大写)
+// 例如: D82036205567D95288D26BCF3797FE22D8A7634320474768C7ED
+// 格式2: 两个UUID拼接而成, 中间用|分隔, UUID格式为8-4-4-4-12的十六进制字符串 (大写)
+// 例如: 7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62|5FD718A3-0602-4389-B612-EBEFAA7F108B.
+func GenerateDeviceId(isLong ...bool) string {
+	if len(isLong) > 0 && isLong[0] {
+		return strings.ToUpper(fmt.Sprintf("%s|%s", uuid.NewString(), uuid.NewString())) // 考虑‘|’是否需要编码?
+	}
+
+	const hexChars = "0123456789ABCDEF"
+	b := make([]byte, 52)
+	for i := range b {
+		b[i] = hexChars[rand.Intn(len(hexChars))]
+	}
+	return string(b)
 }

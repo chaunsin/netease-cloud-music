@@ -39,7 +39,6 @@ import (
 	"math/big"
 	"math/rand"
 	"strings"
-	"time"
 )
 
 const (
@@ -415,33 +414,4 @@ func Anonymous(deviceId string) (string, error) {
 	content := fmt.Sprintf("%s %s", deviceId, encodedID)
 	username := base64.URLEncoding.EncodeToString([]byte(content))
 	return username, nil
-}
-
-// GenerateWNMCID 生成WNMCID
-// 生成规则: 6位随机小写字母 + 当前时间戳（毫秒） + 默认抓取版本号 + 0
-// 例如: "abcdef.1633557080686.01.0"
-// 作用: 貌似是网易云音乐的抓取标识,或者用于爬虫标识等作用.
-func GenerateWNMCID() string {
-	const (
-		crawlerVersion = "01" // 默认抓取版本号
-		charset        = "abcdefghijklmnopqrstuvwxyz"
-	)
-	// 1. 生成6位随机小写字母
-	b := make([]byte, 6)
-	for i := range b {
-		// 从字符集中随机选取字符（0-25）
-		b[i] = charset[rand.Intn(len(charset))]
-	}
-
-	// 2. 获取当前时间戳（毫秒）
-	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
-
-	// 3. 拼接最终字符串
-	return fmt.Sprintf("%s.%d.%s.0", string(b), timestamp, crawlerVersion)
-}
-
-// GenerateChainId 生成ChainId 用于web login
-// 规则: "{version}_{s_device_id}_{platform}_{action}_{timestamp}" .
-func GenerateChainId(deviceId string) string {
-	return fmt.Sprintf("v1_%s_web_%s_%d", deviceId, "login", time.Now().UnixMilli())
 }

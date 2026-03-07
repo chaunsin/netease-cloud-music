@@ -70,9 +70,9 @@ func TestPartnerTask(t *testing.T) {
 func TestPartnerEvaluate(t *testing.T) {
 	resp, err := cli.PartnerEvaluate(ctx, &PartnerEvaluateReq{
 		ReqCommon:     types.ReqCommon{CSRFToken: ""},
-		TaskId:        101398359,
-		WorkId:        1328062,
-		Score:         3,
+		TaskId:        "101398359",
+		WorkId:        "1328062",
+		Score:         "3",
 		Tags:          ThreeDOnePartnerTags,
 		CustomTags:    "",
 		Comment:       "",

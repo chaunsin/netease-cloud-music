@@ -31,6 +31,7 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
 	"github.com/skip2/go-qrcode"
 )
@@ -48,7 +49,7 @@ type QrcodeCreateKeyResp struct {
 // QrcodeCreateKey 生成二维码需要得key
 // 常见问题
 // 1. 请求成功了,但是body为空值什么也没有,原因还是参数加密出现了问题。
-// 2. crsftoken 可传可不传个人猜测前端写得通用框架传了
+// 2. crsftoken 可传可不传个人猜测前端写得通用框架传了.
 func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*QrcodeCreateKeyResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/login/qrcode/unikey"
@@ -65,8 +66,10 @@ func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*Qr
 }
 
 type QrcodeGenerateReq struct {
-	CodeKey string
-	Level   qrcode.RecoveryLevel // 二维码恢复率
+	CodeKey  string
+	Level    qrcode.RecoveryLevel // 二维码恢复率
+	Platform string
+	DeviceId string // 用于生成 chainId
 }
 
 type QrcodeGenerateResp struct {
@@ -81,6 +84,17 @@ func (a *Api) QrcodeGenerate(ctx context.Context, req *QrcodeGenerateReq) (*Qrco
 		content = fmt.Sprintf("https://music.163.com/login?codekey=%s", req.CodeKey)
 		reply   QrcodeGenerateResp
 	)
+	if req.Platform == "web" {
+		var did = req.DeviceId
+		if req.DeviceId == "" {
+			if ck, ok := a.client.Cookie("https://music.163.com", "deviceId"); ok {
+				did = ck.Value
+			} else {
+				did = utils.GenerateDeviceId()
+			}
+		}
+		content += fmt.Sprintf("&chainId=%s", utils.GenerateChainId(did))
+	}
 
 	qr, err := qrcode.New(content, req.Level)
 	if err != nil {
@@ -115,7 +129,7 @@ type QrcodeCheckResp struct {
 // 800-二维码不存在或已过期
 // 801-等待扫码
 // 802-正在扫码授权中
-// 803-授权登录成功
+// 803-授权登录成功.
 func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeCheckResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/login/qrcode/client/login"
@@ -197,7 +211,7 @@ type GetUserInfoRespProfile struct {
 	Anchor              bool        `json:"anchor"`
 }
 
-// GetUserInfo 获取用户信息
+// GetUserInfo 获取用户信息.
 func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInfoResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/w/nuser/account/get"
@@ -292,6 +306,7 @@ func (a *Api) RegisterAnonymous(ctx context.Context, req *RegisterAnonymousReq) 
 type SendSMSReq struct {
 	Cellphone string `json:"cellphone"`
 	CtCode    int64  `json:"ctcode"`
+	Secrete   string `json:"secrete"`
 }
 
 type SendSMSResp struct {
@@ -299,7 +314,7 @@ type SendSMSResp struct {
 }
 
 // SendSMS 发送验证码
-// 注意: 验证码 24h 内最多发送五次
+// 注意: 验证码 24h 内最多发送五次.
 func (a *Api) SendSMS(ctx context.Context, req *SendSMSReq) (*SendSMSResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/sms/captcha/sent"
@@ -308,6 +323,9 @@ func (a *Api) SendSMS(ctx context.Context, req *SendSMSReq) (*SendSMSResp, error
 	)
 	if req.CtCode <= 0 {
 		req.CtCode = 86
+	}
+	if req.Secrete == "" {
+		req.Secrete = "music_middleuser_pclogin"
 	}
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -328,7 +346,7 @@ type SMSVerifyResp struct {
 	types.RespCommon[bool]
 }
 
-// SMSVerify 验证码验证
+// SMSVerify 验证码验证.
 func (a *Api) SMSVerify(ctx context.Context, req *SMSVerifyReq) (*SMSVerifyResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/sms/captcha/verify"
@@ -431,7 +449,7 @@ type LoginCellphoneRespBindings struct {
 	Type         int64  `json:"type"` // 1:设置登录密码 5:qq
 }
 
-// LoginCellphone 手机号登录
+// LoginCellphone 手机号登录.
 func (a *Api) LoginCellphone(ctx context.Context, req *LoginCellphoneReq) (*LoginCellphoneResp, error) {
 	var (
 		url    = "https://interface.music.163.com/eapi/w/login/cellphone" // use weapi 出现 8821需要行为验证码验证
@@ -456,6 +474,7 @@ func (a *Api) LoginCellphone(ctx context.Context, req *LoginCellphoneReq) (*Logi
 	params["countrycode"] = req.Countrycode
 	params["remember"] = fmt.Sprintf("%v", req.Remember)
 	params["type"] = "1" // 0: 貌似是邮箱登录 1: 手机号登录
+	params["https"] = "true"
 
 	resp, err := a.client.Request(ctx, url, params, &reply, opts)
 	if err != nil {

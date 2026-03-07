@@ -96,7 +96,11 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, args []string) error {
 	}
 
 	// 2. 生成二维码
-	qr, err := request.QrcodeGenerate(ctx, &weapi.QrcodeGenerateReq{CodeKey: key.UniKey, Level: qrcode2.RecoveryLevel(c.level)})
+	qr, err := request.QrcodeGenerate(ctx, &weapi.QrcodeGenerateReq{
+		CodeKey:  key.UniKey,
+		Level:    qrcode2.RecoveryLevel(c.level),
+		Platform: "web",
+		DeviceId: ""})
 	if err != nil {
 		return fmt.Errorf("QrcodeGenerate: %s", err)
 	}

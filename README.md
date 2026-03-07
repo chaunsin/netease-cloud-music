@@ -24,11 +24,11 @@
 
 #### 🔐 登录方式
 
+- [x] 📷 扫码登录
 - [x] 🍪 Cookie 方式登录
 - [x] ☁️ [CookieCloud](https://github.com/easychen/CookieCloud/blob/master/README_cn.md) 方式登录
-- [x] ~~📱 短信登录~~（已弃用）
-- [x] ~~📷 扫码登录~~（已弃用）
-- [x] ~~🔑 手机号密码登录~~（已弃用）
+- [x] ~~📱 短信登录~~ (存在风控问题)
+- [x] ~~🔑 手机号密码登录~~ (存在风控问题)
 
 #### 📋 每日任务
 

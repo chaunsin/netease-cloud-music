@@ -141,7 +141,7 @@ func (c *Client) GetClient() *http.Client {
 	return c.cli.GetClient()
 }
 
-// Cookie 根据url和cookie name获取cookie
+// Cookie 根据url和cookie name获取cookie.
 func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 	uri, err := neturl.Parse(url)
 	if err != nil {
@@ -156,17 +156,17 @@ func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 	return http.Cookie{}, false
 }
 
-// GetCookies 获取cookies
+// GetCookies 获取cookies.
 func (c *Client) GetCookies(url *neturl.URL) []*http.Cookie {
 	return c.cookie.Cookies(url)
 }
 
-// SetCookies 设置cookies
+// SetCookies 设置cookies.
 func (c *Client) SetCookies(url *neturl.URL, cookies []*http.Cookie) {
 	c.cookie.SetCookies(url, cookies)
 }
 
-// GetCSRF 获取csrf 一般用于weapi接口中使用
+// GetCSRF 获取csrf 一般用于weapi接口中使用.
 func (c *Client) GetCSRF(url string) (string, bool) {
 	uri, err := neturl.Parse(url)
 	if err != nil {
@@ -184,7 +184,7 @@ func (c *Client) GetCSRF(url string) (string, bool) {
 	return "", false
 }
 
-// Request 接口请求
+// Request 接口请求.
 func (c *Client) Request(ctx context.Context, url string, req, resp interface{}, opts *Options) (*resty.Response, error) {
 	if url == "" || req == nil || resp == nil {
 		return nil, errors.New("request args invalid")

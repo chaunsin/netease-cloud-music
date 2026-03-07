@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -571,4 +572,83 @@ func TestExpandTilde(t *testing.T) {
 			assert.Equalf(t, tt.want, got, "ExpandTilde(%v)", tt.args)
 		})
 	}
+}
+
+func TestGenerateWNMCID(t *testing.T) {
+	var validate = func(data string) bool {
+		parts := strings.Split(data, ".")
+		return len(parts) == 4 &&
+			len(parts[0]) == 6 &&
+			parts[3] == "0" &&
+			len(parts[1]) >= 10 // 时间戳至少10位
+	}
+
+	tests := []struct {
+		name string
+		want bool
+	}{
+		{
+			name: "sample",
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GenerateWNMCID()
+			if validate(got) != tt.want {
+				t.Errorf("GenerateWNMCID() = %v, want %v", tt.want, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenerateDeviceId(t *testing.T) {
+	tests := []struct {
+		name   string
+		isLong bool
+	}{
+		{name: "短格式(52位十六进制)", isLong: false},
+		{name: "长格式(UUID%7CUUID)", isLong: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GenerateDeviceId(tt.isLong)
+			t.Logf("GenerateDeviceId(%v) = %s", tt.isLong, got)
+
+			if tt.isLong {
+				// 验证长格式: UUID|UUID (全大写)
+				parts := strings.Split(got, "|")
+				assert.Len(t, parts, 2, "长格式ID应包含两个UUID")
+				assert.Len(t, parts[0], 36, "UUID长度应为36")
+				assert.Len(t, parts[1], 36, "UUID长度应为36")
+				assert.Contains(t, parts[0], "-")
+				assert.Contains(t, parts[1], "-")
+				// 验证全大写
+				assert.Equal(t, strings.ToUpper(parts[0]), parts[0], "UUID应为大写")
+				assert.Equal(t, strings.ToUpper(parts[1]), parts[1], "UUID应为大写")
+			} else {
+				// 验证短格式: 52位大写十六进制
+				assert.Len(t, got, 52, "短格式ID长度应为52")
+				for _, c := range got {
+					assert.True(t, (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F'),
+						"短格式ID应为大写十六进制字符")
+				}
+			}
+		})
+	}
+
+	t.Run("默认参数", func(t *testing.T) {
+		got := GenerateDeviceId()
+		t.Logf("GenerateDeviceId() = %s", got)
+		assert.Len(t, got, 52, "默认参数应生成52位短格式ID")
+	})
+
+	t.Run("唯一性测试", func(t *testing.T) {
+		ids := make(map[string]bool)
+		for i := 0; i < 100; i++ {
+			id := GenerateDeviceId()
+			assert.False(t, ids[id], "生成了重复的ID: %s", id)
+			ids[id] = true
+		}
+	})
 }
