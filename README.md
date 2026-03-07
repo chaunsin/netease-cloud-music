@@ -8,7 +8,9 @@
 
 ## ⚠️ 重要声明
 
-> **📅 2025-06-03 更新：** 目前风控极为严格，刷歌功能存在较高封号风险，不建议使用。如执意使用并收到 [非法挂机行为警告](https://github.com/chaunsin/netease-cloud-music/issues/34)，请立即终止，否则后果自负！
+> **📅 2025-06-03 更新：**
+> 目前风控极为严格，刷歌功能存在较高封号风险，不建议使用。如执意使用并收到 [非法挂机行为警告](https://github.com/chaunsin/netease-cloud-music/issues/34)
+> ，请立即终止，否则后果自负！
 
 - 🚫 **本项目仅供个人学习使用，切勿用于商业用途或非法用途！**
 - ⚖️ **使用本项目遇到封号等问题概不负责，使用前请谨慎考虑！**
@@ -21,6 +23,7 @@
 ### 🖥️ 命令行工具 (ncmctl)
 
 #### 🔐 登录方式
+
 - [x] 🍪 Cookie 方式登录
 - [x] ☁️ [CookieCloud](https://github.com/easychen/CookieCloud/blob/master/README_cn.md) 方式登录
 - [x] ~~📱 短信登录~~（已弃用）
@@ -28,58 +31,65 @@
 - [x] ~~🔑 手机号密码登录~~（已弃用）
 
 #### 📋 每日任务
+
 - [x] 🎯 一键完成每日任务（音乐合伙人、云贝签到、VIP 签到、刷歌 300 首）
 - [x] 💰 云贝签到（支持自动领取签到奖励）
 - [x] 🎤 "音乐合伙人"自动测评
-  - 5 首基础歌曲 + 2~7 首随机额外歌曲测评（不包含"歌曲推荐"测评）
-  - 📢 2025 年 3 月 [公告](https://music.163.com/#/event?id=30336457500&uid=7872690377) | [规则](https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3)
+    - 5 首基础歌曲 + 2~7 首随机额外歌曲测评（不包含"歌曲推荐"测评）
+    - 📢 2025 年 3
+      月 [公告](https://music.163.com/#/event?id=30336457500&uid=7872690377) | [规则](https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3)
 - [x] 🎧 每日刷歌 300 首（支持去重功能）
 - [x] 💎 VIP 每日签到
 
 #### ☁️ 云盘功能
+
 - [x] ☁️ 云盘上传（支持并行批量上传）
 
 #### 🎶 音乐处理
+
 - [x] 🔓 解密 `.ncm` 文件为 `.mp3`/`.flac` 可播放格式（支持并行批量解析）
 - [x] 📥 音乐下载，支持多种品质
 
-| 品质 | 别名 | 说明 |
-|:---:|:---:|:---|
-| 标准 | `standard`、`128` | 128kbps |
-| 高品质 | `higher`、`192` | 192kbps |
-| 极高 | `exhigh`、`HQ`、`320` | 320kbps |
-| 无损 | `lossless`、`SQ` | FLAC |
-| Hi-Res | `hires`、`HR` | 高解析度 |
+|   品质   |         别名          | 说明      |
+|:------:|:-------------------:|:--------|
+|   标准   |  `standard`、`128`   | 128kbps |
+|  高品质   |   `higher`、`192`    | 192kbps |
+|   极高   | `exhigh`、`HQ`、`320` | 320kbps |
+|   无损   |   `lossless`、`SQ`   | FLAC    |
+| Hi-Res |    `hires`、`HR`     | 高解析度    |
 
 #### 🛠️ 调试工具
+
 - [x] 🔐 `crypto` 子命令 - 接口参数加解密，便于调试
 - [x] 🌐 `curl` 子命令 - 调用网易云音乐 API，无需关心参数加解密
-  - [ ] 支持动态链接请求
+    - [ ] 支持动态链接请求
 
 #### 🔜 计划中
+
 - [ ] VIP 日常任务完成（待考虑）
 - [ ] "音乐人"任务自动完成（待考虑）
 - [ ] 🌐 Proxy 代理支持
 
 ### 📦 API 接口
 
-| 类型 | 适用场景 |
-|:---:|:---|
+|   类型    | 适用场景        |
+|:-------:|:------------|
 | `weapi` | 网页端、小程序（推荐） |
-| `eapi` | PC 端、移动端 |
+| `eapi`  | PC 端、移动端    |
 
-> 💡 **提示：** 目前主要实现了 `weapi`，接口相对较全，推荐使用。如需其他接口可提 [Issue](https://github.com/chaunsin/netease-cloud-music/issues)。
+> 💡 **提示：** 目前主要实现了 `weapi`
+> ，接口相对较全，推荐使用。如需其他接口可提 [Issue](https://github.com/chaunsin/netease-cloud-music/issues)。
 
 ---
 
 ## 💻 环境要求
 
-| 依赖 |   版本要求   | 必需 |
-|:---:|:--------:|:---:|
-| Golang | \>= 1.24 | ✅ |
+|    依赖    |   版本要求   |  必需  |
+|:--------:|:--------:|:----:|
+|  Golang  | \>= 1.24 |  ✅   |
 | Makefile |    -     | ❌ 可选 |
-| Git |    -     | ❌ 可选 |
-| Docker |    -     | ❌ 可选 |
+|   Git    |    -     | ❌ 可选 |
+|  Docker  |    -     | ❌ 可选 |
 
 ---
 
@@ -177,7 +187,8 @@ ncmctl login phone 188xxx8888 -p 123456
 
 当正常登录失败时，Cookie 登录可作为保底方案。
 
-可通过浏览器插件获取 Cookie，推荐 [Cookie Editor](https://chromewebstore.google.com/detail/cookie-editor/ookdjilphngeeeghgngjabigmpepanpl)。
+可通过浏览器插件获取
+Cookie，推荐 [Cookie Editor](https://chromewebstore.google.com/detail/cookie-editor/ookdjilphngeeeghgngjabigmpepanpl)。
 
 ```shell
 # 方式一：直接导入 Cookie 字符串
@@ -188,6 +199,7 @@ ncmctl login cookie -f cookie.txt
 ```
 
 **支持的文件格式：**
+
 - `header` 格式
 - `json` 格式
 - [netscape 格式](https://docs.cyotek.com/cyowcopy/1.10/netscapecookieformat.html)
@@ -198,7 +210,8 @@ ncmctl login cookie -f cookie.txt
 
 #### 4️⃣ CookieCloud 登录
 
-[CookieCloud](https://github.com/easychen/CookieCloud/blob/master/README_cn.md) 是一款浏览器 Cookie 管理插件，支持自动同步 Cookie 到云端并加密存储。
+[CookieCloud](https://github.com/easychen/CookieCloud/blob/master/README_cn.md) 是一款浏览器 Cookie 管理插件，支持自动同步
+Cookie 到云端并加密存储。
 
 **操作流程：**
 
@@ -221,7 +234,8 @@ ncmctl login cookiecloud -u <用户名> -p <密码> -s http://0.0.0.0:8088
 
 #### 5️⃣ ~~二维码登录~~（已弃用）
 
-> ⚠️ 由于网易云风控严重，扫码登录会出现 `8821 需要行为验证码验证` 错误，暂不支持。详见 [Issue #26](https://github.com/chaunsin/netease-cloud-music/issues/26)
+> ⚠️ 由于网易云风控严重，扫码登录会出现 `8821 需要行为验证码验证`
+> 错误，暂不支持。详见 [Issue #26](https://github.com/chaunsin/netease-cloud-music/issues/26)
 
 ```shell
 ncmctl login qrcode
@@ -241,11 +255,11 @@ ncmctl task
 
 **默认包含的任务：**
 
-| 任务 | 说明 |
-|:---:|:---|
-| `sign` | 云贝签到 + VIP 签到 |
-| `partner` | 音乐合伙人 |
-| `scrobble` | 刷歌 300 首 |
+|     任务     | 说明            |
+|:----------:|:--------------|
+|   `sign`   | 云贝签到 + VIP 签到 |
+| `partner`  | 音乐合伙人         |
+| `scrobble` | 刷歌 300 首      |
 
 **选择性执行任务：**
 
@@ -319,9 +333,9 @@ ncmctl cloud '/path/to/music/'
 
 **参数说明：**
 
-| 参数 | 默认值 | 最大值 | 说明 |
-|:---:|:---:|:---:|:---|
-| `-p` | 3 | 10 | 并发上传数 |
+|  参数  | 默认值 | 最大值 | 说明    |
+|:----:|:---:|:---:|:------|
+| `-p` |  3  | 10  | 并发上传数 |
 
 > ⚠️ 目录深度不能超过 3 层。更多过滤条件请查看 `ncmctl cloud -h`。
 
@@ -354,11 +368,11 @@ ncmctl -h
 
 ## 📚 API 使用示例
 
-| 功能 | 示例文件 | 说明 |
-|:---:|:---|:---|
-| 登录 | [example_login_test.go](example/example_login_test.go) | - |
+|  功能  | 示例文件                                                                 | 说明  |
+|:----:|:---------------------------------------------------------------------|:----|
+|  登录  | [example_login_test.go](example/example_login_test.go)               | -   |
 | 云盘上传 | [example_cloud_upload_test.go](example/example_cloud_upload_test.go) | 需登录 |
-| 音乐下载 | [example_download_test.go](example/example_download_test.go) | 需登录 |
+| 音乐下载 | [example_download_test.go](example/example_download_test.go)         | 需登录 |
 
 ---
 
@@ -373,6 +387,7 @@ ncmctl -h
 `scrobble` 支持去重功能，会在 `$HOME/.ncmctl/database/` 记录已听歌曲。
 
 **可能原因：**
+
 1. 使用本程序前已听过的歌曲未记录，导致重复播放不计数
 2. Top 榜单歌曲数量有限，新歌更新不及时
 
@@ -380,10 +395,10 @@ ncmctl -h
 
 ### Q3: `task` 和 `scrobble`、`sign`、`partner` 子命令有什么区别？
 
-| 命令 | 类型 | 说明 |
-|:---:|:---:|:---|
-| `task` | 服务 | 包含所有子命令，定时执行，适合部署到服务器 |
-| `scrobble`/`sign`/`partner` | 单次任务 | 立即执行并返回结果 |
+|             命令              |  类型  | 说明                    |
+|:---------------------------:|:----:|:----------------------|
+|           `task`            |  服务  | 包含所有子命令，定时执行，适合部署到服务器 |
+| `scrobble`/`sign`/`partner` | 单次任务 | 立即执行并返回结果             |
 
 ---
 
