@@ -202,7 +202,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 
 		resp, err := request.WebLog(ctx, req)
 		if err != nil {
-			log.Error("[scrobble] WebLog: %w", err)
+			log.Error("[scrobble] WebLog: %s", err)
 			continue
 		}
 		if resp.Code != 200 {
@@ -212,11 +212,11 @@ func (c *Scrobble) execute(ctx context.Context) error {
 		}
 		if resp.Code == 200 {
 			if err := db.Set(ctx, scrobbleRecordKey(uid, v.SongsId), fmt.Sprintf("%v", time.Now().UnixMilli())); err != nil {
-				log.Warn("[scrobble] set %v record err: %w", v.SongsId, err)
+				log.Warn("[scrobble] set %v record err: %s", v.SongsId, err)
 			}
 			_, err := db.Increment(ctx, scrobbleTodayNumKey(uid), 1, expire)
 			if err != nil {
-				log.Warn("[scrobble] set %v record err: %w", v.SongsId, err)
+				log.Warn("[scrobble] set %v record err: %s", v.SongsId, err)
 			}
 			total++
 			bar.Increment()

@@ -269,12 +269,16 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 			// 如果地址是这样 https://music.163.com/api/eapi/nos/token/alloc 则返回eapi
 			kind = value[1]
 			for _, v := range value {
+				var found bool
 				switch v {
 				case "eapi":
 					kind = v
-					break
+					found = true
 				case "weapi":
 					kind = v
+					found = true
+				}
+				if found {
 					break
 				}
 			}

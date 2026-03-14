@@ -90,7 +90,7 @@ func (c *Logout) execute(ctx context.Context, args []string) error {
 
 	// 只清理默认目录下得文件
 	if err := os.Remove(c.root.Opts.Home + "/.ncmctl/cookie.json"); err != nil {
-		log.Debug("remove cookie.json: %w", err)
+		log.Debug("remove cookie.json: %s", err)
 	}
 	c.cmd.Println("Logout success")
 	return nil

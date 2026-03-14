@@ -145,7 +145,7 @@ func (c *Client) GetClient() *http.Client {
 func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 	uri, err := neturl.Parse(url)
 	if err != nil {
-		log.Warn("cookie parse(%v) err: ", url, err)
+		log.Warn("cookie parse(%v) err: %s", url, err)
 		return http.Cookie{}, false
 	}
 	for _, c := range c.cookie.Cookies(uri) {
@@ -223,10 +223,10 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 	// SetHeader("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.1 Chrome/121.0.0.0 Mobile Safari/537.36")
 
 	// append
-	if opts.Headers != nil && len(opts.Headers) > 0 {
+	if len(opts.Headers) > 0 {
 		request.SetHeaders(opts.Headers)
 	}
-	if opts.Cookies != nil && len(opts.Cookies) > 0 {
+	if len(opts.Cookies) > 0 {
 		request.SetCookies(opts.Cookies)
 	}
 

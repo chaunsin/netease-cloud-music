@@ -126,7 +126,7 @@ func (c *SignIn) execute(ctx context.Context) error {
 				UserLotteryId: fmt.Sprintf("%d", v.BaseLotteryId),
 			})
 			if err != nil {
-				log.Error("YunBeiSignLottery(%v): %w", v.BaseLotteryId, err)
+				log.Error("YunBeiSignLottery(%v): %s", v.BaseLotteryId, err)
 			}
 			if reply.Data {
 				c.cmd.Printf("云贝连续签到天数=%v,奖励内容=%v 领取成功\n", v.SignDay, v.BaseGrant.Name)
@@ -150,7 +150,7 @@ func (c *SignIn) execute(ctx context.Context) error {
 				DepositCode: fmt.Sprintf("%d", v.DepositCode),
 			})
 			if err != nil {
-				log.Error("YunBeiTaskFinish(%v): %w", v.UserTaskId, err)
+				log.Error("YunBeiTaskFinish(%v): %s", v.UserTaskId, err)
 			}
 			if reply.Code != 200 {
 				log.Error("YunBeiTaskFinish(%v) detail:%+v", v.UserTaskId, reply)
