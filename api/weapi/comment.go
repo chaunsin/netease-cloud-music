@@ -224,7 +224,7 @@ type CommentsResp struct {
 // needLogin: 未知
 func (a *Api) Comments(ctx context.Context, req *CommentsReq) (*CommentsResp, error) {
 	var (
-		url   = fmt.Sprintf("https://interface.music.163.com/weapi/v1/resource/comments/" + req.ThreadId)
+		url   = fmt.Sprintf("https://interface.music.163.com/weapi/v1/resource/comments/%s", req.ThreadId)
 		reply CommentsResp
 		opts  = api.NewOptions()
 	)

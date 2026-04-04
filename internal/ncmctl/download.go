@@ -43,16 +43,29 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 
 	"github.com/cheggaaa/pb/v3"
+	"github.com/mattn/go-runewidth"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/semaphore"
 )
 
+const (
+	barNameWidth = 35
+	// see: https://github.com/cheggaaa/pb/blob/master/v3/element.go
+	barTemplate = `{{string . "prefix"}} {{ bar . (blue "[") (green "-") (cycle . "↖" "↗" "↘" "↙" ) " " (blue "]") }} {{counters . "%s/%s"}} {{percent . "%6.2f%%"}}`
+)
+
+func fixedWidthName(s string, width int) string {
+	return runewidth.FillRight(runewidth.Truncate(s, width, "..."), width)
+}
+
 type DownloadOpts struct {
-	Output   string // 输出目录
-	Parallel int64  // 并发下载数量
-	Level    string // 歌曲品质 types.Level
-	Strict   bool   // 严格模式。当开起时指定的歌曲品质不符合要求,则不进行下载
-	Tag      bool
+	Output      string // 输出目录
+	Parallel    int64  // 并发下载数量
+	Level       string // 歌曲品质 types.Level
+	EncodeType  string // 编码类型
+	ImmerseType string // 沉浸式类型
+	Strict      bool   // 严格模式。当开起时指定的歌曲品质不符合要求,则不进行下载
+	Tag         bool
 }
 
 type Download struct {
@@ -86,8 +99,10 @@ func (c *Download) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./download", "music file output path")
 	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 5, "concurrent download count")
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Level, "level", "l", string(types.LevelLossless), "song quality level. support: standard/128,higher/192,exhigh/HQ/320,lossless/SQ,hires/HR")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.EncodeType, "encode-type", "", "flac", "song encode type")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.ImmerseType, "immerse-type", "", "c51", "song immerse type")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Strict, "strict", false, "strict mode. when the downloaded song does not find the corresponding quality, it will not be downloaded.")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", true, "whether to set song tag information,default enable")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", true, "whether to set song tag information, default enable")
 }
 
 func (c *Download) validate() error {
@@ -183,10 +198,13 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 		total  = int64(len(songs))
 		failed atomic.Int64
 		sema   = semaphore.NewWeighted(c.opts.Parallel)
-		bar    = pb.Full.Start64(total)
 	)
+	pool, err := pb.StartPool()
+	if err != nil {
+		return fmt.Errorf("StartPool: %w", err)
+	}
 	defer func() {
-		bar.Finish()
+		pool.Stop()
 		c.cmd.Printf("report total: %v success: %v failed: %v\n", total, total-failed.Load(), failed.Load())
 	}()
 
@@ -197,13 +215,12 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 		}
 		go func() {
 			defer sema.Release(1)
-			if err := c.download(ctx, cli, request, &song); err != nil {
+			if err := c.download(ctx, cli, request, &song, pool); err != nil {
 				failed.Add(1)
 				log.Error("download %s err: %v", song.String(), err)
-				c.cmd.Printf("download %s err: %v\n", song.String(), err)
+				// c.cmd.Printf("download %s err: %v\n", song.String(), err)
 				return
 			}
-			bar.Increment()
 		}()
 	}
 	if err := sema.Acquire(ctx, c.opts.Parallel); err != nil {
@@ -263,11 +280,12 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 					}
 					for _, v := range resp.Songs {
 						list = append(list, Music{
-							Id:     v.Id,
-							Name:   v.Name,
-							Artist: v.Ar,
-							Album:  v.Al,
-							Time:   v.Dt,
+							Id:      v.Id,
+							Name:    v.Name,
+							Artist:  v.Ar,
+							Album:   v.Al,
+							AlbumId: v.Al.Id,
+							Time:    v.Dt,
 						})
 					}
 					// todo: 处理版权,状态等有效性校验
@@ -303,11 +321,12 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 						}
 						set[id] = struct{}{}
 						list = append(list, Music{
-							Id:     v.Id,
-							Name:   v.Name,
-							Artist: v.Ar,
-							Album:  v.Al,
-							Time:   v.Dt,
+							Id:      v.Id,
+							Name:    v.Name,
+							Artist:  v.Ar,
+							Album:   v.Al,
+							AlbumId: v.Al.Id,
+							Time:    v.Dt,
 						})
 					}
 					// todo: 处理版权,状态等有效性校验
@@ -332,11 +351,12 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 					}
 					set[id] = struct{}{}
 					list = append(list, Music{
-						Id:     v.Id,
-						Name:   v.Name,
-						Artist: v.Ar,
-						Album:  v.Al,
-						Time:   v.Dt,
+						Id:      v.Id,
+						Name:    v.Name,
+						Artist:  v.Ar,
+						Album:   v.Al,
+						AlbumId: v.Al.Id,
+						Time:    v.Dt,
 					})
 				}
 				// todo: 处理版权,状态等有效性校验
@@ -359,7 +379,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 					if _, ok := set[v.Id]; ok {
 						continue
 					}
-					set[id] = struct{}{}
+					set[v.Id] = struct{}{}
 					tmp = append(tmp, v.Id)
 				}
 
@@ -383,11 +403,12 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 					}
 					for _, v := range resp.Songs {
 						list = append(list, Music{
-							Id:     v.Id,
-							Name:   v.Name,
-							Artist: v.Ar,
-							Album:  v.Al,
-							Time:   v.Dt,
+							Id:      v.Id,
+							Name:    v.Name,
+							Artist:  v.Ar,
+							Album:   v.Al,
+							AlbumId: v.Al.Id,
+							Time:    v.Dt,
 						})
 					}
 					// todo: 处理版权,状态等有效性校验
@@ -403,11 +424,19 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 	return list, nil
 }
 
-func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi.Api, music *Music) error {
+func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi.Api, music *Music, pool *pb.Pool) error {
 	var (
 		songId    = music.Id
 		songIdStr = fmt.Sprintf("%d", songId)
 	)
+
+	// 下载进度条
+	bar := pb.New64(0).
+		Set(pb.Bytes, true).
+		Set("prefix", fixedWidthName(fmt.Sprintf("%s - %s", music.ArtistString(), music.NameString()), barNameWidth)).
+		SetTemplateString(barTemplate)
+	pool.Add(bar)
+	defer bar.Finish()
 
 	// 查询音乐支持哪些音质
 	qualityResp, err := request.SongMusicQuality(ctx, &weapi.SongMusicQualityReq{SongId: songIdStr})
@@ -423,32 +452,32 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 		return fmt.Errorf("SongMusicQuality(%v) not support %v", songId, types.Level(c.opts.Level))
 	}
 
-	// 获取下载链接地址
-	var downReq = &weapi.SongDownloadUrlReq{
-		Id: songIdStr,
-		Br: fmt.Sprintf("%d", quality.Br),
-	}
-	downResp, err := request.SongDownloadUrl(ctx, downReq)
-	if err != nil {
-		return fmt.Errorf("SongDownloadUrl(%v): %w", songId, err)
-	}
-	if downResp.Code != 200 {
-		return fmt.Errorf("SongDownloadUrl(%v) err: %+v", songId, downResp)
-	}
-	// 歌曲变灰则不能下载
-	if downResp.Data.Code != 200 || downResp.Data.Url == "" {
-		var msg error
-		switch downResp.Data.Code {
-		case -110:
-			msg = fmt.Errorf("无音源(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
-		case -105: // todo: 待确定完善,目前测试发现,当用户没有会员权益时,会返回-105，其他情况可能也会返回此值
-			fallthrough
-		default:
-			msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
-		}
-		log.Warn("资源已下架或无版权(%v) detail: %+v", songId, downResp)
-		return msg
-	}
+	// // 获取下载链接地址
+	// var downReq = &weapi.SongDownloadUrlReq{
+	// 	Id: songIdStr,
+	// 	Br: fmt.Sprintf("%d", quality.Br),
+	// }
+	// downResp, err := request.SongDownloadUrl(ctx, downReq)
+	// if err != nil {
+	// 	return fmt.Errorf("SongDownloadUrl(%v): %w", songId, err)
+	// }
+	// if downResp.Code != 200 {
+	// 	return fmt.Errorf("SongDownloadUrl(%v) err: %+v", songId, downResp)
+	// }
+	// // 歌曲变灰则不能下载
+	// if downResp.Data.Code != 200 || downResp.Data.Url == "" {
+	// 	var msg error
+	// 	switch downResp.Data.Code {
+	// 	case -110:
+	// 		msg = fmt.Errorf("无音源(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
+	// 	case -105: // todo: 待确定完善,目前测试发现,当用户没有会员权益时,会返回-105，其他情况可能也会返回此值
+	// 		fallthrough
+	// 	default:
+	// 		msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
+	// 	}
+	// 	log.Warn("资源已下架或无版权(%v) detail: %+v", songId, downResp)
+	// 	return msg
+	// }
 
 	// var downReq = &weapi.SongPlayerReq{
 	// 	Ids: []int64{songId},
@@ -464,36 +493,56 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	// if len(downResp.Data) <= 0 {
 	// 	return fmt.Errorf("SongPlayer(%v) is empty: %+v", songId, downResp)
 	// }
-	// // 歌曲变灰则不能下载
-	// if downResp.Data[0].Code != 200 || downResp.Data[0].Url == "" {
-	// 	return fmt.Errorf("资源已下架或无版权(%v) code: %v", songId, downResp.Data[0].Code)
+	// //歌曲变灰则不能下载
+	// if ret := downResp.Data[0]; ret.Code != 200 || ret.Url == "" {
+	// 	var msg error
+	// 	switch ret.Code {
+	// 	case -110:
+	// 		msg = fmt.Errorf("无音源(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
+	// 	case -105: // todo: 待确定完善,目前测试发现,当用户没有会员权益时,会返回-105，其他情况可能也会返回此值
+	// 		fallthrough
+	// 	default:
+	// 		msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
+	// 	}
+	// 	log.Warn("资源已下架或无版权(%v) detail: %+v", songId, downResp)
+	// 	return msg
 	// }
 
 	// todo: 待解决传入得音质和下载的品质不准确问题，尝试传入os=pc
-	// var downReq = &weapi.SongPlayerV1Req{
-	// 	Ids:         []int64{songId},
-	// 	Level:       types.Level(c.opts.Level),
-	// 	EncodeType:  "flac",
-	// 	ImmerseType: "",
-	// }
-	// downResp, err := request.SongPlayerV1(ctx, downReq)
-	// if err != nil {
-	// 	return fmt.Errorf("SongPlayerV1(%v): %w", songId, err)
-	// }
-	// if downResp.Code != 200 {
-	// 	return fmt.Errorf("SongPlayerV1(%v) err: %+v", songId, downResp)
-	// }
-	// if len(downResp.Data) <= 0 {
-	// 	return fmt.Errorf("SongPlayerV1(%v) is empty: %+v", songId, downResp)
-	// }
-	// // 歌曲变灰则不能下载
-	// if downResp.Data[0].Code != 200 || downResp.Data[0].Url == "" {
-	// 	return fmt.Errorf("资源已下架或无版权(%v) code: %v", songId, downResp.Data[0].Code)
-	// }
+	var downReq = &weapi.SongPlayerV1Req{
+		Ids:         []int64{songId},
+		Level:       types.Level(c.opts.Level),
+		EncodeType:  c.opts.EncodeType,
+		ImmerseType: c.opts.ImmerseType,
+	}
+	downResp, err := request.SongPlayerV1(ctx, downReq)
+	if err != nil {
+		return fmt.Errorf("SongPlayerV1(%v): %w", songId, err)
+	}
+	if downResp.Code != 200 {
+		return fmt.Errorf("SongPlayerV1(%v) err: %+v", songId, downResp)
+	}
+	if len(downResp.Data) <= 0 {
+		return fmt.Errorf("SongPlayerV1(%v) is empty: %+v", songId, downResp)
+	}
+	// 歌曲变灰则不能下载
+	if ret := downResp.Data[0]; ret.Code != 200 || ret.Url == "" {
+		var msg error
+		switch ret.Code {
+		case -110:
+			msg = fmt.Errorf("无音源(%v) br: %v code: %v", songId, quality.Br, ret.Code)
+		case -105: // todo: 待确定完善,目前测试发现,当用户没有会员权益时,会返回-105，其他情况可能也会返回此值
+			fallthrough
+		default:
+			msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, ret.Code)
+		}
+		log.Warn("资源已下架或无版权(%v) detail: %+v", songId, downResp)
+		return msg
+	}
 
 	var (
-		// drd = downResp.Data[0]
-		drd      = downResp.Data
+		// drd      = downResp.Data
+		drd      = downResp.Data[0]
 		dest     = filepath.Join(c.opts.Output, fmt.Sprintf("%s - %s.%s", music.ArtistString(), music.NameString(), strings.ToLower(drd.Type)))
 		tempName = fmt.Sprintf("download-*-%s.tmp", music.NameString())
 	)
@@ -505,8 +554,10 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	}
 	defer file.Close()
 
+	bar.SetTotal(drd.Size)
+
 	// 下载
-	resp, err := cli.Download(ctx, drd.Url, nil, nil, file, nil)
+	resp, err := cli.Download(ctx, drd.Url, nil, nil, file, bar)
 	if err != nil {
 		_ = os.Remove(file.Name())
 		return fmt.Errorf("download: %w", err)

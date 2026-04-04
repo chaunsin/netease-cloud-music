@@ -335,6 +335,13 @@ func (a *Api) PlaylistDetail(ctx context.Context, req *PlaylistDetailReq) (*Play
 		opts  = api.NewOptions()
 	)
 
+	if req.N == "" {
+		req.N = "100000"
+	}
+	if req.S == "" {
+		req.S = "8"
+	}
+
 	opts.CryptoMode = api.CryptoModeAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
@@ -555,7 +562,7 @@ func (a *Api) PCRecentListenList(ctx context.Context, req *PCRecentListenListReq
 }
 
 type PlaylistAddOrDelReq struct {
-	Op       string           `json:"op"`       // 增加歌曲为add,删除为del
+	Op       string           `json:"op"`       // 增加歌曲为add,删除为del,更新顺序为update
 	Pid      int64            `json:"pid"`      // 歌单id
 	TrackIds types.IntsString `json:"trackIds"` // 歌曲id (传入格式如types.IntsString{349823, 423521})
 	Imme     bool             `json:"imme"`     // 是否立刻上传(默认为true),实际检测不会产生太大影响,猜测为了防止阻塞残留
@@ -576,6 +583,29 @@ func (a *Api) PlaylistAddOrDel(ctx context.Context, req *PlaylistAddOrDelReq) (*
 		reply PlaylistAddOrDelResp
 		opts  = api.NewOptions()
 	)
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type PlaylistUpdatePlayCountReq struct {
+	Id string `json:"id"`
+}
+
+type PlaylistUpdatePlayCountResp struct {
+	types.RespCommon[any]
+}
+
+func (a *Api) PlaylistUpdatePlayCount(ctx context.Context, req *PlaylistUpdatePlayCountReq) (*PlaylistUpdatePlayCountResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/playlist/update/playcount"
+		reply PlaylistUpdatePlayCountResp
+		opts  = api.NewOptions()
+	)
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Request: %w", err)

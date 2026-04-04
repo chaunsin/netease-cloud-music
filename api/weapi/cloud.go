@@ -215,7 +215,7 @@ type CloudUploadCheckResp struct {
 	types.RespCommon[any]
 	SongId string `json:"songId,omitempty"`
 	// NeedUpload 是否需要上传 true:需要上传说明网易云网盘没有此音乐文件
-	NeedUpload bool `json:"needUpload" json:"needUpload,omitempty"`
+	NeedUpload bool `json:"needUpload"`
 }
 
 // CloudUploadCheck 获取上传云盘token

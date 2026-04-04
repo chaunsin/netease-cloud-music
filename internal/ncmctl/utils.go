@@ -160,11 +160,12 @@ func ParseCookeJson(r io.Reader) ([]*http.Cookie, error) {
 }
 
 type Music struct {
-	Id     int64
-	Name   string
-	Artist []types.Artist
-	Album  types.Album
-	Time   int64
+	Id      int64
+	Name    string
+	Artist  []types.Artist
+	Album   types.Album
+	AlbumId int64
+	Time    int64
 }
 
 // NameString 返回去除特殊符号的歌曲名
