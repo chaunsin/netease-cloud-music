@@ -72,7 +72,7 @@ func (c *Logout) Command() *cobra.Command {
 	return c.cmd
 }
 
-func (c *Logout) execute(ctx context.Context, args []string) error {
+func (c *Logout) execute(ctx context.Context, _ []string) error {
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)

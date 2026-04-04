@@ -75,7 +75,7 @@ func (c *decryptCmd) addFlags() {
 	c.cmd.Flags().StringVarP(&c.url, "url", "u", "*", "routing address matching example: https://music.163.com/*")
 }
 
-func (c *decryptCmd) execute(ctx context.Context, args []string) error {
+func (c *decryptCmd) execute(_ context.Context, args []string) error {
 	var (
 		opts  = c.root.opts
 		input string

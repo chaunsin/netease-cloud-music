@@ -91,7 +91,7 @@ func (c *Task) addFlags() {
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Scrobble, "scrobble", false, "enabled scrobble task")
 	c.cmd.PersistentFlags().StringVar(&c.opts.ScrobbleOptsCrontab, "scrobble.cron", "0 18 * * *", "scrobble crontab expression. usage detail: https://crontab.guru")
-	c.cmd.PersistentFlags().Int64Var(&c.opts.ScrobbleOpts.Num, "scrobble.num",  300, "scrobble num of songs")
+	c.cmd.PersistentFlags().Int64Var(&c.opts.ScrobbleOpts.Num, "scrobble.num", 300, "scrobble num of songs")
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.SignIn, "sign", false, "enabled sign task")
 	c.cmd.PersistentFlags().StringVar(&c.opts.SignInOptsCrontab, "sign.cron", "0 10 * * *", "sign crontab expression. usage detail: https://crontab.guru")
@@ -160,7 +160,7 @@ func (c *Task) Command() *cobra.Command {
 	return c.cmd
 }
 
-func (c *Task) execute(ctx context.Context, args []string) error {
+func (c *Task) execute(ctx context.Context, _ []string) error {
 	if err := c.validate(); err != nil {
 		return fmt.Errorf("validate: %w", err)
 	}

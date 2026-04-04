@@ -77,7 +77,7 @@ func (c *loginCookieCloudCmd) addFlags() {
 	c.cmd.Flags().StringVarP(&c.headers, "headers", "H", "", "custom headers, eg: key1=value1,key2=value2")
 }
 
-func (c *loginCookieCloudCmd) execute(_ctx context.Context, args []string) error {
+func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
 	var headers = make(map[string]string)
 	if c.headers != "" {
 		for _, header := range strings.Split(c.headers, ",") {

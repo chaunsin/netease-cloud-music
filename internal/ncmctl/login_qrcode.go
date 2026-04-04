@@ -71,7 +71,7 @@ func (c *loginQrcodeCmd) addFlags() {
 	c.cmd.Flags().IntVarP(&c.level, "level", "l", 1, "qrcode recovery capacity,0->7% 1->15%(default) 2->25% 3->30%")
 }
 
-func (c *loginQrcodeCmd) execute(ctx context.Context, args []string) error {
+func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 	if c.level < 0 || c.level > 3 {
 		return fmt.Errorf("qrcode level must be 0-3")
 	}

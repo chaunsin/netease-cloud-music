@@ -66,7 +66,7 @@ func (c *cryptoCmd) addFlags() {
 	c.cmd.Flags().StringVarP(&c.url, "url", "u", "", "url params value,used closely in 'k=eapi' mode")
 }
 
-func (c *cryptoCmd) execute(ctx context.Context, args []string) error {
+func (c *cryptoCmd) execute(_ context.Context, args []string) error {
 	var (
 		opts  = c.root.opts
 		input string
