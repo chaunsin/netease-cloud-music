@@ -19,6 +19,8 @@ jobs:
     name: Push Docker image to multiple registries
     if: ${{ github.repository == 'chaunsin/netease-cloud-music' }}
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     permissions:
       packages: write
       contents: read
