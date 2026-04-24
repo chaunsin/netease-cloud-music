@@ -99,12 +99,25 @@ func (m *Mp3) SetComment(comment string) error {
 	if frames := m.tag.GetFrames(m.tag.CommonID("Comments")); len(frames) == 0 {
 		m.tag.AddCommentFrame(id3v2.CommentFrame{
 			Encoding:    m.encoding,
-			Language:    "XXX", // ?
+			Language:    "XXX", // todo: ?
 			Description: "",
 			Text:        comment,
 		})
 	}
 	return nil
+}
+
+func (m *Mp3) SetLyrics(lyrics string) error {
+	if frames := m.tag.GetFrames(m.tag.CommonID("Unsynchronised lyrics/text transcription")); len(frames) == 0 {
+		m.tag.AddUnsynchronisedLyricsFrame(id3v2.UnsynchronisedLyricsFrame{
+			Encoding:          m.encoding,
+			Language:          "zho", // todo: support other language
+			ContentDescriptor: "",
+			Lyrics:            lyrics,
+		})
+	}
+	return nil
+
 }
 
 func (m *Mp3) Save() error {

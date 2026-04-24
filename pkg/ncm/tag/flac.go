@@ -81,14 +81,14 @@ func NewFlac(filename string) (*Flac, error) {
 	return &f, nil
 }
 
-func (f *Flac) SetCover(buf []byte, mime string) error {
-	picture, err := flacpicture.NewFromImageData(flacpicture.PictureTypeFrontCover, "Front cover", buf, mime)
+func (f *Flac) SetCover(data []byte, mime string) error {
+	picture, err := flacpicture.NewFromImageData(flacpicture.PictureTypeFrontCover, "Front cover", data, mime)
 	if err != nil {
 		return err
 	}
 
-	data := picture.Marshal()
-	f.flac.Meta = append(f.flac.Meta, &data)
+	binary := picture.Marshal()
+	f.flac.Meta = append(f.flac.Meta, &binary)
 	return nil
 }
 
@@ -134,6 +134,13 @@ func (f *Flac) SetArtist(artists []string) error {
 
 func (f *Flac) SetComment(comment string) error {
 	return f.addTag(flacvorbis.FIELD_DESCRIPTION, comment)
+}
+
+// SetLyrics set lyrics
+// NOTE: LYRICS is not standard tag，de facto standard。
+// see: https://datatracker.ietf.org/doc/html/rfc9639.html#name-security-considerations
+func (f *Flac) SetLyrics(lyrics string) error {
+	return f.addTag("LYRICS", lyrics)
 }
 
 func (f *Flac) setVorbisCommentMeta(block *flac.MetaDataBlock) {

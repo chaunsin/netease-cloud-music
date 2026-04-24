@@ -25,7 +25,6 @@ package tag
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -50,6 +49,7 @@ type Tagger interface {
 	SetAlbum(string) error
 	SetArtist([]string) error
 	SetComment(string) error
+	SetLyrics(string) error
 	Save() error // must be called
 }
 
@@ -67,7 +67,7 @@ func New(filename, format string) (Tagger, error) {
 		// tagger, err = NewWAV(filename)
 		fallthrough
 	default:
-		err = errors.New(fmt.Sprintf("format: %s is not supportted", format))
+		err = fmt.Errorf("format: %s is not supportted", format)
 	}
 	return tagger, err
 }
