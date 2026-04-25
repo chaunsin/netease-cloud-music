@@ -17,7 +17,7 @@ on:
 jobs:
   push:
     name: Push Docker image to multiple registries
-    if: ${{ github.repository == 'chaunsin/netease-cloud-music' }}
+    if: ${{ github.repository == 'chaunsin/netease-cloud-music' && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
