@@ -37,7 +37,7 @@ jobs:
 
       # Step 2: 设置 Go 环境
       - name: Set up Go environment
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
           check-latest: true
