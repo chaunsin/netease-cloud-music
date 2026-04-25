@@ -1,5 +1,5 @@
 # syntax = docker/dockerfile:1
-FROM golang:1.24 AS builder
+FROM golang:1.26 AS builder
 
 ARG GOPROXY=https://goproxy.cn,direct
 ARG VERSION
