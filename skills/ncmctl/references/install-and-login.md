@@ -1,9 +1,16 @@
+---
+title: ncmctl Installation & Login Guide
+description: Installation methods and login procedures for ncmctl CLI.
+version: "0.1.0"
+---
+
 # Installation & Login Guide
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Login Guide](#login-guide)
+- [Troubleshooting](#troubleshooting)
 
 ## Installation
 
@@ -14,6 +21,9 @@ Download from [GitHub Releases](https://github.com/chaunsin/netease-cloud-music/
 ### Method 2: Install from Source
 
 ```bash
+# Check Go version (requires Go >= 1.25.0)
+go version
+
 # Direct install
 go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
 
@@ -23,8 +33,6 @@ cd netease-cloud-music && make install
 ```
 
 Default install path: `$GOPATH/bin`
-
-Requires Go >= 1.24.0
 
 ### Method 3: Docker
 
@@ -58,6 +66,16 @@ cd netease-cloud-music && make build-image
 ### Method 4: Qinglong Panel
 
 See [Qinglong Guide](https://github.com/chaunsin/netease-cloud-music/blob/master/docs/qinglong.md).
+
+### Upgrading
+
+```bash
+# Go install (re-run to update)
+go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
+
+# Docker (pull latest image)
+docker pull chaunsin/ncmctl:latest
+```
 
 ## Login Guide
 
@@ -93,6 +111,12 @@ ncmctl login cookie --format header -f cookie.txt
 
 **Cookie must contain `MUSIC_U` field**, otherwise login will fail.
 
+After login, immediately secure your cookie file:
+
+```bash
+chmod 600 ~/.ncmctl/cookie.json
+```
+
 ### 2. CookieCloud Login
 
 [CookieCloud](https://github.com/easychen/CookieCloud) is a browser extension that syncs encrypted cookies to cloud.
@@ -106,7 +130,14 @@ Steps:
 5. Run login command:
 
 ```bash
-ncmctl login cookiecloud -u <uuid> -p <password> -s http://127.0.0.1:8088
+# Use interactive prompt (recommended, avoids exposing credentials in shell history)
+ncmctl login cookiecloud -s http://127.0.0.1:8088
+# You will be prompted for UUID and password
+
+# Or use environment variables
+export COOKIECLOUD_UUID="your-uuid"
+export COOKIECLOUD_PASSWORD="your-password"
+ncmctl login cookiecloud -s http://127.0.0.1:8088
 ```
 
 | Flag               | Default                   | Description                                  |
@@ -116,6 +147,8 @@ ncmctl login cookiecloud -u <uuid> -p <password> -s http://127.0.0.1:8088
 | `-p, --password` | (required)                | Account password                             |
 | `-t, --timeout`  | 30s                       | Request timeout                              |
 | `-H, --headers`  | none                      | Custom headers, e.g.,`key1=val1,key2=val2` |
+
+> **Security note**: Avoid passing UUID and password as command-line arguments. They will be visible in shell history and process listings. Use interactive prompts or environment variables instead.
 
 ### 3. Phone SMS Login
 
@@ -132,8 +165,16 @@ After sending SMS, enter the captcha when prompted. SMS has daily limits; avoid 
 
 ### 4. Phone Password Login
 
+> **Security warning**: Password login may trigger risk control. Use only as fallback. Prefer SMS or Cookie login.
+
 ```bash
-ncmctl login phone 188xxx8888 -p your_password
+# Use interactive prompt (recommended)
+ncmctl login phone 188xxx8888
+# Enter password when prompted
+
+# Or use environment variable
+export NCMCTL_PHONE_PASSWORD="your_password"
+ncmctl login phone 188xxx8888
 ```
 
 | Flag               | Default | Description    |
@@ -183,3 +224,14 @@ ncmctl logout
 ```
 
 Clears stored credentials and removes `~/.ncmctl/cookie.json`.
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| Login fails with "MUSIC_U not found" | Ensure cookie string contains `MUSIC_U` field |
+| `8821 behavior verification` error | Use SMS or QR code login instead of password |
+| Cookie login fails after browser logout | Re-export fresh cookies from browser |
+| Docker volume permission denied | Run `chmod 700 ./data` on host directory |
+| Command not found after install | Ensure `$GOPATH/bin` is in your `$PATH` |
+| "Go version too old" error | Upgrade to Go >= 1.24.0 |

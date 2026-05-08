@@ -1,7 +1,14 @@
+---
+title: ncmctl Command Reference
+description: All command flags, parameters, and examples for ncmctl CLI.
+version: "0.1.0"
+---
+
 # Command Reference
 
 ## Table of Contents
 
+- [Getting Help](#getting-help)
 - [task](#task)
 - [sign](#sign)
 - [partner](#partner)
@@ -11,6 +18,21 @@
 - [ncm](#ncm)
 - [crypto](#crypto)
 - [curl](#curl)
+- [Exit Codes](#exit-codes)
+- [Environment Variables](#environment-variables)
+- [Configuration File](#configuration-file)
+
+## Getting Help
+
+```bash
+# Show global help
+ncmctl --help
+
+# Show help for a specific command
+ncmctl task --help
+ncmctl download --help
+ncmctl login --help
+```
 
 ## task
 
@@ -148,7 +170,7 @@ ncmctl download -l SQ 'song_url' -o ./download/
 | `--encode-type` | `flac` | Song encode type |
 | `--immerse-type` | `c51` | Song immerse type |
 | `--strict` | false | Skip if quality unavailable |
-| `--tag` | true | Write audio tags |
+| `--tag` | true | Write audio tags (set `--tag=false` to disable) |
 
 **Quality levels:**
 
@@ -215,7 +237,7 @@ ncmctl ncm '/path/to/ncm/files' -o ./output -p 10
 |------|---------|-------------|
 | `-o, --output` | `./ncm` | Output directory |
 | `-p, --parallel` | 10 | Parallel decryption (1-50) |
-| `--tag` | false | Disable tag writing (tags written by default) |
+| `--tag` | true | Write audio tags (set `--tag=false` to disable) |
 
 **NCM format decryption:**
 1. Read magic header
@@ -269,3 +291,42 @@ ncmctl curl -k eapi -d '{"id":"123"}' SongDetail
 | `-t, --timeout` | 15s | Request timeout |
 
 Uses Go reflection to find and call the method on the API struct. The method name is the positional argument.
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General error |
+| 2 | Command-line parsing error |
+| 3 | Login required but not authenticated |
+| 4 | Network/API error |
+| 5 | File I/O error |
+
+## Environment Variables
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `NCmctl_Log_Level` | `debug` | Log level: debug, info, warn, error |
+| `NCmctl_Log_Output` | `stdout` | Log output destination |
+| `NCmctl_Home` | `/custom/path` | Override home directory |
+| `NCmctl_Config` | `/path/to/config.yaml` | Config file path |
+
+## Configuration File
+
+Example `~/.ncmctl/config.yaml`:
+
+```yaml
+log:
+  level: info
+  output: stdout
+
+# API request timeout
+timeout: 30s
+
+# Default download settings
+download:
+  level: lossless
+  parallel: 5
+  output: ./download
+```

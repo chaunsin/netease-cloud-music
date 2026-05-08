@@ -1,6 +1,6 @@
 ---
 name: ncmctl
-description: >
+description: >-
   ncmctl CLI reference and usage guide for NetEase Cloud Music. Use this skill when the user
   mentions ncmctl, 网易云音乐命令行, 网易云音乐, 网易云, 网易音乐, NetEase Cloud Music CLI,
   or asks how to install, login, download songs, upload to cloud, decrypt NCM files, convert ncm to mp3/flac,
@@ -9,7 +9,7 @@ description: >
   Use even if the user does not explicitly say "ncmctl" when the work is clearly related to NetEase Cloud Music CLI operations.
 metadata:
   author: chaunsin
-  version: "0.1"
+  version: "0.1.0"
 ---
 
 # ncmctl - NetEase Cloud Music CLI
@@ -24,7 +24,7 @@ ncmctl --version
 
 # Install options:
 
-# Go install (requires Go >= 1.24.0)
+# Go install (requires Go >= 1.25.0)
 go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
 
 # Or download pre-built binary from GitHub Releases
@@ -33,36 +33,36 @@ go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
 
 ## Quick Reference
 
-| Command | Login | Description |
-|---------|-------|-------------|
-| `login` | No | Phone/Cookie/CookieCloud/QR code login |
-| `logout` | No | Clear stored credentials |
-| `task` | Yes | Run daily tasks on cron schedule |
-| `sign` | Yes | YunBei + VIP daily check-in |
-| `partner` | Yes | Music partner auto-evaluation |
-| `scrobble` | Yes | Scrobble songs daily (max 300) |
-| `download` | Yes | Download songs/albums/playlists |
-| `cloud` | Yes | Upload music to cloud disk |
-| `ncm` | No | Decrypt .ncm to .mp3/.flac |
-| `crypto` | No | Encrypt/decrypt API parameters (debugging only) |
-| `curl` | No | Invoke API methods directly (ncmctl subcommand, not system curl) |
+| Command      | Login | Description                                                      |
+| ------------ | ----- | ---------------------------------------------------------------- |
+| `login`    | No    | Phone/Cookie/CookieCloud/QR code login                           |
+| `logout`   | No    | Clear stored credentials                                         |
+| `task`     | Yes   | Run daily tasks on cron schedule                                 |
+| `sign`     | Yes   | YunBei + VIP daily check-in                                      |
+| `partner`  | Yes   | Music partner auto-evaluation                                    |
+| `scrobble` | Yes   | Scrobble songs daily (default 300, max 300)                      |
+| `download` | Yes   | Download songs/albums/playlists                                  |
+| `cloud`    | Yes   | Upload music to cloud disk                                       |
+| `ncm`      | No    | Decrypt .ncm to .mp3/.flac                                       |
+| `crypto`   | No    | Encrypt/decrypt API parameters (debugging only)                  |
+| `curl`     | No    | Invoke API methods directly (ncmctl subcommand, not system curl) |
 
 ## Global Flags
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--debug` | false | Enable debug mode |
-| `-c, --config` | none | Config file path |
-| `--home` | `~/.ncmctl` | Home directory for runtime data |
+| Flag             | Default       | Description                     |
+| ---------------- | ------------- | ------------------------------- |
+| `--debug`      | false         | Enable debug mode               |
+| `-c, --config` | none          | Config file path                |
+| `--home`       | `~/.ncmctl` | Home directory for runtime data |
 
 ## Configuration Paths
 
-| Item | Default Path |
-|------|-------------|
-| Config | `~/.ncmctl/config.yaml` |
-| Cookie | `~/.ncmctl/cookie.json` |
+| Item     | Default Path                   |
+| -------- | ------------------------------ |
+| Config   | `~/.ncmctl/config.yaml`      |
+| Cookie   | `~/.ncmctl/cookie.json`      |
 | Database | `~/.ncmctl/database/badger/` |
-| Logs | `~/.ncmctl/log/ncm.log` |
+| Logs     | `~/.ncmctl/log/ncm.log`      |
 
 Env var prefix: `NCmctl_` (e.g., `NCmctl_Log_Level=debug`). Note: the mixed-case prefix `NCmctl_` is the actual prefix used by the tool.
 
@@ -71,9 +71,15 @@ Env var prefix: `NCmctl_` (e.g., `NCmctl_Log_Level=debug`). Note: the mixed-case
 > **IMPORTANT**: ncmctl handles authentication credentials and performs actions on your NetEase Cloud Music account. Pay close attention to the following safety guidelines:
 
 - **Never pass passwords on the command line** — they are visible in shell history and process listings. Prefer interactive prompts or environment variables.
-- **Protect cookie files** — `~/.ncmctl/cookie.json` contains sensitive session credentials. Set file permissions to `chmod 600 ~/.ncmctl/cookie.json`.
-- **Be cautious with CookieCloud credentials** — the UUID and password for CookieCloud login are sensitive; avoid sharing or logging them.
-- **Docker volume mounts** — when running in Docker, the mounted volume (`-v ./data:/root`) may expose credentials on the host filesystem. Ensure the host directory has restricted permissions.
+- **Protect cookie files** — `~/.ncmctl/cookie.json` contains sensitive session credentials. Set file permissions immediately after login:
+  ```bash
+  chmod 600 ~/.ncmctl/cookie.json
+  ```
+- **Be cautious with CookieCloud credentials** — the UUID and password for CookieCloud login are sensitive; avoid sharing or logging them. Use environment variables or interactive prompts instead of command-line arguments.
+- **Docker volume mounts** — when running in Docker, the mounted volume (`-v ./data:/root`) may expose credentials on the host filesystem. Ensure the host directory has restricted permissions:
+  ```bash
+  chmod 700 ./data
+  ```
 - **Account ban risks** — automated tasks (scrobble, sign automatic rewards, partner evaluation) may trigger NetEase risk control and result in account restrictions. Use at your own risk.
 
 ## Important Warnings
@@ -121,7 +127,7 @@ docker run -d -v ./data:/root \
 
 ## Reference Files
 
-| File | Content | When to read |
-|------|---------|-------------|
-| `references/install-and-login.md` | Installation methods and login procedures | Setting up ncmctl for the first time or troubleshooting login issues |
-| `references/commands.md` | All command flags, parameters, and examples | Looking up detailed command syntax, flags, or execution flow |
+| File                                | Content                                     | When to read                                                         |
+| ----------------------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| `references/install-and-login.md` | Installation methods and login procedures   | Setting up ncmctl for the first time or troubleshooting login issues |
+| `references/commands.md`          | All command flags, parameters, and examples | Looking up detailed command syntax, flags, or execution flow         |
