@@ -2,11 +2,11 @@ name: ci
 
 on:
   push:
-#    branches: [ "" ]
+    #    branches: [ "" ]
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
-#    branches: [ "" ]
+  #    branches: [ "" ]
   workflow_dispatch:
     inputs:
       debug_enabled:
@@ -39,19 +39,11 @@ jobs:
       - name: Set up Go environment
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           check-latest: true
           cache: true
 
-      # Step 3: 安装xgo以及upx
-      # https://github.com/techknowlogick/xgo
-      - name: Install xgo and upx
-        run: |
-          go install src.techknowlogick.com/xgo@latest
-          #sudo apt-get update
-          #sudo apt-get install upx  
-
-      # Step 4: 生成 changelog
+      # Step 3: 生成 changelog
       # https://github.com/jaywcjlove/changelog-generator
       - name: Generate changelog
         id: changelog
@@ -77,7 +69,7 @@ jobs:
             ## Other
             {{__unknown__}}
 
-      # Step 5: 打印 changelog
+      # Step 4: 打印 changelog
       - name: Print Changelog
         run: |
           echo "Changelog:"
@@ -87,7 +79,7 @@ jobs:
           echo "${{ steps.changelog.outputs.changelog }}"
           echo "${{ steps.changelog.outputs.changelog }}" >> note.md
 
-      # Step 6: 发布
+      # Step 5: 发布
       - name: Run GoReleaser
         if: startsWith(github.ref, 'refs/tags/v')
         uses: goreleaser/goreleaser-action@v7
