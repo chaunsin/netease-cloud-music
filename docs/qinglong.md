@@ -218,7 +218,7 @@ export NCMCTL_QINGLONG_LOGIN_MODE=qrcode
 
 - `NCMCTL_QINGLONG_SIGN` 是否开启签到任务 true: 开启(默认) false: 关闭
 - `NCMCTL_QINGLONG_SIGN_AUTOMATIC` 每日签到任务是否自动领取奖励，目前建议关闭避免封号,默认关闭 true: 开启 false: 关闭(默认)
-- `NCMCTL_QINGLONG_SCROBBLE` 是否开启刷歌 true: 开启(默认) false: 关闭
+- `NCMCTL_QINGLONG_SCROBBLE` 是否开启刷歌 true: 开启 false: 关闭(默认)
 - `NCMCTL_QINGLONG_PARTNER` 是否开启音乐合伙人 true: 开启(默认) false: 关闭
 
 **提示**:
