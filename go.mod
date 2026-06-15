@@ -8,7 +8,7 @@ require (
 	github.com/bogem/id3v2/v2 v2.1.4
 	github.com/chaunsin/go-har v0.0.0-20250701034644-7438631031b9
 	github.com/cheggaaa/pb/v3 v3.1.7
-	github.com/dgraph-io/badger/v4 v4.9.1
+	github.com/dgraph-io/badger/v4 v4.9.2
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/go-flac/flacpicture/v2 v2.0.2
 	github.com/go-flac/flacvorbis/v2 v2.0.2
@@ -23,7 +23,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	github.com/wneessen/go-mail v0.7.3
-	golang.org/x/sync v0.20.0
+	golang.org/x/sync v0.21.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1
 )
