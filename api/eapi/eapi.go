@@ -33,3 +33,19 @@ func New(client *api.Client) *Api {
 	a := Api{client: client}
 	return &a
 }
+
+func (a *Api) fillMusicianEAPIReq(req *MusicianEAPIReq) {
+	if req.DeviceId == "" {
+		req.DeviceId = a.client.GetDeviceId()
+	}
+	if req.OS == "" {
+		req.OS = "iOS"
+	}
+	if req.VerifyId == 0 {
+		req.VerifyId = 1
+	}
+	if req.Header == nil {
+		req.Header = struct{}{}
+	}
+	req.ER = true
+}

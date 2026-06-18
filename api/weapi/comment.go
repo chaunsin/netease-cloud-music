@@ -241,3 +241,47 @@ func (a *Api) Comments(ctx context.Context, req *CommentsReq) (*CommentsResp, er
 	_ = resp
 	return &reply, nil
 }
+
+type CommentLikeReq struct {
+	types.ReqCommon
+	ThreadId  string `json:"threadId"`  // 线程id，eg: R_SO_4_2128846655 see CommentInfoListRespData.ThreadId
+	CommentId string `json:"commentId"` // 评论id
+}
+
+type CommentLikeResp struct {
+	types.RespCommon[any]
+}
+
+// CommentLike 点赞歌曲/动态的评论
+// needLogin: 是
+func (a *Api) CommentLike(ctx context.Context, req *CommentLikeReq) (*CommentLikeResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/v1/comment/like"
+		reply CommentLikeResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, &req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+// CommentUnlike 取消点赞歌曲/动态的评论
+// needLogin: 是
+func (a *Api) CommentUnlike(ctx context.Context, req *CommentLikeReq) (*CommentLikeResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/v1/comment/unlike"
+		reply CommentLikeResp
+		opts  = api.NewOptions()
+	)
+
+	resp, err := a.client.Request(ctx, url, &req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}

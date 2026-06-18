@@ -9,6 +9,15 @@ type ReqCommon struct {
 	CSRFToken string `json:"csrf_token,omitempty"`
 }
 
+// EApiReqCommon EAPI 接口通用请求载荷字段
+type EApiReqCommon struct {
+	DeviceId string      `json:"deviceId,omitempty"`
+	OS       string      `json:"os,omitempty"`
+	VerifyId int         `json:"verifyId,omitempty"`
+	Header   interface{} `json:"header,omitempty"`
+	ER       bool        `json:"e_r,omitempty"`
+}
+
 // RespCommon weapi通用返回字段
 type RespCommon[T any] struct {
 	Code    int64  `json:"code,omitempty"`

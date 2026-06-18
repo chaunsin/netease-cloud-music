@@ -184,6 +184,21 @@ func (c *Client) GetCSRF(url string) (string, bool) {
 	return "", false
 }
 
+// GetDeviceId 从当前客户端的 Cookie 中获取设备 ID.
+func (c *Client) GetDeviceId() string {
+	var deviceId string
+	if ck, ok := c.Cookie("https://music.163.com", "deviceId"); ok && ck.Value != "" {
+		deviceId = ck.Value
+	} else if ck, ok := c.Cookie("https://interface3.music.163.com", "deviceId"); ok && ck.Value != "" {
+		deviceId = ck.Value
+	} else if ck, ok := c.Cookie("https://music.163.com", "sDeviceId"); ok && ck.Value != "" {
+		deviceId = ck.Value
+	} else if ck, ok := c.Cookie("https://interface3.music.163.com", "sDeviceId"); ok && ck.Value != "" {
+		deviceId = ck.Value
+	}
+	return deviceId
+}
+
 // Request 接口请求.
 func (c *Client) Request(ctx context.Context, url string, req, resp interface{}, opts *Options) (*resty.Response, error) {
 	if url == "" || req == nil || resp == nil {
