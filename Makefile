@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 chaunsin
+# SPDX-License-Identifier: MIT
+
 export IMAGE_VERSION ?= latest
 export IMAGE_NAME?=chaunsin/ncmctl:${IMAGE_VERSION}
 CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)

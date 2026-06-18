@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 chaunsin
+# SPDX-License-Identifier: MIT
+
 # 配置文件版本
 version: 1.0
 # log 日志模块配置
