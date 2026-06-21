@@ -35,7 +35,7 @@ jobs:
           echo "IMAGE_NAME=${{ github.repository_owner }}/ncmctl" >> $GITHUB_ENV
 
       - name: Check out the repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # https://github.com/docker/login-action
       - name: Log in to Docker Hub
