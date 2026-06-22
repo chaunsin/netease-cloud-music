@@ -148,6 +148,39 @@ func (a *Api) MusicianRoleGet(ctx context.Context, req *MusicianRoleGetReq) (*Mu
 	return &reply, nil
 }
 
+// MusicianSignReq 音乐人签到请求。
+type MusicianSignReq struct {
+	MusicianEAPIReq
+}
+
+// MusicianSignResp 音乐人签到响应。
+type MusicianSignResp struct {
+	types.RespCommon[bool]
+}
+
+// MusicianSign 执行音乐人中心签到/访问打点。
+// 抓包接口: /api/creator/user/access
+func (a *Api) MusicianSign(ctx context.Context, req *MusicianSignReq) (*MusicianSignResp, error) {
+	if req == nil {
+		req = &MusicianSignReq{}
+	}
+	a.fillMusicianEAPIReq(&req.MusicianEAPIReq)
+
+	var (
+		url   = "https://interface3.music.163.com/eapi/creator/user/access"
+		reply MusicianSignResp
+		opts  = api.NewOptions()
+	)
+	opts.CryptoMode = api.CryptoModeEAPI
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
 // MusicianMissionListReq 获取音乐人任务列表请求。
 type MusicianMissionListReq struct {
 	MusicianEAPIReq

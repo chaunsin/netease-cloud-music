@@ -213,3 +213,36 @@ func (a *Api) YunbeiReserveRewardReceive(ctx context.Context, req *YunbeiReserve
 	_ = resp
 	return &reply, nil
 }
+
+type YunBeiTaskTodoReq struct{}
+
+type YunBeiTaskTodoResp struct {
+	types.RespCommon[[]YunBeiTaskTodoRespData]
+}
+
+type YunBeiTaskTodoRespData struct {
+	Completed   bool   `json:"completed"`
+	DepositCode int64  `json:"depositCode"`
+	ExpireTime  int64  `json:"expireTime"`
+	Link        string `json:"link"`
+	Period      int64  `json:"period"`
+	TaskName    string `json:"taskName"`
+	TaskPoint   int64  `json:"taskPoint"`
+	UserTaskId  int64  `json:"userTaskId"`
+}
+
+// YunBeiTaskTodo 返回待完成的任务列表
+func (a *Api) YunBeiTaskTodo(ctx context.Context, req *YunBeiTaskTodoReq) (*YunBeiTaskTodoResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/eapi/usertool/task/todo/query"
+		reply YunBeiTaskTodoResp
+		opts  = api.NewOptions()
+	)
+	opts.CryptoMode = api.CryptoModeEAPI
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}

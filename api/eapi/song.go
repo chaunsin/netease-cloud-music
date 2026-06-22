@@ -236,3 +236,68 @@ func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDe
 	_ = resp
 	return &reply, nil
 }
+
+type DiscoveryRecommendSongsReq struct {
+}
+
+type DiscoveryRecommendSongsResp struct {
+	Code int `json:"code"`
+	Data struct {
+		DailySongs []struct {
+			Id   int64  `json:"id"`
+			Name string `json:"name"`
+			Al   struct {
+				Id     int64  `json:"id"`
+				Name   string `json:"name"`
+				PicUrl string `json:"picUrl"`
+			} `json:"al"`
+			Ar []struct {
+				Id   int64  `json:"id"`
+				Name string `json:"name"`
+			} `json:"ar"`
+		} `json:"dailySongs"`
+	} `json:"data"`
+}
+
+// DiscoveryRecommendSongs 获取每日推荐歌曲
+func (a *Api) DiscoveryRecommendSongs(ctx context.Context, req *DiscoveryRecommendSongsReq) (*DiscoveryRecommendSongsResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/eapi/v3/discovery/recommend/songs"
+		reply DiscoveryRecommendSongsResp
+		opts  = api.NewOptions()
+	)
+	opts.CryptoMode = api.CryptoModeEAPI
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}
+
+type SongLikeReq struct {
+	TrackId    string `json:"trackId"`
+	Like       string `json:"like"` // "true" or "false"
+	Time       string `json:"time"` // "3"
+	CheckToken string `json:"checkToken"`
+}
+
+type SongLikeResp struct {
+	Code int `json:"code"`
+}
+
+// SongLike 红心或取消红心歌曲
+func (a *Api) SongLike(ctx context.Context, req *SongLikeReq) (*SongLikeResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/eapi/song/like"
+		reply SongLikeResp
+		opts  = api.NewOptions()
+	)
+	opts.CryptoMode = api.CryptoModeEAPI
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Request: %w", err)
+	}
+	_ = resp
+	return &reply, nil
+}

@@ -864,16 +864,17 @@ type VipWelfareListData struct {
 		ButtonBackgroundColor string `json:"buttonBackgroundColor"`
 		ButtonTextColor       string `json:"buttonTextColor"`
 	} `json:"welfareIcon,omitempty"`
-	JumpUrl         string  `json:"jumpUrl"`
-	EffectStartTime int64   `json:"effectStartTime"`
-	EffectEndTime   int64   `json:"effectEndTime"`
-	ShowMinLevel    int64   `json:"showMinLevel"`
-	ShowMaxLevel    int64   `json:"showMaxLevel"`
-	SpecialPrice    float64 `json:"specialPrice"`
-	OrginalPrice    float64 `json:"orginalPrice"`
-	Status          int64   `json:"status"`
-	Seq             int64   `json:"seq"`
-	WelfareItem     struct {
+	JumpUrl           string  `json:"jumpUrl"`
+	EffectStartTime   int64   `json:"effectStartTime"`
+	EffectEndTime     int64   `json:"effectEndTime"`
+	ShowMinLevel      int64   `json:"showMinLevel"`
+	ShowMaxLevel      int64   `json:"showMaxLevel"`
+	SpecialPrice      float64 `json:"specialPrice"`
+	OrginalPrice      float64 `json:"orginalPrice"`
+	Status            int64   `json:"status"`
+	UserReceiveStatus int64   `json:"userReceiveStatus"`
+	Seq               int64   `json:"seq"`
+	WelfareItem       struct {
 		Level        int64  `json:"level"`
 		SubtitleName string `json:"subtitleName"`
 	} `json:"welfareItem"`

@@ -317,7 +317,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 	case http.MethodGet:
 		response, err = request.Get(url)
 	default:
-		return nil, fmt.Errorf("%s not surpport http method", opts.Method)
+		return nil, fmt.Errorf("%s not surpport http method", opts.Method) // TODO: 需要适配PUT等方法
 	}
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
