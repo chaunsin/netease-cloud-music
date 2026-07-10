@@ -123,7 +123,7 @@ func fakeServer(t *testing.T, now time.Time) *httptest.Server {
 		if len(data) > 0 {
 			if err := json.Unmarshal(data, &req); err != nil {
 				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprintf(w, "Decode:"+err.Error())
+				fmt.Fprintf(w, "%s", "Decode:"+err.Error())
 				return
 			}
 		}
@@ -141,7 +141,7 @@ func fakeServer(t *testing.T, now time.Time) *httptest.Server {
 			data, err := json.Marshal(cookie)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(w, "Marshal: "+err.Error())
+				fmt.Fprintf(w, "%s", "Marshal: "+err.Error())
 				return
 			}
 
@@ -149,7 +149,7 @@ func fakeServer(t *testing.T, now time.Time) *httptest.Server {
 			encrypt, err = Encrypt(keyPassword, string(data))
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(w, "Encrypt: "+err.Error())
+				fmt.Fprintf(w, "%s", "Encrypt: "+err.Error())
 				return
 			}
 

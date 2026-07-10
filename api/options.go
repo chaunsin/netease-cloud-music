@@ -12,13 +12,16 @@ const (
 	CryptoModeEAPI  CryptoMode = "eapi"
 	CryptoModeWEAPI CryptoMode = "weapi"
 	CryptoModeLinux CryptoMode = "linux"
+	CryptoModeXEAPI CryptoMode = "xeapi"
 )
 
 type Options struct {
-	Method     string
-	CryptoMode CryptoMode
-	Headers    map[string]string
-	Cookies    []*http.Cookie
+	Method      string
+	CryptoMode  CryptoMode
+	Headers     map[string]string
+	Cookies     []*http.Cookie
+	XeapiOS     string
+	XeapiAppVer string
 }
 
 func (o *Options) SetCookies(c ...*http.Cookie) {
@@ -34,6 +37,16 @@ func (o *Options) SetHeaders(h map[string]string) *Options {
 	for k, v := range h {
 		o.Headers[k] = v
 	}
+	return o
+}
+
+func (o *Options) SetXeapiOS(os string) *Options {
+	o.XeapiOS = os
+	return o
+}
+
+func (o *Options) SetXeapiAppVer(appVer string) *Options {
+	o.XeapiAppVer = appVer
 	return o
 }
 

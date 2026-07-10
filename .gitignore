@@ -977,3 +977,4 @@ Temporary Items
 note.md
 /.trae/
 /.claude/settings.local.json
+/.codex/environments/

@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 常用命令
 
 ### 构建和安装
+
 ```bash
 # 构建二进制文件
 make build
@@ -24,6 +25,7 @@ go test -v -run TestWeapiLoginByQrcode ./example/
 ```
 
 ### Docker
+
 ```bash
 # 构建镜像
 make build-image
@@ -33,6 +35,7 @@ make task
 ```
 
 ### 命令行工具 (ncmctl)
+
 ```bash
 # 查看帮助
 ncmctl -h
@@ -59,7 +62,8 @@ ncmctl ncm '/path/to/ncm/files' -o ./output
 ## 架构
 
 ### 目录结构
-```
+
+```text
 cmd/ncmctl/         # CLI 入口点 (main.go)
 internal/ncmctl/    # CLI 命令实现 (login, task, cloud, download, ncm 等)
 api/                # API 客户端层
@@ -84,17 +88,20 @@ example/            # API 使用示例测试
 ### API 层设计
 
 核心客户端 `api.Client` 位于 `api/api.go`，负责：
+
 - HTTP 请求发送（使用 resty 库）
 - 请求参数加密 / 响应解密
 - Cookie 管理（自动持久化到文件）
 
 **加密模式** (`api/options.go`):
+
 - `CryptoModeWEAPI`: 网页端 API，使用 AES-CBC 双重加密 + RSA 加密密钥
 - `CryptoModeEAPI`: PC/移动端 API，使用 AES-ECB 加密
 - `CryptoModeLinux`: Linux API，使用 AES-ECB 加密
 - `CryptoModeAPI`: 无加密
 
 **API 调用流程**:
+
 ```go
 // 1. 创建客户端
 cfg := &api.Config{...}
@@ -111,6 +118,7 @@ cli.Close(ctx)
 ### 加密实现 (`pkg/crypto/crypto.go`)
 
 关键函数：
+
 - `WeApiEncrypt(object)`: weapi 请求加密
 - `EApiEncrypt(url, object)`: eapi 请求加密
 - `LinuxApiEncrypt(object)`: linux api 请求加密
@@ -129,20 +137,24 @@ cli.Close(ctx)
 ## 开发注意事项
 
 ### Go 版本
+
 要求 Go >= 1.24
 
 ### 测试
+
 测试文件遵循 Go 惯例，`*_test.go`。示例测试在 `example/` 目录。
 
 运行测试前需要设置 cookie 文件或跳过需要登录的测试。
 
 ### API 添加新接口
+
 1. 在 `api/weapi/` 或 `api/eapi/` 下创建新文件
 2. 定义请求/响应结构体
 3. 实现调用方法，使用 `a.client.Request(ctx, url, req, resp, opts)`
 4. 设置正确的 `CryptoMode` (默认 weapi)
 
 ### Cookie 处理
+
 - Cookie 自动持久化到配置文件指定路径
 - 使用 `api.Client.SetCookies()` / `GetCookies()` 管理
 - 间隔刷盘，默认 3 秒

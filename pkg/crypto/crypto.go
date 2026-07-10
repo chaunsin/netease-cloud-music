@@ -5,10 +5,15 @@ package crypto
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/ecdh"
+	"crypto/hmac"
 	"crypto/md5"
+	cryptorand "crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
@@ -16,29 +21,46 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"math/rand"
+	"mime"
+	"net/http"
+	"net/url"
 	"strings"
 )
 
 const (
-	base62      = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	idXORKey1   = "3go8&$8*3*3h0k(2)2"
-	cacheKey    = ")(13daqP@ssw0rd~"
-	iv          = "0102030405060708"
-	presetKey   = "0CoJUm6Qyw8W8jud"
-	linuxApiKey = "rFgB&h#%2?^eDg:Q"
-	eApiKey     = "e82ckenh8dichen8"
-	eApiFormat  = "%s-36cd479b6b5-%s-36cd479b6b5-%s"
-	eApiSlat    = "nobody%suse%smd5forencrypt"
-	publicKey   = `-----BEGIN PUBLIC KEY-----
+	base62                  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	idXORKey1               = "3go8&$8*3*3h0k(2)2"
+	cacheKey                = ")(13daqP@ssw0rd~"
+	iv                      = "0102030405060708"
+	presetKey               = "0CoJUm6Qyw8W8jud"
+	linuxApiKey             = "rFgB&h#%2?^eDg:Q"
+	eApiKey                 = "e82ckenh8dichen8"
+	eApiFormat              = "%s-36cd479b6b5-%s-36cd479b6b5-%s"
+	eApiSlat                = "nobody%suse%smd5forencrypt"
+	xeapiSignKey            = "mUHCwVNWJbunMqAHf5MImuirT6plvs6VSFW62MGHstFQxhBGdEoIhLItH3djc4+FB/OKty3+lL2rGeoFBpVe5g==" // xeapi 的 signKey 在 AegisSDK 中以这段 Base64 文本原样参与 HMAC，不需要先做 Base64 解码。
+	xeapiStaticKeyHex       = "ab1d5a430f6bb04a3f01e81ddd72bd916d5ce591248ac128714806d7f8fb1b84"                         // xeapi 静态密钥为 32 字节 AES-256-ECB key，用于公钥缓存、B 内层和 R 参数加解密。
+	xeapiDefaultContentType = "application/x-www-form-urlencoded;charset=utf-8"
+	publicKey               = `-----BEGIN PUBLIC KEY-----
 MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDgtQn2JZ34ZC28NWYpAUd98iZ37BUrX/aKzmFbt7clFSs6sXqHauqKWqdtLkF2KexO40H1YTX8z2lSgBBOAxLsvaklV8k4cBFK9snQXE9/DDaFt6Rr7iVZMldczhC0JNgTz+SHXT6CBHuX3e9SdB1Ua44oncaTWz7OBGLbCiK45wIDAQAB
 -----END PUBLIC KEY-----`
 )
 
+var xeapiStaticKey = mustDecodeHex(xeapiStaticKeyHex)
+
+func mustDecodeHex(s string) []byte {
+	data, err := hex.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return data
+}
+
 func randomKey() string {
 	var buffer bytes.Buffer
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		buffer.WriteByte(base62[rand.Int63n(62)])
 	}
 	return buffer.String()
@@ -149,6 +171,9 @@ func AesDecryptCBC(block cipher.Block, cipherText, iv []byte) ([]byte, error) {
 	if len(iv) != block.BlockSize() {
 		return nil, fmt.Errorf("IV length must be %d bytes", block.BlockSize())
 	}
+	if len(cipherText)%block.BlockSize() != 0 {
+		return nil, errors.New("cipherText length is not a multiple of block size")
+	}
 
 	data := make([]byte, len(cipherText))
 	mode := cipher.NewCBCDecrypter(block, iv)
@@ -193,9 +218,10 @@ func RsaEncrypt(ciphertext, key string) (string, error) {
 		return "", errors.New("failed to parse DER encoded public key")
 	}
 
-	// 使用noPadding方式填充
+	// weapi 的 encSecKey 使用 RSA no-padding，输出需要补齐到模数字节数对应的 hex 长度。
 	c := new(big.Int).SetBytes([]byte(ciphertext))
-	encryptedBytes := c.Exp(c, big.NewInt(int64(pubKey.E)), pubKey.N).Bytes()
+	// encryptedBytes := c.Exp(c, big.NewInt(int64(pubKey.E)), pubKey.N).Bytes()
+	encryptedBytes := c.Exp(c, big.NewInt(int64(pubKey.E)), pubKey.N).FillBytes(make([]byte, pubKey.Size()))
 	return hex.EncodeToString(encryptedBytes), nil
 }
 
@@ -265,7 +291,6 @@ func WeApiEncrypt(object interface{}) (map[string]string, error) {
 // WeApiDecrypt 解密 TODO: 由于拿不到私钥则不能解密.
 func WeApiDecrypt(params, encSecKey string) (map[string]string, error) {
 	panic("unrealized")
-	return nil, nil
 }
 
 // LinuxApiEncrypt 加密.
@@ -394,4 +419,475 @@ func Anonymous(deviceId string) (string, error) {
 	content := fmt.Sprintf("%s %s", deviceId, encodedID)
 	username := base64.URLEncoding.EncodeToString([]byte(content))
 	return username, nil
+}
+
+// xeapi implements the algorithm documented in
+// https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced/issues/174.
+var (
+	ErrPublicKeyMissing = errors.New("xeapi public key is missing")
+	ErrServerKeyMissing = errors.New("xeapi server key is missing")
+	ErrSessionKeyLength = errors.New("xeapi session key length is invalid")
+)
+
+const (
+	defaultOS = "android"
+)
+
+// PublicKeyState 是 xeapi 公钥刷新接口返回并缓存的服务端密钥状态。
+type PublicKeyState struct {
+	PublicKey      string `json:"publicKey"`
+	Version        string `json:"version"`
+	NextUpdateTime int64  `json:"nextUpdateTime"`
+	SK             string `json:"sk"`
+	DeviceID       string `json:"deviceId,omitempty"`
+}
+
+// Session 保存 xeapi 响应头下发的会话信息。
+type Session struct {
+	ID  string
+	Key string
+}
+
+// EncryptRequest 描述待封装的原始 API 请求。
+type EncryptRequest struct {
+	URI         string
+	Data        interface{}
+	Body        []byte
+	Method      string
+	ContentType string
+	OS          string
+	AppVersion  string
+	DeviceID    string
+	UserAgent   string
+}
+
+var (
+	xeapiRandomBytes = func(length int) ([]byte, error) {
+		data := make([]byte, length)
+		if _, err := cryptorand.Read(data); err != nil {
+			return nil, err
+		}
+		return data, nil
+	}
+	xeapiGenerateX25519Key = func(curve ecdh.Curve) (*ecdh.PrivateKey, error) {
+		return curve.GenerateKey(cryptorand.Reader)
+	}
+)
+
+// XeapiSign 生成公钥刷新请求/响应校验用的 HMAC-SHA256 签名。
+func XeapiSign(timestamp, nonce string) string {
+	mac := hmac.New(sha256.New, []byte(xeapiSignKey))
+	mac.Write([]byte(timestamp))
+	mac.Write([]byte(nonce))
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+}
+
+type xeapiPlaintextEnvelope struct {
+	Body        *string `json:"body,omitempty"`
+	Method      string  `json:"method,omitempty"`
+	ContentType string  `json:"contentType,omitempty"`
+	QueryString string  `json:"queryString,omitempty"`
+}
+
+func buildPlaintextEnvelope(req EncryptRequest) ([]byte, error) {
+	queryString, err := xeapiQueryString(req.URI)
+	if err != nil {
+		return nil, fmt.Errorf("xeapiQueryString: %w", err)
+	}
+
+	body, hasBody, err := xeapiBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("xeapiBody: %w", err)
+	}
+
+	method := strings.ToUpper(req.Method)
+	if method == "" {
+		method = http.MethodPost
+	}
+	if method == http.MethodPost {
+		method = ""
+	}
+
+	contentType := req.ContentType
+	if isDefaultXeapiContentType(contentType) {
+		contentType = ""
+	}
+
+	envelope := xeapiPlaintextEnvelope{
+		Method:      method,
+		ContentType: contentType,
+		QueryString: queryString,
+	}
+	if hasBody {
+		encodedBody := base64.StdEncoding.EncodeToString(body)
+		envelope.Body = &encodedBody
+	}
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		return nil, fmt.Errorf("json.Marshal xeapi plaintext envelope: %w", err)
+	}
+	return data, nil
+}
+
+func xeapiQueryString(rawURI string) (string, error) {
+	if strings.TrimSpace(rawURI) == "" {
+		return "", errors.New("xeapi uri is empty")
+	}
+	uri, err := url.Parse(rawURI)
+	if err != nil {
+		return "", fmt.Errorf("url.Parse xeapi uri: %w", err)
+	}
+
+	// AegisSDK 只把原始 URL 的 query 放入明文信封，且总是追加 e_r=true 触发加密响应。
+	rawQuery := uri.RawQuery
+	if rawQuery == "" {
+		return "e_r=true", nil
+	}
+	return rawQuery + "&e_r=true", nil
+}
+
+func xeapiBody(req EncryptRequest) ([]byte, bool, error) {
+	if req.Body != nil {
+		// Body 用于已经有完整原始请求体的场景，避免重新编码导致字节序或转义方式变化。
+		return append([]byte(nil), req.Body...), true, nil
+	}
+	if req.Data == nil {
+		return nil, false, nil
+	}
+
+	if !isDefaultXeapiContentType(req.ContentType) {
+		body, err := rawRequestBody(req.Data)
+		if err != nil {
+			return nil, false, fmt.Errorf("rawRequestBody: %w", err)
+		}
+		return body, true, nil
+	}
+
+	values, err := formValues(req.Data)
+	if err != nil {
+		return nil, false, err
+	}
+	// 高层 Data 输入代表表单字段；xeapi 的 e_r 应落在 queryString，避免表单里重复携带。
+	values.Del("e_r")
+	return []byte(values.Encode()), true, nil
+}
+
+func isDefaultXeapiContentType(contentType string) bool {
+	if contentType == "" {
+		return true
+	}
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		mediaType, _, _ = strings.Cut(strings.TrimSpace(contentType), ";")
+		mediaType = strings.TrimSpace(mediaType)
+	}
+	defaultMediaType, _, _ := mime.ParseMediaType(xeapiDefaultContentType)
+	return strings.EqualFold(mediaType, defaultMediaType)
+}
+
+func rawRequestBody(data interface{}) ([]byte, error) {
+	switch v := data.(type) {
+	case []byte:
+		return append([]byte(nil), v...), nil
+	case string:
+		return []byte(v), nil
+	default:
+		body, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("json.Marshal xeapi raw body: %w", err)
+		}
+		return body, nil
+	}
+}
+
+func formValues(data interface{}) (url.Values, error) {
+	switch v := data.(type) {
+	case nil:
+		return url.Values{}, nil
+	case url.Values:
+		return cloneFormValues(v), nil
+	case map[string][]string:
+		return cloneFormValues(url.Values(v)), nil
+	case map[string]string:
+		return stringMapFormValues(v), nil
+	case string:
+		return url.ParseQuery(v)
+	case []byte:
+		return url.ParseQuery(string(v))
+	default:
+		return jsonFormValues(v)
+	}
+}
+
+func cloneFormValues(src url.Values) url.Values {
+	values := make(url.Values, len(src))
+	for key, list := range src {
+		values[key] = append([]string(nil), list...)
+	}
+	return values
+}
+
+func stringMapFormValues(src map[string]string) url.Values {
+	values := make(url.Values, len(src))
+	for key, value := range src {
+		values.Set(key, value)
+	}
+	return values
+}
+
+func jsonFormValues(data interface{}) (url.Values, error) {
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("json.Marshal xeapi data: %w", err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal xeapi data: %w", err)
+	}
+
+	var values = make(url.Values, len(fields))
+	for key, raw := range fields {
+		text, err := rawFormValue(raw)
+		if err != nil {
+			return nil, fmt.Errorf("format xeapi form value %q: %w", key, err)
+		}
+		values.Set(key, text)
+	}
+	return values, nil
+}
+
+func rawFormValue(raw json.RawMessage) (string, error) {
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		return text, nil
+	}
+	if !json.Valid(raw) {
+		return "", errors.New("invalid json value")
+	}
+	return string(raw), nil
+}
+
+// XeapiEncrypt 将原始 API 请求封装为 xeapi 的 B/S/R 表单参数。
+func XeapiEncrypt(req EncryptRequest, publicKey PublicKeyState, session Session) (map[string]string, error) {
+	if strings.TrimSpace(publicKey.PublicKey) == "" {
+		return nil, ErrPublicKeyMissing
+	}
+	if strings.TrimSpace(publicKey.SK) == "" {
+		return nil, ErrServerKeyMissing
+	}
+
+	plaintext, err := buildPlaintextEnvelope(req)
+	if err != nil {
+		return nil, fmt.Errorf("buildPlaintextEnvelope: %w", err)
+	}
+
+	inner, err := aesECBEncrypt(xeapiStaticKey, plaintext)
+	if err != nil {
+		return nil, fmt.Errorf("encrypt plaintext envelope: %w", err)
+	}
+	mid, err := midTransform(inner)
+	if err != nil {
+		return nil, fmt.Errorf("midTransform: %w", err)
+	}
+
+	dynamicKey, activeSessionID, err := dynamicKey(session)
+	if err != nil {
+		return nil, fmt.Errorf("dynamicKey: %w", err)
+	}
+
+	b, err := aesECBEncrypt(dynamicKey, mid)
+	if err != nil {
+		return nil, fmt.Errorf("aesECBEncrypt B: %w", err)
+	}
+
+	osName := req.OS
+	if osName == "" {
+		osName = defaultOS
+	}
+	s, err := encryptS(dynamicKey, publicKey, osName)
+	if err != nil {
+		return nil, fmt.Errorf("encryptS: %w", err)
+	}
+
+	r, err := aesECBEncrypt(xeapiStaticKey, []byte(publicKey.Version+"|"+activeSessionID))
+	if err != nil {
+		return nil, fmt.Errorf("aesECBEncrypt R: %w", err)
+	}
+	return map[string]string{
+		"B": base64.StdEncoding.EncodeToString(b),
+		"S": base64.StdEncoding.EncodeToString(s),
+		"R": base64.StdEncoding.EncodeToString(r),
+	}, nil
+}
+
+// XeapiDecryptPublicKey 解密公钥刷新响应里的 encryptedData 字段。
+func XeapiDecryptPublicKey(encryptedData string) (*PublicKeyState, error) {
+	ciphertext, err := base64.StdEncoding.DecodeString(encryptedData)
+	if err != nil {
+		return nil, fmt.Errorf("base64.DecodeString public key: %w", err)
+	}
+	plaintext, err := aesECBDecrypt(xeapiStaticKey, ciphertext)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt public key: %w", err)
+	}
+	var state PublicKeyState
+	if err := json.Unmarshal(plaintext, &state); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal public key: %w", err)
+	}
+	if strings.TrimSpace(state.PublicKey) == "" {
+		return nil, ErrPublicKeyMissing
+	}
+	return &state, nil
+}
+
+// XeapiDecryptResponse 解密 xeapi 业务响应，明文为 gzip 时会继续解压。
+func XeapiDecryptResponse(body []byte) ([]byte, error) {
+	plaintext, err := aesECBDecrypt([]byte(eApiKey), body)
+	if err != nil {
+		return nil, fmt.Errorf("aesECBDecrypt: %w", err)
+	}
+	if len(plaintext) >= 2 && plaintext[0] == 0x1f && plaintext[1] == 0x8b {
+		r, err := gzip.NewReader(bytes.NewReader(plaintext))
+		if err != nil {
+			return nil, fmt.Errorf("gzip.NewReader: %w", err)
+		}
+		defer r.Close()
+
+		data, err := io.ReadAll(r)
+		if err != nil {
+			return nil, fmt.Errorf("gzip.ReadAll: %w", err)
+		}
+		return data, nil
+	}
+	return plaintext, nil
+}
+
+func aesECBEncrypt(key, plaintext []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("aes.NewCipher: %w", err)
+	}
+	padded, err := Pkcs7Padding(plaintext, block.BlockSize())
+	if err != nil {
+		return nil, fmt.Errorf("Pkcs7Padding: %w", err)
+	}
+	return AesEncryptECB(block, padded), nil
+}
+
+func aesECBDecrypt(key, ciphertext []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("aes.NewCipher: %w", err)
+	}
+	decrypted, err := AesDecryptECB(block, ciphertext)
+	if err != nil {
+		return nil, err
+	}
+	return Pkcs7UnPadding(decrypted)
+}
+
+func dynamicKey(session Session) ([]byte, string, error) {
+	if strings.TrimSpace(session.Key) != "" {
+		// x-encr-sskey 是服务端下发的 ASCII 字符串，形似 hex 时也不能做 hex.DecodeString。
+		key := []byte(session.Key)
+		switch len(key) {
+		case 16, 24, 32:
+			return key, session.ID, nil
+		default:
+			return nil, "", fmt.Errorf("%w: got %d bytes", ErrSessionKeyLength, len(key))
+		}
+	}
+
+	key, err := xeapiRandomBytes(16)
+	if err != nil {
+		return nil, "", fmt.Errorf("crypto.Read dynamic key: %w", err)
+	}
+	return key, "", nil
+}
+
+func midTransform(ciphertext []byte) ([]byte, error) {
+	random, err := xeapiRandomBytes(16)
+	if err != nil {
+		return nil, fmt.Errorf("crypto.Read mid random: %w", err)
+	}
+	var xored = make([]byte, len(ciphertext))
+	for i := range ciphertext {
+		xored[i] = ciphertext[i] ^ random[i&0x0f]
+	}
+
+	var (
+		b64 = []byte(base64.StdEncoding.EncodeToString(xored))
+		rot = 0
+	)
+	if len(b64) > 0 {
+		rot = int(random[0]&0x0f) % len(b64)
+	}
+
+	var out = make([]byte, 0, len(random)+len(b64))
+	out = append(out, random...)
+	out = append(out, b64[rot:]...)
+	out = append(out, b64[:rot]...)
+	return out, nil
+}
+
+func encryptS(dynamicKey []byte, publicKey PublicKeyState, os string) ([]byte, error) {
+	peerRaw, err := base64.StdEncoding.DecodeString(publicKey.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("base64.DecodeString peer public key: %w", err)
+	}
+
+	var curve = ecdh.X25519()
+	peer, err := curve.NewPublicKey(peerRaw)
+	if err != nil {
+		return nil, fmt.Errorf("x25519 peer public key: %w", err)
+	}
+	privateKey, err := xeapiGenerateX25519Key(curve)
+	if err != nil {
+		return nil, fmt.Errorf("x25519 generate key: %w", err)
+	}
+	ephemeralRaw := privateKey.PublicKey().Bytes()
+	sharedSecret, err := privateKey.ECDH(peer)
+	if err != nil {
+		return nil, fmt.Errorf("x25519 ECDH: %w", err)
+	}
+
+	var (
+		plaintext = []byte(base64.StdEncoding.EncodeToString(dynamicKey) + "|" + os + "|" + publicKey.SK)
+	)
+	iv, err := xeapiRandomBytes(12)
+	if err != nil {
+		return nil, fmt.Errorf("cryptorand gcm iv: %w", err)
+	}
+
+	key := deriveX25519AESKey(sharedSecret, ephemeralRaw)
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("aes.NewCipher S: %w", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("cipher.NewGCM: %w", err)
+	}
+	var encrypted = gcm.Seal(nil, iv, plaintext, nil)
+
+	var out = make([]byte, 0, len(ephemeralRaw)+len(iv)+len(encrypted))
+	out = append(out, ephemeralRaw...)
+	out = append(out, iv...)
+	out = append(out, encrypted...)
+	return out, nil
+}
+
+func deriveX25519AESKey(sharedSecret, ephemeralPublicKey []byte) []byte {
+	if len(sharedSecret) == 0 {
+		sharedSecret = make([]byte, 32)
+	}
+	prkMAC := hmac.New(sha256.New, make([]byte, 32))
+	prkMAC.Write(sharedSecret)
+	prk := prkMAC.Sum(nil)
+
+	hash := hmac.New(sha256.New, prk)
+	hash.Write(ephemeralPublicKey)
+	hash.Write([]byte{1})
+	return hash.Sum(nil)[:16]
 }

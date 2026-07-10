@@ -7,13 +7,13 @@ CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 COMMIT_HASH := $(shell git rev-parse --short=7 HEAD)
 BUILD_TIME=$(shell date "+%Y-%m-%d %H:%M:%S%z")
 
+test:
+	go test -v ./...
+	
 info:
 	@echo "Current Branch: $(CURRENT_BRANCH)"
 	@echo "Current Commit Hash: $(COMMIT_HASH)"
 	@echo "Current Build Time: $(BUILD_TIME)"
-
-test:
-	#go test -v ./..
 
 build: info
 	go build -ldflags "-X 'main.Version=$(CURRENT_BRANCH)' -X 'main.Commit=${COMMIT_HASH}' -X 'main.BuildTime=${BUILD_TIME}' -s -w" -o ncmctl cmd/ncmctl/main.go

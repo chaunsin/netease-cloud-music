@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	neturl "net/url"
+	"sync"
 	"time"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
@@ -24,6 +25,7 @@ import (
 	"github.com/andybalholm/brotli"
 	"github.com/cheggaaa/pb/v3"
 	"github.com/go-resty/resty/v2"
+	"golang.org/x/sync/singleflight"
 )
 
 type Config struct {
@@ -45,10 +47,14 @@ func (c *Config) Validate() error {
 }
 
 type Client struct {
-	cfg    *Config
-	cli    *resty.Client
-	cookie *cookie.Cookie
-	l      *log.Logger
+	cfg          *Config
+	cli          *resty.Client
+	cookie       *cookie.Cookie
+	l            *log.Logger
+	xeapiMu      sync.Mutex
+	xeapiRefresh singleflight.Group
+	xeapiKey     crypto.PublicKeyState
+	xeapiSession crypto.Session
 	// agent  *Agent
 }
 
@@ -166,17 +172,18 @@ func (c *Client) GetCSRF(url string) (string, bool) {
 
 // GetDeviceId 从当前客户端的 Cookie 中获取设备 ID.
 func (c *Client) GetDeviceId() string {
-	var deviceId string
-	if ck, ok := c.Cookie("https://music.163.com", "deviceId"); ok && ck.Value != "" {
-		deviceId = ck.Value
-	} else if ck, ok := c.Cookie("https://interface3.music.163.com", "deviceId"); ok && ck.Value != "" {
-		deviceId = ck.Value
-	} else if ck, ok := c.Cookie("https://music.163.com", "sDeviceId"); ok && ck.Value != "" {
-		deviceId = ck.Value
-	} else if ck, ok := c.Cookie("https://interface3.music.163.com", "sDeviceId"); ok && ck.Value != "" {
-		deviceId = ck.Value
+	for _, name := range []string{"deviceId", "sDeviceId"} {
+		for _, cookieURL := range []string{
+			"https://music.163.com",
+			"https://interface.music.163.com",
+			"https://interface3.music.163.com",
+		} {
+			if ck, ok := c.Cookie(cookieURL, name); ok && ck.Value != "" {
+				return ck.Value
+			}
+		}
 	}
-	return deviceId
+	return ""
 }
 
 // Request 接口请求.
@@ -195,6 +202,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 		encryptData map[string]string
 		err         error
 		response    *resty.Response
+		requestURL  = url
 	)
 
 	uri, err := neturl.Parse(url)
@@ -216,14 +224,6 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034").
 		SetCookie(&http.Cookie{Name: "__remember_me", Value: "true", Domain: ""})
 	// SetHeader("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.1 Chrome/121.0.0.0 Mobile Safari/537.36")
-
-	// append
-	if len(opts.Headers) > 0 {
-		request.SetHeaders(opts.Headers)
-	}
-	if len(opts.Cookies) > 0 {
-		request.SetCookies(opts.Cookies)
-	}
 
 	switch opts.CryptoMode {
 	case CryptoModeEAPI:
@@ -291,6 +291,16 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 		if err != nil {
 			return nil, fmt.Errorf("LinuxApiEncrypt: %w", err)
 		}
+	case CryptoModeXEAPI:
+		requestURL, encryptData, err = c.xeapiEncrypt(ctx, url, req, opts, request.Header.Get("Content-Type"))
+		if err != nil {
+			return nil, fmt.Errorf("xeapiEncrypt: %w", err)
+		}
+		request.SetHeader("User-Agent", xeapiUserAgent(opts))
+		request.SetHeader("X-Client-Enc-State", "ENCRYPTED")
+		if xeapiURI, err := neturl.Parse(requestURL); err == nil && xeapiURI.Host != "" {
+			request.SetHeader("Host", xeapiURI.Host)
+		}
 	case CryptoModeAPI:
 		// 不需要加密处理请求
 		// todo: 待处理,在/api/xx/接口请求时则不需要参数加密处理,此处需要对结构体转换成map[string]string类型
@@ -311,11 +321,19 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 	}
 	log.Debug("[request]: %+v encrypt: %+v", req, encryptData)
 
+	// append user options config
+	if len(opts.Headers) > 0 {
+		request = request.SetHeaders(opts.Headers)
+	}
+	if len(opts.Cookies) > 0 {
+		request = request.SetCookies(opts.Cookies)
+	}
+
 	switch opts.Method {
 	case http.MethodPost:
-		response, err = request.SetFormData(encryptData).Post(url)
+		response, err = request.SetFormData(encryptData).Post(requestURL)
 	case http.MethodGet:
-		response, err = request.Get(url)
+		response, err = request.Get(requestURL)
 	default:
 		return nil, fmt.Errorf("%s not surpport http method", opts.Method) // TODO: 需要适配PUT等方法
 	}
@@ -345,6 +363,14 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 		decryptData, err = crypto.LinuxApiDecrypt(string(response.Body()))
 		if err != nil {
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
+		}
+		log.Debug("[response.decrypt]: %s", string(decryptData))
+	case CryptoModeXEAPI:
+		c.updateXeapiSession(response)
+
+		decryptData, err = crypto.XeapiDecryptResponse(response.Body())
+		if err != nil {
+			return nil, fmt.Errorf("XeapiDecryptResponse: %w", err)
 		}
 		log.Debug("[response.decrypt]: %s", string(decryptData))
 	default:
