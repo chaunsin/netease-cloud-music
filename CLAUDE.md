@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-网易云音乐 Golang API 接口 + 命令行工具套件 (ncmctl)。提供网易云音乐 API 的 Go 封装，支持登录、每日任务、云盘上传、NCM 文件解密、音乐下载等功能。
+网易云音乐 Golang API 接口 + 命令行工具套件 (ncmctl)。提供网易云音乐 API 的 Go 封装，支持登录、每日任务、云盘上传、NCM 文件解密、音乐下载和 HTTP(S) 接口监控代理等功能。
 
 ## 常用命令
 
@@ -57,6 +57,10 @@ ncmctl cloud '/path/to/music.mp3'
 
 # NCM 解密
 ncmctl ncm '/path/to/ncm/files' -o ./output
+
+# HTTP(S) 接口监控代理
+ncmctl proxy                              # 默认监听 127.0.0.1:9000
+ncmctl proxy --listen 0.0.0.0:9000        # 允许可信局域网设备连接
 ```
 
 ## 架构
@@ -66,6 +70,7 @@ ncmctl ncm '/path/to/ncm/files' -o ./output
 ```text
 cmd/ncmctl/         # CLI 入口点 (main.go)
 internal/ncmctl/    # CLI 命令实现 (login, task, cloud, download, ncm 等)
+internal/proxy/     # 基于 goproxy 的 HTTP(S) MITM、流量捕获、协议解析和脱敏输出
 api/                # API 客户端层
   ├── api.go        # 核心 Client，处理请求/响应加解密
   ├── weapi/        # 网页端/小程序 API (推荐使用)
@@ -115,6 +120,15 @@ resp, err := weapiClient.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
 cli.Close(ctx)
 ```
 
+### HTTP(S) 监控代理 (`internal/proxy/`)
+
+- `ncmctl proxy` 默认监听 `127.0.0.1:9000`，无需登录。
+- 只对网易相关域名进行记录和 HTTPS MITM，其他流量透明转发且不输出。
+- 首次启动在 `<home>/.ncmctl/proxy/` 生成 CA；`<home>` 由全局 `--home` 决定，客户端必须信任 `ca.crt` 才能监控 HTTPS。
+- 默认递归脱敏凭据；无法安全结构化脱敏的正文只输出摘要，`--show-sensitive` 仅用于明确需要原始数据的临时调试。
+- 捕获和解析只操作日志副本，截断或解析失败不能改变真实请求与响应；stdout 阻塞时有界队列会标记 `CAPTURE_DROPPED`，不得反压流量。
+- WEAPI/XEAPI 请求密钥无法从被动代理可靠获得时应标记 `unsupported`，不得把原始字段冒充解密结果。
+
 ### 加密实现 (`pkg/crypto/crypto.go`)
 
 关键函数：
@@ -126,7 +140,7 @@ cli.Close(ctx)
 
 ### 配置系统 (`config/config.go`)
 
-- 支持环境变量覆盖 (前缀 `NCmctl_`)
+- 支持环境变量覆盖 (前缀 `NCMCTL_`)
 - 支持魔法变量 `${HOME}` 替换
 - 配置文件路径: `~/.ncmctl/` (cookie.json, database/, log/)
 
@@ -138,7 +152,7 @@ cli.Close(ctx)
 
 ### Go 版本
 
-要求 Go >= 1.24
+要求 Go >= 1.25.0
 
 ### 测试
 
@@ -162,6 +176,7 @@ cli.Close(ctx)
 ## 关键依赖
 
 - `github.com/spf13/cobra` - CLI 框架
+- `github.com/elazarl/goproxy` - HTTP(S) 拦截代理
 - `github.com/go-resty/resty/v2` - HTTP 客户端
 - `github.com/dgraph-io/badger/v4` - 本地数据库
 - `github.com/robfig/cron/v3` - 定时任务

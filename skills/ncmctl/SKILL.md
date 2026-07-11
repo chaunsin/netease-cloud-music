@@ -4,17 +4,18 @@ description: >-
   ncmctl CLI reference and usage guide for NetEase Cloud Music. Use this skill when the user
   mentions ncmctl, 网易云音乐命令行, 网易云音乐, 网易云, 网易音乐, NetEase Cloud Music CLI,
   or asks how to install, login, download songs, upload to cloud, decrypt NCM files, convert ncm to mp3/flac,
-  run daily tasks (sign/partner/scrobble), 刷歌, 云贝签到, 音乐合伙人, 黑胶签到, or use API debugging tools.
+  run daily tasks (sign/partner/scrobble), 刷歌, 云贝签到, 音乐合伙人, 黑胶签到, use API debugging tools,
+  or monitor HTTP/HTTPS traffic with a local proxy (抓包, 接口代理, MITM).
   Also trigger on questions about ncmctl configuration, cookie management, or Docker deployment.
   Use even if the user does not explicitly say "ncmctl" when the work is clearly related to NetEase Cloud Music CLI operations.
 metadata:
   author: chaunsin
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # ncmctl - NetEase Cloud Music CLI
 
-ncmctl is a Go CLI for NetEase Cloud Music: login, daily tasks, music download, cloud upload, NCM decryption, and API debugging.
+ncmctl is a Go CLI for NetEase Cloud Music: login, daily tasks, music download, cloud upload, NCM decryption, API debugging, and HTTP(S) traffic monitoring.
 
 ## Prerequisites
 
@@ -46,6 +47,7 @@ go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
 | `ncm`      | No    | Decrypt .ncm to .mp3/.flac                                       |
 | `crypto`   | No    | Encrypt/decrypt API parameters (debugging only)                  |
 | `curl`     | No    | Invoke API methods directly (ncmctl subcommand, not system curl) |
+| `proxy`    | No    | Monitor NetEase HTTP(S) API requests and responses               |
 
 ## Global Flags
 
@@ -53,7 +55,7 @@ go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
 | ---------------- | ------------- | ------------------------------- |
 | `--debug`      | false         | Enable debug mode               |
 | `-c, --config` | none          | Config file path                |
-| `--home`       | `~/.ncmctl` | Home directory for runtime data |
+| `--home`       | user home     | Base home used for runtime data  |
 
 ## Configuration Paths
 
@@ -63,8 +65,10 @@ go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
 | Cookie   | `~/.ncmctl/cookie.json`      |
 | Database | `~/.ncmctl/database/badger/` |
 | Logs     | `~/.ncmctl/log/ncm.log`      |
+| Proxy CA | `<home>/.ncmctl/proxy/ca.crt` |
+| CA key   | `<home>/.ncmctl/proxy/ca.key` |
 
-Env var prefix: `NCmctl_` (e.g., `NCmctl_Log_Level=debug`). Note: the mixed-case prefix `NCmctl_` is the actual prefix used by the tool.
+Env var prefix: `NCMCTL_` (e.g., `NCMCTL_LOG_LEVEL=debug`).
 
 ## Security Considerations
 
@@ -81,6 +85,8 @@ Env var prefix: `NCmctl_` (e.g., `NCmctl_Log_Level=debug`). Note: the mixed-case
   chmod 700 ./data
   ```
 - **Account ban risks** — automated tasks (scrobble, sign automatic rewards, partner evaluation) may trigger NetEase risk control and result in account restrictions. Use at your own risk.
+- **Protect the proxy CA key** — `<home>/.ncmctl/proxy/ca.key` can sign certificates trusted by devices where its CA is installed. Keep it private and never commit or share it.
+- **Keep redaction enabled** — proxy output is redacted by default. `--show-sensitive` can expose cookies, tokens, phone numbers, email addresses, device identifiers, and passwords in terminal history or redirected files.
 
 ## Important Warnings
 
@@ -90,6 +96,7 @@ Env var prefix: `NCmctl_` (e.g., `NCmctl_Log_Level=debug`). Note: the mixed-case
 - Do not delete `~/.ncmctl/database/` (scrobble dedup data)
 - Directory depth limit: 3 for cloud upload and NCM decryption
 - Cloud upload max file size: 500MB
+- LAN proxy mode (`--listen 0.0.0.0:9000`) has no authentication; use it only temporarily on a trusted network
 
 ## Common Workflows
 
@@ -124,6 +131,18 @@ docker run -d -v ./data:/root \
   chaunsin/ncmctl:latest \
   /app/ncmctl task --sign --scrobble
 ```
+
+### Monitor API Traffic
+
+```bash
+# Start the local proxy and configure the client to use 127.0.0.1:9000
+ncmctl proxy
+
+# Save captured request/response blocks while keeping diagnostics on stderr
+ncmctl proxy > capture.log
+```
+
+On first use, trust `<home>/.ncmctl/proxy/ca.crt` on the client device to inspect HTTPS. Here `<home>` is the global `--home` value. Do not install or share `ca.key`. See `references/commands.md` for LAN mode, custom CA flags, redaction, and protocol limitations.
 
 ## Reference Files
 

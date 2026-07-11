@@ -234,4 +234,4 @@ Clears stored credentials and removes `~/.ncmctl/cookie.json`.
 | Cookie login fails after browser logout | Re-export fresh cookies from browser |
 | Docker volume permission denied | Run `chmod 700 ./data` on host directory |
 | Command not found after install | Ensure `$GOPATH/bin` is in your `$PATH` |
-| "Go version too old" error | Upgrade to Go >= 1.24.0 |
+| "Go version too old" error | Upgrade to Go >= 1.25.0 |

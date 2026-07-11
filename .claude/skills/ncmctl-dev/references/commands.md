@@ -13,6 +13,7 @@
 - [ncm](#ncm)
 - [crypto](#crypto)
 - [curl](#curl)
+- [proxy](#proxy)
 
 ## login
 
@@ -325,3 +326,45 @@ ncmctl curl -k eapi -d '{"id":"123"}' SongDetail
 Uses Go reflection to find and call the method on the API struct.
 
 Implementation: `internal/ncmctl/curl.go`
+
+## proxy
+
+Run a NetEase-targeted HTTP(S) monitoring proxy. This command does not require login.
+
+```bash
+# Local-only listener
+ncmctl proxy
+
+# Trusted LAN listener
+ncmctl proxy --listen 0.0.0.0:9000
+
+# Existing CA pair
+ncmctl proxy --ca-cert ./ca.crt --ca-key ./ca.key
+
+# Redirect capture blocks; diagnostics remain on stderr
+ncmctl proxy > capture.log
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--listen` | `127.0.0.1:9000` | Explicit proxy host and port |
+| `--ca-cert` | `<home>/.ncmctl/proxy/ca.crt` | Existing CA certificate; requires `--ca-key` |
+| `--ca-key` | `<home>/.ncmctl/proxy/ca.key` | Existing CA private key; requires `--ca-cert` |
+| `--max-body` | `1MB` | Per-body display limit; does not truncate forwarding |
+| `--show-sensitive` | false | Disable capture redaction |
+| global `--debug` | false | Enable goproxy connection diagnostics |
+
+### Implementation
+
+- `internal/ncmctl/proxy.go` owns Cobra validation, default CA paths, signal handling, and stdout/stderr wiring.
+- `internal/proxy/` owns CA creation/reuse, target-domain matching, goproxy CONNECT handling, lossless capture, protocol parsing, and formatting.
+- The default CA files are `<home>/.ncmctl/proxy/ca.crt` and `ca.key`, where `<home>` is the global `--home` value. The proxy prints the certificate fingerprint but never installs trust automatically.
+- Only target NetEase domains are captured or MITM'd; other traffic is tunneled without output.
+- EAPI and Linux payloads are decoded best-effort. Passive WEAPI/XEAPI request decryption is marked unsupported when client-side keys are unavailable.
+- Capture, decoding, decompression, formatting, and redaction failures must not change real traffic. Unstructured or non-UTF-8 bodies fail closed unless `--show-sensitive` is explicitly enabled.
+- Capture output uses a bounded asynchronous queue. A blocked stdout/FIFO may produce `CAPTURE_DROPPED` markers, but must not delay forwarding.
+- SIGINT/SIGTERM triggers bounded graceful shutdown, including hijacked CONNECT tunnels.
+
+LAN mode is an unauthenticated open proxy and must only be used temporarily on a trusted network. Certificate pinning, Android user-CA restrictions, QUIC/HTTP3, proxy-bypassing clients, WebSocket frames, and CONNECT requests addressed to an IP rather than a target hostname remain outside the supported capture boundary. Unknown-length streaming request bodies are forwarded without pre-reading and logged as summaries.

@@ -8,6 +8,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -73,6 +74,9 @@ func ParseBytes(input string) (int64, error) {
 	multiplier, exists := unitMap[unit]
 	if !exists {
 		return 0, fmt.Errorf("unknown unit: %s", unit)
+	}
+	if value > math.MaxInt64/multiplier {
+		return 0, fmt.Errorf("byte value overflows int64: %s", input)
 	}
 	return value * multiplier, nil
 }

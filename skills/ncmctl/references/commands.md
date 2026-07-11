@@ -1,7 +1,7 @@
 ---
 title: ncmctl Command Reference
 description: All command flags, parameters, and examples for ncmctl CLI.
-version: "0.1.0"
+version: "0.2.0"
 ---
 
 # Command Reference
@@ -18,6 +18,7 @@ version: "0.1.0"
 - [ncm](#ncm)
 - [crypto](#crypto)
 - [curl](#curl)
+- [proxy](#proxy)
 - [Exit Codes](#exit-codes)
 - [Environment Variables](#environment-variables)
 - [Configuration File](#configuration-file)
@@ -292,6 +293,62 @@ ncmctl curl -k eapi -d '{"id":"123"}' SongDetail
 
 Uses Go reflection to find and call the method on the API struct. The method name is the positional argument.
 
+## proxy
+
+Monitor NetEase Cloud Music HTTP and HTTPS API requests and responses. No login is required by the command itself.
+
+```bash
+# Local client: configure both HTTP and HTTPS proxy as 127.0.0.1:9000
+ncmctl proxy
+
+# Save capture blocks to a file; startup messages and errors remain on stderr
+ncmctl proxy > capture.log
+
+# Accept connections from a trusted LAN
+ncmctl proxy --listen 0.0.0.0:9000
+
+# Reuse an existing CA certificate and matching private key
+ncmctl proxy --ca-cert ./ca.crt --ca-key ./ca.key
+
+# Relocate generated runtime files, including the proxy CA
+ncmctl --home /srv/ncmctl proxy
+
+# Print more body data, including sensitive values
+ncmctl proxy --max-body 4MB --show-sensitive
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--listen` | `127.0.0.1:9000` | Proxy listen address; host and port are both required |
+| `--ca-cert` | auto: `<home>/.ncmctl/proxy/ca.crt` | Custom CA certificate; must be paired with `--ca-key` |
+| `--ca-key` | auto: `<home>/.ncmctl/proxy/ca.key` | Custom CA private key; must be paired with `--ca-cert` |
+| `--max-body` | `1MB` | Maximum body bytes printed per request or response; forwarding is not truncated |
+| `--show-sensitive` | false | Disable credential and personal-data redaction |
+| global `--debug` | false | Enable internal proxy connection diagnostics |
+| global `--home` | OS user home | Base home for generated CA paths and other runtime data |
+
+When neither CA flag is supplied, the proxy creates a user-specific RSA CA at the default paths and reuses it on later runs. Here `<home>` is the global `--home` value, which defaults to the OS user home; for example, `ncmctl --home /srv/ncmctl proxy` uses `/srv/ncmctl/.ncmctl/proxy/ca.crt` and `ca.key`. Install and trust `ca.crt` on the client device to monitor HTTPS. The command prints the certificate path and SHA-256 fingerprint, but it never modifies the system trust store. Keep `ca.key` private.
+
+The proxy records only NetEase-related target domains. Other traffic is forwarded without MITM or capture. Request and response blocks share a session ID; headers are ordered, structured bodies are formatted, and credentials are redacted by default. Binary, media, multipart, unknown-length streaming, and bodies that cannot be safely structured/redacted are summarized; oversized captured bodies are display-truncated without changing forwarded bytes.
+
+Protocol behavior:
+
+- Plain API, EAPI, and Linux API payloads are decoded when possible.
+- WEAPI requests use a random client-side AES key that a passive proxy cannot recover; encrypted fields are printed with `unsupported` status.
+- Modern XEAPI session keys cannot be recovered without active key replacement; raw `B`/`S`/`R` fields are printed with `unsupported` status.
+- Parsing or decryption failure is reported in the capture but never blocks the real request.
+
+Limitations and safety:
+
+- `--listen 0.0.0.0:9000` opens an unauthenticated proxy. Use it only on a trusted network behind a firewall.
+- Certificate pinning, Android user-CA restrictions, QUIC/HTTP3, and clients that bypass the configured proxy may prevent capture.
+- Target filtering uses the CONNECT/Host domain. A client that sends CONNECT to an IP address may be tunneled without capture even when its TLS SNI names a NetEase host.
+- WebSocket frames are not decoded.
+- Capture formatting and stdout writes run outside the forwarding path. If a blocked terminal or pipe fills the bounded output queue, the proxy emits a `CAPTURE_DROPPED` marker instead of delaying traffic.
+- `--show-sensitive` may expose cookies, tokens, phone numbers, email addresses, device identifiers, and passwords in the terminal or redirected files.
+
+Press Ctrl+C or send SIGTERM for a graceful shutdown.
+
 ## Exit Codes
 
 | Code | Meaning |
@@ -305,12 +362,12 @@ Uses Go reflection to find and call the method on the API struct. The method nam
 
 ## Environment Variables
 
+Environment variables override fields from a configuration file loaded with global `--config`. Viper uppercases the `ncmctl` prefix and replaces nested-key dots with underscores.
+
 | Variable | Example | Description |
 |----------|---------|-------------|
-| `NCmctl_Log_Level` | `debug` | Log level: debug, info, warn, error |
-| `NCmctl_Log_Output` | `stdout` | Log output destination |
-| `NCmctl_Home` | `/custom/path` | Override home directory |
-| `NCmctl_Config` | `/path/to/config.yaml` | Config file path |
+| `NCMCTL_LOG_LEVEL` | `debug` | Log level: debug, info, warn, error |
+| `NCMCTL_LOG_STDOUT` | `true` | Also write logs to standard output |
 
 ## Configuration File
 
