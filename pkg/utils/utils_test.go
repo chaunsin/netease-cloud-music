@@ -5,6 +5,7 @@ package utils
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,6 +102,22 @@ func TestParseBytes(t *testing.T) {
 			args:    args{input: "1MB"},
 			want:    MB,
 			wantErr: false,
+		},
+		{
+			name:    "largest byte value",
+			args:    args{input: "9223372036854775807B"},
+			want:    math.MaxInt64,
+			wantErr: false,
+		},
+		{
+			name:    "unit multiplication overflow",
+			args:    args{input: "17592186044417MB"},
+			wantErr: true,
+		},
+		{
+			name:    "byte overflow",
+			args:    args{input: "9223372036854775808"},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {

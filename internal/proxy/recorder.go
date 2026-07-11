@@ -1,0 +1,533 @@
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
+
+package proxy
+
+import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"sort"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+	"unicode"
+	"unicode/utf8"
+)
+
+const (
+	recorderQueueCapacity = 32
+	recorderCloseTimeout  = 250 * time.Millisecond
+)
+
+type recorder struct {
+	out           io.Writer
+	maxBodyBytes  int64
+	showSensitive bool
+
+	mu sync.Mutex
+
+	submitMu   sync.Mutex
+	tasks      chan func()
+	stop       chan struct{}
+	workerDone chan struct{}
+	closeOnce  sync.Once
+	closed     atomic.Bool
+	dropped    atomic.Uint64
+}
+
+// requestRecord coordinates request decoding with later response logging. It
+// uses callbacks rather than having an output worker wait, so a full-duplex
+// response can finish before its request body without deadlocking the queue.
+type requestRecord struct {
+	mu        sync.Mutex
+	started   bool
+	completed bool
+	result    decodeResult
+	callbacks []func(decodeResult)
+}
+
+func newRecorder(out io.Writer, maxBodyBytes int64, showSensitive bool) *recorder {
+	if maxBodyBytes <= 0 {
+		maxBodyBytes = defaultJSONDisplayLimit
+	}
+	r := &recorder{
+		out:           out,
+		maxBodyBytes:  maxBodyBytes,
+		showSensitive: showSensitive,
+		tasks:         make(chan func(), recorderQueueCapacity),
+		stop:          make(chan struct{}),
+		workerDone:    make(chan struct{}),
+	}
+	go r.run()
+	return r
+}
+
+// Close prevents future captures and waits only briefly for the worker. A
+// blocked stdout/FIFO must never delay proxy shutdown indefinitely.
+func (r *recorder) Close() {
+	r.CloseWithTimeout(recorderCloseTimeout)
+}
+
+func (r *recorder) CloseWithTimeout(timeout time.Duration) {
+	if r == nil {
+		return
+	}
+	r.closeOnce.Do(func() {
+		r.submitMu.Lock()
+		defer r.submitMu.Unlock()
+		r.closed.Store(true)
+		close(r.stop)
+	})
+	if timeout <= 0 {
+		return
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-r.workerDone:
+	case <-timer.C:
+	}
+}
+
+// Flush waits for work accepted before the barrier. It is primarily useful for
+// controlled shutdown/tests; normal request forwarding must never wait for it.
+func (r *recorder) Flush(timeout time.Duration) bool {
+	if r == nil || timeout <= 0 {
+		return false
+	}
+	done := make(chan struct{})
+	if !r.submit(func() { close(done) }) {
+		return false
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return true
+	case <-timer.C:
+		return false
+	}
+}
+
+func (r *recorder) run() {
+	defer close(r.workerDone)
+	for {
+		select {
+		case <-r.stop:
+			// Close stops new submissions first, then lets already accepted work
+			// flush when the writer is healthy. CloseWithTimeout still returns if
+			// a terminal/FIFO remains blocked.
+			for {
+				select {
+				case task := <-r.tasks:
+					if task != nil {
+						r.writeDroppedNotice()
+						task()
+					}
+				default:
+					return
+				}
+			}
+		case task := <-r.tasks:
+			if task == nil {
+				continue
+			}
+			r.writeDroppedNotice()
+			task()
+		}
+	}
+}
+
+func (r *recorder) submit(task func()) bool {
+	if r == nil || task == nil {
+		return false
+	}
+	r.submitMu.Lock()
+	defer r.submitMu.Unlock()
+	if r.closed.Load() {
+		return false
+	}
+	select {
+	case <-r.stop:
+		return false
+	default:
+	}
+	select {
+	case r.tasks <- task:
+		return true
+	default:
+		r.dropped.Add(1)
+		return false
+	}
+}
+
+func (r *recorder) writeDroppedNotice() {
+	if count := r.dropped.Swap(0); count > 0 {
+		r.writeBlock([]byte(fmt.Sprintf("[%s] CAPTURE_DROPPED count=%d reason=output_queue_full\n", time.Now().Format(time.RFC3339Nano), count)))
+	}
+}
+
+func (record *requestRecord) begin() bool {
+	if record == nil {
+		return false
+	}
+	record.mu.Lock()
+	defer record.mu.Unlock()
+	if record.started || record.completed {
+		return false
+	}
+	record.started = true
+	return true
+}
+
+func (record *requestRecord) complete(result decodeResult) {
+	if record == nil {
+		return
+	}
+	record.mu.Lock()
+	if record.completed {
+		record.mu.Unlock()
+		return
+	}
+	record.completed = true
+	record.result = result
+	callbacks := append([]func(decodeResult){}, record.callbacks...)
+	record.callbacks = nil
+	record.mu.Unlock()
+	for _, callback := range callbacks {
+		callback(result)
+	}
+}
+
+func (record *requestRecord) onComplete(callback func(decodeResult)) {
+	if record == nil || callback == nil {
+		return
+	}
+	record.mu.Lock()
+	if !record.completed {
+		record.callbacks = append(record.callbacks, callback)
+		record.mu.Unlock()
+		return
+	}
+	result := record.result
+	record.mu.Unlock()
+	callback(result)
+}
+
+func (r *recorder) beginRequest(_ *captureState, _ string, requestURL *url.URL) (*requestRecord, decodeResult) {
+	result := decodeResult{
+		protocol: classifyProtocol(requestPath(requestURL)),
+		status:   decodeStatusPlaintext,
+		apiPath:  requestPath(requestURL),
+	}
+	if requestURL != nil {
+		// Preserve the response-encryption hint if overload drops full decoding.
+		result.responseEncrypted = valuesRequestEncrypted(requestURL.Query())
+	}
+	switch result.protocol {
+	case protocolWEAPI:
+		result.status = decodeStatusUnsupported
+	case protocolXEAPI:
+		result.status = decodeStatusUnsupported
+	}
+	return &requestRecord{}, result
+}
+
+func (r *recorder) finishRequest(record *requestRecord, state *captureState, method string, requestURL *url.URL) {
+	if record == nil || !record.begin() {
+		return
+	}
+	provisional := state.requestDecoded
+	if !r.submit(func() {
+		body, captureDetail := r.bodyForDisplay(state.requestBody)
+		decoded := decodeRequestLimited(method, requestURL, state.requestHeader, body, r.showSensitive, r.maxBodyBytes)
+		detail := joinDetails(decoded.detail, captureDetail, snapshotDetail(state.requestBody))
+		r.writeRequestBlock(state, method, requestURL, decoded, detail)
+		// Complete only after the request block is emitted so response records
+		// stay ordered whenever stdout is able to make progress.
+		record.complete(decoded)
+	}) {
+		record.complete(provisional)
+	}
+}
+
+// recordRequest remains a small compatibility wrapper for direct callers. New
+// server paths use beginRequest/finishRequest to delay capture until a streaming
+// request body has reached its terminal state.
+func (r *recorder) recordRequest(state *captureState, method string, requestURL *url.URL) decodeResult {
+	record, provisional := r.beginRequest(state, method, requestURL)
+	state.requestRecord = record
+	state.requestDecoded = provisional
+	r.finishRequest(record, state, method, requestURL)
+	return provisional
+}
+
+func (r *recorder) recordResponse(state *captureState, response *http.Response) {
+	if state == nil || response == nil {
+		return
+	}
+	metadata := cloneResponseMetadata(response)
+	recordResponse := func(request decodeResult) {
+		r.submit(func() {
+			body, captureDetail := r.bodyForDisplay(state.responseBody)
+			decoded := decodeResponse(request, metadata.Header, body, r.maxBodyBytes, r.showSensitive)
+			detail := joinDetails(decoded.detail, captureDetail, snapshotDetail(state.responseBody))
+			r.writeResponseBlock(state, metadata, decoded, detail)
+		})
+	}
+	if state.requestRecord != nil {
+		state.requestRecord.onComplete(recordResponse)
+		return
+	}
+	recordResponse(state.requestDecoded)
+}
+
+func (r *recorder) recordResponseError(state *captureState, responseErr error) {
+	if state == nil {
+		return
+	}
+	recordError := func(_ decodeResult) {
+		r.submit(func() {
+			message := "response unavailable"
+			if responseErr != nil {
+				message = responseErr.Error()
+			}
+			var block bytes.Buffer
+			fmt.Fprintf(&block, "[%s] #%06d RESPONSE_ERROR duration=%s\n",
+				time.Now().Format(time.RFC3339Nano),
+				state.session,
+				time.Since(state.started).Round(time.Millisecond),
+			)
+			fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactURL(state.requestURL, r.showSensitive)))
+			fmt.Fprintf(&block, "error: %s\n", escapeLogField(r.redactDiagnostic(message)))
+			r.writeBlock(block.Bytes())
+		})
+	}
+	if state.requestRecord != nil {
+		state.requestRecord.onComplete(recordError)
+		return
+	}
+	recordError(state.requestDecoded)
+}
+
+func (r *recorder) writeRequestBlock(state *captureState, method string, requestURL *url.URL, decoded decodeResult, detail string) {
+	var block bytes.Buffer
+	fmt.Fprintf(&block, "[%s] #%06d REQUEST protocol=%s decode=%s\n",
+		time.Now().Format(time.RFC3339Nano), state.session, decoded.protocol, decoded.status)
+	fmt.Fprintf(&block, "%s %s\n", escapeLogField(method), escapeLogField(redactURL(requestURL, r.showSensitive)))
+	if decoded.responseEncrypted {
+		fmt.Fprintln(&block, "response-encrypted: true")
+	}
+	if decoded.apiPath != "" && decoded.apiPath != requestPath(requestURL) {
+		fmt.Fprintf(&block, "api-path: %s\n", escapeLogField(decoded.apiPath))
+	}
+	if len(decoded.query) > 0 {
+		r.writeSection(&block, "query", decoded.query)
+	}
+	writeHeaders(&block, state.requestHeader, r.showSensitive)
+	r.writeBody(&block, state.requestBody, decoded.body)
+	if detail != "" {
+		fmt.Fprintf(&block, "detail: %s\n", escapeLogField(r.redactDiagnostic(detail)))
+	}
+	r.writeBlock(block.Bytes())
+}
+
+func (r *recorder) writeResponseBlock(state *captureState, response *http.Response, decoded decodeResult, detail string) {
+	var block bytes.Buffer
+	fmt.Fprintf(&block, "[%s] #%06d RESPONSE status=%d duration=%s protocol=%s decode=%s\n",
+		time.Now().Format(time.RFC3339Nano),
+		state.session,
+		response.StatusCode,
+		time.Since(state.started).Round(time.Millisecond),
+		decoded.protocol,
+		decoded.status,
+	)
+	fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactURL(state.requestURL, r.showSensitive)))
+	writeHeaders(&block, response.Header, r.showSensitive)
+	r.writeBody(&block, state.responseBody, decoded.body)
+	if detail != "" {
+		fmt.Fprintf(&block, "detail: %s\n", escapeLogField(r.redactDiagnostic(detail)))
+	}
+	r.writeBlock(block.Bytes())
+}
+
+func requestPath(requestURL *url.URL) string {
+	if requestURL == nil {
+		return ""
+	}
+	return requestURL.Path
+}
+
+func (r *recorder) redactDiagnostic(value string) string {
+	return string(redactDiagnostic([]byte(value), r.showSensitive))
+}
+
+func (r *recorder) bodyForDisplay(snapshot bodySnapshot) ([]byte, string) {
+	if snapshot.omittedReason != "" || len(snapshot.raw) == 0 {
+		return snapshot.raw, ""
+	}
+	if snapshot.contentEncode == "" {
+		return snapshot.raw, ""
+	}
+	if snapshot.truncated {
+		return snapshot.raw, "content-encoded body exceeded the capture limit and was not decoded"
+	}
+	decoded, truncated, err := decodeHTTPContent(snapshot.raw, snapshot.contentEncode, r.maxBodyBytes)
+	if err != nil {
+		return snapshot.raw, "HTTP content decoding failed: " + err.Error()
+	}
+	if truncated {
+		return decoded, "decoded HTTP body exceeded the display limit"
+	}
+	return decoded, ""
+}
+
+func (r *recorder) writeBody(block *bytes.Buffer, snapshot bodySnapshot, body []byte) {
+	contentType := snapshot.contentType
+	if contentType == "" {
+		contentType = "unknown"
+	}
+	fmt.Fprintf(block, "body: content-type=%q content-length=%d captured=%d",
+		escapeLogField(contentType), snapshot.contentLength, len(snapshot.raw))
+	if snapshot.contentEncode != "" {
+		fmt.Fprintf(block, " content-encoding=%q", escapeLogField(snapshot.contentEncode))
+	}
+	if snapshot.truncated {
+		fmt.Fprint(block, " truncated=true")
+	}
+	fmt.Fprintln(block)
+
+	if snapshot.omittedReason != "" {
+		fmt.Fprintf(block, "<%s>\n", escapeLogField(snapshot.omittedReason))
+		return
+	}
+	if len(body) == 0 {
+		fmt.Fprintln(block, "<empty>")
+		return
+	}
+
+	printable, encoding, truncated := terminalBody(body, r.maxBodyBytes)
+	if encoding != "" {
+		fmt.Fprintf(block, "[%s]\n", encoding)
+	}
+	block.WriteString(printable)
+	if !strings.HasSuffix(printable, "\n") {
+		block.WriteByte('\n')
+	}
+	if truncated {
+		fmt.Fprintln(block, "<formatted output truncated>")
+	}
+}
+
+func (r *recorder) writeSection(block *bytes.Buffer, name string, body []byte) {
+	printable, encoding, truncated := terminalBody(body, r.maxBodyBytes)
+	fmt.Fprintf(block, "%s:\n", escapeLogField(name))
+	if encoding != "" {
+		fmt.Fprintf(block, "[%s]\n", encoding)
+	}
+	block.WriteString(printable)
+	if !strings.HasSuffix(printable, "\n") {
+		block.WriteByte('\n')
+	}
+	if truncated {
+		fmt.Fprintf(block, "<%s output truncated>\n", escapeLogField(name))
+	}
+}
+
+func (r *recorder) writeBlock(block []byte) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.out == nil {
+		return
+	}
+	_, _ = r.out.Write(block)
+	if len(block) == 0 || block[len(block)-1] != '\n' {
+		_, _ = io.WriteString(r.out, "\n")
+	}
+	_, _ = io.WriteString(r.out, "\n")
+}
+
+func writeHeaders(block *bytes.Buffer, headers http.Header, showSensitive bool) {
+	fmt.Fprintln(block, "headers:")
+	redacted := redactHeaders(headers, showSensitive)
+	keys := make([]string, 0, len(redacted))
+	for key := range redacted {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	if len(keys) == 0 {
+		fmt.Fprintln(block, "  <none>")
+		return
+	}
+	for _, key := range keys {
+		for _, value := range redacted.Values(key) {
+			fmt.Fprintf(block, "  %s: %s\n", escapeLogField(key), escapeLogField(value))
+		}
+	}
+}
+
+// terminalBody only prints literal line breaks for JSON that our formatter has
+// already serialized. Other text containing controls is base64-encoded so it
+// cannot forge a new request/response block in a terminal or redirected log.
+func terminalBody(body []byte, limit int64) (string, string, bool) {
+	if limit <= 0 {
+		return "", "", len(body) > 0
+	}
+	if utf8.Valid(body) && (json.Valid(body) || !containsUnsafeTerminalControl(body)) {
+		printable, truncated := truncateUTF8Bytes(body, limit)
+		return string(printable), "", truncated
+	}
+
+	maxInput := (limit / 4) * 3
+	if maxInput <= 0 {
+		return "", "base64", len(body) > 0
+	}
+	if int64(len(body)) > maxInput {
+		body = body[:maxInput]
+		return base64.StdEncoding.EncodeToString(body), "base64", true
+	}
+	return base64.StdEncoding.EncodeToString(body), "base64", false
+}
+
+func containsUnsafeTerminalControl(body []byte) bool {
+	for _, runeValue := range string(body) {
+		if unicode.IsControl(runeValue) {
+			return true
+		}
+	}
+	return false
+}
+
+func truncateUTF8Bytes(value []byte, limit int64) ([]byte, bool) {
+	if int64(len(value)) <= limit {
+		return value, false
+	}
+	value = value[:limit]
+	for !utf8.Valid(value) && len(value) > 0 {
+		value = value[:len(value)-1]
+	}
+	return value, true
+}
+
+func joinDetails(details ...string) string {
+	seen := make(map[string]struct{}, len(details))
+	result := make([]string, 0, len(details))
+	for _, detail := range details {
+		detail = strings.TrimSpace(detail)
+		if detail == "" {
+			continue
+		}
+		if _, ok := seen[detail]; ok {
+			continue
+		}
+		seen[detail] = struct{}{}
+		result = append(result, detail)
+	}
+	return strings.Join(result, "; ")
+}

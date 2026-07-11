@@ -3,20 +3,21 @@ name: ncmctl-dev
 description: >
   NetEase Cloud Music CLI tool (ncmctl) development guide. Use this skill when working with
   the netease-cloud-music codebase, including ncmctl commands, API integration, crypto,
-  NCM file decryption, daily tasks, music download, cloud upload, or any Go code in this
+  NCM file decryption, daily tasks, music download, cloud upload, HTTP(S) proxy monitoring, or any Go code in this
   repository. Trigger on mentions of ncmctl, 网易云音乐 CLI, NetEase Cloud Music API,
   weapi/eapi encryption, .ncm file format, cloud music daily tasks (sign/partner/scrobble),
   or when modifying, debugging, or extending any part of this project.
 ---
 # ncmctl Development Guide
 
-ncmctl is a Go CLI tool for NetEase Cloud Music providing login, daily tasks, music download, cloud upload, and NCM file decryption.
+ncmctl is a Go CLI tool for NetEase Cloud Music providing login, daily tasks, music download, cloud upload, NCM file decryption, and HTTP(S) API monitoring.
 
 ## Project Structure
 
 ```
 cmd/ncmctl/main.go       # CLI entry point
 internal/ncmctl/          # CLI command implementations (cobra commands)
+internal/proxy/           # goproxy MITM, capture, protocol parsing, redaction
 api/                      # API client layer
   ├── api.go              # Core Client: HTTP, encryption, cookie persistence
   ├── weapi/              # Web/Mini-program API (recommended, most complete)
@@ -44,7 +45,7 @@ go test -v -run TestName ./example/  # Run single test
 make build-image          # Build Docker image
 ```
 
-Requires Go >= 1.24. Tests needing login require cookie file or should be skipped.
+Requires Go >= 1.25.0. Tests needing login require cookie file or should be skipped.
 
 ## CLI Commands
 
@@ -61,6 +62,7 @@ Requires Go >= 1.24. Tests needing login require cookie file or should be skippe
 | `ncm`      | No    | Decrypt .ncm → .mp3/.flac             |
 | `crypto`   | No    | Encrypt/decrypt API parameters         |
 | `curl`     | No    | Invoke API methods directly            |
+| `proxy`    | No    | Monitor NetEase HTTP(S) API traffic    |
 
 ## Adding a New CLI Command
 
@@ -122,7 +124,8 @@ Core functions in `pkg/crypto/crypto.go`: `WeApiEncrypt()`, `EApiEncrypt()`, `Li
 - Cookie storage: `~/.ncmctl/cookie.json` (auto-persisted, 3s interval)
 - Database: `~/.ncmctl/database/badger/` (scrobble dedup records)
 - Logs: `~/.ncmctl/log/ncm.log`
-- Env var prefix: `NCmctl_` (e.g., `NCmctl_Network_Debug=true`)
+- Proxy CA: `~/.ncmctl/proxy/ca.crt` and `ca.key`
+- Env var prefix: `NCMCTL_` (e.g., `NCMCTL_NETWORK_DEBUG=true`)
 - Magic variable: `${HOME}` replaced at runtime
 
 ## Download Quality Levels
@@ -140,6 +143,7 @@ Core functions in `pkg/crypto/crypto.go`: `WeApiEncrypt()`, `EApiEncrypt()`, `Li
 | Package                 | Purpose           |
 | ----------------------- | ----------------- |
 | `spf13/cobra`         | CLI framework     |
+| `elazarl/goproxy`     | HTTP(S) MITM proxy |
 | `go-resty/resty/v2`   | HTTP client       |
 | `dgraph-io/badger/v4` | Local KV database |
 | `robfig/cron/v3`      | Cron scheduling   |
@@ -153,6 +157,10 @@ Core functions in `pkg/crypto/crypto.go`: `WeApiEncrypt()`, `EApiEncrypt()`, `Li
 - Cloud upload max file size: 500MB
 - Download parallelism max: 20; Cloud upload parallelism max: 10
 - The `task` command runs as a long-lived service; use Ctrl+C to stop
+- The `proxy` command runs until SIGINT/SIGTERM; capture blocks go to stdout and startup/errors go to stderr
+- Proxy CA private keys must remain mode `0600` on POSIX and use a current-user protected ACL on Windows; never use goproxy's public built-in CA key
+- Proxy observation failures must not alter forwarded requests or responses; unstructured/non-UTF-8 bodies fail closed unless sensitive output is explicitly enabled, and a full output queue must report `CAPTURE_DROPPED` instead of blocking traffic
+- Passive WEAPI/XEAPI requests may be marked unsupported because their client-side/session keys are unavailable
 - Sign-in reward auto-claim (`--sign.automatic`) has ban risk, disabled by default
 - Scrobble (刷歌) currently has high risk of account ban due to strict risk control
 

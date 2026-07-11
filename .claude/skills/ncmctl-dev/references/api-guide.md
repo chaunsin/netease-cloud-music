@@ -185,7 +185,7 @@ type Config struct {
 ### Features
 
 - **Viper-based**: Supports YAML, env vars, flags
-- **Env var override**: Prefix `NCmctl_`, e.g., `NCmctl_Log_Level=debug`
+- **Env var override**: Prefix `NCMCTL_`, e.g., `NCMCTL_LOG_LEVEL=debug`
 - **Magic variables**: `${HOME}` replaced at runtime with `config.ReplaceMagicVariables()`
 - **Validation**: `config.Validate()` checks all fields
 - **Defaults**: `config.GetDefault()` returns sensible defaults
