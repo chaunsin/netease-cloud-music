@@ -16,7 +16,7 @@ const (
 
 func TestCaptchaSend(t *testing.T) {
 	// 发送验证码
-	var req = CaptchaSendReq{
+	req := CaptchaSendReq{
 		Phone:  phone,
 		CTCode: ct,
 	}
@@ -27,7 +27,7 @@ func TestCaptchaSend(t *testing.T) {
 
 func TestCaptchaVerify(t *testing.T) {
 	// 发送验证码
-	var req = CaptchaVerifyReq{
+	req := CaptchaVerifyReq{
 		Phone:   phone,
 		CTCode:  ct,
 		Captcha: "2129",

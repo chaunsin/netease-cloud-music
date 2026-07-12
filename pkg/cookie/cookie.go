@@ -20,7 +20,7 @@ import (
 type Config struct {
 	*Options
 	Filepath string        `json:"filepath" yaml:"filepath"`
-	Interval time.Duration `yaml:"interval" yaml:"interval"`
+	Interval time.Duration `json:"interval" yaml:"interval"`
 	// crypto
 }
 
@@ -38,7 +38,7 @@ type Cookie struct {
 }
 
 func NewCookie(opts ...Option) (*Cookie, error) {
-	var cfg = Config{
+	cfg := Config{
 		Options:  nil,
 		Filepath: "./cookie.json",
 		Interval: time.Second * 3,
@@ -166,7 +166,7 @@ func (c *Cookie) export() error {
 	c.jar.mu.Lock()
 	defer c.jar.mu.Unlock()
 
-	var exported = make(map[string]map[string]Entry)
+	exported := make(map[string]map[string]Entry)
 	for domain, cookies := range c.jar.entries {
 		exported[domain] = make(map[string]Entry)
 		for name, cookie := range cookies {
@@ -252,7 +252,7 @@ func WithFilePath(filePath string) Option {
 // WithPublicSuffixList sets the public suffix list.
 func WithPublicSuffixList(list PublicSuffixList) Option {
 	return optionFunc(func(p *Config) {
-		p.Options.PublicSuffixList = list
+		p.PublicSuffixList = list
 	})
 }
 

@@ -60,7 +60,7 @@ func (a *Api) FansGroupDetailGet(ctx context.Context, req *FansGroupDetailGetReq
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -96,16 +96,16 @@ type FansGroupMissionItem struct {
 
 // FansGroupMissionOriginality 今日加速任务 (随机任务)
 type FansGroupMissionOriginality struct {
-	MissionId       int64       `json:"missionId"`
-	MissionType     string      `json:"missionType"` // "userSurprise"
-	Title           string      `json:"title"`       // "今日加速任务"
-	Status          string      `json:"status"`
-	CurrentProgress int         `json:"currentProgress"`
-	AllProgress     int         `json:"allProgress"`
-	Integral        string      `json:"integral"`
-	Subtitle        string      `json:"subtitle"`
-	LogInfo         string      `json:"logInfo"`
-	MissionDetail   interface{} `json:"missionDetail"`
+	MissionId       int64  `json:"missionId"`
+	MissionType     string `json:"missionType"` // "userSurprise"
+	Title           string `json:"title"`       // "今日加速任务"
+	Status          string `json:"status"`
+	CurrentProgress int    `json:"currentProgress"`
+	AllProgress     int    `json:"allProgress"`
+	Integral        string `json:"integral"`
+	Subtitle        string `json:"subtitle"`
+	LogInfo         string `json:"logInfo"`
+	MissionDetail   any    `json:"missionDetail"`
 	Button          struct {
 		Copywriter string `json:"copywriter"`
 		Url        string `json:"url"`
@@ -146,7 +146,7 @@ func (a *Api) FansGroupMissionAll(ctx context.Context, req *FansGroupMissionAllR
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -164,9 +164,9 @@ type FansGroupFeedRecommendReq struct {
 
 // FansGroupFeedRecommendResp 获取乐迷团推荐Feed响应
 type FansGroupFeedRecommendResp struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data"` // 复杂结构, 按需解析
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data"` // 复杂结构, 按需解析
 }
 
 // FansGroupFeedRecommend 获取乐迷团推荐Feed
@@ -186,7 +186,13 @@ func (a *Api) FansGroupFeedRecommend(ctx context.Context, req *FansGroupFeedReco
 	req.ER = true
 
 	var (
-		url   = fmt.Sprintf("https://interface3.music.163.com/eapi/fans/group/feed/recommend/get?artistSelf=%s&cursor=%s&fansGroupId=%s&size=%s", req.ArtistSelf, req.Cursor, req.FansGroupId, req.Size)
+		url = fmt.Sprintf(
+			"https://interface3.music.163.com/eapi/fans/group/feed/recommend/get?artistSelf=%s&cursor=%s&fansGroupId=%s&size=%s",
+			req.ArtistSelf,
+			req.Cursor,
+			req.FansGroupId,
+			req.Size,
+		)
 		reply FansGroupFeedRecommendResp
 		opts  = api.NewOptions()
 	)
@@ -194,7 +200,7 @@ func (a *Api) FansGroupFeedRecommend(ctx context.Context, req *FansGroupFeedReco
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -212,9 +218,9 @@ type FansGroupMissionForwardProgressReq struct {
 
 // FansGroupMissionForwardProgressResp 分享进度上报响应
 type FansGroupMissionForwardProgressResp struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data"`
 }
 
 // FansGroupMissionForwardProgress 分享进度上报
@@ -234,7 +240,13 @@ func (a *Api) FansGroupMissionForwardProgress(ctx context.Context, req *FansGrou
 	req.ER = true
 
 	var (
-		url   = fmt.Sprintf("https://interface3.music.163.com/eapi/fans/group/mission/forward/progress?resourceId=%s&action=%s&fansGroupId=%s&resourceType=%s", req.ResourceId, req.Action, req.FansGroupId, req.ResourceType)
+		url = fmt.Sprintf(
+			"https://interface3.music.163.com/eapi/fans/group/mission/forward/progress?resourceId=%s&action=%s&fansGroupId=%s&resourceType=%s",
+			req.ResourceId,
+			req.Action,
+			req.FansGroupId,
+			req.ResourceType,
+		)
 		reply FansGroupMissionForwardProgressResp
 		opts  = api.NewOptions()
 	)
@@ -242,7 +254,7 @@ func (a *Api) FansGroupMissionForwardProgress(ctx context.Context, req *FansGrou
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -278,7 +290,7 @@ func (a *Api) ResourceLike(ctx context.Context, req *ResourceLikeReq) (*Resource
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -327,7 +339,7 @@ func (a *Api) FansGroupUserGroupDetailGet(ctx context.Context, req *FansGroupUse
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

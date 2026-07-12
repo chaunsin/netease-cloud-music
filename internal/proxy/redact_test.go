@@ -50,7 +50,10 @@ func TestRedactHeadersDoesNotMutateInput(t *testing.T) {
 }
 
 func TestRedactURLAndNestedJSONQuery(t *testing.T) {
-	u := mustURL(t, `https://username:password@music.163.com/api/test?phone=18800001111&Signature=signed-secret&NOSAccessKeyId=access-secret&api_key=api-secret&payload=%7B%22access_token%22%3A%22secret%22%2C%22name%22%3A%22song%22%7D&name=song`)
+	u := mustURL(
+		t,
+		`https://username:password@music.163.com/api/test?phone=18800001111&Signature=signed-secret&NOSAccessKeyId=access-secret&api_key=api-secret&payload=%7B%22access_token%22%3A%22secret%22%2C%22name%22%3A%22song%22%7D&name=song`,
+	)
 
 	redactedRaw := redactURL(u, false)
 	redactedURL, err := url.Parse(redactedRaw)
@@ -106,7 +109,11 @@ func TestFormatJSONRecursiveRedactionAndUseNumber(t *testing.T) {
 		t.Fatalf("formatted JSON invalid: %s", formatted)
 	}
 	text := string(formatted)
-	if strings.Contains(text, "top-secret") || strings.Contains(text, "cookie-secret") || strings.Contains(text, "csrf-secret") || strings.Contains(text, "renewal-cookie-secret") || strings.Contains(text, "opaque-cookie-secret") || strings.Contains(text, "url-secret") || strings.Contains(text, "device-secret") || strings.Contains(text, "listener@example.com") {
+	if strings.Contains(text, "top-secret") || strings.Contains(text, "cookie-secret") || strings.Contains(text, "csrf-secret") || strings.Contains(text, "renewal-cookie-secret") ||
+		strings.Contains(text, "opaque-cookie-secret") ||
+		strings.Contains(text, "url-secret") ||
+		strings.Contains(text, "device-secret") ||
+		strings.Contains(text, "listener@example.com") {
 		t.Fatalf("sensitive value leaked: %s", text)
 	}
 	if !strings.Contains(text, "9007199254740993") || !strings.Contains(text, "visible") {

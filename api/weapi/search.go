@@ -20,22 +20,22 @@ type SearchDefaultResp struct {
 type SearchDefaultRespData struct {
 	RefreshTime int `json:"refreshTime"`
 	Keywords    []struct {
-		Action       int         `json:"action"`
-		Alg          string      `json:"alg"`
-		BizQueryInfo string      `json:"bizQueryInfo"`
-		Gap          int         `json:"gap"`
-		ImageUrl     interface{} `json:"imageUrl"`
-		LogInfo      interface{} `json:"logInfo"`
-		Realkeyword  string      `json:"realkeyword"`
-		SearchType   int         `json:"searchType"`
-		ShowKeyword  string      `json:"showKeyword"`
-		Source       interface{} `json:"source"`
+		Action       int    `json:"action"`
+		Alg          string `json:"alg"`
+		BizQueryInfo string `json:"bizQueryInfo"`
+		Gap          int    `json:"gap"`
+		ImageUrl     any    `json:"imageUrl"`
+		LogInfo      any    `json:"logInfo"`
+		Realkeyword  string `json:"realkeyword"`
+		SearchType   int    `json:"searchType"`
+		ShowKeyword  string `json:"showKeyword"`
+		Source       any    `json:"source"`
 		StyleKeyword struct {
 			DescWord *string `json:"descWord"`
 			KeyWord  string  `json:"keyWord"`
 		} `json:"styleKeyword"`
-		TrpId   interface{} `json:"trp_id"`
-		TrpType interface{} `json:"trp_type"`
+		TrpId   any `json:"trp_id"`
+		TrpType any `json:"trp_type"`
 	} `json:"keywords"`
 }
 
@@ -52,7 +52,7 @@ func (a *Api) SearchDefault(ctx context.Context, req *SearchDefaultReq) (*Search
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

@@ -14,11 +14,11 @@ type ReqCommon struct {
 
 // EApiReqCommon EAPI 接口通用请求载荷字段
 type EApiReqCommon struct {
-	DeviceId string      `json:"deviceId,omitempty"`
-	OS       string      `json:"os,omitempty"`
-	VerifyId int         `json:"verifyId,omitempty"`
-	Header   interface{} `json:"header,omitempty"`
-	ER       bool        `json:"e_r,omitempty"`
+	DeviceId string `json:"deviceId,omitempty"`
+	OS       string `json:"os,omitempty"`
+	VerifyId int    `json:"verifyId,omitempty"`
+	Header   any    `json:"header,omitempty"`
+	ER       bool   `json:"e_r,omitempty"`
 }
 
 // RespCommon weapi通用返回字段
@@ -31,12 +31,12 @@ type RespCommon[T any] struct {
 
 // ApiRespCommon api接口通用返回结构
 type ApiRespCommon[T any] struct {
-	Code      int64       `json:"code,omitempty"`
-	Message   string      `json:"message,omitempty"`
-	Msg       string      `json:"msg,omitempty"`
-	DebugInfo interface{} `json:"debugInfo,omitempty"`
-	FailData  interface{} `json:"failData,omitempty"`
-	Data      T           `json:"data,omitempty"`
+	Code      int64  `json:"code,omitempty"`
+	Message   string `json:"message,omitempty"`
+	Msg       string `json:"msg,omitempty"`
+	DebugInfo any    `json:"debugInfo,omitempty"`
+	FailData  any    `json:"failData,omitempty"`
+	Data      T      `json:"data,omitempty"`
 }
 
 // // SendSMSReq 暂定此结构
@@ -45,7 +45,8 @@ type ApiRespCommon[T any] struct {
 // //	 "deviceId": "4cdb39bf34a848781b89663e1e546789",
 // //	 "os": "OSX",
 // //	 "cellphone": "188****8888",
-// //	 "header": "{\"os\":\"osx\",\"appver\":\"2.3.17\",\"deviceId\":\"7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62%7C5FD718A3-0602-4389-B612-EBEFAA7F108B\",\"requestId\":\"93487028\",\"clientSign\":\"\",\"osver\":\"%E7%89%88%E6%9C%AC12.6%EF%BC%88%E7%89%88%E5%8F%B721G115%EF%BC%89\",\"Nm-GCore-Status\":\"1\",\"MConfig-Info\":\"{\\\\\"IuRPVVmc3WWul9fT\\\\\":{\\\\\"version\\\\\":143360,\\\\\"appver\\\\\":\\\\\"2.3.17\\\\\"}}\",\"MG-Product-Name\":\"music\"}",
+// //	 "header":
+// "{\"os\":\"osx\",\"appver\":\"2.3.17\",\"deviceId\":\"7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62%7C5FD718A3-0602-4389-B612-EBEFAA7F108B\",\"requestId\":\"93487028\",\"clientSign\":\"\",\"osver\":\"%E7%89%88%E6%9C%AC12.6%EF%BC%88%E7%89%88%E5%8F%B721G115%EF%BC%89\",\"Nm-GCore-Status\":\"1\",\"MConfig-Info\":\"{\\\\\"IuRPVVmc3WWul9fT\\\\\":{\\\\\"version\\\\\":143360,\\\\\"appver\\\\\":\\\\\"2.3.17\\\\\"}}\",\"MG-Product-Name\":\"music\"}",
 // //	 "ctcode": "86",
 // //	 "verifyId": 1,
 // //	 "e_r": true
@@ -81,7 +82,8 @@ type ApiRespCommon[T any] struct {
 // 	ClientSign    string `json:"clientSign"`      // todo: 何时为空
 // 	OsVer         string `json:"osver"`           // 系统版本，采用url编码内容:%E7%89%88%E6%9C%AC12.6%EF%BC%88%E7%89%88%E5%8F%B721G115%EF%BC%89 解码后原内容为: 版本12.6（版本21G115）
 // 	NmGCoreStatus string `json:"Nm-GCore-Status"` // 1 todo: 何时为1 1是否是死值
-// 	MConfigInfo   string `json:"MConfig-Info"`    // MConfigInfo 貌似是写死得 {"IuRPVVmc3WWul9fT":{"version":143360,"appver":"2.3.17"}} 请参考:https://github.com/Zifeiyu-0/Script/blob/73bfe9608bdd086eca2f58befdcb71cd2bb64093/QX/wyymusic.js#L23
+// 	MConfigInfo   string `json:"MConfig-Info"`    // MConfigInfo 貌似是写死得 {"IuRPVVmc3WWul9fT":{"version":143360,"appver":"2.3.17"}}
+// 请参考:https://github.com/Zifeiyu-0/Script/blob/73bfe9608bdd086eca2f58befdcb71cd2bb64093/QX/wyymusic.js#L23
 // 	MGProductName string `json:"MG-Product-Name"` // 猜测是产品名字，死值:music
 // }
 //

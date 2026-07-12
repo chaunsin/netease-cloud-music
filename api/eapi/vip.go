@@ -12,12 +12,12 @@ import (
 )
 
 type VipTaskListReq struct {
-	DeviceId string      `json:"deviceId,omitempty"`
-	OS       string      `json:"os,omitempty"`
-	VerifyId int         `json:"verifyId,omitempty"`
-	Header   interface{} `json:"header"`
-	IsNew    int         `json:"isNew,omitempty"`
-	ER       bool        `json:"e_r,omitempty"`
+	DeviceId string `json:"deviceId,omitempty"`
+	OS       string `json:"os,omitempty"`
+	VerifyId int    `json:"verifyId,omitempty"`
+	Header   any    `json:"header"`
+	IsNew    int    `json:"isNew,omitempty"`
+	ER       bool   `json:"e_r,omitempty"`
 }
 
 type VipTaskListResp struct {
@@ -49,30 +49,30 @@ func (a *Api) VipTaskList(ctx context.Context, req *VipTaskListReq) (*VipTaskLis
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
 }
 
 type VipCommonReq struct {
-	DeviceId string      `json:"deviceId,omitempty"`
-	OS       string      `json:"os,omitempty"`
-	VerifyId int         `json:"verifyId,omitempty"`
-	Header   interface{} `json:"header"`
-	ER       bool        `json:"e_r,omitempty"`
+	DeviceId string `json:"deviceId,omitempty"`
+	OS       string `json:"os,omitempty"`
+	VerifyId int    `json:"verifyId,omitempty"`
+	Header   any    `json:"header"`
+	ER       bool   `json:"e_r,omitempty"`
 }
 
 type VipCommonResp struct {
-	Code    int         `json:"code"`
-	Data    interface{} `json:"data"`
-	Message string      `json:"message"`
+	Code    int    `json:"code"`
+	Data    any    `json:"data"`
+	Message string `json:"message"`
 }
 
 type VipTaskSignReq struct {
-	Header interface{} `json:"header"`
-	IsNew  string      `json:"isNew"`
-	ER     bool        `json:"e_r,omitempty"`
+	Header any    `json:"header"`
+	IsNew  string `json:"isNew"`
+	ER     bool   `json:"e_r,omitempty"`
 }
 
 type VipTaskSignResp struct {
@@ -91,7 +91,7 @@ func (a *Api) VipTaskSign(ctx context.Context, req *VipTaskSignReq) (*VipTaskSig
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -108,14 +108,14 @@ type VipSignInfoResp struct {
 }
 
 type VipSignInfoData struct {
-	RecordId  int64       `json:"recordId"`
-	UserId    int64       `json:"userId"`
-	Time      int64       `json:"time"`
-	TimeStr   string      `json:"timeStr"`
-	SongId    int64       `json:"songId"`
-	SongCover interface{} `json:"songCover"`
-	Score     int64       `json:"score"`
-	Today     bool        `json:"today"`
+	RecordId  int64  `json:"recordId"`
+	UserId    int64  `json:"userId"`
+	Time      int64  `json:"time"`
+	TimeStr   string `json:"timeStr"`
+	SongId    int64  `json:"songId"`
+	SongCover any    `json:"songCover"`
+	Score     int64  `json:"score"`
+	Today     bool   `json:"today"`
 }
 
 // VipSignInfo 获取黑胶乐签最近签到记录 (EAPI)。
@@ -128,7 +128,7 @@ func (a *Api) VipSignInfo(ctx context.Context, req *VipSignInfoReq) (*VipSignInf
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -167,7 +167,7 @@ func (a *Api) VipGrowPoint(ctx context.Context, req *VipGrowPointReq) (*VipGrowP
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -183,7 +183,7 @@ func (a *Api) VipOldSignPrizeList(ctx context.Context, req *VipCommonReq) (*VipC
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -220,7 +220,7 @@ func (a *Api) VipMonthPrizeList(ctx context.Context, req *VipCommonReq) (*VipMon
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -236,7 +236,7 @@ func (a *Api) VipFrontInfo(ctx context.Context, req *VipCommonReq) (*VipCommonRe
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -265,18 +265,18 @@ func (a *Api) VipCheckinHistoryDetail(ctx context.Context, req *VipCheckinHistor
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
 }
 
 type VipRewardGetAllReq struct {
-	DeviceId string      `json:"deviceId,omitempty"`
-	OS       string      `json:"os,omitempty"`
-	VerifyId int         `json:"verifyId,omitempty"`
-	Header   interface{} `json:"header,omitempty"`
-	ER       bool        `json:"e_r,omitempty"`
+	DeviceId string `json:"deviceId,omitempty"`
+	OS       string `json:"os,omitempty"`
+	VerifyId int    `json:"verifyId,omitempty"`
+	Header   any    `json:"header,omitempty"`
+	ER       bool   `json:"e_r,omitempty"`
 }
 
 type VipRewardGetAllResp struct {
@@ -297,22 +297,22 @@ func (a *Api) VipRewardGetAll(ctx context.Context, req *VipRewardGetAllReq) (*Vi
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
 }
 
 type VipWelfareListReq struct {
-	DeviceId string      `json:"deviceId,omitempty"`
-	OS       string      `json:"os,omitempty"`
-	VerifyId int         `json:"verifyId,omitempty"`
-	Header   interface{} `json:"header"`
+	DeviceId string `json:"deviceId,omitempty"`
+	OS       string `json:"os,omitempty"`
+	VerifyId int    `json:"verifyId,omitempty"`
+	Header   any    `json:"header"`
 }
 
 type VipWelfareListResp struct {
-	Code int         `json:"code"`
-	Data interface{} `json:"data"`
+	Code int `json:"code"`
+	Data any `json:"data"`
 }
 
 // VipWelfareList 获取会员等级福利列表 (EAPI)
@@ -325,16 +325,16 @@ func (a *Api) VipWelfareList(ctx context.Context, req *VipWelfareListReq) (*VipW
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
 }
 
 type VipBenefitCategoryListReq struct {
-	Category string      `json:"category"`
-	Header   interface{} `json:"header"`
-	ER       bool        `json:"e_r,omitempty"`
+	Category string `json:"category"`
+	Header   any    `json:"header"`
+	ER       bool   `json:"e_r,omitempty"`
 }
 
 type VipBenefitCategoryListResp struct {
@@ -358,16 +358,16 @@ func (a *Api) VipBenefitCategoryList(ctx context.Context, req *VipBenefitCategor
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
 }
 
 type VipBenefitGetReq struct {
-	Id     string      `json:"id"`
-	Header interface{} `json:"header"`
-	ER     bool        `json:"e_r,omitempty"`
+	Id     string `json:"id"`
+	Header any    `json:"header"`
+	ER     bool   `json:"e_r,omitempty"`
 }
 
 type VipBenefitGetResp struct {
@@ -388,7 +388,7 @@ func (a *Api) VipBenefitGet(ctx context.Context, req *VipBenefitGetReq) (*VipBen
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -417,7 +417,7 @@ func (a *Api) TrialsongListen(ctx context.Context, req *TrialsongListenReq) (*Tr
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

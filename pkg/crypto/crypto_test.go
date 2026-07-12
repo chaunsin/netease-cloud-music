@@ -10,7 +10,6 @@ import (
 	"crypto/cipher"
 	"crypto/ecdh"
 	"crypto/md5"
-	cryptorand "crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -20,6 +19,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	cryptorand "crypto/rand"
 )
 
 func TestGenerateRandomKey(t *testing.T) {
@@ -67,7 +68,7 @@ func TestRsaEncryptReturnsFixedWidthHex(t *testing.T) {
 
 func TestWeApiEncrypt(t *testing.T) {
 	type args struct {
-		object interface{}
+		object any
 	}
 	tests := []struct {
 		name    string
@@ -112,7 +113,7 @@ func TestEApiDecrypt(t *testing.T) {
 				data:   "1BDAA66BB859333CCCE0A53AE6D1E6E61F5C1663DE05CFFB8C87BCE2FDC6F9ECAB1F5341B2FBCB5CBBACDA665D6F1A10B007189F44A13DB2463BB3EBF2639CF10A3E14D47E97975942FF626F17CE4A658E17F19C52EDACCB199F262EA09723E644C46E3880B4754AE1A2A1F4712268C52AEA6F5D0158780D82BDC30C930756181972480BE18A2ECD68A276C68E5214491F2323B3C87ECA2AF9532A4F483D55B8C5187D558AF5699D2C2437C1D98CB5AD7B90402CCDB12DF950521A86D854646BF8422708A649C1B8B752AF70AD5B3868F939FD0E9BEAA8BAE0D05BB0D4D88BE1A6BFAA8F5BBECD6F92368480E657D2200F8ACE7740ACAAA5634297D6661704EE7F74779E833DF2241939FC60C5D92569E31285E4F4A4F737CC8E89316DE7BBC8FB99E94B87DC05C190EA228637B2C0D182152BFAC603EF671A9A0B2F907D98F30E8A4614F236B3ED78392F039EDAD3C3CE5A856EE51BCDE2173F428CD1BB0239",
 			},
 			want: "/api/music/partner/work/evaluate-36cd479b6b5-{\"taskId\":\"185640294\",\"workId\":\"1312207\",\"score\":\"3\",\"tags\":\"3-C-1\",\"customTags\":\"[]\",\"comment\":\"\",\"extraResource\":\"true\",\"syncYunCircle\":\"false\",\"syncComment\":\"true\",\"extraScore\":\"{\\\"1\\\":3,\\\"2\\\":2,\\\"3\\\":4}\",\"source\":\"mp-music-partner\",\"header\":\"{}\",\"e_r\":true}-36cd479b6b5-f891fb9aa53a9b84280a53c43ff84de8",
-			wantErr: func(t assert.TestingT, err error, msg ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, msg ...any) bool {
 				if err != nil {
 					t.Errorf("%s", msg)
 					return false
@@ -127,7 +128,7 @@ func TestEApiDecrypt(t *testing.T) {
 				data:   "DCC52B3013E9B66C038F8E027E580ECEDF84E0F44CB93FC365BED7B646A9BC08",
 			},
 			want: `{"code":200,"data":true}`,
-			wantErr: func(t assert.TestingT, err error, msg ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, msg ...any) bool {
 				if err != nil {
 					t.Errorf("%s", msg)
 					return false
@@ -152,7 +153,7 @@ func TestEApiDecrypt(t *testing.T) {
 func TestEApiEncrypt(t *testing.T) {
 	type args struct {
 		url    string
-		object interface{}
+		object any
 	}
 	tests := []struct {
 		name    string
@@ -163,8 +164,10 @@ func TestEApiEncrypt(t *testing.T) {
 		{
 			name: "sample",
 			args: args{"/test/url", "test value"},
-			want: map[string]string{"params": "E556EA4892989E4A1B98043B56CD3C77C6DBE3D0261A0FA8ACF45E2882DBABFD13F52E05D9EF39C101A7A46DD0E0CD0979A2DD9CE30975861F6F4E86855FE00AD841C36BA90177218D0D8D32A54A0DC4"},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			want: map[string]string{
+				"params": "E556EA4892989E4A1B98043B56CD3C77C6DBE3D0261A0FA8ACF45E2882DBABFD13F52E05D9EF39C101A7A46DD0E0CD0979A2DD9CE30975861F6F4E86855FE00AD841C36BA90177218D0D8D32A54A0DC4",
+			},
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("err: %v args: %s", err, i)
 					return false
@@ -256,7 +259,7 @@ func TestGetCacheKey(t *testing.T) {
 			name: "sample",
 			args: "args123",
 			want: "RFKLrid1HPwKv4hPWldxJA==",
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("err: %v args: %s", err, i)
 					return false
@@ -288,7 +291,7 @@ func TestCacheKeyDecrypt(t *testing.T) {
 			name: "sample",
 			args: "RFKLrid1HPwKv4hPWldxJA==",
 			want: "args123",
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("err: %v args: %s", err, i)
 					return true
@@ -300,7 +303,7 @@ func TestCacheKeyDecrypt(t *testing.T) {
 			name: "真实参数",
 			args: "0cjs/PeKn8i8GZDV84eJ5IqRq/RX1Hok5Oyt1+2iwcgHfZVdOn+GbulSnnhB4gmf",
 			want: "e_r=false&id=10171989900&n=3&s=0",
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("err: %v args: %s", err, i)
 					return false
@@ -332,7 +335,7 @@ func TestDLLEncodeID(t *testing.T) {
 			name: "sample",
 			args: `7F3DB13E-3B90-5859-ACCC-E5BD694285A8%7CB5961B82-C81E-40E9-9164-5BE49896353A`,
 			want: "7ciIN1SujXn_nJUbCEIOBA==",
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("err: %v args: %s", err, i)
 					return false
@@ -363,7 +366,7 @@ func TestAnonymous(t *testing.T) {
 			name: "sample",
 			args: "7F3DB13E-3B90-5859-ACCC-E5BD694285A8%7CB5961B82-C81E-40E9-9164-5BE49896353A",
 			want: "N0YzREIxM0UtM0I5MC01ODU5LUFDQ0MtRTVCRDY5NDI4NUE4JTdDQjU5NjFCODItQzgxRS00MEU5LTkxNjQtNUJFNDk4OTYzNTNBIDdjaUlOMVN1alhuX25KVWJDRUlPQkE9PQ==",
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("err: %v args: %s", err, i)
 					return false
@@ -420,7 +423,7 @@ func TestBuildPlaintextEnvelope(t *testing.T) {
 			URI:         "https://interface.music.163.com/api/song/detail?ids=1",
 			Method:      http.MethodPut,
 			ContentType: "application/json",
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"id":   123,
 				"name": "hello world",
 				"e_r":  true,
@@ -637,7 +640,7 @@ func TestXeapiEncrypt(t *testing.T) {
 	}
 	req := EncryptRequest{
 		URI:  "/api/song/detail?id=1",
-		Data: map[string]interface{}{"id": 1, "e_r": true},
+		Data: map[string]any{"id": 1, "e_r": true},
 	}
 
 	withSession, err := XeapiEncrypt(req, publicKey, Session{ID: "session-id", Key: "0123456789abcdef"})

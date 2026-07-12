@@ -16,16 +16,16 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/cheggaaa/pb/v3"
+	"github.com/mattn/go-runewidth"
+	"github.com/spf13/cobra"
+	"golang.org/x/sync/semaphore"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/cheggaaa/pb/v3"
-	"github.com/mattn/go-runewidth"
-	"github.com/spf13/cobra"
-	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -164,7 +164,7 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 		}
 	}()
 
-	if err := utils.MkdirIfNotExist(c.opts.Output, 0755); err != nil {
+	if err := utils.MkdirIfNotExist(c.opts.Output, 0o755); err != nil {
 		return fmt.Errorf("MkdirIfNotExist: %w", err)
 	}
 
@@ -184,12 +184,12 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 		return fmt.Errorf("StartPool: %w", err)
 	}
 	defer func() {
-		pool.Stop()
+		_ = pool.Stop()
 		c.cmd.Printf("report total: %v success: %v failed: %v\n", total, total-failed.Load(), failed.Load())
 	}()
 
 	for _, song := range songs {
-		var song = song
+		song := song
 		if err := sema.Acquire(ctx, 1); err != nil {
 			return fmt.Errorf("acquire: %w", err)
 		}
@@ -231,7 +231,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 		switch k {
 		case "song":
 			{
-				var tmp = make([]int64, 0, len(ids))
+				tmp := make([]int64, 0, len(ids))
 				for _, id := range ids {
 					if _, ok := set[id]; ok {
 						continue
@@ -243,7 +243,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 				// 分页处理
 				pages, _ := utils.SplitSlice(tmp, 500)
 				for _, p := range pages {
-					var c = make([]weapi.SongDetailReqList, 0, len(p))
+					c := make([]weapi.SongDetailReqList, 0, len(p))
 					for _, v := range p {
 						c = append(c, weapi.SongDetailReqList{Id: fmt.Sprintf("%v", v), V: 0})
 					}
@@ -354,7 +354,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 					log.Warn("PlaylistDetail(%v) Tracks is nil", id)
 					continue
 				}
-				var tmp = make([]int64, 0, len(playlist.Playlist.TrackIds))
+				tmp := make([]int64, 0, len(playlist.Playlist.TrackIds))
 				for _, v := range playlist.Playlist.TrackIds {
 					if _, ok := set[v.Id]; ok {
 						continue
@@ -366,7 +366,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 				// 分页处理
 				pages, _ := utils.SplitSlice(tmp, 500)
 				for _, p := range pages {
-					var c = make([]weapi.SongDetailReqList, 0, len(p))
+					c := make([]weapi.SongDetailReqList, 0, len(p))
 					for _, v := range p {
 						c = append(c, weapi.SongDetailReqList{Id: fmt.Sprintf("%v", v), V: 0})
 					}
@@ -426,7 +426,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	if qualityResp.Code != 200 {
 		return fmt.Errorf("SongMusicQuality(%v) err: %+v", songId, qualityResp)
 	}
-	quality, level, ok := qualityResp.Data.Qualities.FindBetter(types.Level(c.opts.Level))
+	quality, level, ok := qualityResp.Data.FindBetter(types.Level(c.opts.Level))
 	log.Debug("SongMusicQuality(%v) quality level=%s info=%+v", songId, types.LevelString[level], quality)
 	if !ok && c.opts.Strict {
 		return fmt.Errorf("SongMusicQuality(%v) not support %v", songId, types.Level(c.opts.Level))
@@ -489,7 +489,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	// }
 
 	// todo: 待解决传入得音质和下载的品质不准确问题，尝试传入os=pc
-	var downReq = &weapi.SongPlayerV1Req{
+	downReq := &weapi.SongPlayerV1Req{
 		Ids:         []int64{songId},
 		Level:       types.Level(c.opts.Level),
 		EncodeType:  c.opts.EncodeType,
@@ -551,16 +551,16 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 		}
 	}
 
-	size, _ := strconv.ParseFloat(resp.Header.Get("Content-Length"), 10)
-	log.Debug("id=%v downloadUrl=%v wantLevel=%v-%v realLevel=%v-%v encodeType=%v type=%v size=%0.2fM,%vKB free=%v tempFile=%s outDir=%s",
-		drd.Id, drd.Url, c.opts.Level, quality.Br, drd.Level, drd.Br, drd.EncodeType, drd.Type, size/float64(utils.MB), int64(size), types.Free(drd.Fee), file.Name(), dest)
+	size := resp.ContentLength
+	log.Debug("id=%v downloadUrl=%v wantLevel=%v-%v realLevel=%v-%v encodeType=%v type=%v size=%vM,%vKB free=%v tempFile=%s outDir=%s",
+		drd.Id, drd.Url, c.opts.Level, quality.Br, drd.Level, drd.Br, drd.EncodeType, drd.Type, size/utils.MB, size, types.Free(drd.Fee), file.Name(), dest)
 
 	// 校验md5文件完整性
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		_ = os.Remove(file.Name())
-		return fmt.Errorf("Seek: %w", err)
+		return fmt.Errorf("seek: %w", err)
 	}
-	var m = md5.New()
+	m := md5.New()
 	if _, err := io.Copy(m, file); err != nil {
 		_ = os.Remove(file.Name())
 		return err
@@ -570,10 +570,10 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 		return fmt.Errorf("file %v md5 not match, want=%s, got=%s", file.Name(), drd.Md5, m)
 	}
 
-	// 设置歌曲tag值
-	if c.opts.Tag {
-		// todo:
-	}
+	// TODO: 设置歌曲tag值
+	// if c.opts.Tag {
+	//
+	// }
 
 	// 避免文件重名
 	for i := 1; utils.FileExists(dest); i++ {
@@ -588,7 +588,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 		_ = os.Remove(file.Name())
 		return fmt.Errorf("rename: %w", err)
 	}
-	if err := os.Chmod(dest, 0644); err != nil {
+	if err := os.Chmod(dest, 0o644); err != nil {
 		return fmt.Errorf("chmod: %w", err)
 	}
 	return nil

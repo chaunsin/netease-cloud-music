@@ -4,9 +4,9 @@
 package ncmctl
 
 import (
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
-
 	"github.com/spf13/cobra"
+
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
 )
 
 type Login struct {

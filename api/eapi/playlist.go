@@ -19,8 +19,8 @@ type PlaylistReq struct {
 }
 
 type PlaylistRespList struct {
-	Subscribers []interface{} `json:"subscribers"`
-	Subscribed  bool          `json:"subscribed"`
+	Subscribers []any `json:"subscribers"`
+	Subscribed  bool  `json:"subscribed"`
 	Creator     struct {
 		DefaultAvatar     bool     `json:"defaultAvatar"`
 		Province          int64    `json:"province"`
@@ -46,59 +46,59 @@ type PlaylistRespList struct {
 		Experts           *struct {
 			Field1 string `json:"2"`
 		} `json:"experts"`
-		DjStatus            int64       `json:"djStatus"`
-		VipType             int64       `json:"vipType"`
-		RemarkName          interface{} `json:"remarkName"`
-		AuthenticationTypes int64       `json:"authenticationTypes"`
-		AvatarDetail        interface{} `json:"avatarDetail"`
-		BackgroundImgIdStr  string      `json:"backgroundImgIdStr"`
-		AvatarImgIdStr      string      `json:"avatarImgIdStr"`
-		Anchor              bool        `json:"anchor"`
-		AvatarImgIdStr1     string      `json:"avatarImgId_str,omitempty"`
+		DjStatus            int64  `json:"djStatus"`
+		VipType             int64  `json:"vipType"`
+		RemarkName          any    `json:"remarkName"`
+		AuthenticationTypes int64  `json:"authenticationTypes"`
+		AvatarDetail        any    `json:"avatarDetail"`
+		BackgroundImgIdStr  string `json:"backgroundImgIdStr"`
+		AvatarImgIdStr      string `json:"avatarImgIdStr"`
+		Anchor              bool   `json:"anchor"`
+		AvatarImgIdStr1     string `json:"avatarImgId_str,omitempty"`
 	} `json:"creator"`
-	Artists            interface{} `json:"artists"`
-	Tracks             interface{} `json:"tracks"`
-	Top                bool        `json:"top"`
-	UpdateFrequency    *string     `json:"updateFrequency"`
-	BackgroundCoverId  int64       `json:"backgroundCoverId"`
-	BackgroundCoverUrl *string     `json:"backgroundCoverUrl"`
-	TitleImage         int64       `json:"titleImage"`
-	TitleImageUrl      *string     `json:"titleImageUrl"`
-	EnglishTitle       *string     `json:"englishTitle"`
-	OpRecommend        bool        `json:"opRecommend"`
+	Artists            any     `json:"artists"`
+	Tracks             any     `json:"tracks"`
+	Top                bool    `json:"top"`
+	UpdateFrequency    *string `json:"updateFrequency"`
+	BackgroundCoverId  int64   `json:"backgroundCoverId"`
+	BackgroundCoverUrl *string `json:"backgroundCoverUrl"`
+	TitleImage         int64   `json:"titleImage"`
+	TitleImageUrl      *string `json:"titleImageUrl"`
+	EnglishTitle       *string `json:"englishTitle"`
+	OpRecommend        bool    `json:"opRecommend"`
 	RecommendInfo      *struct {
 		Alg     string `json:"alg"`
 		LogInfo string `json:"logInfo"`
 	} `json:"recommendInfo"`
-	SubscribedCount       int64       `json:"subscribedCount"`
-	CloudTrackCount       int64       `json:"cloudTrackCount"`
-	UserId                int64       `json:"userId"`
-	TotalDuration         int64       `json:"totalDuration"`
-	CoverImgId            int64       `json:"coverImgId"`
-	Privacy               int64       `json:"privacy"`
-	TrackUpdateTime       int64       `json:"trackUpdateTime"`
-	TrackCount            int64       `json:"trackCount"`
-	UpdateTime            int64       `json:"updateTime"`
-	CommentThreadId       string      `json:"commentThreadId"`
-	CoverImgUrl           string      `json:"coverImgUrl"`
-	SpecialType           int64       `json:"specialType"`
-	Anonimous             bool        `json:"anonimous"`
-	CreateTime            int64       `json:"createTime"`
-	HighQuality           bool        `json:"highQuality"`
-	NewImported           bool        `json:"newImported"`
-	TrackNumberUpdateTime int64       `json:"trackNumberUpdateTime"`
-	PlayCount             int64       `json:"playCount"`
-	AdType                int64       `json:"adType"`
-	Description           *string     `json:"description"`
-	Tags                  []string    `json:"tags"`
-	Ordered               bool        `json:"ordered"`
-	Status                int64       `json:"status"`
-	Name                  string      `json:"name"`
-	Id                    int64       `json:"id"`
-	CoverImgIdStr         *string     `json:"coverImgId_str"`
-	SharedUsers           interface{} `json:"sharedUsers"`
-	ShareStatus           interface{} `json:"shareStatus"`
-	Copied                bool        `json:"copied"`
+	SubscribedCount       int64    `json:"subscribedCount"`
+	CloudTrackCount       int64    `json:"cloudTrackCount"`
+	UserId                int64    `json:"userId"`
+	TotalDuration         int64    `json:"totalDuration"`
+	CoverImgId            int64    `json:"coverImgId"`
+	Privacy               int64    `json:"privacy"`
+	TrackUpdateTime       int64    `json:"trackUpdateTime"`
+	TrackCount            int64    `json:"trackCount"`
+	UpdateTime            int64    `json:"updateTime"`
+	CommentThreadId       string   `json:"commentThreadId"`
+	CoverImgUrl           string   `json:"coverImgUrl"`
+	SpecialType           int64    `json:"specialType"`
+	Anonimous             bool     `json:"anonimous"`
+	CreateTime            int64    `json:"createTime"`
+	HighQuality           bool     `json:"highQuality"`
+	NewImported           bool     `json:"newImported"`
+	TrackNumberUpdateTime int64    `json:"trackNumberUpdateTime"`
+	PlayCount             int64    `json:"playCount"`
+	AdType                int64    `json:"adType"`
+	Description           *string  `json:"description"`
+	Tags                  []string `json:"tags"`
+	Ordered               bool     `json:"ordered"`
+	Status                int64    `json:"status"`
+	Name                  string   `json:"name"`
+	Id                    int64    `json:"id"`
+	CoverImgIdStr         *string  `json:"coverImgId_str"`
+	SharedUsers           any      `json:"sharedUsers"`
+	ShareStatus           any      `json:"shareStatus"`
+	Copied                bool     `json:"copied"`
 }
 
 type PlaylistResp struct {
@@ -124,7 +124,7 @@ func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, er
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

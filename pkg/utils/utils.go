@@ -144,7 +144,7 @@ func ExpandTilde(path string) (string, error) {
 }
 
 // CheckPath 检查路径是否存在，并返回是否为目录, 支持~路径检测.
-func CheckPath(path string) (exists bool, isDir bool, err error) {
+func CheckPath(path string) (exists, isDir bool, err error) {
 	expandedPath, err := ExpandTilde(path)
 	if err != nil {
 		return false, false, fmt.Errorf("ExpandTilde: %w", err)
@@ -162,7 +162,7 @@ func CheckPath(path string) (exists bool, isDir bool, err error) {
 }
 
 func MD5Hex(data []byte) (string, error) {
-	var m = md5.New()
+	m := md5.New()
 	_, err := m.Write(data)
 	return hex.EncodeToString(m.Sum(nil)), err
 }
@@ -176,7 +176,7 @@ func Ternary[T any](condition bool, trueVal, falseVal T) T {
 }
 
 func IsUnique[T comparable](arr []T) bool {
-	var set = make(map[T]struct{})
+	set := make(map[T]struct{})
 	for _, v := range arr {
 		if _, ok := set[v]; ok {
 			return false

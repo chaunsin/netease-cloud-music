@@ -15,12 +15,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/cheggaaa/pb/v3"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/cheggaaa/pb/v3"
 )
 
 type CloudListReq struct {
@@ -60,41 +60,41 @@ type CloudListRespDataSimpleSong struct {
 	Pst                  int64          `json:"pst"`
 	T                    int64          `json:"t"`
 	Ar                   []types.Artist `json:"ar"`
-	Alia                 []interface{}  `json:"alia"`
+	Alia                 []any          `json:"alia"`
 	Pop                  float64        `json:"pop"`
 	St                   int64          `json:"st"`
 	Rt                   string         `json:"rt"`
 	Fee                  int64          `json:"fee"`
 	V                    int64          `json:"v"`
-	Crbt                 interface{}    `json:"crbt"`
+	Crbt                 any            `json:"crbt"`
 	Cf                   string         `json:"cf"`
 	Al                   types.Album    `json:"al"`
 	Dt                   int64          `json:"dt"`
 	H                    *types.Quality `json:"h"`
 	M                    *types.Quality `json:"m"`
 	L                    *types.Quality `json:"l"`
-	A                    interface{}    `json:"a"`
+	A                    any            `json:"a"`
 	Cd                   string         `json:"cd"`
 	No                   int64          `json:"no"`
-	RtUrl                interface{}    `json:"rtUrl"`
+	RtUrl                any            `json:"rtUrl"`
 	Ftype                int64          `json:"ftype"`
-	RtUrls               []interface{}  `json:"rtUrls"`
+	RtUrls               []any          `json:"rtUrls"`
 	DjId                 int64          `json:"djId"`
 	Copyright            int64          `json:"copyright"`
 	SId                  int64          `json:"s_id"`
 	Mark                 int64          `json:"mark"`
 	OriginCoverType      int64          `json:"originCoverType"`
-	OriginSongSimpleData interface{}    `json:"originSongSimpleData"`
+	OriginSongSimpleData any            `json:"originSongSimpleData"`
 	Single               int64          `json:"single"`
 	NoCopyrightRcmd      struct {
-		Type     int64       `json:"type"`
-		TypeDesc string      `json:"typeDesc"`
-		SongId   interface{} `json:"songId"`
+		Type     int64  `json:"type"`
+		TypeDesc string `json:"typeDesc"`
+		SongId   any    `json:"songId"`
 	} `json:"noCopyrightRcmd"`
 	Cp          int64            `json:"cp"`
 	Mv          int64            `json:"mv"`
 	Mst         int64            `json:"mst"`
-	Rurl        interface{}      `json:"rurl"`
+	Rurl        any              `json:"rurl"`
 	Rtype       int64            `json:"rtype"`
 	PublishTime int64            `json:"publishTime"`
 	Privilege   types.Privileges `json:"privilege"`
@@ -114,7 +114,7 @@ func (a *Api) CloudList(ctx context.Context, req *CloudListReq) (*CloudListResp,
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -142,8 +142,10 @@ type CloudTokenAllocResp struct {
 // CloudTokenAllocRespResult 数据示例
 // {
 // "bucket": "jd-musicrep-privatecloud-audio-public",
-// "token": "UPLOAD 037a197cb50b42468694de59c0bdd9b1:zWmW6BmWPo5mWEMdTCEjtu9SaSRpgYmSQpXtb20fVd0=:eyJSZWdpb24iOiJKRCIsIk9iamVjdCI6Im9iai93b0REbU1PQnc2UENsV3pDbk1LLS8zNjY1NjcyOTU5OC8xN2JjL2Y0MjQvYjMyNi84MDJiMmVmZTJiMGY1ZjU0MzAyNGFlYWFmNzQ3NGEwNi5tNGEiLCJFeHBpcmVzIjoxNzE4MzUyNjI4LCJCdWNrZXQiOiJqZC1tdXNpY3JlcC1wcml2YXRlY2xvdWQtYXVkaW8tcHVibGljIn0=",
-// "outerUrl": "https://jd-musicrep-privatecloud-audio-public.nos-jd.163yun.com/obj%2FwoDDmMOBw6PClWzCnMK-%2F36656729598%2F17bc%2Ff424%2Fb326%2F802b2efe2b0f5f543024aeaaf7474a06.m4a?Signature=NuGYr715XbqmSdr7xWoVoYR0GiwDc6zJ0luYLY0WSaE%3D&Expires=1718350828&NOSAccessKeyId=037a197cb50b42468694de59c0bdd9b1",
+// "token": "UPLOAD
+// 037a197cb50b42468694de59c0bdd9b1:zWmW6BmWPo5mWEMdTCEjtu9SaSRpgYmSQpXtb20fVd0=:eyJSZWdpb24iOiJKRCIsIk9iamVjdCI6Im9iai93b0REbU1PQnc2UENsV3pDbk1LLS8zNjY1NjcyOTU5OC8xN2JjL2Y0MjQvYjMyNi84MDJiMmVmZTJiMGY1ZjU0MzAyNGFlYWFmNzQ3NGEwNi5tNGEiLCJFeHBpcmVzIjoxNzE4MzUyNjI4LCJCdWNrZXQiOiJqZC1tdXNpY3JlcC1wcml2YXRlY2xvdWQtYXVkaW8tcHVibGljIn0=",
+// "outerUrl":
+// "https://jd-musicrep-privatecloud-audio-public.nos-jd.163yun.com/obj%2FwoDDmMOBw6PClWzCnMK-%2F36656729598%2F17bc%2Ff424%2Fb326%2F802b2efe2b0f5f543024aeaaf7474a06.m4a?Signature=NuGYr715XbqmSdr7xWoVoYR0GiwDc6zJ0luYLY0WSaE%3D&Expires=1718350828&NOSAccessKeyId=037a197cb50b42468694de59c0bdd9b1",
 // "docId": "-1",
 // "objectKey": "obj/woDDmMOBw6PClWzCnMK-/36656729598/17bc/f424/b326/802b2efe2b0f5f543024aeaaf7474a06.m4a",
 // "resourceId": 36656729598
@@ -173,7 +175,7 @@ func (a *Api) CloudTokenAlloc(ctx context.Context, req *CloudTokenAllocReq) (*Cl
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -214,7 +216,7 @@ func (a *Api) CloudUploadCheck(ctx context.Context, req *CloudUploadCheckReq) (*
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -274,7 +276,7 @@ func (a *Api) CloudUploadCheckV2(ctx context.Context, req *CloudUploadCheckV2Req
 
 	resp, err := a.client.Request(ctx, url, &request, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -335,7 +337,7 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 		Get(addr)
 	if err != nil || resp.StatusCode() != http.StatusOK {
 		log.Error("user default upload lbs node. get %s error: %v", addr, err)
-		return nil, fmt.Errorf("Get: %w", err)
+		return nil, fmt.Errorf("get: %w", err)
 	} else {
 		var lbs CloudUploadLbsResp
 		if err := json.Unmarshal(resp.Body(), &lbs); err != nil {
@@ -384,7 +386,7 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 	)
 	uploadUrl = uploadUrl + "?offset=%d&complete=%v&version=1.0"
 
-	var headers = map[string]string{
+	headers := map[string]string{
 		"X-Nos-Token":    req.Token,
 		"Content-Length": fmt.Sprintf("%d", totalSize),
 		"Content-Md5":    md5,
@@ -425,7 +427,7 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 		log.Debug("upload addr: %s chunk %d/%d, offset: %d, complete: %v, resp: %+v",
 			addr, i+1, chunks, start, complete, reply.ErrCode)
 		if err != nil {
-			return nil, fmt.Errorf("Upload: %w", err)
+			return nil, fmt.Errorf("upload: %w", err)
 		}
 
 		nextContext = reply.Context
@@ -435,7 +437,7 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 }
 
 func splitFile(file *os.File, start, end int64) ([]byte, error) {
-	var buf = make([]byte, end-start)
+	buf := make([]byte, end-start)
 	_, err := file.ReadAt(buf, start)
 	if err != nil && err != io.EOF {
 		return nil, err
@@ -490,38 +492,38 @@ type PrivateCloud struct {
 		Pst                  int              `json:"pst"`
 		T                    int              `json:"t"`
 		Ar                   []types.Artist   `json:"ar"`
-		Alia                 []interface{}    `json:"alia"`
+		Alia                 []any            `json:"alia"`
 		Pop                  float64          `json:"pop"`
 		St                   int              `json:"st"`
 		Rt                   string           `json:"rt"`
 		Fee                  int              `json:"fee"`
 		V                    int              `json:"v"`
-		Crbt                 interface{}      `json:"crbt"`
+		Crbt                 any              `json:"crbt"`
 		Cf                   string           `json:"cf"`
 		Al                   types.Album      `json:"al"`
 		Dt                   int              `json:"dt"`
 		H                    types.Quality    `json:"h"`
 		M                    types.Quality    `json:"m"`
 		L                    types.Quality    `json:"l"`
-		A                    interface{}      `json:"a"`
+		A                    any              `json:"a"`
 		Cd                   string           `json:"cd"`
 		No                   int              `json:"no"`
-		RtUrl                interface{}      `json:"rtUrl"`
+		RtUrl                any              `json:"rtUrl"`
 		Ftype                int              `json:"ftype"`
-		RtUrls               []interface{}    `json:"rtUrls"`
+		RtUrls               []any            `json:"rtUrls"`
 		DjId                 int              `json:"djId"`
 		Copyright            int              `json:"copyright"`
 		SId                  int              `json:"s_id"`
 		Mark                 int              `json:"mark"`
 		OriginCoverType      int              `json:"originCoverType"`
-		OriginSongSimpleData interface{}      `json:"originSongSimpleData"`
+		OriginSongSimpleData any              `json:"originSongSimpleData"`
 		Single               int              `json:"single"`
-		NoCopyrightRcmd      interface{}      `json:"noCopyrightRcmd"`
+		NoCopyrightRcmd      any              `json:"noCopyrightRcmd"`
 		Mst                  int              `json:"mst"`
 		Cp                   int              `json:"cp"`
 		Mv                   int              `json:"mv"`
 		Rtype                int              `json:"rtype"`
-		Rurl                 interface{}      `json:"rurl"`
+		Rurl                 any              `json:"rurl"`
 		PublishTime          int64            `json:"publishTime"`
 		Privilege            types.Privileges `json:"privilege"`
 	} `json:"simpleSong"`
@@ -557,7 +559,7 @@ func (a *Api) CloudInfo(ctx context.Context, req *CloudInfoReq) (*CloudInfoResp,
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -591,7 +593,7 @@ func (a *Api) CloudMusicStatus(ctx context.Context, req *CloudMusicStatusReq) (*
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -620,7 +622,7 @@ func (a *Api) CloudPublish(ctx context.Context, req *CloudPublishReq) (*CloudPub
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -650,7 +652,7 @@ func (a *Api) CloudDownload(ctx context.Context, req *CloudDownloadReq) (*CloudD
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -681,7 +683,7 @@ func (a *Api) CloudLyric(ctx context.Context, req *CloudLyricReq) (*CloudLyricRe
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -712,7 +714,7 @@ func (a *Api) CloudDel(ctx context.Context, req *CloudDelReq) (*CloudDelResp, er
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -745,7 +747,7 @@ func (a *Api) CloudUploadNode(ctx context.Context, req *CloudUploadNodeReq) (*Cl
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

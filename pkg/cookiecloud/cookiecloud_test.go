@@ -78,13 +78,13 @@ func fakeServer(t *testing.T, now time.Time) *httptest.Server {
 		var req Body
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 
 		if req.Uuid == "" || req.Encrypted == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Bad Request"))
+			_, _ = w.Write([]byte("Bad Request"))
 			return
 		}
 

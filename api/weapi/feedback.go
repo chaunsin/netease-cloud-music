@@ -16,14 +16,14 @@ type ApiWebLogReqJson struct {
 	Plist []struct {
 		Oid string `json:"_oid"`
 	} `json:"_plist"`
-	Elist     []interface{} `json:"_elist"`
-	Spm       string        `json:"_spm"`
-	Scm       string        `json:"_scm"`
-	Duration  string        `json:"duration"`
-	Eventtime int64         `json:"_eventtime"`
-	Sessid    string        `json:"_sessid"`
-	GDprefer  string        `json:"g_dprefer"`
-	IsWebview int64         `json:"is_webview"`
+	Elist     []any  `json:"_elist"`
+	Spm       string `json:"_spm"`
+	Scm       string `json:"_scm"`
+	Duration  string `json:"duration"`
+	Eventtime int64  `json:"_eventtime"`
+	Sessid    string `json:"_sessid"`
+	GDprefer  string `json:"g_dprefer"`
+	IsWebview int64  `json:"is_webview"`
 }
 
 // ApiWebLogReq .
@@ -74,12 +74,14 @@ func (a *Api) ApiWebLog(ctx context.Context, req *ApiWebLogReq) (*ApiWebLogResp,
 // 4.未知 在播放音乐时间隔一定时间会上传此日志
 // "[{"action":"impress","json":{"mspm":"619df35ce51b6b383f5fafdb","page":"mainpage","module":"nav_bar","target":"friends","reddot":"1","mainsite":"1"}}]"
 // 5.未知 当一首歌曲播放完之后会产生此日志
-// "[{"action":"sysaction","json":{"dataType":"cdnCompare","cdnType":"NetEase","loadeddataTime":41716,"resourceType":"audiom4a","resourceId":1984580503,"resourceUrl":"https://m804.music.126.net/20240624165706/16fab8b9a63e70c89f75de59635a784b/jdyyaac/obj/w5rDlsOJwrLDjj7CmsOj/19576100567/d33e/c04b/ac0d/829119824fad1696351f7e0898dd266a.m4a?authSecret=00000190495fb0bc11120a3b1e596978","xySupport":true,"error":false,"errorType":"","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","mainsite":"1"}}]"
+// "[{"action":"sysaction","json":{"dataType":"cdnCompare","cdnType":"NetEase","loadeddataTime":41716,"resourceType":"audiom4a","resourceId":1984580503,"resourceUrl":"https://m804.music.126.net/20240624165706/16fab8b9a63e70c89f75de59635a784b/jdyyaac/obj/w5rDlsOJwrLDjj7CmsOj/19576100567/d33e/c04b/ac0d/829119824fad1696351f7e0898dd266a.m4a?authSecret=00000190495fb0bc11120a3b1e596978","xySupport":true,"error":false,"errorType":"","ua":"Mozilla/5.0
+// (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","mainsite":"1"}}]"
 // 6.未知
-// "[{\"action\":\"mobile_monitor\",\"json\":{\"meta._ver\":2,\"meta._dataName\":\"pip_lyric_monitor\",\"action\":\"impress\",\"userAgent\":\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\",\"chromeVersion\":120,\"mainsite\":\"1\"}}]",
+// "[{\"action\":\"mobile_monitor\",\"json\":{\"meta._ver\":2,\"meta._dataName\":\"pip_lyric_monitor\",\"action\":\"impress\",\"userAgent\":\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
+// AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\",\"chromeVersion\":120,\"mainsite\":\"1\"}}]",
 type WebLogReq struct {
-	CsrfToken string                   `json:"csrf_token"` // 可不用传递
-	Logs      []map[string]interface{} `json:"logs"`       // 具体事件内容
+	CsrfToken string           `json:"csrf_token"` // 可不用传递
+	Logs      []map[string]any `json:"logs"`       // 具体事件内容
 }
 
 type webLogReq struct {
@@ -107,7 +109,7 @@ func (a *Api) WebLog(ctx context.Context, req *WebLogReq) (*WebLogResp, error) {
 	if err != nil {
 		return nil, fmt.Errorf("json.Marshal(req.Logs) error: %v", err)
 	}
-	var request = &webLogReq{
+	request := &webLogReq{
 		CsrfToken: req.CsrfToken,
 		Logs:      string(data),
 	}

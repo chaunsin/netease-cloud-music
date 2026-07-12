@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/skip2/go-qrcode"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
-
-	"github.com/skip2/go-qrcode"
 )
 
 type LoginPhoneReq struct {
@@ -56,7 +56,7 @@ func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*Qr
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -123,7 +123,7 @@ func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeChec
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -156,43 +156,43 @@ type GetUserInfoRespAccount struct {
 }
 
 type GetUserInfoRespProfile struct {
-	UserId              int64       `json:"userId"`
-	UserType            int64       `json:"userType"`
-	Nickname            string      `json:"nickname"`
-	AvatarImgId         int64       `json:"avatarImgId"`
-	AvatarUrl           string      `json:"avatarUrl"`
-	BackgroundImgId     int64       `json:"backgroundImgId"`
-	BackgroundUrl       string      `json:"backgroundUrl"`
-	Signature           string      `json:"signature"`
-	CreateTime          int64       `json:"createTime"`
-	UserName            string      `json:"userName"`
-	AccountType         int64       `json:"accountType"`
-	ShortUserName       string      `json:"shortUserName"`
-	Birthday            int64       `json:"birthday"`
-	Authority           int64       `json:"authority"`
-	Gender              int64       `json:"gender"`
-	AccountStatus       int64       `json:"accountStatus"`
-	Province            int64       `json:"province"`
-	City                int64       `json:"city"`
-	AuthStatus          int64       `json:"authStatus"`
-	Description         interface{} `json:"description"`
-	DetailDescription   interface{} `json:"detailDescription"`
-	DefaultAvatar       bool        `json:"defaultAvatar"`
-	ExpertTags          interface{} `json:"expertTags"`
-	Experts             interface{} `json:"experts"`
-	DjStatus            int64       `json:"djStatus"`
-	LocationStatus      int64       `json:"locationStatus"`
-	VipType             int64       `json:"vipType"`
-	Followed            bool        `json:"followed"`
-	Mutual              bool        `json:"mutual"`
-	Authenticated       bool        `json:"authenticated"`
-	LastLoginTime       int64       `json:"lastLoginTime"`
-	LastLoginIP         string      `json:"lastLoginIP"`
-	RemarkName          interface{} `json:"remarkName"`
-	ViptypeVersion      int64       `json:"viptypeVersion"`
-	AuthenticationTypes int64       `json:"authenticationTypes"`
-	AvatarDetail        interface{} `json:"avatarDetail"`
-	Anchor              bool        `json:"anchor"`
+	UserId              int64  `json:"userId"`
+	UserType            int64  `json:"userType"`
+	Nickname            string `json:"nickname"`
+	AvatarImgId         int64  `json:"avatarImgId"`
+	AvatarUrl           string `json:"avatarUrl"`
+	BackgroundImgId     int64  `json:"backgroundImgId"`
+	BackgroundUrl       string `json:"backgroundUrl"`
+	Signature           string `json:"signature"`
+	CreateTime          int64  `json:"createTime"`
+	UserName            string `json:"userName"`
+	AccountType         int64  `json:"accountType"`
+	ShortUserName       string `json:"shortUserName"`
+	Birthday            int64  `json:"birthday"`
+	Authority           int64  `json:"authority"`
+	Gender              int64  `json:"gender"`
+	AccountStatus       int64  `json:"accountStatus"`
+	Province            int64  `json:"province"`
+	City                int64  `json:"city"`
+	AuthStatus          int64  `json:"authStatus"`
+	Description         any    `json:"description"`
+	DetailDescription   any    `json:"detailDescription"`
+	DefaultAvatar       bool   `json:"defaultAvatar"`
+	ExpertTags          any    `json:"expertTags"`
+	Experts             any    `json:"experts"`
+	DjStatus            int64  `json:"djStatus"`
+	LocationStatus      int64  `json:"locationStatus"`
+	VipType             int64  `json:"vipType"`
+	Followed            bool   `json:"followed"`
+	Mutual              bool   `json:"mutual"`
+	Authenticated       bool   `json:"authenticated"`
+	LastLoginTime       int64  `json:"lastLoginTime"`
+	LastLoginIP         string `json:"lastLoginIP"`
+	RemarkName          any    `json:"remarkName"`
+	ViptypeVersion      int64  `json:"viptypeVersion"`
+	AuthenticationTypes int64  `json:"authenticationTypes"`
+	AvatarDetail        any    `json:"avatarDetail"`
+	Anchor              bool   `json:"anchor"`
 }
 
 // GetUserInfo 获取用户信息
@@ -206,14 +206,13 @@ func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInf
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
 }
 
-type TokenRefreshReq struct {
-}
+type TokenRefreshReq struct{}
 
 type TokenRefreshResp struct {
 	types.RespCommon[any]
@@ -232,7 +231,7 @@ func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRef
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

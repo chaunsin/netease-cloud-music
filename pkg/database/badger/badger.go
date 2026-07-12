@@ -20,7 +20,7 @@ type Badger struct {
 }
 
 func New(path string) (*Badger, error) {
-	var opts = badger.DefaultOptions(path).WithLoggingLevel(badger.WARNING)
+	opts := badger.DefaultOptions(path).WithLoggingLevel(badger.WARNING)
 	// .WithSyncWrites(false)
 	db, err := badger.Open(opts)
 	if err != nil {
@@ -108,7 +108,7 @@ func (b *Badger) Increment(ctx context.Context, key string, value int64, ttl ...
 			value += oldValue
 		}
 
-		var entry = badger.NewEntry([]byte(key), []byte(fmt.Sprintf("%v", value)))
+		entry := badger.NewEntry([]byte(key), []byte(fmt.Sprintf("%v", value)))
 		if len(ttl) > 0 && ttl[0] > 0 {
 			entry.WithTTL(ttl[0])
 		}

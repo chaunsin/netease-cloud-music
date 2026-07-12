@@ -15,10 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	ncmFileName = "./testdata/BOE - 822.ncm"
-	// ncmFileName = "../../testdata/ncm/no_metadata_and_cover.ncm"
-)
+var ncmFileName = "./testdata/BOE - 822.ncm"
+
+// ncmFileName = "../../testdata/ncm/no_metadata_and_cover.ncm"
 
 func writeJPG(t *testing.T, data io.Reader, dest string) {
 	// 解码JPEG文件
@@ -109,7 +108,7 @@ func TestMeta(t *testing.T) {
 }
 
 func TestDecodeCoverType(t *testing.T) {
-	var accepts = []CoverType{
+	accepts := []CoverType{
 		CoverTypeJpeg,
 		CoverTypePng,
 		CoverTypeBmp,
@@ -130,13 +129,13 @@ func TestDecodeCover(t *testing.T) {
 	defer file.Close()
 	assert.NoError(t, err)
 
-	var data = new(bytes.Buffer)
+	data := new(bytes.Buffer)
 	assert.NoError(t, DecodeCover(file, data))
 	writeImage(t, file, data, ncmFileName)
 }
 
 func TestDecodeMusic(t *testing.T) {
-	var name = ncmFileName + ".mp3"
+	name := ncmFileName + ".mp3"
 	t.Cleanup(func() {
 		_ = os.Remove(name)
 	})
@@ -162,7 +161,7 @@ func TestFromReadSeeker(t *testing.T) {
 }
 
 func TestOpen(t *testing.T) {
-	var name = ncmFileName + "_open.mp3"
+	name := ncmFileName + "_open.mp3"
 	t.Cleanup(func() {
 		_ = os.Remove(name)
 	})
@@ -177,7 +176,7 @@ func TestOpen(t *testing.T) {
 	assert.NotZero(t, file.Metadata())
 
 	// handler cover image
-	var img = new(bytes.Buffer)
+	img := new(bytes.Buffer)
 	if err := file.DecodeCover(img); err != nil {
 		t.Fatalf("DecodeCover: %s", err)
 	}
@@ -208,7 +207,7 @@ func TestOpen(t *testing.T) {
 	}
 
 	// handler music
-	var data = new(bytes.Buffer)
+	data := new(bytes.Buffer)
 	dest, err := os.Create(name)
 	defer dest.Close()
 	assert.NoError(t, err)
@@ -224,7 +223,7 @@ func TestMusicDetect(t *testing.T) {
 	defer file.Close()
 	assert.NoError(t, err)
 
-	var data = new(bytes.Buffer)
+	data := new(bytes.Buffer)
 	assert.NoError(t, DecodeMusic(file, data))
 
 	m, err := tag.ReadFrom(bytes.NewReader(data.Bytes()))

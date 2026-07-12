@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/cookiecloud"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
-
-	"github.com/spf13/cobra"
 )
 
 type loginCookieCloudCmd struct {
@@ -58,7 +58,7 @@ func (c *loginCookieCloudCmd) addFlags() {
 }
 
 func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
-	var headers = make(map[string]string)
+	headers := make(map[string]string)
 	if c.headers != "" {
 		for _, header := range strings.Split(c.headers, ",") {
 			kv := strings.Split(header, "=")
@@ -87,7 +87,7 @@ func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
 	}
 	defer cli.Close(ctx)
 
-	var cfg = cookiecloud.Config{
+	cfg := cookiecloud.Config{
 		ApiUrl:  c.server,
 		Timeout: c.timeout,
 		Retry:   3,

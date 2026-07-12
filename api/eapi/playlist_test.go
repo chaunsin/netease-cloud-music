@@ -10,7 +10,7 @@ import (
 )
 
 func TestPlaylist(t *testing.T) {
-	var req = PlaylistReq{
+	req := PlaylistReq{
 		Uid:    "1289504343",
 		Offset: "",
 		Limit:  "30",

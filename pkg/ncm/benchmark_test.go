@@ -12,7 +12,7 @@ import (
 
 func Benchmark_Open(b *testing.B) {
 	b.ReportAllocs()
-	var ncmName = "./testdata/BOE - 822.ncm"
+	ncmName := "./testdata/BOE - 822.ncm"
 	for i := 0; i < b.N; i++ {
 		func() {
 			file, err := Open(ncmName)

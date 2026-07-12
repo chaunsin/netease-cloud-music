@@ -43,7 +43,7 @@ func (a *Api) ArtistHot(ctx context.Context, req *ArtistHotReq) (*ArtistHotResp,
 	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -68,7 +68,7 @@ func (a *Api) ArtistSub(ctx context.Context, req *ArtistSubReq) (*ArtistSubResp,
 	opts.CryptoMode = api.CryptoModeWEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -111,7 +111,7 @@ func (a *Api) ArtistUnsub(ctx context.Context, req *ArtistUnsubReq) (*ArtistUnsu
 	weapiReq := &weapiArtistUnsubReq{ArtistIds: parsedIds}
 	resp, err := a.client.Request(ctx, url, weapiReq, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

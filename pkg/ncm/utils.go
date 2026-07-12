@@ -54,7 +54,7 @@ var (
 )
 
 func DetectCoverType(data []byte) CoverType {
-	if data == nil || len(data) < 2 {
+	if len(data) < 2 {
 		return CoverTypeUnknown
 	}
 	if bytes.HasPrefix(data, jpegPrefix) {

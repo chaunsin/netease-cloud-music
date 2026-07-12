@@ -13,13 +13,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/spf13/cobra"
 )
 
 type PartnerOpts struct {
@@ -145,17 +145,17 @@ func (c *Partner) do(ctx context.Context) error {
 		return fmt.Errorf("PartnerUserinfo: %w", err)
 	}
 	if info.Code == 703 {
-		return fmt.Errorf("您不是音乐合伙人不能进行测评 detail: %+v\n", info)
+		return fmt.Errorf("您不是音乐合伙人不能进行测评 detail: %+v", info)
 	}
 	if info.Code != 200 {
-		return fmt.Errorf("PartnerUserinfo err: %+v\n", info)
+		return fmt.Errorf("PartnerUserinfo err: %+v", info)
 	}
 	switch status := info.Data.Status; status {
 	case "NORMAL":
 	case "ELIMINATED":
 		return errors.New("您没有测评资格或失去测评资格! ")
 	default:
-		return fmt.Errorf("账号状态异常,未知状态[%s]\n", status)
+		return fmt.Errorf("账号状态异常,未知状态[%s]", status)
 	}
 
 	var (
@@ -189,7 +189,7 @@ func (c *Partner) do(ctx context.Context) error {
 		tags := group[rand.Int31n(int32(len(group)))]
 
 		// 上报
-		var reportReq = &weapi.PartnerExtraReportReq{
+		reportReq := &weapi.PartnerExtraReportReq{
 			ReqCommon:     types.ReqCommon{},
 			WorkId:        fmt.Sprintf("%v", work.Work.Id),
 			ResourceId:    fmt.Sprintf("%v", work.Work.ResourceId),
@@ -213,15 +213,15 @@ func (c *Partner) do(ctx context.Context) error {
 		// 上报听歌事件
 
 		// 执行测评
-		var extScore = make(map[string]int64, 3)
+		extScore := make(map[string]int64, 3)
 		for _, t := range work.SupportExtraEvaTypes {
 			extScore[fmt.Sprintf("%v", t)] = c.opts.ExtStar[rand.Int31n(int32(len(c.opts.Star)))]
 		}
 		extraScore, err := json.Marshal(extScore)
 		if err != nil {
-			return fmt.Errorf("json.Marshal(%+v) err: %+v\n", extScore, err)
+			return fmt.Errorf("json.Marshal(%+v) err: %+v", extScore, err)
 		}
-		var req = &weapi.PartnerEvaluateReq{
+		req := &weapi.PartnerEvaluateReq{
 			ReqCommon:     types.ReqCommon{},
 			TaskId:        fmt.Sprintf("%v", task.Data.Id),
 			WorkId:        fmt.Sprintf("%v", work.Work.Id),
@@ -290,7 +290,7 @@ func (c *Partner) do(ctx context.Context) error {
 			// 如果发表评论按照正常逻辑需要过内容安审
 
 			// 上报
-			var req = &weapi.PartnerExtraReportReq{
+			req := &weapi.PartnerExtraReportReq{
 				ReqCommon:     types.ReqCommon{},
 				WorkId:        fmt.Sprintf("%v", work.Work.Id),
 				ResourceId:    fmt.Sprintf("%v", work.Work.ResourceId),
@@ -310,15 +310,15 @@ func (c *Partner) do(ctx context.Context) error {
 			}
 
 			// 执行测评
-			var extScore = make(map[string]int64, 3)
+			extScore := make(map[string]int64, 3)
 			for _, t := range work.SupportExtraEvaTypes {
 				extScore[fmt.Sprintf("%v", t)] = c.opts.ExtStar[rand.Int31n(int32(len(c.opts.Star)))]
 			}
 			extraScore, err := json.Marshal(extScore)
 			if err != nil {
-				return fmt.Errorf("json.Marshal(%+v) err: %+v\n", extScore, err)
+				return fmt.Errorf("json.Marshal(%+v) err: %+v", extScore, err)
 			}
-			var evaluateReq = &weapi.PartnerEvaluateReq{
+			evaluateReq := &weapi.PartnerEvaluateReq{
 				ReqCommon:     types.ReqCommon{},
 				TaskId:        fmt.Sprintf("%v", taskId),
 				WorkId:        fmt.Sprintf("%v", work.Work.Id),

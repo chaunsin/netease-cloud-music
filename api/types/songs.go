@@ -10,9 +10,9 @@ type Artist struct {
 	// Id 歌手id
 	Id int64 `json:"id"`
 	// Name 歌手名
-	Name  string        `json:"name"`
-	Tns   []interface{} `json:"tns"`
-	Alias []interface{} `json:"alias"`
+	Name  string `json:"name"`
+	Tns   []any  `json:"tns"`
+	Alias []any  `json:"alias"`
 }
 
 // Album 专辑信息.
@@ -22,26 +22,26 @@ type Album struct {
 	// Name 专辑名
 	Name string `json:"name"`
 	// PicUrl 专辑图片
-	PicUrl string        `json:"picUrl"`
-	Tns    []interface{} `json:"tns"`
-	PicStr string        `json:"pic_str"`
-	Pic    int64         `json:"pic"`
+	PicUrl string `json:"picUrl"`
+	Tns    []any  `json:"tns"`
+	PicStr string `json:"pic_str"`
+	Pic    int64  `json:"pic"`
 }
 
 type ChargeInfo struct {
-	Rate          int64       `json:"rate"`
-	ChargeUrl     interface{} `json:"chargeUrl"`
-	ChargeMessage interface{} `json:"chargeMessage"`
-	ChargeType    int64       `json:"chargeType"`
+	Rate          int64 `json:"rate"`
+	ChargeUrl     any   `json:"chargeUrl"`
+	ChargeMessage any   `json:"chargeMessage"`
+	ChargeType    int64 `json:"chargeType"`
 }
 
 type FreeTrialPrivilege struct {
-	FreeLimitTagType   interface{} `json:"freeLimitTagType"`
-	CannotListenReason interface{} `json:"cannotListenReason"`
-	ListenType         interface{} `json:"listenType"`
-	PlayReason         interface{} `json:"playReason"`
-	ResConsumable      bool        `json:"resConsumable"`
-	UserConsumable     bool        `json:"userConsumable"`
+	FreeLimitTagType   any  `json:"freeLimitTagType"`
+	CannotListenReason any  `json:"cannotListenReason"`
+	ListenType         any  `json:"listenType"`
+	PlayReason         any  `json:"playReason"`
+	ResConsumable      bool `json:"resConsumable"`
+	UserConsumable     bool `json:"userConsumable"`
 }
 
 type FreeTimeTrialPrivilege struct {
@@ -84,7 +84,7 @@ type Privileges struct {
 	DlLevel string `json:"dlLevel"`
 	// FlLevel 免费用户的该歌曲播放音质
 	FlLevel            string             `json:"flLevel"`
-	Rscl               interface{}        `json:"rscl"`
+	Rscl               any                `json:"rscl"`
 	FreeTrialPrivilege FreeTrialPrivilege `json:"freeTrialPrivilege"`
 	RightSource        int64              `json:"rightSource"`
 	ChargeInfoList     []ChargeInfo       `json:"chargeInfoList"`

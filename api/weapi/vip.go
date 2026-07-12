@@ -43,7 +43,7 @@ func (a *Api) VipRewardGet(ctx context.Context, req *VipRewardGetReq) (*VipRewar
 
 	resp, err := a.client.Request(ctx, url, &request, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -71,7 +71,7 @@ func (a *Api) VipRewardGetAll(ctx context.Context, req *VipRewardGetAllReq) (*Vi
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -88,36 +88,36 @@ type VipTaskRespData struct {
 		Seq       int64  `json:"seq"`
 		SeqName   string `json:"seqName"`
 		TaskItems []struct {
-			Action          string      `json:"action"`
-			ActionType      int64       `json:"actionType"`
-			BasicTaskId     int64       `json:"basicTaskId"`
-			BusinessIdent   interface{} `json:"businessIdent"`
-			CurrentProgress int64       `json:"currentProgress"`
-			Description     string      `json:"description"`
-			GrowthPoint     int64       `json:"growthPoint"`
-			IconUrl         string      `json:"iconUrl"`
-			MissionId       int64       `json:"missionId"`
-			Name            string      `json:"name"`
-			NeedReceive     bool        `json:"needReceive"`
-			Period          int64       `json:"period"`
-			ProgressType    int64       `json:"progressType"`
-			RuleId          int64       `json:"ruleId"`
-			SeqTag          int64       `json:"seqTag"`
-			ShowProgress    bool        `json:"showProgress"`
-			SortValue       int64       `json:"sortValue"`
-			Status          int64       `json:"status"`
-			TagId           int64       `json:"tagId"`
-			TargetWorth     int64       `json:"targetWorth"`
-			Targets         interface{} `json:"targets"`
-			TaskId          string      `json:"taskId"`
-			TaskTag         string      `json:"taskTag"`
-			TotalUngetScore int64       `json:"totalUngetScore"`
-			Type            int64       `json:"type"`
-			TypeCode        interface{} `json:"typeCode"`
-			UnGetIds        []string    `json:"unGetIds"`
-			UpdateTime      int64       `json:"updateTime"`
-			Url             string      `json:"url"`
-			UserMissionId   interface{} `json:"userMissionId"`
+			Action          string   `json:"action"`
+			ActionType      int64    `json:"actionType"`
+			BasicTaskId     int64    `json:"basicTaskId"`
+			BusinessIdent   any      `json:"businessIdent"`
+			CurrentProgress int64    `json:"currentProgress"`
+			Description     string   `json:"description"`
+			GrowthPoint     int64    `json:"growthPoint"`
+			IconUrl         string   `json:"iconUrl"`
+			MissionId       int64    `json:"missionId"`
+			Name            string   `json:"name"`
+			NeedReceive     bool     `json:"needReceive"`
+			Period          int64    `json:"period"`
+			ProgressType    int64    `json:"progressType"`
+			RuleId          int64    `json:"ruleId"`
+			SeqTag          int64    `json:"seqTag"`
+			ShowProgress    bool     `json:"showProgress"`
+			SortValue       int64    `json:"sortValue"`
+			Status          int64    `json:"status"`
+			TagId           int64    `json:"tagId"`
+			TargetWorth     int64    `json:"targetWorth"`
+			Targets         any      `json:"targets"`
+			TaskId          string   `json:"taskId"`
+			TaskTag         string   `json:"taskTag"`
+			TotalUngetScore int64    `json:"totalUngetScore"`
+			Type            int64    `json:"type"`
+			TypeCode        any      `json:"typeCode"`
+			UnGetIds        []string `json:"unGetIds"`
+			UpdateTime      int64    `json:"updateTime"`
+			Url             string   `json:"url"`
+			UserMissionId   any      `json:"userMissionId"`
 		} `json:"taskItems"`
 		TaskType int64 `json:"taskType"`
 	} `json:"taskList"`
@@ -136,7 +136,7 @@ func (a *Api) VipTask(ctx context.Context, req *VipTaskReq) (*VipTaskResp, error
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -158,37 +158,37 @@ type VipTaskV2RespData struct {
 		SeqName   string `json:"seqName"`
 		TaskItems []struct {
 			CurrentInfo struct {
-				Action          string      `json:"action"`
-				ActionType      int64       `json:"actionType"`
-				BasicTaskId     int64       `json:"basicTaskId"`
-				BusinessIdent   interface{} `json:"businessIdent"`
-				CurrentProgress int64       `json:"currentProgress"`
-				Description     string      `json:"description"`
-				GrowthPoint     int64       `json:"growthPoint"`
-				IconUrl         string      `json:"iconUrl"`
-				MissionId       int64       `json:"missionId"`
-				Name            string      `json:"name"`
-				NeedReceive     bool        `json:"needReceive"`
-				Period          int64       `json:"period"`
-				ProgressType    int64       `json:"progressType"`
-				RuleId          int64       `json:"ruleId"`
-				SeqTag          int64       `json:"seqTag"`
-				ShowProgress    bool        `json:"showProgress"`
-				SortValue       int64       `json:"sortValue"`
-				Status          int64       `json:"status"`
-				TagId           int64       `json:"tagId"`
-				TargetWorth     int64       `json:"targetWorth"`
-				TaskId          string      `json:"taskId"`
-				TaskTag         string      `json:"taskTag"`
-				TotalUngetScore int64       `json:"totalUngetScore"`
-				Type            int64       `json:"type"`
-				TypeCode        interface{} `json:"typeCode"`
-				UnGetIds        interface{} `json:"unGetIds"`
-				UpdateTime      int64       `json:"updateTime"`
-				Url             string      `json:"url"`
-				UserMissionId   *int64      `json:"userMissionId"`
+				Action          string `json:"action"`
+				ActionType      int64  `json:"actionType"`
+				BasicTaskId     int64  `json:"basicTaskId"`
+				BusinessIdent   any    `json:"businessIdent"`
+				CurrentProgress int64  `json:"currentProgress"`
+				Description     string `json:"description"`
+				GrowthPoint     int64  `json:"growthPoint"`
+				IconUrl         string `json:"iconUrl"`
+				MissionId       int64  `json:"missionId"`
+				Name            string `json:"name"`
+				NeedReceive     bool   `json:"needReceive"`
+				Period          int64  `json:"period"`
+				ProgressType    int64  `json:"progressType"`
+				RuleId          int64  `json:"ruleId"`
+				SeqTag          int64  `json:"seqTag"`
+				ShowProgress    bool   `json:"showProgress"`
+				SortValue       int64  `json:"sortValue"`
+				Status          int64  `json:"status"`
+				TagId           int64  `json:"tagId"`
+				TargetWorth     int64  `json:"targetWorth"`
+				TaskId          string `json:"taskId"`
+				TaskTag         string `json:"taskTag"`
+				TotalUngetScore int64  `json:"totalUngetScore"`
+				Type            int64  `json:"type"`
+				TypeCode        any    `json:"typeCode"`
+				UnGetIds        any    `json:"unGetIds"`
+				UpdateTime      int64  `json:"updateTime"`
+				Url             string `json:"url"`
+				UserMissionId   *int64 `json:"userMissionId"`
 			} `json:"currentInfo"`
-			SubList interface{} `json:"subList"`
+			SubList any `json:"subList"`
 		} `json:"taskItems"`
 		TaskType int64 `json:"taskType"`
 	} `json:"taskList"`
@@ -206,7 +206,7 @@ func (a *Api) VipTaskV2(ctx context.Context, req *VipTaskV2Req) (*VipTaskV2Resp,
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -243,11 +243,11 @@ type VipInfoRespData struct {
 		VipCode         int64  `json:"vipCode"`
 		VipLevel        int64  `json:"vipLevel"`
 	} `json:"musicPackage"`
-	RedVipAnnualCount     int64       `json:"redVipAnnualCount"`
-	RedVipDynamicIconUrl  interface{} `json:"redVipDynamicIconUrl"`
-	RedVipDynamicIconUrl2 interface{} `json:"redVipDynamicIconUrl2"`
-	RedVipLevel           int64       `json:"redVipLevel"`
-	RedVipLevelIcon       string      `json:"redVipLevelIcon"`
+	RedVipAnnualCount     int64  `json:"redVipAnnualCount"`
+	RedVipDynamicIconUrl  any    `json:"redVipDynamicIconUrl"`
+	RedVipDynamicIconUrl2 any    `json:"redVipDynamicIconUrl2"`
+	RedVipLevel           int64  `json:"redVipLevel"`
+	RedVipLevelIcon       string `json:"redVipLevelIcon"`
 	Redplus               struct {
 		DynamicIconUrl  string `json:"dynamicIconUrl"`
 		ExpireTime      int64  `json:"expireTime"`
@@ -273,7 +273,7 @@ func (a *Api) VipInfo(ctx context.Context, req *VipInfoReq) (*VipInfoResp, error
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -289,67 +289,67 @@ type VipClientInfoResp struct {
 
 type VipClientInfoRespData struct {
 	AlbumVip struct {
-		DynamicIconUrl  interface{} `json:"dynamicIconUrl"`
-		ExpireTime      int64       `json:"expireTime"`
-		IconUrl         interface{} `json:"iconUrl"`
-		IsSign          bool        `json:"isSign"`
-		IsSignDeduct    bool        `json:"isSignDeduct"`
-		IsSignIap       bool        `json:"isSignIap"`
-		IsSignIapDeduct bool        `json:"isSignIapDeduct"`
-		VipCode         int64       `json:"vipCode"`
-		VipLevel        int64       `json:"vipLevel"`
+		DynamicIconUrl  any   `json:"dynamicIconUrl"`
+		ExpireTime      int64 `json:"expireTime"`
+		IconUrl         any   `json:"iconUrl"`
+		IsSign          bool  `json:"isSign"`
+		IsSignDeduct    bool  `json:"isSignDeduct"`
+		IsSignIap       bool  `json:"isSignIap"`
+		IsSignIapDeduct bool  `json:"isSignIapDeduct"`
+		VipCode         int64 `json:"vipCode"`
+		VipLevel        int64 `json:"vipLevel"`
 	} `json:"albumVip"`
 	Associator struct {
-		DynamicIconUrl  interface{} `json:"dynamicIconUrl"`
-		ExpireTime      int64       `json:"expireTime"`
-		IconUrl         interface{} `json:"iconUrl"`
-		IsSign          bool        `json:"isSign"`
-		IsSignDeduct    bool        `json:"isSignDeduct"`
-		IsSignIap       bool        `json:"isSignIap"`
-		IsSignIapDeduct bool        `json:"isSignIapDeduct"`
-		VipCode         int64       `json:"vipCode"`
-		VipLevel        int64       `json:"vipLevel"`
+		DynamicIconUrl  any   `json:"dynamicIconUrl"`
+		ExpireTime      int64 `json:"expireTime"`
+		IconUrl         any   `json:"iconUrl"`
+		IsSign          bool  `json:"isSign"`
+		IsSignDeduct    bool  `json:"isSignDeduct"`
+		IsSignIap       bool  `json:"isSignIap"`
+		IsSignIapDeduct bool  `json:"isSignIapDeduct"`
+		VipCode         int64 `json:"vipCode"`
+		VipLevel        int64 `json:"vipLevel"`
 	} `json:"associator"`
 	MusicPackage struct {
-		DynamicIconUrl  interface{} `json:"dynamicIconUrl"`
-		ExpireTime      int64       `json:"expireTime"`
-		IconUrl         interface{} `json:"iconUrl"`
-		IsSign          bool        `json:"isSign"`
-		IsSignDeduct    bool        `json:"isSignDeduct"`
-		IsSignIap       bool        `json:"isSignIap"`
-		IsSignIapDeduct bool        `json:"isSignIapDeduct"`
-		VipCode         int64       `json:"vipCode"`
-		VipLevel        int64       `json:"vipLevel"`
+		DynamicIconUrl  any   `json:"dynamicIconUrl"`
+		ExpireTime      int64 `json:"expireTime"`
+		IconUrl         any   `json:"iconUrl"`
+		IsSign          bool  `json:"isSign"`
+		IsSignDeduct    bool  `json:"isSignDeduct"`
+		IsSignIap       bool  `json:"isSignIap"`
+		IsSignIapDeduct bool  `json:"isSignIapDeduct"`
+		VipCode         int64 `json:"vipCode"`
+		VipLevel        int64 `json:"vipLevel"`
 	} `json:"musicPackage"`
 	Now               int64 `json:"now"` // eg: 1746370409099
 	OldCacheProtocol  bool  `json:"oldCacheProtocol"`
 	RedVipAnnualCount int64 `json:"redVipAnnualCount"`
 	RedVipLevel       int64 `json:"redVipLevel"`
 	Redplus           struct {
-		DynamicIconUrl  interface{} `json:"dynamicIconUrl"`
-		ExpireTime      int64       `json:"expireTime"`
-		IconUrl         interface{} `json:"iconUrl"`
-		IsSign          bool        `json:"isSign"`
-		IsSignDeduct    bool        `json:"isSignDeduct"`
-		IsSignIap       bool        `json:"isSignIap"`
-		IsSignIapDeduct bool        `json:"isSignIapDeduct"`
-		VipCode         int64       `json:"vipCode"`
-		VipLevel        int64       `json:"vipLevel"`
+		DynamicIconUrl  any   `json:"dynamicIconUrl"`
+		ExpireTime      int64 `json:"expireTime"`
+		IconUrl         any   `json:"iconUrl"`
+		IsSign          bool  `json:"isSign"`
+		IsSignDeduct    bool  `json:"isSignDeduct"`
+		IsSignIap       bool  `json:"isSignIap"`
+		IsSignIapDeduct bool  `json:"isSignIapDeduct"`
+		VipCode         int64 `json:"vipCode"`
+		VipLevel        int64 `json:"vipLevel"`
 	} `json:"redplus"`
 	RelationOtherUserId               int64 `json:"relationOtherUserId"`
 	RelationOtherUserRedVipExpireTime int64 `json:"relationOtherUserRedVipExpireTime"`
 	RelationType                      int64 `json:"relationType"`
 	UserId                            int64 `json:"userId"`
 	VoiceBookVip                      struct {
-		DynamicIconUrl  interface{} `json:"dynamicIconUrl"`
-		ExpireTime      int64       `json:"expireTime"`
-		IconUrl         interface{} `json:"iconUrl"`
-		IsSign          bool        `json:"isSign"`
-		IsSignDeduct    bool        `json:"isSignDeduct"`
-		IsSignIap       bool        `json:"isSignIap"`
-		IsSignIapDeduct bool        `json:"isSignIapDeduct"`
-		VipCode         int64       `json:"vipCode"`
-		VipLevel        int64       `json:"vipLevel"`
+		DynamicIconUrl  any   `json:"dynamicIconUrl"`
+		ExpireTime      int64 `json:"expireTime"`
+		IconUrl         any   `json:"iconUrl"`
+		IsSign          bool  `json:"isSign"`
+		IsSignDeduct    bool  `json:"isSignDeduct"`
+		IsSignIap       bool  `json:"isSignIap"`
+		IsSignIapDeduct bool  `json:"isSignIapDeduct"`
+		VipCode         int64 `json:"vipCode"`
+		VipLevel        int64 `json:"vipLevel"`
 	} `json:"voiceBookVip"`
 }
 
@@ -365,7 +365,7 @@ func (a *Api) VipClientInfo(ctx context.Context, req *VipClientInfoReq) (*VipCli
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -381,50 +381,50 @@ type VipGrowPointResp struct {
 
 type VipGrowPointRespData struct {
 	UserLevel struct {
-		UserId          int64       `json:"userId"`
-		Level           int64       `json:"level"`
-		GrowthPoint     int64       `json:"growthPoint"` // 当前成长值
-		LevelName       string      `json:"levelName"`   // 黑胶·肆
-		YesterdayPoint  int64       `json:"yesterdayPoint"`
-		VipType         int64       `json:"vipType"`    // -2:过期？
-		ExtJson         string      `json:"extJson"`    // eg: "{\"yearMonth\":\"20255\",\"lastDay\":\"202554\",\"lastDayScore\":-6,\"todayScore\":6,\"currentDay\":\"202555\",\"totalScore\":0,\"monthTaskTotalScore\":6}"
-		ExpireTime      int64       `json:"expireTime"` // 1746892799000,
-		AvatarUrl       interface{} `json:"avatarUrl"`
-		LatestVipType   int64       `json:"latestVipType"`   // 100:领取的赠送？
-		LatestVipStatus int64       `json:"latestVipStatus"` // 0:失效或关闭 1: 貌似正常
-		Normal          bool        `json:"normal"`
-		MaxLevel        bool        `json:"maxLevel"` // true: 最高等级
+		UserId          int64  `json:"userId"`
+		Level           int64  `json:"level"`
+		GrowthPoint     int64  `json:"growthPoint"` // 当前成长值
+		LevelName       string `json:"levelName"`   // 黑胶·肆
+		YesterdayPoint  int64  `json:"yesterdayPoint"`
+		VipType         int64  `json:"vipType"`    // -2:过期？
+		ExtJson         string `json:"extJson"`    // eg: "{\"yearMonth\":\"20255\",\"lastDay\":\"202554\",\"lastDayScore\":-6,\"todayScore\":6,\"currentDay\":\"202555\",\"totalScore\":0,\"monthTaskTotalScore\":6}"
+		ExpireTime      int64  `json:"expireTime"` // 1746892799000,
+		AvatarUrl       any    `json:"avatarUrl"`
+		LatestVipType   int64  `json:"latestVipType"`   // 100:领取的赠送？
+		LatestVipStatus int64  `json:"latestVipStatus"` // 0:失效或关闭 1: 貌似正常
+		Normal          bool   `json:"normal"`
+		MaxLevel        bool   `json:"maxLevel"` // true: 最高等级
 	} `json:"userLevel"`
 	LevelCard struct {
-		RightId                           int64       `json:"rightId"`
-		Level                             int64       `json:"level"`             // vip等级
-		PrivilegeName                     string      `json:"privilegeName"`     // V4等级标识
-		PrivilegeSubTitle                 string      `json:"privilegeSubTitle"` // V4尊享
-		PrivilegeIconUrl                  string      `json:"privilegeIconUrl"`
-		PrivilegePlusIconUrl              interface{} `json:"privilegePlusIconUrl"`
-		ResourceId                        int64       `json:"resourceId"`
-		ObtainLimitType                   int64       `json:"obtainLimitType"`
-		LevelBackgroundCardImageUrl       string      `json:"levelBackgroundCardImageUrl"`
-		LevelBackgroundCardExpireImageUrl string      `json:"levelBackgroundCardExpireImageUrl"`
-		LevelName                         string      `json:"levelName"` // eg: 黑胶·肆
-		LevelMarkImageUrl                 string      `json:"levelMarkImageUrl"`
-		LevelMarkExpireImageUrl           string      `json:"levelMarkExpireImageUrl"`
-		BackgroundImageUrl                string      `json:"backgroundImageUrl"`
-		UpgradeFireworksImageUrl          string      `json:"upgradeFireworksImageUrl"`
-		NewUpgradeFireworksImageUrl       string      `json:"newUpgradeFireworksImageUrl"`
-		BlurryBackgroundImageUrl          string      `json:"blurryBackgroundImageUrl"`
-		RedVipImageUrl                    string      `json:"redVipImageUrl"`
-		RedVipExpireImageUrl              string      `json:"redVipExpireImageUrl"`
-		RedVipWholeImageUrl               string      `json:"redVipWholeImageUrl"`
-		RedVipExpireWholeImageUrl         string      `json:"redVipExpireWholeImageUrl"`
-		RedVipBuckleImageUrl              string      `json:"redVipBuckleImageUrl"`
-		RedVipExpireBuckleImageUrl        string      `json:"redVipExpireBuckleImageUrl"`
-		VipGiftRightBarImageUrl           string      `json:"vipGiftRightBarImageUrl"`
-		VipGiftExpireRightBarImageUrl     interface{} `json:"vipGiftExpireRightBarImageUrl"`
-		VipLevelPageCardImgUrl            string      `json:"vipLevelPageCardImgUrl"`
-		VipLevelPageExpireCardImgUrl      string      `json:"vipLevelPageExpireCardImgUrl"`
-		AccountPageIconImgUrl             string      `json:"accountPageIconImgUrl"`
-		FlashIconImgUrl                   string      `json:"flashIconImgUrl"`
+		RightId                           int64  `json:"rightId"`
+		Level                             int64  `json:"level"`             // vip等级
+		PrivilegeName                     string `json:"privilegeName"`     // V4等级标识
+		PrivilegeSubTitle                 string `json:"privilegeSubTitle"` // V4尊享
+		PrivilegeIconUrl                  string `json:"privilegeIconUrl"`
+		PrivilegePlusIconUrl              any    `json:"privilegePlusIconUrl"`
+		ResourceId                        int64  `json:"resourceId"`
+		ObtainLimitType                   int64  `json:"obtainLimitType"`
+		LevelBackgroundCardImageUrl       string `json:"levelBackgroundCardImageUrl"`
+		LevelBackgroundCardExpireImageUrl string `json:"levelBackgroundCardExpireImageUrl"`
+		LevelName                         string `json:"levelName"` // eg: 黑胶·肆
+		LevelMarkImageUrl                 string `json:"levelMarkImageUrl"`
+		LevelMarkExpireImageUrl           string `json:"levelMarkExpireImageUrl"`
+		BackgroundImageUrl                string `json:"backgroundImageUrl"`
+		UpgradeFireworksImageUrl          string `json:"upgradeFireworksImageUrl"`
+		NewUpgradeFireworksImageUrl       string `json:"newUpgradeFireworksImageUrl"`
+		BlurryBackgroundImageUrl          string `json:"blurryBackgroundImageUrl"`
+		RedVipImageUrl                    string `json:"redVipImageUrl"`
+		RedVipExpireImageUrl              string `json:"redVipExpireImageUrl"`
+		RedVipWholeImageUrl               string `json:"redVipWholeImageUrl"`
+		RedVipExpireWholeImageUrl         string `json:"redVipExpireWholeImageUrl"`
+		RedVipBuckleImageUrl              string `json:"redVipBuckleImageUrl"`
+		RedVipExpireBuckleImageUrl        string `json:"redVipExpireBuckleImageUrl"`
+		VipGiftRightBarImageUrl           string `json:"vipGiftRightBarImageUrl"`
+		VipGiftExpireRightBarImageUrl     any    `json:"vipGiftExpireRightBarImageUrl"`
+		VipLevelPageCardImgUrl            string `json:"vipLevelPageCardImgUrl"`
+		VipLevelPageExpireCardImgUrl      string `json:"vipLevelPageExpireCardImgUrl"`
+		AccountPageIconImgUrl             string `json:"accountPageIconImgUrl"`
+		FlashIconImgUrl                   string `json:"flashIconImgUrl"`
 	} `json:"levelCard"`
 }
 
@@ -440,7 +440,7 @@ func (a *Api) VipGrowPoint(ctx context.Context, req *VipGrowPointReq) (*VipGrowP
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -455,55 +455,55 @@ type VipProgressListResp struct {
 }
 
 type VipProgressListRespData struct {
-	UserId                int64       `json:"userId"`
-	UserType              string      `json:"userType"`
-	ProgressRate          int64       `json:"progressRate"`
-	TotalCompleteNum      int64       `json:"totalCompleteNum"`
-	MissionStatus         int64       `json:"missionStatus"`
-	UserMissionProgressId interface{} `json:"userMissionProgressId"`
-	LatestRecordTime      interface{} `json:"latestRecordTime"`
-	StartTime             string      `json:"startTime"`
-	EndTime               string      `json:"endTime"`
-	UpdateTime            interface{} `json:"updateTime"`
+	UserId                int64  `json:"userId"`
+	UserType              string `json:"userType"`
+	ProgressRate          int64  `json:"progressRate"`
+	TotalCompleteNum      int64  `json:"totalCompleteNum"`
+	MissionStatus         int64  `json:"missionStatus"`
+	UserMissionProgressId any    `json:"userMissionProgressId"`
+	LatestRecordTime      any    `json:"latestRecordTime"`
+	StartTime             string `json:"startTime"`
+	EndTime               string `json:"endTime"`
+	UpdateTime            any    `json:"updateTime"`
 	BasicMissionDTO       struct {
-		MissionId              int64       `json:"missionId"`
-		MissionCode            string      `json:"missionCode"`
-		Name                   string      `json:"name"`
-		MissionType            int64       `json:"missionType"`
-		Alue                   int64       `json:"alue"`
-		NeedToReceive          bool        `json:"needToReceive"`
-		MissionEntityId        int64       `json:"missionEntityId"`
-		StartTime              string      `json:"startTime"`
-		CurrentPeriodStartTime string      `json:"currentPeriodStartTime"`
-		EndTime                string      `json:"endTime"`
-		CurrentPeriodEndTime   string      `json:"currentPeriodEndTime"`
-		Tag                    int64       `json:"tag"`
-		SchemaContent          string      `json:"schemaContent"` // use VipProgressListRespDataSchemaContent
-		MissionTimeSettingDto  interface{} `json:"missionTimeSettingDto"`
+		MissionId              int64  `json:"missionId"`
+		MissionCode            string `json:"missionCode"`
+		Name                   string `json:"name"`
+		MissionType            int64  `json:"missionType"`
+		Alue                   int64  `json:"alue"`
+		NeedToReceive          bool   `json:"needToReceive"`
+		MissionEntityId        int64  `json:"missionEntityId"`
+		StartTime              string `json:"startTime"`
+		CurrentPeriodStartTime string `json:"currentPeriodStartTime"`
+		EndTime                string `json:"endTime"`
+		CurrentPeriodEndTime   string `json:"currentPeriodEndTime"`
+		Tag                    int64  `json:"tag"`
+		SchemaContent          string `json:"schemaContent"` // use VipProgressListRespDataSchemaContent
+		MissionTimeSettingDto  any    `json:"missionTimeSettingDto"`
 	} `json:"basicMissionDTO"`
 	StageProgressDTOS []struct {
-		CompleteNum       int64       `json:"completeNum"`
-		CompleteNumPerDay interface{} `json:"completeNumPerDay"`
-		ProgressRate      int64       `json:"progressRate"`
-		StageStatus       int64       `json:"stageStatus"`
-		IsCurrentStage    bool        `json:"isCurrentStage"`
-		RewardType        int64       `json:"rewardType"`
-		RewardId          int64       `json:"rewardId"`
-		RewardName        string      `json:"rewardName"`
-		ProvideMethod     int64       `json:"provideMethod"`
-		Worth             int64       `json:"worth"`
-		RewardCount       int64       `json:"rewardCount"`
-		UserRewardId      interface{} `json:"userRewardId"`
-		UserProgressId    interface{} `json:"userProgressId"`
-		RewardExpireTime  interface{} `json:"rewardExpireTime"`
-		RewardExtendInfo  string      `json:"rewardExtendInfo"`
-		StageIx           int64       `json:"stageIx"`
-		ComposeInterestId interface{} `json:"composeInterestId"`
-		RewardInfoDTOS    interface{} `json:"rewardInfoDTOS"`
-		StageDescription  string      `json:"stageDescription"`
+		CompleteNum       int64  `json:"completeNum"`
+		CompleteNumPerDay any    `json:"completeNumPerDay"`
+		ProgressRate      int64  `json:"progressRate"`
+		StageStatus       int64  `json:"stageStatus"`
+		IsCurrentStage    bool   `json:"isCurrentStage"`
+		RewardType        int64  `json:"rewardType"`
+		RewardId          int64  `json:"rewardId"`
+		RewardName        string `json:"rewardName"`
+		ProvideMethod     int64  `json:"provideMethod"`
+		Worth             int64  `json:"worth"`
+		RewardCount       int64  `json:"rewardCount"`
+		UserRewardId      any    `json:"userRewardId"`
+		UserProgressId    any    `json:"userProgressId"`
+		RewardExpireTime  any    `json:"rewardExpireTime"`
+		RewardExtendInfo  string `json:"rewardExtendInfo"`
+		StageIx           int64  `json:"stageIx"`
+		ComposeInterestId any    `json:"composeInterestId"`
+		RewardInfoDTOS    any    `json:"rewardInfoDTOS"`
+		StageDescription  string `json:"stageDescription"`
 	} `json:"stageProgressDTOS"`
-	HistoryUnObtainRewardWorth int64         `json:"historyUnObtainRewardWorth"`
-	Children                   []interface{} `json:"children"`
+	HistoryUnObtainRewardWorth int64 `json:"historyUnObtainRewardWorth"`
+	Children                   []any `json:"children"`
 }
 
 type VipProgressListRespDataSchemaContent struct {
@@ -528,13 +528,13 @@ type VipProgressListRespDataSchemaContent struct {
 		CompleteUrl string `json:"completeUrl"`
 		NosKey      string `json:"nosKey"`
 	} `json:"bottomSvipIcon"`
-	FinishedTaskSubTitle           string      `json:"finishedTaskSubTitle"`
-	UnfinishTaskSubTitle           string      `json:"unfinishTaskSubTitle"`
-	TaskInitButton                 string      `json:"taskInitButton "`
-	TaskRewardWaitingReceiveButton string      `json:"taskRewardWaitingReceiveButton "`
-	JumpUrl                        string      `json:"jumpUrl "`
-	SeqName                        string      `json:"seqName"`
-	FinishedReceiveRewardJumpUrl   interface{} `json:"finishedReceiveRewardJumpUrl"`
+	FinishedTaskSubTitle           string `json:"finishedTaskSubTitle"`
+	UnfinishTaskSubTitle           string `json:"unfinishTaskSubTitle"`
+	TaskInitButton                 string `json:"taskInitButton "`
+	TaskRewardWaitingReceiveButton string `json:"taskRewardWaitingReceiveButton "`
+	JumpUrl                        string `json:"jumpUrl "`
+	SeqName                        string `json:"seqName"`
+	FinishedReceiveRewardJumpUrl   any    `json:"finishedReceiveRewardJumpUrl"`
 }
 
 // VipProgressList vip成长任务列表(日常任务)
@@ -549,7 +549,7 @@ func (a *Api) VipProgressList(ctx context.Context, req *VipProgressListReq) (*Vi
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -565,14 +565,14 @@ type VipSignInfoResp struct {
 
 // VipSignInfoRespData 当Today为true时则RecordId、Time、SongId有值返回则为0
 type VipSignInfoRespData struct {
-	RecordId  int64       `json:"recordId"`
-	UserId    int64       `json:"userId"`
-	Time      int64       `json:"time"`    // eg: 1746421099000,
-	TimeStr   string      `json:"timeStr"` // eg: 2025-05-03
-	SongId    int64       `json:"songId"`
-	SongCover interface{} `json:"songCover"`
-	Score     int64       `json:"score"` // 成长值
-	Today     bool        `json:"today"` // 是否今天签到 true:是
+	RecordId  int64  `json:"recordId"`
+	UserId    int64  `json:"userId"`
+	Time      int64  `json:"time"`    // eg: 1746421099000,
+	TimeStr   string `json:"timeStr"` // eg: 2025-05-03
+	SongId    int64  `json:"songId"`
+	SongCover any    `json:"songCover"`
+	Score     int64  `json:"score"` // 成长值
+	Today     bool   `json:"today"` // 是否今天签到 true:是
 }
 
 // VipSignInfo 签到信息
@@ -587,7 +587,7 @@ func (a *Api) VipSignInfo(ctx context.Context, req *VipSignInfoReq) (*VipSignInf
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -620,7 +620,7 @@ func (a *Api) VipMAXScore(ctx context.Context, req *VipMAXScoreReq) (*VipMAXScor
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -651,7 +651,7 @@ type VipNewListDataLevelAuthList struct {
 	TabornerType         int64                         `json:"tabornerType"`
 	RightsIcon           VipNewListDataRightsTypeImage `json:"rightsIcon"`
 	ReceiveType          int64                         `json:"receiveType"`
-	ReceiveJumpUrl       interface{}                   `json:"receiveJumpUrl"`
+	ReceiveJumpUrl       any                           `json:"receiveJumpUrl"`
 	AleadyReveiveJumpUrl string                        `json:"aleadyReveiveJumpUrl"`
 	Status               int64                         `json:"status"`
 	PrivilegeDetail      string                        `json:"privilegeDetail"`
@@ -670,7 +670,7 @@ func (a *Api) VipNewList(ctx context.Context, req *VipNewListReq) (*VipNewListRe
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -717,18 +717,18 @@ type VipCashierInfoDataVip struct {
 		IsSignIapDeduct bool   `json:"isSignIapDeduct"`
 		IsSign          bool   `json:"isSign"`
 	} `json:"musicPackage"`
-	RedVipDynamicIconUrl  interface{} `json:"redVipDynamicIconUrl"`
-	RedVipDynamicIconUrl2 interface{} `json:"redVipDynamicIconUrl2"`
+	RedVipDynamicIconUrl  any `json:"redVipDynamicIconUrl"`
+	RedVipDynamicIconUrl2 any `json:"redVipDynamicIconUrl2"`
 	Redplus               struct {
-		VipCode         int64       `json:"vipCode"`
-		ExpireTime      int64       `json:"expireTime"`
-		IconUrl         string      `json:"iconUrl"`
-		DynamicIconUrl  interface{} `json:"dynamicIconUrl"`
-		VipLevel        int64       `json:"vipLevel"`
-		IsSignDeduct    bool        `json:"isSignDeduct"`
-		IsSignIap       bool        `json:"isSignIap"`
-		IsSignIapDeduct bool        `json:"isSignIapDeduct"`
-		IsSign          bool        `json:"isSign"`
+		VipCode         int64  `json:"vipCode"`
+		ExpireTime      int64  `json:"expireTime"`
+		IconUrl         string `json:"iconUrl"`
+		DynamicIconUrl  any    `json:"dynamicIconUrl"`
+		VipLevel        int64  `json:"vipLevel"`
+		IsSignDeduct    bool   `json:"isSignDeduct"`
+		IsSignIap       bool   `json:"isSignIap"`
+		IsSignIapDeduct bool   `json:"isSignIapDeduct"`
+		IsSign          bool   `json:"isSign"`
 	} `json:"redplus"`
 }
 
@@ -751,39 +751,39 @@ type VipCashierInfoDataUser struct {
 		IsPaidFee          bool   `json:"isPaidFee"`
 	} `json:"account"`
 	Profile struct {
-		UserId            int64       `json:"userId"`
-		UserType          int64       `json:"userType"`
-		Nickname          string      `json:"nickname"`
-		AvatarImgId       int64       `json:"avatarImgId"`
-		AvatarUrl         string      `json:"avatarUrl"`
-		BackgroundImgId   int64       `json:"backgroundImgId"`
-		BackgroundUrl     string      `json:"backgroundUrl"`
-		Signature         string      `json:"signature"`
-		CreateTime        int64       `json:"createTime"`
-		UserName          string      `json:"userName"`
-		AccountType       int64       `json:"accountType"`
-		ShortUserName     string      `json:"shortUserName"`
-		Birthday          int64       `json:"birthday"`
-		Authority         int64       `json:"authority"`
-		Gender            int64       `json:"gender"`
-		AccountStatus     int64       `json:"accountStatus"`
-		Province          int64       `json:"province"`
-		City              int64       `json:"city"`
-		AuthStatus        int64       `json:"authStatus"`
-		Description       interface{} `json:"description"`
-		DetailDescription interface{} `json:"detailDescription"`
-		IsDefaultAvatar   bool        `json:"isDefaultAvatar"`
-		ExpertTags        interface{} `json:"expertTags"`
-		Experts           interface{} `json:"experts"`
-		DjStatus          int64       `json:"djStatus"`
-		LocationStatus    int64       `json:"locationStatus"`
-		VipType           int64       `json:"vipType"`
-		IsFollowed        bool        `json:"isFollowed"`
-		IsMutual          bool        `json:"isMutual"`
-		IsAuthenticated   bool        `json:"isAuthenticated"`
-		LastLoginTime     int64       `json:"lastLoginTime"`
-		LastLoginIP       string      `json:"lastLoginIP"`
-		RemarkName        interface{} `json:"remarkName"`
+		UserId            int64  `json:"userId"`
+		UserType          int64  `json:"userType"`
+		Nickname          string `json:"nickname"`
+		AvatarImgId       int64  `json:"avatarImgId"`
+		AvatarUrl         string `json:"avatarUrl"`
+		BackgroundImgId   int64  `json:"backgroundImgId"`
+		BackgroundUrl     string `json:"backgroundUrl"`
+		Signature         string `json:"signature"`
+		CreateTime        int64  `json:"createTime"`
+		UserName          string `json:"userName"`
+		AccountType       int64  `json:"accountType"`
+		ShortUserName     string `json:"shortUserName"`
+		Birthday          int64  `json:"birthday"`
+		Authority         int64  `json:"authority"`
+		Gender            int64  `json:"gender"`
+		AccountStatus     int64  `json:"accountStatus"`
+		Province          int64  `json:"province"`
+		City              int64  `json:"city"`
+		AuthStatus        int64  `json:"authStatus"`
+		Description       any    `json:"description"`
+		DetailDescription any    `json:"detailDescription"`
+		IsDefaultAvatar   bool   `json:"isDefaultAvatar"`
+		ExpertTags        any    `json:"expertTags"`
+		Experts           any    `json:"experts"`
+		DjStatus          int64  `json:"djStatus"`
+		LocationStatus    int64  `json:"locationStatus"`
+		VipType           int64  `json:"vipType"`
+		IsFollowed        bool   `json:"isFollowed"`
+		IsMutual          bool   `json:"isMutual"`
+		IsAuthenticated   bool   `json:"isAuthenticated"`
+		LastLoginTime     int64  `json:"lastLoginTime"`
+		LastLoginIP       string `json:"lastLoginIP"`
+		RemarkName        any    `json:"remarkName"`
 	} `json:"profile"`
 }
 
@@ -799,7 +799,7 @@ func (a *Api) VipCashierInfo(ctx context.Context, req *VipCashierInfoReq) (*VipC
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -836,7 +836,7 @@ func (a *Api) VipLevelList(ctx context.Context, req *VipLevelListReq) (*VipLevel
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -892,7 +892,7 @@ func (a *Api) VipWelfareList(ctx context.Context, req *VipWelfareListReq) (*VipW
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -942,7 +942,7 @@ func (a *Api) VipDetailList(ctx context.Context, req *VipDetailListReq) (*VipDet
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -986,7 +986,7 @@ func (a *Api) VipConfig(ctx context.Context, req *VipConfigReq) (*VipConfigResp,
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -1000,18 +1000,18 @@ type VipDowngradeCompensateResp struct {
 	types.RespCommon[VipDowngradeCompensateData]
 }
 type VipDowngradeCompensateData struct {
-	UserId                   int64       `json:"userId"`
-	NickName                 interface{} `json:"nickName"`
-	UserAvatarUrl            interface{} `json:"userAvatarUrl"`
-	Downgrade                bool        `json:"downgrade"`
-	Receive                  bool        `json:"receive"`
-	ReceiveScore             int64       `json:"receiveScore"`
-	Level                    int64       `json:"level"`
-	IconImg                  interface{} `json:"iconImg"`
-	ReceiveScoreAfterLevel   int64       `json:"receiveScoreAfterLevel"`
-	ReceiveScoreAfterIconImg interface{} `json:"receiveScoreAfterIconImg"`
-	ActivityValid            bool        `json:"activityValid"`
-	SpecialV6                bool        `json:"specialV6"`
+	UserId                   int64 `json:"userId"`
+	NickName                 any   `json:"nickName"`
+	UserAvatarUrl            any   `json:"userAvatarUrl"`
+	Downgrade                bool  `json:"downgrade"`
+	Receive                  bool  `json:"receive"`
+	ReceiveScore             int64 `json:"receiveScore"`
+	Level                    int64 `json:"level"`
+	IconImg                  any   `json:"iconImg"`
+	ReceiveScoreAfterLevel   int64 `json:"receiveScoreAfterLevel"`
+	ReceiveScoreAfterIconImg any   `json:"receiveScoreAfterIconImg"`
+	ActivityValid            bool  `json:"activityValid"`
+	SpecialV6                bool  `json:"specialV6"`
 }
 
 // VipDowngradeCompensate 降级补偿,貌似实在黑胶乐签领取失败场景触发
@@ -1026,7 +1026,7 @@ func (a *Api) VipDowngradeCompensate(ctx context.Context, req *VipDowngradeCompe
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -1053,7 +1053,7 @@ func (a *Api) VipInterests(ctx context.Context, req *VipInterestsReq) (*VipInter
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -1075,14 +1075,14 @@ type VipFloatDataRespData struct {
 		NeedPopUp  bool   `json:"needPopUp"`
 		CurrentDay bool   `json:"currentDay"`
 	} `json:"birthdayData"`
-	FloatTip     interface{} `json:"floatTip"`
-	GiftCardTip  interface{} `json:"giftCardTip"`
+	FloatTip     any `json:"floatTip"`
+	GiftCardTip  any `json:"giftCardTip"`
 	LevelPopData struct {
-		Code    int64       `json:"code"`
-		Data    interface{} `json:"data"`
-		Message string      `json:"message"`
+		Code    int64  `json:"code"`
+		Data    any    `json:"data"`
+		Message string `json:"message"`
 	} `json:"levelPopData"`
-	PopupData     interface{} `json:"popupData"`
+	PopupData     any `json:"popupData"`
 	TopRedDotData struct {
 		NewWelfareIdLevelMap struct {
 			Field1 int64 `json:"0"`
@@ -1096,7 +1096,7 @@ type VipFloatDataRespData struct {
 		} `json:"newWelfareIdLevelMap"`
 		NewGiftCard string `json:"newGiftCard"`
 	} `json:"topRedDotData"`
-	ViewTaskData interface{} `json:"viewTaskData"`
+	ViewTaskData any `json:"viewTaskData"`
 	VipInfo      struct {
 		RedVipLevelIcon   string `json:"redVipLevelIcon"`
 		RedVipLevel       int64  `json:"redVipLevel"`
@@ -1123,8 +1123,8 @@ type VipFloatDataRespData struct {
 			IsSignIapDeduct bool   `json:"isSignIapDeduct"`
 			IsSign          bool   `json:"isSign"`
 		} `json:"associator"`
-		RedVipDynamicIconUrl  interface{} `json:"redVipDynamicIconUrl"`
-		RedVipDynamicIconUrl2 interface{} `json:"redVipDynamicIconUrl2"`
+		RedVipDynamicIconUrl  any `json:"redVipDynamicIconUrl"`
+		RedVipDynamicIconUrl2 any `json:"redVipDynamicIconUrl2"`
 		Redplus               struct {
 			VipCode         int64  `json:"vipCode"`
 			ExpireTime      int64  `json:"expireTime"`
@@ -1139,9 +1139,9 @@ type VipFloatDataRespData struct {
 	} `json:"vipInfo"`
 	ValidUser   bool `json:"validUser"`
 	CashierData struct {
-		IsNotify   bool        `json:"isNotify"`
-		Link       string      `json:"link"`
-		CashierTab interface{} `json:"cashierTab"`
+		IsNotify   bool   `json:"isNotify"`
+		Link       string `json:"link"`
+		CashierTab any    `json:"cashierTab"`
 	} `json:"cashierData"`
 	BirthdayEggData struct {
 		IsNotify  bool   `json:"isNotify"`
@@ -1163,7 +1163,7 @@ func (a *Api) VipFloatData(ctx context.Context, req *VipFloatDataReq) (*VipFloat
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -1190,11 +1190,11 @@ type VipCommonListRespDataContentList struct {
 }
 
 type VipCommonListRespDataContentListChildren struct {
-	Type     string      `json:"type"`
-	Title    string      `json:"title"`
-	MoreUrl  string      `json:"moreUrl"`
-	MoreText string      `json:"moreText"`
-	Collapse interface{} `json:"collapse"`
+	Type     string `json:"type"`
+	Title    string `json:"title"`
+	MoreUrl  string `json:"moreUrl"`
+	MoreText string `json:"moreText"`
+	Collapse any    `json:"collapse"`
 }
 
 // VipCommonList 首页布局列表例如：vip成长任务、热门活动、我的vip特权
@@ -1209,7 +1209,7 @@ func (a *Api) VipCommonList(ctx context.Context, req *VipCommonListReq) (*VipCom
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -1257,7 +1257,7 @@ func (a *Api) VipNewAccountPage(ctx context.Context, req *VipNewAccountPageReq) 
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -1287,7 +1287,7 @@ func (a *Api) VipTaskSign(ctx context.Context, req *VipTaskSignReq) (*VipTaskSig
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -1313,7 +1313,7 @@ func (a *Api) VipWelfareClaim(ctx context.Context, req *VipWelfareClaimReq) (*Vi
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -1364,7 +1364,7 @@ func (a *Api) VipMiddlePageViewReport(ctx context.Context, req *VipMiddlePageVie
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

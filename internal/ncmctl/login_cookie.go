@@ -11,13 +11,13 @@ import (
 	"os"
 	"strings"
 
+	"codeberg.org/sbinet/mozcookie"
+	"github.com/spf13/cobra"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"codeberg.org/sbinet/mozcookie"
-	"github.com/spf13/cobra"
 )
 
 var cookieLongUse = `
@@ -199,7 +199,7 @@ func (c *loginCookieCmd) execute(ctx context.Context, args []string) error {
 			}
 		}
 	} else {
-		var binary = strings.NewReader(content)
+		binary := strings.NewReader(content)
 		switch c.format {
 		case "json":
 			ck, err := ParseCookeJson(binary)

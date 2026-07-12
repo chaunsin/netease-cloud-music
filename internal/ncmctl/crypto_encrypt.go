@@ -10,11 +10,11 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/spf13/cobra"
 )
 
 type cryptoCmd struct {
@@ -59,14 +59,14 @@ func (c *cryptoCmd) execute(_ context.Context, args []string) error {
 	if utils.IsFile(input) {
 		data, err := os.ReadFile(input)
 		if err != nil {
-			return fmt.Errorf("ReadFile: %w", err)
+			return fmt.Errorf("readFile: %w", err)
 		}
 		input = string(data)
 	}
 
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := json.Unmarshal([]byte(input), &payload); err != nil {
-		return fmt.Errorf("Unmarshal: %w", err)
+		return fmt.Errorf("unmarshal: %w", err)
 	}
 
 	var data []byte

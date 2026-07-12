@@ -31,7 +31,7 @@ type EapiOption struct {
 
 // Batch 批处理 APi
 type Batch struct {
-	API    map[string]interface{}
+	API    map[string]any
 	Result string
 	Header http.Header
 	Error  error
@@ -69,7 +69,7 @@ func (b *Batch) Do(data RequestData) *Batch {
 
 // Parse 解析 Batch 的 Json 数据
 func (b *Batch) Parse() (*Batch, map[string]string) {
-	jsonData := make(map[string]interface{})
+	jsonData := make(map[string]any)
 	jsonMap := make(map[string]string)
 	if err := json.Unmarshal([]byte(b.Result), &jsonData); err != nil {
 		b.Error = fmt.Errorf("parse batch json error: %v", err)
@@ -84,8 +84,8 @@ func (b *Batch) Parse() (*Batch, map[string]string) {
 // NewBatch 新建 Batch 对象
 // url: testdata/har/12.har
 func NewBatch(apis ...BatchAPI) *Batch {
-	var b = &Batch{
-		API: make(map[string]interface{}),
+	b := &Batch{
+		API: make(map[string]any),
 	}
 	for _, api := range apis {
 		b.API[api.Key] = api.Json

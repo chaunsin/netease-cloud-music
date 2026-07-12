@@ -33,7 +33,7 @@ func (a *Api) MusicianSign(ctx context.Context, req *MusicianSignReq) (*Musician
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -80,7 +80,7 @@ func (a *Api) MusicianTasks(ctx context.Context, req *MusicianTasksReq) (*Musici
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -105,7 +105,7 @@ func (a *Api) MusicianTasksNew(ctx context.Context, req *MusicianTasksNewReq) (*
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -140,7 +140,7 @@ func (a *Api) MusicianCloudbeanObtain(ctx context.Context, req *MusicianCloudbea
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

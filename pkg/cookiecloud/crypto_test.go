@@ -43,7 +43,6 @@ func TestDecrypt(t *testing.T) {
 
 func TestEncrypt(t *testing.T) {
 	type args struct {
-		uuid     string
 		password string
 		data     string
 	}

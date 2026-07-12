@@ -36,7 +36,7 @@ func Daemon(close ...Close) {
 		switch s {
 		case syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
 			for _, v := range close {
-				v.Close(context.Background())
+				_ = v.Close(context.Background())
 			}
 			time.Sleep(time.Second * 1)
 			log.Printf("[nohup] EXIT...")

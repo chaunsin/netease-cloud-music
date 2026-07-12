@@ -29,7 +29,7 @@ func (a *Api) CDNList(ctx context.Context, req *CDNListReq) (*CDNListResp, error
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

@@ -131,7 +131,7 @@ func TestParseBytes(t *testing.T) {
 
 func TestMd5Hex(t *testing.T) {
 	// var filename = "../../testdata/music/record1.m4a"
-	var filename = "../../testdata/music/Maroon 5 - Animals.flac"
+	filename := "../../testdata/music/Maroon 5 - Animals.flac"
 	file, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
@@ -159,33 +159,24 @@ func TestSplitSlice(t *testing.T) {
 			name: "ok",
 			args: args[int64]{input: []int64{1, 2, 3, 4, 5, 6, 7, 8}, chunkSize: 3},
 			want: [][]int64{{1, 2, 3}, {4, 5, 6}, {7, 8}},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				if err != nil {
-					return false
-				}
-				return true
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
+				return err == nil
 			},
 		},
 		{
 			name: "chunk>len",
 			args: args[int64]{input: []int64{1, 2, 3}, chunkSize: 4},
 			want: [][]int64{{1, 2, 3}},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				if err != nil {
-					return false
-				}
-				return true
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
+				return err == nil
 			},
 		},
 		{
 			name: "len<=0",
 			args: args[int64]{input: []int64{1, 2, 3}, chunkSize: 0},
 			want: [][]int64{},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				if err != nil {
-					return false
-				}
-				return true
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
+				return err == nil
 			},
 		},
 	}
@@ -225,33 +216,24 @@ func TestTimeUntilMidnight(t *testing.T) {
 			name: "cst",
 			args: args{timeZone: "Asia/Shanghai"},
 			want: calculateTime(t, "Asia/Shanghai"), // 由于时间获取在方法内部，此处构造的时间和待测试得基本雷同,允许时间误差在1秒之内。
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				if err != nil {
-					return false
-				}
-				return true
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
+				return err == nil
 			},
 		},
 		{
 			name: "local",
 			args: args{timeZone: ""},
 			want: calculateTime(t, ""), // 由于时间获取在方法内部，此处构造的时间和待测试得基本雷同,允许时间误差在1秒之内。
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				if err != nil {
-					return false
-				}
-				return true
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
+				return err == nil
 			},
 		},
 		{
 			name: "UTC",
 			args: args{timeZone: "UTC"},
 			want: calculateTime(t, "UTC"), // 由于时间获取在方法内部，此处构造的时间和待测试得基本雷同,允许时间误差在1秒之内。
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				if err != nil {
-					return false
-				}
-				return true
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
+				return err == nil
 			},
 		},
 	}
@@ -463,7 +445,7 @@ func TestCheckPath(t *testing.T) {
 			args:       tempFilePath,
 			wantExists: true,
 			wantIsDir:  false,
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("error: %v", err)
 					return false
@@ -476,7 +458,7 @@ func TestCheckPath(t *testing.T) {
 			args:       homeDir,
 			wantExists: true,
 			wantIsDir:  true,
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("error: %v", err)
 					return false
@@ -489,7 +471,7 @@ func TestCheckPath(t *testing.T) {
 			args:       filepath.Join("~", "nonexistent", "file"),
 			wantExists: false,
 			wantIsDir:  false,
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("error: %v", err)
 					return false
@@ -502,7 +484,7 @@ func TestCheckPath(t *testing.T) {
 			args:       filepath.Join("~"),
 			wantExists: true,
 			wantIsDir:  true,
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("error: %v", err)
 					return false
@@ -539,7 +521,7 @@ func TestExpandTilde(t *testing.T) {
 			name: "~",
 			args: "~",
 			want: home,
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("error: %v", err)
 					return false
@@ -551,7 +533,7 @@ func TestExpandTilde(t *testing.T) {
 			name: "~/",
 			args: "~/",
 			want: home,
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("error: %v", err)
 					return false
@@ -572,7 +554,7 @@ func TestExpandTilde(t *testing.T) {
 }
 
 func TestGenerateWNMCID(t *testing.T) {
-	var validate = func(data string) bool {
+	validate := func(data string) bool {
 		parts := strings.Split(data, ".")
 		return len(parts) == 4 &&
 			len(parts[0]) == 6 &&

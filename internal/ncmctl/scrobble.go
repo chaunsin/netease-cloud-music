@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cheggaaa/pb/v3"
+	"github.com/spf13/cobra"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/database"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/cheggaaa/pb/v3"
-	"github.com/spf13/cobra"
 )
 
 type ScrobbleOpts struct {
@@ -77,7 +77,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 		return fmt.Errorf("NewClient: %w", err)
 	}
 	defer cli.Close(ctx)
-	var request = weapi.New(cli)
+	request := weapi.New(cli)
 
 	// 获取用户id
 	user, err := request.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
@@ -87,7 +87,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	if user.Code != 200 || user.Profile == nil || user.Account == nil {
 		return fmt.Errorf("need login")
 	}
-	var uid = fmt.Sprintf("%v", user.Account.Id)
+	uid := fmt.Sprintf("%v", user.Account.Id)
 
 	// 判断是否满级，满级则不再执行。
 	detail, err := request.GetUserInfoDetail(ctx, &weapi.GetUserInfoDetailReq{UserId: user.Account.Id})
@@ -162,10 +162,10 @@ func (c *Scrobble) execute(ctx context.Context) error {
 
 	// 执行刷歌
 	for _, v := range list {
-		var req = &weapi.WebLogReq{CsrfToken: "", Logs: []map[string]interface{}{
+		req := &weapi.WebLogReq{CsrfToken: "", Logs: []map[string]any{
 			{
 				"action": "play",
-				"json": map[string]interface{}{
+				"json": map[string]any{
 					"type":     "song",
 					"wifi":     0,
 					"download": 0,
@@ -220,7 +220,7 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api, db d
 		return nil, fmt.Errorf("TopList: %w", err)
 	}
 	if tops.Code != 200 {
-		return nil, fmt.Errorf("TopList err: %+v\n", tops)
+		return nil, fmt.Errorf("TopList err: %+v", tops)
 	}
 	if len(tops.List) <= 0 {
 		return nil, fmt.Errorf("TopList is empty")
@@ -238,14 +238,14 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api, db d
 			return nil, fmt.Errorf("PlaylistDetail(%v): %w", list.Id, err)
 		}
 		if info.Code != 200 {
-			return nil, fmt.Errorf("PlaylistDetail(%v) err: %+v\n", list.Id, info)
+			return nil, fmt.Errorf("PlaylistDetail(%v) err: %+v", list.Id, info)
 		}
 		if len(info.Playlist.TrackIds) <= 0 {
 			log.Warn("PlaylistDetail(%v) is empty", list.Id)
 			continue
 		}
 
-		var sourceId = list.Id
+		sourceId := list.Id
 		for _, v := range info.Playlist.TrackIds {
 			if int64(len(req)) >= num {
 				break
@@ -270,7 +270,7 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api, db d
 	}
 
 	// 根据歌单trickIds.Id查询歌曲详情信息
-	var resp = make([]NeverHeardSongsList, 0, num)
+	resp := make([]NeverHeardSongsList, 0, num)
 	details, err := request.SongDetail(ctx, &weapi.SongDetailReq{C: req})
 	if err != nil {
 		return nil, fmt.Errorf("SongDetail: %w", err)
@@ -287,7 +287,7 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api, db d
 	return resp, nil
 }
 
-func scrobbleRecordKey(uid string, songId string) string {
+func scrobbleRecordKey(uid, songId string) string {
 	return fmt.Sprintf("scrobble:record:%v:%v", uid, songId)
 }
 

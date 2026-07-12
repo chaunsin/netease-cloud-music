@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/dhowden/tag"
+
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/dhowden/tag"
 )
 
 // TestCloudUpload 云盘上传.执行之前需要执行一次登录example_login_test.go
@@ -63,7 +63,7 @@ func TestCloudUpload(t *testing.T) {
 	}
 
 	// 3.检查此文件是否需要上传
-	var checkReq = weapi.CloudUploadCheckReq{
+	checkReq := weapi.CloudUploadCheckReq{
 		Bitrate: bitrate,
 		Ext:     ext,
 		Length:  fmt.Sprintf("%d", stat.Size()),
@@ -81,7 +81,7 @@ func TestCloudUpload(t *testing.T) {
 	}
 
 	// 4.获取上传凭证
-	var allocReq = weapi.CloudTokenAllocReq{
+	allocReq := weapi.CloudTokenAllocReq{
 		Bucket:     "", // jd-musicrep-privatecloud-audio-public
 		Ext:        ext,
 		Filename:   filepath.Base(filename),
@@ -101,7 +101,7 @@ func TestCloudUpload(t *testing.T) {
 
 	// 5.上传文件
 	if resp.NeedUpload {
-		var uploadReq = weapi.CloudUploadReq{
+		uploadReq := weapi.CloudUploadReq{
 			Bucket:    allocResp.Bucket,
 			ObjectKey: allocResp.ObjectKey,
 			Token:     allocResp.Token,
@@ -123,7 +123,7 @@ func TestCloudUpload(t *testing.T) {
 		t.Fatalf("ReadFrom: %v", err)
 	}
 
-	var InfoReq = weapi.CloudInfoReq{
+	InfoReq := weapi.CloudInfoReq{
 		Md5:        md5,
 		SongId:     resp.SongId,
 		Filename:   stat.Name(),
@@ -143,7 +143,7 @@ func TestCloudUpload(t *testing.T) {
 	}
 
 	// 7.对上传得歌曲进行发布，和自己账户做关联,不然云盘列表看不到上传得歌曲信息
-	var publishReq = weapi.CloudPublishReq{
+	publishReq := weapi.CloudPublishReq{
 		SongId: infoResp.SongId,
 	}
 	publishResp, err := api.CloudPublish(ctx, &publishReq)

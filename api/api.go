@@ -13,19 +13,19 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httputil"
-	neturl "net/url"
 	"sync"
 	"time"
-
-	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
-	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
 
 	"github.com/andybalholm/brotli"
 	"github.com/cheggaaa/pb/v3"
 	"github.com/go-resty/resty/v2"
 	"golang.org/x/sync/singleflight"
+
+	neturl "net/url"
+
+	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
+	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
 )
 
 type Config struct {
@@ -71,7 +71,7 @@ func NewClient(cfg *Config, l *log.Logger) (*Client, error) {
 		return nil, fmt.Errorf("validate: %w", err)
 	}
 
-	var opts = []cookie.Option{
+	opts := []cookie.Option{
 		cookie.WithSyncInterval(cfg.Cookie.Interval),
 	}
 	if cfg.Cookie.Filepath != "" {
@@ -187,7 +187,7 @@ func (c *Client) GetDeviceId() string {
 }
 
 // Request 接口请求.
-func (c *Client) Request(ctx context.Context, url string, req, resp interface{}, opts *Options) (*resty.Response, error) {
+func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *Options) (*resty.Response, error) {
 	if url == "" || req == nil || resp == nil {
 		return nil, errors.New("request args invalid")
 	}
@@ -388,7 +388,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp interface{},
 	return response, nil
 }
 
-func (c *Client) Upload(ctx context.Context, url string, headers map[string]string, data io.Reader, resp interface{}, bar *pb.ProgressBar) (*resty.Response, error) {
+func (c *Client) Upload(ctx context.Context, url string, headers map[string]string, data io.Reader, resp any, bar *pb.ProgressBar) (*resty.Response, error) {
 	var body any = data
 	if bar != nil {
 		body = bar.NewProxyReader(data)
@@ -457,7 +457,7 @@ func (c *Client) Download(ctx context.Context, url string, headers map[string]st
 }
 
 func contentEncoding(c *resty.Client, resp *resty.Response) error {
-	var kind = resp.Header().Get("Content-Encoding")
+	kind := resp.Header().Get("Content-Encoding")
 	// log.Debug("Content-Encoding: %s Uncompressed: %v", kind, resp.RawResponse.Uncompressed)
 	switch kind {
 	case "deflate":
@@ -491,26 +491,26 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 	return nil
 }
 
-func dump(c *resty.Client, resp *resty.Response) error {
-	// d, err := io.ReadAll(resp.RawBody())
-	// if err != nil {
-	// 	return fmt.Errorf("ReadAll: %w", err)
-	// }
-	// log.Debug("rawbody:%s", string(d))
+// func dump(c *resty.Client, resp *resty.Response) error {
+// 	// d, err := io.ReadAll(resp.RawBody())
+// 	// if err != nil {
+// 	// 	return fmt.Errorf("ReadAll: %w", err)
+// 	// }
+// 	// log.Debug("rawbody:%s", string(d))
 
-	resp.RawResponse.Body = io.NopCloser(bytes.NewReader(resp.Body()))
-	log.Debug("############### http dump ################")
+// 	resp.RawResponse.Body = io.NopCloser(bytes.NewReader(resp.Body()))
+// 	log.Debug("############### http dump ################")
 
-	dumpReq, err := httputil.DumpRequest(resp.Request.RawRequest, true)
-	if err != nil {
-		return fmt.Errorf("DumpRequest: %w", err)
-	}
-	log.Debug("---------------- request ----------------\n%s", string(dumpReq))
+// 	dumpReq, err := httputil.DumpRequest(resp.Request.RawRequest, true)
+// 	if err != nil {
+// 		return fmt.Errorf("DumpRequest: %w", err)
+// 	}
+// 	log.Debug("---------------- request ----------------\n%s", string(dumpReq))
 
-	dumpResp, err := httputil.DumpResponse(resp.RawResponse, true)
-	if err != nil {
-		return fmt.Errorf("DumpResponse: %w", err)
-	}
-	log.Debug("---------------- response ----------------\n%s\n", string(dumpResp))
-	return nil
-}
+// 	dumpResp, err := httputil.DumpResponse(resp.RawResponse, true)
+// 	if err != nil {
+// 		return fmt.Errorf("DumpResponse: %w", err)
+// 	}
+// 	log.Debug("---------------- response ----------------\n%s\n", string(dumpResp))
+// 	return nil
+// }

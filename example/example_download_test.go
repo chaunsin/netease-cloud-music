@@ -58,7 +58,7 @@ func TestDownload(t *testing.T) {
 	// 	t.Logf("id=%v 没有找到%v品质的资源,当前品质为%v\n", songId, types.LevelString[level], types.LevelString[level])
 	// }
 
-	var detailReq = &weapi.SongDetailReq{
+	detailReq := &weapi.SongDetailReq{
 		C: []weapi.SongDetailReqList{{
 			Id: songIdStr,
 			V:  0,
@@ -74,7 +74,7 @@ func TestDownload(t *testing.T) {
 	if len(detail.Songs) <= 0 {
 		t.Fatalf("SongDetail(%v) data is empty", songId)
 	}
-	var songDetail = detail.Songs[0]
+	songDetail := detail.Songs[0]
 
 	// 查询音乐支持哪些音质
 	qualityResp, err := request.SongMusicQuality(ctx, &weapi.SongMusicQualityReq{SongId: songIdStr})
@@ -91,7 +91,7 @@ func TestDownload(t *testing.T) {
 	}
 
 	// 获取下载链接地址
-	var downReq = &weapi.SongDownloadUrlReq{
+	downReq := &weapi.SongDownloadUrlReq{
 		Id: songIdStr,
 		Br: fmt.Sprintf("%d", quality.Br),
 	}
@@ -107,7 +107,7 @@ func TestDownload(t *testing.T) {
 		t.Fatalf("资源已下架或无版权(%v) code: %v", songId, downResp.Data.Code)
 	}
 
-	var artistList = make([]string, 0, len(songDetail.Ar))
+	artistList := make([]string, 0, len(songDetail.Ar))
 	for _, ar := range songDetail.Ar {
 		artistList = append(artistList, strings.TrimSpace(ar.Name))
 	}
@@ -122,7 +122,7 @@ func TestDownload(t *testing.T) {
 		drd.Id, drd.Url, dest, tmpDir, tempName, drd.Br, drd.EncodeType, drd.Type)
 
 	// 创建临时文件以及下载目录
-	if err := utils.MkdirIfNotExist(output, 0755); err != nil {
+	if err := utils.MkdirIfNotExist(output, 0o755); err != nil {
 		t.Fatalf("MkdirIfNotExist: %s", err)
 	}
 	file, err := os.CreateTemp(tmpDir, tempName)
@@ -150,7 +150,7 @@ func TestDownload(t *testing.T) {
 	if err := os.Rename(file.Name(), dest); err != nil {
 		t.Fatalf("rename: %s", err)
 	}
-	if err := os.Chmod(dest, 0644); err != nil {
+	if err := os.Chmod(dest, 0o644); err != nil {
 		t.Fatalf("chmod: %s", err)
 	}
 	t.Logf("download success: %s\n", dest)

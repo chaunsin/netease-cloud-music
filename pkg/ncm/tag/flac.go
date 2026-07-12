@@ -124,7 +124,7 @@ func (f *Flac) SetLyrics(lyrics string) error {
 }
 
 func (f *Flac) setVorbisCommentMeta(block *flac.MetaDataBlock) {
-	var idx = -1
+	idx := -1
 	for i, m := range f.flac.Meta {
 		if m.Type == flac.VorbisComment {
 			idx = i
@@ -147,7 +147,7 @@ func (f *Flac) Save() error {
 		return err
 	}
 
-	var tmpName = f.filename + "-tmp"
+	tmpName := f.filename + "-tmp"
 	temp, err := os.OpenFile(tmpName, os.O_RDWR|os.O_CREATE, stat.Mode())
 	if err != nil {
 		return err

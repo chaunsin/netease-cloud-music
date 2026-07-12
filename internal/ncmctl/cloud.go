@@ -16,15 +16,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/api/weapi"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
-	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
 	"github.com/cheggaaa/pb/v3"
 	"github.com/dhowden/tag"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/semaphore"
+
+	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/weapi"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
 
 const maxSize = 500 * utils.MB
@@ -172,7 +172,7 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 				return err
 			}
 
-			var f = filepath.Join(file, path)
+			f := filepath.Join(file, path)
 			if ok := utils.IsMusicExt(f); !ok {
 				return nil
 			}
@@ -210,7 +210,7 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 
 	fileList = slices.Compact(fileList)
 	log.Debug("Ready to upload list: %v", fileList)
-	var total = int64(len(fileList))
+	total := int64(len(fileList))
 	defer func() {
 		c.cmd.Printf("report total: %v success: %v failed: %v skip: %v\n",
 			total, total-fail.Load(), fail.Load(), skip.Load())
@@ -278,19 +278,19 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 
 	file, err := os.Open(filename)
 	if err != nil {
-		return fmt.Errorf("Open: %w", err)
+		return fmt.Errorf("open: %w", err)
 	}
 	defer file.Close()
 
 	stat, err := file.Stat()
 	if err != nil {
-		return fmt.Errorf("Stat: %w", err)
+		return fmt.Errorf("stat: %w", err)
 	}
-	var fileSize = stat.Size()
+	fileSize := stat.Size()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
-		return fmt.Errorf("ReadAll: %w", err)
+		return fmt.Errorf("readAll: %w", err)
 	}
 
 	md5, err := utils.MD5Hex(data)
@@ -300,11 +300,11 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 
 	// 重新设置文件指针到开头
 	if _, err = file.Seek(0, io.SeekStart); err != nil {
-		return fmt.Errorf("Seek: %w", err)
+		return fmt.Errorf("seek: %w", err)
 	}
 
 	// 2.检查此文件是否需要上传
-	var checkReq = weapi.CloudUploadCheckReq{
+	checkReq := weapi.CloudUploadCheckReq{
 		Bitrate: bitrate,
 		Ext:     ext,
 		Length:  fmt.Sprintf("%d", fileSize),
@@ -318,11 +318,11 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 	}
 	log.Debug("CloudUploadCheck resp: %+v\n", resp)
 	if resp.Code != 200 {
-		return fmt.Errorf("CloudUploadCheck resp: %+v\n", resp)
+		return fmt.Errorf("CloudUploadCheck resp: %+v", resp)
 	}
 
 	// 3.获取上传凭证
-	var allocReq = weapi.CloudTokenAllocReq{
+	allocReq := weapi.CloudTokenAllocReq{
 		Bucket:     "", // jd-musicrep-privatecloud-audio-public
 		Ext:        ext,
 		Filename:   filepath.Base(filename),
@@ -337,13 +337,13 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 	}
 	log.Debug("CloudTokenAlloc resp: %+v\n", allocResp)
 	if allocResp.Code != 200 {
-		return fmt.Errorf("CloudTokenAlloc resp: %+v\n", allocResp)
+		return fmt.Errorf("CloudTokenAlloc resp: %+v", allocResp)
 	}
 
 	// 4.上传文件
 	if resp.NeedUpload {
 		log.Info("[%s] need upload", filename)
-		var uploadReq = weapi.CloudUploadReq{
+		uploadReq := weapi.CloudUploadReq{
 			Bucket:      allocResp.Bucket,
 			ObjectKey:   allocResp.ObjectKey,
 			Token:       allocResp.Token,
@@ -356,7 +356,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		}
 		log.Debug("CloudUpload resp: %+v\n", uploadResp)
 		if uploadResp.ErrCode != "" {
-			return fmt.Errorf("CloudUpload resp: %+v\n", uploadResp)
+			return fmt.Errorf("CloudUpload resp: %+v", uploadResp)
 		}
 	}
 
@@ -366,7 +366,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		return fmt.Errorf("ReadFrom: %w", err)
 	}
 
-	var InfoReq = weapi.CloudInfoReq{
+	InfoReq := weapi.CloudInfoReq{
 		Md5:        md5,
 		SongId:     resp.SongId,
 		Filename:   stat.Name(),

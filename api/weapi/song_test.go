@@ -6,9 +6,9 @@ package weapi
 import (
 	"testing"
 
-	"github.com/chaunsin/netease-cloud-music/api/types"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 func TestSongPlayer(t *testing.T) {

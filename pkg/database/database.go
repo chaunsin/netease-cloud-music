@@ -13,7 +13,7 @@ import (
 
 type Database interface {
 	Get(ctx context.Context, key string) (string, error)
-	Set(ctx context.Context, key string, value string, ttl ...time.Duration) error
+	Set(ctx context.Context, key, value string, ttl ...time.Duration) error
 	Exists(ctx context.Context, key string) (bool, error)
 	Increment(ctx context.Context, key string, value int64, ttl ...time.Duration) (int64, error)
 	Del(ctx context.Context, key string) error

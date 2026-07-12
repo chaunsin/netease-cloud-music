@@ -16,12 +16,13 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/spf13/cobra"
+
+	har "github.com/chaunsin/go-har"
+
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	har "github.com/chaunsin/go-har"
-	"github.com/spf13/cobra"
 )
 
 type decryptCmd struct {
@@ -96,7 +97,7 @@ func (c *decryptCmd) execute(_ context.Context, args []string) error {
 		input = string(data)
 	}
 
-	var payload = &Payload{
+	payload := &Payload{
 		Kind:   opts.Kind,
 		Status: "ok",
 		Request: Request{
@@ -226,7 +227,7 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 	if h.EntryTotal() <= 0 {
 		return nil, fmt.Errorf("request data is empty")
 	}
-	var resp = make([]Payload, 0, h.EntryTotal())
+	resp := make([]Payload, 0, h.EntryTotal())
 	for _, entry := range h.Export().Log.Entries {
 		var (
 			req  = entry.Request
@@ -270,7 +271,7 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 		}
 
 		// 解析request请求参数
-		var pd = req.PostData
+		pd := req.PostData
 		if len(pd.Params) > 0 {
 			switch kind {
 			case "eapi":

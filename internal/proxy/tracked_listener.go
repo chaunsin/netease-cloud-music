@@ -135,7 +135,7 @@ func (c *trackedConn) observeRead(data []byte) {
 				c.plaintextPending = false
 				c.handshakeDeadlineActive = false
 				c.plaintextHeader = nil
-				_ = c.Conn.SetDeadline(time.Time{})
+				_ = c.SetDeadline(time.Time{})
 			}
 		}
 	}
@@ -151,7 +151,7 @@ func (c *trackedConn) armHandshakeDeadline(timeout time.Duration) {
 	c.handshakeDeadlineActive = true
 	c.plaintextHeader = nil
 	c.plaintextPending = false
-	_ = c.Conn.SetDeadline(time.Now().Add(timeout))
+	_ = c.SetDeadline(time.Now().Add(timeout))
 }
 
 func (c *trackedConn) clearHandshakeDeadline() {
@@ -164,7 +164,7 @@ func (c *trackedConn) clearHandshakeDeadline() {
 	c.handshakeDeadlineActive = false
 	c.plaintextHeader = nil
 	c.plaintextPending = false
-	_ = c.Conn.SetDeadline(time.Time{})
+	_ = c.SetDeadline(time.Time{})
 }
 
 // CloseWrite and CloseRead preserve the half-close capability of accepted TCP

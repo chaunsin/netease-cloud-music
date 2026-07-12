@@ -6,7 +6,6 @@ package crypto
 import (
 	"bytes"
 	"compress/gzip"
-	cryptorand "crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -15,6 +14,8 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"golang.org/x/crypto/chacha20"
+
+	cryptorand "crypto/rand"
 )
 
 const (

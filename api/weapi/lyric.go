@@ -74,7 +74,7 @@ func (a *Api) Lyric(ctx context.Context, req *LyricReq) (*LyricResp, error) {
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -94,20 +94,20 @@ type LyricV1Req struct {
 
 type LyricV1Resp struct {
 	types.RespCommon[any]
-	Sgc       bool        `json:"sgc"`
-	Sfy       bool        `json:"sfy"`
-	Qfy       bool        `json:"qfy"`
-	NeedDesc  bool        `json:"needDesc"`
-	PureMusic bool        `json:"pureMusic"`
-	BriefDesc interface{} `json:"briefDesc,omitempty"`
-	TransUser TransUser   `json:"transUser,omitempty"` // 翻译贡献者
-	LyricUser TransUser   `json:"lyricUser,omitempty"` // 歌词贡献者
-	Lrc       Lyric       `json:"lrc"`                 // 歌词
-	KLyric    Lyric       `json:"klyric"`              //
-	TLyric    Lyric       `json:"tlyric"`              // 翻译版本
-	RomaLrc   Lyric       `json:"romalrc"`             // 音译歌词
-	Yrc       Lyric       `json:"yrc,omitempty"`       // 逐字歌词
-	YRomaLrc  Lyric       `json:"yromalrc,omitempty"`  //
+	Sgc       bool      `json:"sgc"`
+	Sfy       bool      `json:"sfy"`
+	Qfy       bool      `json:"qfy"`
+	NeedDesc  bool      `json:"needDesc"`
+	PureMusic bool      `json:"pureMusic"`
+	BriefDesc any       `json:"briefDesc,omitempty"`
+	TransUser TransUser `json:"transUser,omitempty"` // 翻译贡献者
+	LyricUser TransUser `json:"lyricUser,omitempty"` // 歌词贡献者
+	Lrc       Lyric     `json:"lrc"`                 // 歌词
+	KLyric    Lyric     `json:"klyric"`              //
+	TLyric    Lyric     `json:"tlyric"`              // 翻译版本
+	RomaLrc   Lyric     `json:"romalrc"`             // 音译歌词
+	Yrc       Lyric     `json:"yrc,omitempty"`       // 逐字歌词
+	YRomaLrc  Lyric     `json:"yromalrc,omitempty"`  //
 }
 
 // LyricV1 获取歌曲歌词,支持逐字歌词。
@@ -125,7 +125,7 @@ func (a *Api) LyricV1(ctx context.Context, req *LyricV1Req) (*LyricV1Resp, error
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -150,7 +150,7 @@ func (a *Api) SongLyricsMark(ctx context.Context, req *SongLyricsMarkReq) (*Song
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

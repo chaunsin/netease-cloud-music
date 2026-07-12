@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
-
-	"github.com/spf13/cobra"
 )
 
 type loginPhoneCmd struct {
@@ -53,7 +53,7 @@ func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
 	if len(args) <= 0 {
 		return fmt.Errorf("requrid phone number")
 	}
-	var cellphone = args[0]
+	cellphone := args[0]
 	if len(cellphone) < 5 {
 		return fmt.Errorf("phone number is too short")
 	}
@@ -84,7 +84,7 @@ func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
 		if sms.Code == 200 && sms.Data {
 			c.cmd.Println("send sms success")
 		} else {
-			return fmt.Errorf("send sms failed, code: %d, msg: %s\n", sms.Code, sms.Msg)
+			return fmt.Errorf("send sms failed, code: %d, msg: %s", sms.Code, sms.Msg)
 		}
 
 		// 等待用户在终端输入验证码

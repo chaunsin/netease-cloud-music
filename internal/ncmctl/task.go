@@ -9,13 +9,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/robfig/cron/v3"
+	"github.com/spf13/cobra"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/nohup"
-
-	"github.com/robfig/cron/v3"
-	"github.com/spf13/cobra"
 )
 
 type TaskOpts struct {
@@ -65,13 +65,13 @@ func (c *Task) addFlags() {
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Partner, "partner", false, "enabled partner task")
 	c.cmd.PersistentFlags().StringVar(&c.opts.PartnerOptsCrontab, "partner.cron", "0 18 * * *", "partner crontab expression. usage detail: https://crontab.guru")
-	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.PartnerOpts.Star, "partner.star", []int64{3, 4}, "set the base song evaluation score level random range 1-5")
-	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.PartnerOpts.ExtStar, "partner.extStar", []int64{2, 3, 4}, "set the extra song evaluation score level random range 1-5")
-	c.cmd.PersistentFlags().StringVar(&c.opts.PartnerOpts.ExtNum, "partner.extNum", "random", "extra evaluation number of songs,'random' means 2 to 7")
+	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.Star, "partner.star", []int64{3, 4}, "set the base song evaluation score level random range 1-5")
+	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.ExtStar, "partner.extStar", []int64{2, 3, 4}, "set the extra song evaluation score level random range 1-5")
+	c.cmd.PersistentFlags().StringVar(&c.opts.ExtNum, "partner.extNum", "random", "extra evaluation number of songs,'random' means 2 to 7")
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Scrobble, "scrobble", false, "enabled scrobble task")
 	c.cmd.PersistentFlags().StringVar(&c.opts.ScrobbleOptsCrontab, "scrobble.cron", "0 18 * * *", "scrobble crontab expression. usage detail: https://crontab.guru")
-	c.cmd.PersistentFlags().Int64Var(&c.opts.ScrobbleOpts.Num, "scrobble.num", 300, "scrobble num of songs")
+	c.cmd.PersistentFlags().Int64Var(&c.opts.Num, "scrobble.num", 300, "scrobble num of songs")
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.SignIn, "sign", false, "enabled sign task")
 	c.cmd.PersistentFlags().StringVar(&c.opts.SignInOptsCrontab, "sign.cron", "0 10 * * *", "sign crontab expression. usage detail: https://crontab.guru")
@@ -109,7 +109,7 @@ func (c *Task) validate() error {
 		}
 	)
 
-	var o = c.opts
+	o := c.opts
 	if o.RunAll || (!o.SignIn && !o.Partner && !o.Scrobble) {
 		return errors.Join(signIn(), partner(), scrobble())
 	} else {
@@ -238,7 +238,7 @@ func (c *Task) execute(ctx context.Context, _ []string) error {
 		}
 	)
 
-	var o = c.opts
+	o := c.opts
 	if o.RunAll || (!o.SignIn && !o.Partner && !o.Scrobble) {
 		if err := errors.Join(signIn(), partner(), scrobble()); err != nil {
 			return err

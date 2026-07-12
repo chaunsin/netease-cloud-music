@@ -7,17 +7,29 @@ CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 COMMIT_HASH := $(shell git rev-parse --short=7 HEAD)
 BUILD_TIME=$(shell date "+%Y-%m-%d %H:%M:%S%z")
 
+.PHONY: fmt
+fmt:
+	golangci-lint fmt -c .golangci.yaml ./...
+
+.PHONY: lint
+lint:
+	golangci-lint run -c .golangci.yaml --fix ./...
+
+.PHONY: test
 test:
 	go test -v ./...
 	
+.PHONY: info	
 info:
 	@echo "Current Branch: $(CURRENT_BRANCH)"
 	@echo "Current Commit Hash: $(COMMIT_HASH)"
 	@echo "Current Build Time: $(BUILD_TIME)"
 
+.PHONY: build
 build: info
 	go build -ldflags "-X 'main.Version=$(CURRENT_BRANCH)' -X 'main.Commit=${COMMIT_HASH}' -X 'main.BuildTime=${BUILD_TIME}' -s -w" -o ncmctl cmd/ncmctl/main.go
 
+.PHONY: install
 install:
 	cd cmd/ncmctl && go install .
 

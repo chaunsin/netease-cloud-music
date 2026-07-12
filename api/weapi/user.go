@@ -39,65 +39,65 @@ type GetUserInfoDetailResp struct {
 			Age        bool `json:"age"`
 			VillageAge bool `json:"villageAge"`
 		} `json:"privacyItemUnlimit"`
-		AvatarDetail              interface{}   `json:"avatarDetail"`
-		CreateTime                int64         `json:"createTime"`
-		AvatarImgId               int64         `json:"avatarImgId"`
-		Birthday                  int64         `json:"birthday"` // eg: 851875200000
-		Gender                    int64         `json:"gender"`   // 性别 0:未知
-		Nickname                  string        `json:"nickname"`
-		VipType                   int64         `json:"vipType"` // 0:无vip
-		Mutual                    bool          `json:"mutual"`
-		RemarkName                interface{}   `json:"remarkName"`
-		AccountStatus             int64         `json:"accountStatus"`
-		AuthStatus                int64         `json:"authStatus"`
-		AvatarUrl                 string        `json:"avatarUrl"`
-		BackgroundImgId           int64         `json:"backgroundImgId"`
-		BackgroundUrl             string        `json:"backgroundUrl"`
-		City                      int64         `json:"city"`
-		DetailDescription         string        `json:"detailDescription"`
-		DjStatus                  int64         `json:"djStatus"`
-		ExpertTags                interface{}   `json:"expertTags"`
-		Followed                  bool          `json:"followed"`
-		Province                  int64         `json:"province"`
-		UserType                  int64         `json:"userType"`
-		DefaultAvatar             bool          `json:"defaultAvatar"`
-		Experts                   struct{}      `json:"experts"`
-		AvatarImgIdStr            string        `json:"avatarImgIdStr"`
-		BackgroundImgIdStr        string        `json:"backgroundImgIdStr"`
-		Description               string        `json:"description"`
-		UserId                    int64         `json:"userId"`
-		Signature                 string        `json:"signature"` // 简介
-		Y                         int64         `json:"y"`
-		Authority                 int64         `json:"authority"`
-		Followeds                 int64         `json:"followeds"` // 粉丝数量 和下面的 NewFollows 粉丝数量不值有何区别
-		Follows                   int64         `json:"follows"`
-		Blacklist                 bool          `json:"blacklist"`
-		EventCount                int64         `json:"eventCount"`
-		AllSubscribedCount        int64         `json:"allSubscribedCount"`
-		PlaylistBeSubscribedCount int64         `json:"playlistBeSubscribedCount"`
-		AvatarImgIdStr1           string        `json:"avatarImgId_str"`
-		FollowTime                interface{}   `json:"followTime"`
-		FollowMe                  bool          `json:"followMe"`
-		ArtistIdentity            []interface{} `json:"artistIdentity"`
-		CCount                    int64         `json:"cCount"`
-		InBlacklist               bool          `json:"inBlacklist"`
-		SDJPCount                 int64         `json:"sDJPCount"`
-		PlaylistCount             int64         `json:"playlistCount"` // 创建的歌单数量
-		SCount                    int64         `json:"sCount"`        // 收藏的歌单数量
-		NewFollows                int64         `json:"newFollows"`    // 粉丝数量 和上面的Followeds不知有何区别
+		AvatarDetail              any      `json:"avatarDetail"`
+		CreateTime                int64    `json:"createTime"`
+		AvatarImgId               int64    `json:"avatarImgId"`
+		Birthday                  int64    `json:"birthday"` // eg: 851875200000
+		Gender                    int64    `json:"gender"`   // 性别 0:未知
+		Nickname                  string   `json:"nickname"`
+		VipType                   int64    `json:"vipType"` // 0:无vip
+		Mutual                    bool     `json:"mutual"`
+		RemarkName                any      `json:"remarkName"`
+		AccountStatus             int64    `json:"accountStatus"`
+		AuthStatus                int64    `json:"authStatus"`
+		AvatarUrl                 string   `json:"avatarUrl"`
+		BackgroundImgId           int64    `json:"backgroundImgId"`
+		BackgroundUrl             string   `json:"backgroundUrl"`
+		City                      int64    `json:"city"`
+		DetailDescription         string   `json:"detailDescription"`
+		DjStatus                  int64    `json:"djStatus"`
+		ExpertTags                any      `json:"expertTags"`
+		Followed                  bool     `json:"followed"`
+		Province                  int64    `json:"province"`
+		UserType                  int64    `json:"userType"`
+		DefaultAvatar             bool     `json:"defaultAvatar"`
+		Experts                   struct{} `json:"experts"`
+		AvatarImgIdStr            string   `json:"avatarImgIdStr"`
+		BackgroundImgIdStr        string   `json:"backgroundImgIdStr"`
+		Description               string   `json:"description"`
+		UserId                    int64    `json:"userId"`
+		Signature                 string   `json:"signature"` // 简介
+		Y                         int64    `json:"y"`
+		Authority                 int64    `json:"authority"`
+		Followeds                 int64    `json:"followeds"` // 粉丝数量 和下面的 NewFollows 粉丝数量不值有何区别
+		Follows                   int64    `json:"follows"`
+		Blacklist                 bool     `json:"blacklist"`
+		EventCount                int64    `json:"eventCount"`
+		AllSubscribedCount        int64    `json:"allSubscribedCount"`
+		PlaylistBeSubscribedCount int64    `json:"playlistBeSubscribedCount"`
+		AvatarImgIdStr1           string   `json:"avatarImgId_str"`
+		FollowTime                any      `json:"followTime"`
+		FollowMe                  bool     `json:"followMe"`
+		ArtistIdentity            []any    `json:"artistIdentity"`
+		CCount                    int64    `json:"cCount"`
+		InBlacklist               bool     `json:"inBlacklist"`
+		SDJPCount                 int64    `json:"sDJPCount"`
+		PlaylistCount             int64    `json:"playlistCount"` // 创建的歌单数量
+		SCount                    int64    `json:"sCount"`        // 收藏的歌单数量
+		NewFollows                int64    `json:"newFollows"`    // 粉丝数量 和上面的Followeds不知有何区别
 	} `json:"profile"`
 	PeopleCanSeeMyPlayRecord bool `json:"peopleCanSeeMyPlayRecord"`
 	// Bindings 绑定账号信息，比如是否有手机号绑定 see: Api.GetUserBindings()
 	Bindings []struct {
-		ExpiresIn    int64       `json:"expiresIn"`
-		RefreshTime  int64       `json:"refreshTime"`
-		BindingTime  int64       `json:"bindingTime"`
-		TokenJsonStr interface{} `json:"tokenJsonStr"`
-		Url          string      `json:"url"`
-		Expired      bool        `json:"expired"`
-		UserId       int64       `json:"userId"`
-		Id           int64       `json:"id"`
-		Type         int64       `json:"type"` // 1:手机号 5:qq 其他暂时未知
+		ExpiresIn    int64  `json:"expiresIn"`
+		RefreshTime  int64  `json:"refreshTime"`
+		BindingTime  int64  `json:"bindingTime"`
+		TokenJsonStr any    `json:"tokenJsonStr"`
+		Url          string `json:"url"`
+		Expired      bool   `json:"expired"`
+		UserId       int64  `json:"userId"`
+		Id           int64  `json:"id"`
+		Type         int64  `json:"type"` // 1:手机号 5:qq 其他暂时未知
 	} `json:"bindings"`
 	AdValid    bool  `json:"adValid"`
 	NewUser    bool  `json:"newUser"`
@@ -123,7 +123,7 @@ func (a *Api) GetUserInfoDetail(ctx context.Context, req *GetUserInfoDetailReq) 
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -159,7 +159,7 @@ func (a *Api) GetUserBindings(ctx context.Context, req *GetUserBindingsReq) (*Ge
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

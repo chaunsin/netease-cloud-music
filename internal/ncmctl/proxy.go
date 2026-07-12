@@ -16,12 +16,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/chaunsin/netease-cloud-music/config"
 	proxyserver "github.com/chaunsin/netease-cloud-music/internal/proxy"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/spf13/cobra"
 )
 
 const proxyShutdownTimeout = 5 * time.Second

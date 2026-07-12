@@ -78,7 +78,7 @@ type Qualities struct {
 // FindBetter 根据指定l获取音质信息,如果找到则返回对应级别得音乐信息并返回true，
 // 如果找不到则降级返回最接近得音质信息，并返回false
 func (q Qualities) FindBetter(l Level) (*Quality, Level, bool) {
-	var match = true
+	match := true
 	switch l {
 	case LevelJymaster:
 		if q.M != nil {

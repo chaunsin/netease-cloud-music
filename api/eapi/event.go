@@ -89,7 +89,7 @@ func (a *Api) EventPublish(ctx context.Context, req *EventPublishReq) (*EventPub
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -118,7 +118,7 @@ func (a *Api) EventDelete(ctx context.Context, req *EventDeleteReq) (*EventDelet
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

@@ -366,7 +366,7 @@ func requestHost(req *http.Request) string {
 }
 
 func printStartup(cfg Config, address net.Addr, ca *tls.Certificate, generated bool) {
-	var state = "loaded"
+	state := "loaded"
 	if generated {
 		state = "generated"
 	}

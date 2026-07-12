@@ -10,7 +10,7 @@ import (
 )
 
 func TestYunBeiInSign(t *testing.T) {
-	var req = YunBeiSignInReq{
+	req := YunBeiSignInReq{
 		Type: 1,
 	}
 	got, err := cli.YunBeiSignIn(ctx, &req)

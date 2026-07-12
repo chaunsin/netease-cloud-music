@@ -14,7 +14,7 @@ type Artist struct {
 }
 
 func (a *Artist) UnmarshalJSON(data []byte) error {
-	var v []interface{}
+	var v []any
 	if err := json.Unmarshal(data, &v); err != nil {
 		return fmt.Errorf("ncm: parse artist data %v err: %w", string(data), err)
 	}
@@ -57,8 +57,8 @@ type MetadataMusic struct {
 	BitRate       int64         `json:"bitrate"`       //
 	Mp3DocId      string        `json:"mp3DocId"`      // eg: 7caa09bd32c62d0f415e45c0eec3da43
 	MvId          int64         `json:"mvId"`
-	Alias         []interface{} `json:"alias"`
-	TransNames    []interface{} `json:"transNames"`
+	Alias         []any         `json:"alias"`
+	TransNames    []any         `json:"transNames"`
 	Duration      int64         `json:"duration"` // 单位毫秒
 	Format        string        `json:"format"`   // eg: flac
 

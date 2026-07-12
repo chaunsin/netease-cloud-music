@@ -3,8 +3,7 @@
 
 package tag
 
-type WAV struct {
-}
+type WAV struct{}
 
 func NewWAV(path string) (*WAV, error) {
 	wav := WAV{}

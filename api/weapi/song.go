@@ -64,7 +64,7 @@ type SongDetailRespSongs struct {
 	// Ar 歌手列表
 	Ar []types.Artist `json:"ar"`
 	// Alia 别名列表,第一个别名会被显示作副标题 例子: https://music.163.com/song/536623501
-	Alia []interface{} `json:"alia"`
+	Alia []any `json:"alia"`
 	// Pop 小数，常取[0.0, 100.0]中离散的几个数值, 表示歌曲热度
 	Pop float64 `json:"pop"`
 	// St 未知
@@ -76,7 +76,7 @@ type SongDetailRespSongs struct {
 	// V 常为[1, ?]任意数字, 代表歌曲当前信息版本
 	V int64 `json:"v"`
 	// Crbt None或字符串表示的十六进制，功能未知
-	Crbt interface{} `json:"crbt"`
+	Crbt any `json:"crbt"`
 	// Cf 空白字串或者None，功能未知
 	Cf string `json:"cf"`
 	// Al Album, 专辑，如果是DJ节目(dj_type != 0)或者无专辑信息(single == 1)，则专辑id为0
@@ -86,17 +86,17 @@ type SongDetailRespSongs struct {
 	// 音质信息
 	types.Qualities
 	// A 常为None，功能未知
-	A interface{} `json:"a"`
+	A any `json:"a"`
 	// Cd None或如"04", "1/2", "3", "null"的字符串，表示歌曲属于专辑中第几张CD，对应音频文件的Tag
 	Cd string `json:"cd"`
 	// No 表示歌曲属于CD中第几曲, 0表示没有这个字段, 对应音频文件的Tag
 	No int64 `json:"no"`
 	// RtUrl 常为None, 功能未知
-	RtUrl interface{} `json:"rtUrl"`
+	RtUrl any `json:"rtUrl"`
 	// Ftype 未知
 	Ftype int64 `json:"ftype"`
 	// RtUrls 常为空列表，功能未知
-	RtUrls []interface{} `json:"rtUrls"`
+	RtUrls []any `json:"rtUrls"`
 	// DjId 0:不是DJ节目 其他:是DJ节目，表示DJ ID
 	DjId int64 `json:"djId"`
 	// Copyright 0, 1, 2 功能未知
@@ -115,27 +115,27 @@ type SongDetailRespSongs struct {
 	// OriginCoverType 0:未知 1:原曲 2:翻唱
 	OriginCoverType int64 `json:"originCoverType"`
 	// OriginSongSimpleData 对于翻唱曲，可选提供原曲简单格式的信息
-	OriginSongSimpleData interface{} `json:"originSongSimpleData"`
+	OriginSongSimpleData any `json:"originSongSimpleData"`
 	// SongMeiZuData 功能未知
-	TagPicList interface{} `json:"tagPicList"`
+	TagPicList any `json:"tagPicList"`
 	// ResourceState 未知
 	ResourceState bool `json:"resourceState"`
 	// Version 什么版本？
 	Version int64 `json:"version"`
 	// SongJumpInfo 功能未知
-	SongJumpInfo interface{} `json:"songJumpInfo"`
+	SongJumpInfo any `json:"songJumpInfo"`
 	// EntranceCrash 功能未知
-	EntertainmentTags interface{} `json:"entertainmentTags"`
+	EntertainmentTags any `json:"entertainmentTags"`
 	// AwardTags 功能未知
-	AwardTags interface{} `json:"awardTags"`
+	AwardTags any `json:"awardTags"`
 	// Single 0:有专辑信息或者是DJ节目 1:未知专辑
 	Single int64 `json:"single"`
 	// NoCopyrightRcmd 不能判断出歌曲有无版权
-	NoCopyrightRcmd interface{} `json:"noCopyrightRcmd"`
+	NoCopyrightRcmd any `json:"noCopyrightRcmd"`
 	// Mv 非零表示有MV ID
 	Mv int64 `json:"mv"`
 	// Rurl 常为None，功能未知
-	Rurl interface{} `json:"rurl"`
+	Rurl any `json:"rurl"`
 	// Mst 偶尔为0, 常为9，功能未知
 	Mst int64 `json:"mst"`
 	// Cp 未知
@@ -164,7 +164,7 @@ func (a *Api) SongDetail(ctx context.Context, req *SongDetailReq) (*SongDetailRe
 
 	resp, err := a.client.Request(ctx, url, &songDetailReq{C: string(data)}, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -200,7 +200,7 @@ func (a *Api) SongMusicQuality(ctx context.Context, req *SongMusicQualityReq) (*
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -235,22 +235,22 @@ type SongPlayerRespData struct {
 	Gain                   float64                      `json:"gain"`
 	Peak                   float64                      `json:"peak"`
 	Fee                    int64                        `json:"fee"`
-	Uf                     interface{}                  `json:"uf"`
+	Uf                     any                          `json:"uf"`
 	Payed                  int64                        `json:"payed"`
 	Flag                   int64                        `json:"flag"`
 	CanExtend              bool                         `json:"canExtend"`
 	FreeTrialInfo          types.FreeTrialInfo          `json:"freeTrialInfo"`
 	Level                  string                       `json:"level"` // 通常所说的音质水平 eg: standard、exhigh、higher、lossless、hires
 	EncodeType             string                       `json:"encodeType"`
-	ChannelLayout          interface{}                  `json:"channelLayout"`
+	ChannelLayout          any                          `json:"channelLayout"`
 	FreeTrialPrivilege     types.FreeTrialPrivilege     `json:"freeTrialPrivilege"`
 	FreeTimeTrialPrivilege types.FreeTimeTrialPrivilege `json:"freeTimeTrialPrivilege"`
 	UrlSource              int64                        `json:"urlSource"`
 	RightSource            int64                        `json:"rightSource"`
-	PodcastCtrp            interface{}                  `json:"podcastCtrp"`
-	EffectTypes            interface{}                  `json:"effectTypes"`
+	PodcastCtrp            any                          `json:"podcastCtrp"`
+	EffectTypes            any                          `json:"effectTypes"`
 	Time                   int64                        `json:"time"` // 音乐时长,单位毫秒
-	Message                interface{}                  `json:"message"`
+	Message                any                          `json:"message"`
 }
 
 // SongPlayer 音乐播放详情
@@ -270,7 +270,7 @@ func (a *Api) SongPlayer(ctx context.Context, req *SongPlayerReq) (*SongPlayerRe
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -301,23 +301,23 @@ type SongPlayerRespV1Data struct {
 	Gain                   float64                      `json:"gain"`
 	Peak                   float64                      `json:"peak"`
 	Fee                    int64                        `json:"fee"`
-	Uf                     interface{}                  `json:"uf"`
+	Uf                     any                          `json:"uf"`
 	Payed                  int64                        `json:"payed"`
 	Flag                   int64                        `json:"flag"`
 	CanExtend              bool                         `json:"canExtend"`
 	FreeTrialInfo          types.FreeTrialInfo          `json:"freeTrialInfo"`
 	Level                  string                       `json:"level"`      // 音质水平 see: types.Level
 	EncodeType             string                       `json:"encodeType"` // eg: mp3
-	ChannelLayout          interface{}                  `json:"channelLayout"`
+	ChannelLayout          any                          `json:"channelLayout"`
 	FreeTrialPrivilege     types.FreeTrialPrivilege     `json:"freeTrialPrivilege"`
 	FreeTimeTrialPrivilege types.FreeTimeTrialPrivilege `json:"freeTimeTrialPrivilege"`
 	UrlSource              int64                        `json:"urlSource"`
 	RightSource            int64                        `json:"rightSource"`
-	PodcastCtrp            interface{}                  `json:"podcastCtrp"`
-	EffectTypes            interface{}                  `json:"effectTypes"`
+	PodcastCtrp            any                          `json:"podcastCtrp"`
+	EffectTypes            any                          `json:"effectTypes"`
 	Time                   int64                        `json:"time"` // 音乐时长,单位毫秒
-	Message                interface{}                  `json:"message"`
-	LevelConfuse           interface{}                  `json:"levelConfuse"`
+	Message                any                          `json:"message"`
+	LevelConfuse           any                          `json:"levelConfuse"`
 }
 
 // SongPlayerV1 音乐播放详情
@@ -346,7 +346,7 @@ func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerV1Req) (*SongPlay
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -364,9 +364,9 @@ type SongDownloadUrlResp struct {
 type SongDownloadUrlRespData struct {
 	Br                     int64                        `json:"br"`
 	CanExtend              bool                         `json:"canExtend"`
-	ChannelLayout          interface{}                  `json:"channelLayout"`
+	ChannelLayout          any                          `json:"channelLayout"`
 	Code                   int64                        `json:"code"` // 状态码 200:正常 -103:貌似也不能下载 -105:需要付费购买专辑 -110:变灰歌曲不能下载播放
-	EffectTypes            interface{}                  `json:"effectTypes"`
+	EffectTypes            any                          `json:"effectTypes"`
 	EncodeType             string                       `json:"encodeType"`
 	Expi                   int64                        `json:"expi"`
 	Fee                    int64                        `json:"fee"`
@@ -377,17 +377,17 @@ type SongDownloadUrlRespData struct {
 	Gain                   float64                      `json:"gain"`
 	Id                     int64                        `json:"id"`
 	Level                  string                       `json:"level"`
-	LevelConfuse           interface{}                  `json:"levelConfuse"`
+	LevelConfuse           any                          `json:"levelConfuse"`
 	Md5                    string                       `json:"md5"`
-	Message                interface{}                  `json:"message"`
+	Message                any                          `json:"message"`
 	Payed                  int64                        `json:"payed"`
 	Peak                   float64                      `json:"peak"`
-	PodcastCtrp            interface{}                  `json:"podcastCtrp"`
+	PodcastCtrp            any                          `json:"podcastCtrp"`
 	RightSource            int64                        `json:"rightSource"`
 	Size                   int64                        `json:"size"`
 	Time                   int64                        `json:"time"`
 	Type                   string                       `json:"type"`
-	Uf                     interface{}                  `json:"uf"`
+	Uf                     any                          `json:"uf"`
 	Url                    string                       `json:"url"`
 	UrlSource              int64                        `json:"urlSource"`
 }
@@ -407,7 +407,7 @@ func (a *Api) SongDownloadUrl(ctx context.Context, req *SongDownloadUrlReq) (*So
 
 	resp, err := a.client.Request(ctx, url, &req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -427,9 +427,9 @@ type SongDownloadUrlV1Resp struct {
 type SongDownloadUrlV1RespData struct {
 	Br                     int64                        `json:"br"`
 	CanExtend              bool                         `json:"canExtend"`
-	ChannelLayout          interface{}                  `json:"channelLayout"`
+	ChannelLayout          any                          `json:"channelLayout"`
 	Code                   int64                        `json:"code"`
-	EffectTypes            interface{}                  `json:"effectTypes"`
+	EffectTypes            any                          `json:"effectTypes"`
 	EncodeType             string                       `json:"encodeType"`
 	Expi                   int64                        `json:"expi"`
 	Fee                    int64                        `json:"fee"`
@@ -440,17 +440,17 @@ type SongDownloadUrlV1RespData struct {
 	Gain                   float64                      `json:"gain"`
 	Id                     int64                        `json:"id"`
 	Level                  string                       `json:"level"`
-	LevelConfuse           interface{}                  `json:"levelConfuse"`
+	LevelConfuse           any                          `json:"levelConfuse"`
 	Md5                    string                       `json:"md5"`
-	Message                interface{}                  `json:"message"`
+	Message                any                          `json:"message"`
 	Payed                  int64                        `json:"payed"`
 	Peak                   float64                      `json:"peak"`
-	PodcastCtrp            interface{}                  `json:"podcastCtrp"`
+	PodcastCtrp            any                          `json:"podcastCtrp"`
 	RightSource            int64                        `json:"rightSource"`
 	Size                   int64                        `json:"size"`
 	Time                   int64                        `json:"time"`
 	Type                   string                       `json:"type"`
-	Uf                     interface{}                  `json:"uf"`
+	Uf                     any                          `json:"uf"`
 	Url                    string                       `json:"url"`
 	UrlSource              int64                        `json:"urlSource"`
 }
@@ -473,7 +473,7 @@ func (a *Api) SongDownloadUrlV1(ctx context.Context, req *SongDownloadUrlV1Req) 
 
 	resp, err := a.client.Request(ctx, url, &req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -496,7 +496,7 @@ func (a *Api) SongDynamicCover(ctx context.Context, req *SongDynamicCoverReq) (*
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

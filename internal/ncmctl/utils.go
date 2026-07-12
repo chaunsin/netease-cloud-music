@@ -14,11 +14,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/pkg/cookiecloud"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/spf13/cobra"
 )
 
 func writeFile(cmd *cobra.Command, out string, data []byte) error {
@@ -157,7 +157,7 @@ func (m Music) ArtistString() string {
 	if len(m.Artist) <= 0 {
 		return ""
 	}
-	var artistList = make([]string, 0, len(m.Artist))
+	artistList := make([]string, 0, len(m.Artist))
 	for _, ar := range m.Artist {
 		artistList = append(artistList, utils.Filename(ar.Name, "_")) // #11 避免文件名中包含特殊字符
 	}

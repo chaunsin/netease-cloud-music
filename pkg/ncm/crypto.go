@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"crypto/aes"
 	"errors"
-	"fmt"
 	"io"
 )
 
@@ -79,42 +78,42 @@ func decryptAes128Ecb(key, data []byte) ([]byte, error) {
 	return pkcs7UnPadding(decrypted)
 }
 
-func decryptAes128EcbStream(key []byte, input io.Reader, output io.Writer) error {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return err
-	}
-	var (
-		bs  = block.BlockSize()
-		buf = make([]byte, bs)
-	)
+// func decryptAes128EcbStream(key []byte, input io.Reader, output io.Writer) error {
+// 	block, err := aes.NewCipher(key)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	var (
+// 		bs  = block.BlockSize()
+// 		buf = make([]byte, bs)
+// 	)
 
-	for {
-		n, err := input.Read(buf)
-		if err != nil && err != io.EOF {
-			return err
-		}
-		if n == 0 {
-			break
-		}
+// 	for {
+// 		n, err := input.Read(buf)
+// 		if err != nil && err != io.EOF {
+// 			return err
+// 		}
+// 		if n == 0 {
+// 			break
+// 		}
 
-		decrypted := make([]byte, bs)
-		block.Decrypt(decrypted, buf[:n])
+// 		decrypted := make([]byte, bs)
+// 		block.Decrypt(decrypted, buf[:n])
 
-		if n < bs {
-			decrypted, err = pkcs7UnPadding(decrypted)
-			if err != nil {
-				return fmt.Errorf("pkcs7UnPadding: %w", err)
-			}
-		}
+// 		if n < bs {
+// 			decrypted, err = pkcs7UnPadding(decrypted)
+// 			if err != nil {
+// 				return fmt.Errorf("pkcs7UnPadding: %w", err)
+// 			}
+// 		}
 
-		_, err = output.Write(decrypted)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// 		_, err = output.Write(decrypted)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
 func decryptMusic(box []byte, rs io.ReadSeeker, w io.Writer) ([]byte, error) {
 	var (

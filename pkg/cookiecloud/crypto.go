@@ -32,7 +32,7 @@ const (
 // using md5 as hash type and 32 / 16 as length of key / block.
 // See: https://stackoverflow.com/questions/35472396/how-does-cryptojs-get-an-iv-when-none-is-specified ,
 // https://stackoverflow.com/questions/64797987/what-is-the-default-aes-config-in-crypto-js
-func Decrypt(password string, ciphertext string) ([]byte, error) {
+func Decrypt(password, ciphertext string) ([]byte, error) {
 	if len(password) < 16 {
 		return nil, fmt.Errorf("password length must be greater than 16")
 	}
@@ -71,7 +71,7 @@ func Decrypt(password string, ciphertext string) ([]byte, error) {
 }
 
 // Encrypt encrypts the plaintext using the password.
-func Encrypt(password string, plaintext string) (string, error) {
+func Encrypt(password, plaintext string) (string, error) {
 	if len(password) < 16 {
 		return "", fmt.Errorf("password length must be greater than 16")
 	}
@@ -141,12 +141,12 @@ func BytesToKey(salt, data []byte, h hash.Hash, keyLen, blockLen int) (key, iv [
 }
 
 // BytesToKeyAES256CBC implements the SHA256 version of EVP_BytesToKey using AES CBC
-func BytesToKeyAES256CBC(salt, data []byte) (key []byte, iv []byte, err error) {
+func BytesToKeyAES256CBC(salt, data []byte) (key, iv []byte, err error) {
 	return BytesToKey(salt, data, sha256.New(), aes256KeyLen, aes.BlockSize)
 }
 
 // BytesToKeyAES256CBCMD5 implements the MD5 version of EVP_BytesToKey using AES CBC
-func BytesToKeyAES256CBCMD5(salt, data []byte) (key []byte, iv []byte, err error) {
+func BytesToKeyAES256CBCMD5(salt, data []byte) (key, iv []byte, err error) {
 	return BytesToKey(salt, data, md5.New(), aes256KeyLen, aes.BlockSize)
 }
 

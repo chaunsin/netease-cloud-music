@@ -19,7 +19,7 @@ func NewMp3(path string, encoding ...id3v2.Encoding) (*Mp3, error) {
 	if err != nil {
 		return nil, fmt.Errorf("id3v2.Open: %w", err)
 	}
-	var encode = id3v2.EncodingUTF8
+	encode := id3v2.EncodingUTF8
 	if len(encoding) > 0 {
 		encode = encoding[0]
 	}
@@ -97,7 +97,6 @@ func (m *Mp3) SetLyrics(lyrics string) error {
 		})
 	}
 	return nil
-
 }
 
 func (m *Mp3) Save() error {

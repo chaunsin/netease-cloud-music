@@ -11,14 +11,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	client "github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/api"
 	"github.com/chaunsin/netease-cloud-music/api/eapi"
 	"github.com/chaunsin/netease-cloud-music/api/linux"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
-
-	"github.com/spf13/cobra"
 )
 
 type CurlOpts struct {
@@ -126,7 +126,7 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 	decoder := json.NewDecoder(strings.NewReader(c.opts.Data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(instance.Addr().Interface()); err != nil {
-		return fmt.Errorf("Decode: %w", err)
+		return fmt.Errorf("decode: %w", err)
 	}
 	log.Debug("request: %+v", instance)
 
@@ -137,7 +137,7 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 	if !resp[1].IsNil() {
 		return resp[1].Interface().(error)
 	}
-	var data = resp[0].Interface() // 请求返回值
+	data := resp[0].Interface() // 请求返回值
 	binary, err := json.MarshalIndent(data, "", "\t")
 	if err != nil {
 		return fmt.Errorf("MarshalIndent: %w", err)

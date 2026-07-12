@@ -6,14 +6,14 @@ package weapi
 import (
 	"testing"
 
-	"github.com/chaunsin/netease-cloud-music/api/types"
-
 	"github.com/skip2/go-qrcode"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 func TestQrcodeCreateKey(t *testing.T) {
-	var req = QrcodeCreateKeyReq{
+	req := QrcodeCreateKeyReq{
 		ReqCommon: types.ReqCommon{CSRFToken: ""}, // 可不传
 		Type:      1,
 	}
@@ -23,7 +23,7 @@ func TestQrcodeCreateKey(t *testing.T) {
 }
 
 func TestQrcodeGetReq(t *testing.T) {
-	var req = QrcodeGenerateReq{
+	req := QrcodeGenerateReq{
 		CodeKey:  "",
 		Level:    qrcode.Medium,
 		Platform: "web",
@@ -34,7 +34,7 @@ func TestQrcodeGetReq(t *testing.T) {
 }
 
 func TestQrcodeCheck(t *testing.T) {
-	var req = QrcodeCheckReq{
+	req := QrcodeCheckReq{
 		Key:  "8ddf7539-2b30-4350-962e-b8045762164b",
 		Type: 1,
 	}

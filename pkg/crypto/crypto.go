@@ -11,7 +11,6 @@ import (
 	"crypto/ecdh"
 	"crypto/hmac"
 	"crypto/md5"
-	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
@@ -28,6 +27,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	cryptorand "crypto/rand"
 )
 
 const (
@@ -67,7 +68,7 @@ func randomKey() string {
 }
 
 func reverseString(str string) string {
-	var runes = []rune(str)
+	runes := []rune(str)
 	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
 		runes[i], runes[j] = runes[j], runes[i]
 	}
@@ -75,7 +76,7 @@ func reverseString(str string) string {
 }
 
 func digest(url, data string) string {
-	var message = fmt.Sprintf(eApiSlat, url, data)
+	message := fmt.Sprintf(eApiSlat, url, data)
 	return fmt.Sprintf("%x", md5.Sum([]byte(message)))
 }
 
@@ -196,7 +197,7 @@ func AesDecryptECB(block cipher.Block, cipherBytes []byte) ([]byte, error) {
 	if len(cipherBytes)%block.BlockSize() != 0 {
 		return nil, errors.New("cipherBytes length is not a multiple of block size")
 	}
-	var decrypted = make([]byte, len(cipherBytes))
+	decrypted := make([]byte, len(cipherBytes))
 	for i := 0; i < len(cipherBytes); i += block.BlockSize() {
 		block.Decrypt(decrypted[i:i+block.BlockSize()], cipherBytes[i:i+block.BlockSize()])
 	}
@@ -264,12 +265,12 @@ func Pkcs7UnPadding(data []byte) ([]byte, error) {
 }
 
 // WeApiEncrypt 加密.
-func WeApiEncrypt(object interface{}) (map[string]string, error) {
+func WeApiEncrypt(object any) (map[string]string, error) {
 	data, err := json.Marshal(object)
 	if err != nil {
 		return nil, err
 	}
-	var secretKey = randomKey()
+	secretKey := randomKey()
 	encryptText, err := aesEncrypt(string(data), presetKey, iv, "cbc", "base64")
 	if err != nil {
 		return nil, fmt.Errorf("aesEncrypt: %w", err)
@@ -294,7 +295,7 @@ func WeApiDecrypt(params, encSecKey string) (map[string]string, error) {
 }
 
 // LinuxApiEncrypt 加密.
-func LinuxApiEncrypt(object interface{}) (map[string]string, error) {
+func LinuxApiEncrypt(object any) (map[string]string, error) {
 	data, err := json.Marshal(object)
 	if err != nil {
 		return nil, err
@@ -319,7 +320,7 @@ func LinuxApiDecrypt(cipherText string) ([]byte, error) {
 // 通常在MAC、windows、android、ios中使用
 // todo: 貌似当url为空时存在问题,网易接口加密返回中有不带url的情况，
 // 例如: DCC52B3013E9B66C038F8E027E580ECEDF84E0F44CB93FC365BED7B646A9BC08 .
-func EApiEncrypt(url string, object interface{}) (map[string]string, error) {
+func EApiEncrypt(url string, object any) (map[string]string, error) {
 	// 需要替换路由地址,不然会出现接口未找到错误
 	url = strings.Replace(url, "eapi", "api", 1)
 	data, err := json.Marshal(object)
@@ -451,7 +452,7 @@ type Session struct {
 // EncryptRequest 描述待封装的原始 API 请求。
 type EncryptRequest struct {
 	URI         string
-	Data        interface{}
+	Data        any
 	Body        []byte
 	Method      string
 	ContentType string
@@ -585,7 +586,7 @@ func isDefaultXeapiContentType(contentType string) bool {
 	return strings.EqualFold(mediaType, defaultMediaType)
 }
 
-func rawRequestBody(data interface{}) ([]byte, error) {
+func rawRequestBody(data any) ([]byte, error) {
 	switch v := data.(type) {
 	case []byte:
 		return append([]byte(nil), v...), nil
@@ -600,7 +601,7 @@ func rawRequestBody(data interface{}) ([]byte, error) {
 	}
 }
 
-func formValues(data interface{}) (url.Values, error) {
+func formValues(data any) (url.Values, error) {
 	switch v := data.(type) {
 	case nil:
 		return url.Values{}, nil
@@ -635,7 +636,7 @@ func stringMapFormValues(src map[string]string) url.Values {
 	return values
 }
 
-func jsonFormValues(data interface{}) (url.Values, error) {
+func jsonFormValues(data any) (url.Values, error) {
 	payload, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("json.Marshal xeapi data: %w", err)
@@ -645,7 +646,7 @@ func jsonFormValues(data interface{}) (url.Values, error) {
 		return nil, fmt.Errorf("json.Unmarshal xeapi data: %w", err)
 	}
 
-	var values = make(url.Values, len(fields))
+	values := make(url.Values, len(fields))
 	for key, raw := range fields {
 		text, err := rawFormValue(raw)
 		if err != nil {
@@ -810,7 +811,7 @@ func midTransform(ciphertext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("crypto.Read mid random: %w", err)
 	}
-	var xored = make([]byte, len(ciphertext))
+	xored := make([]byte, len(ciphertext))
 	for i := range ciphertext {
 		xored[i] = ciphertext[i] ^ random[i&0x0f]
 	}
@@ -823,7 +824,7 @@ func midTransform(ciphertext []byte) ([]byte, error) {
 		rot = int(random[0]&0x0f) % len(b64)
 	}
 
-	var out = make([]byte, 0, len(random)+len(b64))
+	out := make([]byte, 0, len(random)+len(b64))
 	out = append(out, random...)
 	out = append(out, b64[rot:]...)
 	out = append(out, b64[:rot]...)
@@ -836,7 +837,7 @@ func encryptS(dynamicKey []byte, publicKey PublicKeyState, os string) ([]byte, e
 		return nil, fmt.Errorf("base64.DecodeString peer public key: %w", err)
 	}
 
-	var curve = ecdh.X25519()
+	curve := ecdh.X25519()
 	peer, err := curve.NewPublicKey(peerRaw)
 	if err != nil {
 		return nil, fmt.Errorf("x25519 peer public key: %w", err)
@@ -851,9 +852,7 @@ func encryptS(dynamicKey []byte, publicKey PublicKeyState, os string) ([]byte, e
 		return nil, fmt.Errorf("x25519 ECDH: %w", err)
 	}
 
-	var (
-		plaintext = []byte(base64.StdEncoding.EncodeToString(dynamicKey) + "|" + os + "|" + publicKey.SK)
-	)
+	plaintext := []byte(base64.StdEncoding.EncodeToString(dynamicKey) + "|" + os + "|" + publicKey.SK)
 	iv, err := xeapiRandomBytes(12)
 	if err != nil {
 		return nil, fmt.Errorf("cryptorand gcm iv: %w", err)
@@ -869,9 +868,9 @@ func encryptS(dynamicKey []byte, publicKey PublicKeyState, os string) ([]byte, e
 	if err != nil {
 		return nil, fmt.Errorf("cipher.NewGCM: %w", err)
 	}
-	var encrypted = gcm.Seal(nil, iv, plaintext, nil)
+	encrypted := gcm.Seal(nil, iv, plaintext, nil)
 
-	var out = make([]byte, 0, len(ephemeralRaw)+len(iv)+len(encrypted))
+	out := make([]byte, 0, len(ephemeralRaw)+len(iv)+len(encrypted))
 	out = append(out, ephemeralRaw...)
 	out = append(out, iv...)
 	out = append(out, encrypted...)

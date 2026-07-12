@@ -39,5 +39,5 @@ func New(module Module, cfg *Config) (a Alert, err error) {
 	default:
 		return nil, errors.New("invalid module")
 	}
-	return
+	return a, err
 }

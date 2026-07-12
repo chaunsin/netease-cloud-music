@@ -4,18 +4,19 @@
 package config
 
 import (
-	_ "embed"
 	"fmt"
 	"os"
 	"strings"
 
-	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/pkg/database"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
-
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
+
+	_ "embed"
+
+	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/pkg/database"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
 )
 
 var HomeDir string
@@ -42,7 +43,6 @@ func init() {
 }
 
 type Config struct {
-	v        *viper.Viper
 	Version  string           `json:"version" yaml:"version"`
 	Log      *log.Config      `json:"log" yaml:"log"`
 	Network  *api.Config      `json:"network" yaml:"network"`
@@ -91,7 +91,6 @@ func New(cfgPath ...string) (*Config, error) {
 
 // ReplaceMagicVariables 替换配置文件中的魔法变量。注意该方法只能调用一次再次调用则不会生效.
 func (c *Config) ReplaceMagicVariables(name, value string) (*Config, bool) {
-
 	var (
 		isset   bool
 		mapping = func(k string) string {

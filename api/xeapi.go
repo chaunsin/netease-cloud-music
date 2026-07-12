@@ -17,9 +17,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
-
 	"github.com/go-resty/resty/v2"
+
+	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 )
 
 const (
@@ -51,7 +51,7 @@ type xeapiStateResult struct {
 	session crypto.Session
 }
 
-func (c *Client) xeapiEncrypt(ctx context.Context, rawURL string, req interface{}, opts *Options, contentType string) (string, map[string]string, error) {
+func (c *Client) xeapiEncrypt(ctx context.Context, rawURL string, req any, opts *Options, contentType string) (string, map[string]string, error) {
 	envelopeURL, xeapiURL, err := rewriteXeapiURL(rawURL) // todo: url xeapi todo
 	if err != nil {
 		return "", nil, err
@@ -91,7 +91,7 @@ func (c *Client) xeapiState(ctx context.Context, req crypto.EncryptRequest) (*xe
 		return &xeapiStateResult{key: key, session: session}, nil
 	}
 
-	value, err, _ := c.xeapiRefresh.Do(groupKey, func() (interface{}, error) {
+	value, err, _ := c.xeapiRefresh.Do(groupKey, func() (any, error) {
 		c.xeapiMu.Lock()
 		var (
 			key            = c.xeapiKey
@@ -219,7 +219,7 @@ func (c *Client) updateXeapiSession(response *resty.Response) {
 	c.xeapiMu.Unlock()
 }
 
-func rewriteXeapiURL(rawURL string) (envelopeURL string, requestURL string, err error) {
+func rewriteXeapiURL(rawURL string) (envelopeURL, requestURL string, err error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return "", "", fmt.Errorf("url.Parse xeapi url: %w", err)
@@ -268,7 +268,7 @@ func xeapiKeyExpired(key crypto.PublicKeyState) bool {
 }
 
 func generateXeapiNonce() (string, error) {
-	var nonce = make([]byte, 16)
+	nonce := make([]byte, 16)
 	for i := range nonce {
 		n, err := rand.Int(rand.Reader, big.NewInt(10))
 		if err != nil {

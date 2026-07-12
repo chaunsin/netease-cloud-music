@@ -45,11 +45,11 @@ type MusicianVipTasksResp struct {
 
 // MusicianEAPIReq 音乐人 EAPI 通用请求字段。
 type MusicianEAPIReq struct {
-	DeviceId string      `json:"deviceId,omitempty"`
-	OS       string      `json:"os,omitempty"`
-	VerifyId int         `json:"verifyId,omitempty"`
-	Header   interface{} `json:"header"`
-	ER       bool        `json:"e_r"`
+	DeviceId string `json:"deviceId,omitempty"`
+	OS       string `json:"os,omitempty"`
+	VerifyId int    `json:"verifyId,omitempty"`
+	Header   any    `json:"header"`
+	ER       bool   `json:"e_r"`
 }
 
 // MusicianVipFurtherTask 进阶任务
@@ -100,7 +100,7 @@ func (a *Api) MusicianVipTasks(ctx context.Context, req *MusicianVipTasksReq) (*
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -142,7 +142,7 @@ func (a *Api) MusicianRoleGet(ctx context.Context, req *MusicianRoleGetReq) (*Mu
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -175,7 +175,7 @@ func (a *Api) MusicianSign(ctx context.Context, req *MusicianSignReq) (*Musician
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -247,7 +247,7 @@ func (a *Api) MusicianMissionCycleList(ctx context.Context, req *MusicianMission
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -269,7 +269,7 @@ func (a *Api) MusicianMissionStageList(ctx context.Context, req *MusicianMission
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -306,7 +306,7 @@ func (a *Api) MusicianRewardObtain(ctx context.Context, req *MusicianRewardObtai
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

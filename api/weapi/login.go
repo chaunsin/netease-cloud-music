@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/skip2/go-qrcode"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/skip2/go-qrcode"
 )
 
 type QrcodeCreateKeyReq struct {
@@ -39,7 +39,7 @@ func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*Qr
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -65,7 +65,7 @@ func (a *Api) QrcodeGenerate(ctx context.Context, req *QrcodeGenerateReq) (*Qrco
 		reply   QrcodeGenerateResp
 	)
 	if req.Platform == "web" {
-		var did = req.DeviceId
+		did := req.DeviceId
 		if req.DeviceId == "" {
 			if ck, ok := a.client.Cookie("https://music.163.com", "deviceId"); ok {
 				did = ck.Value
@@ -119,7 +119,7 @@ func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeChec
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -152,43 +152,43 @@ type GetUserInfoRespAccount struct {
 }
 
 type GetUserInfoRespProfile struct {
-	UserId              int64       `json:"userId"`
-	UserType            int64       `json:"userType"`
-	Nickname            string      `json:"nickname"`
-	AvatarImgId         int64       `json:"avatarImgId"`
-	AvatarUrl           string      `json:"avatarUrl"`
-	BackgroundImgId     int64       `json:"backgroundImgId"`
-	BackgroundUrl       string      `json:"backgroundUrl"`
-	Signature           string      `json:"signature"`
-	CreateTime          int64       `json:"createTime"`
-	UserName            string      `json:"userName"`
-	AccountType         int64       `json:"accountType"`
-	ShortUserName       string      `json:"shortUserName"`
-	Birthday            int64       `json:"birthday"`
-	Authority           int64       `json:"authority"`
-	Gender              int64       `json:"gender"`
-	AccountStatus       int64       `json:"accountStatus"`
-	Province            int64       `json:"province"`
-	City                int64       `json:"city"`
-	AuthStatus          int64       `json:"authStatus"`
-	Description         interface{} `json:"description"`
-	DetailDescription   interface{} `json:"detailDescription"`
-	DefaultAvatar       bool        `json:"defaultAvatar"`
-	ExpertTags          interface{} `json:"expertTags"`
-	Experts             interface{} `json:"experts"`
-	DjStatus            int64       `json:"djStatus"`
-	LocationStatus      int64       `json:"locationStatus"`
-	VipType             int64       `json:"vipType"`
-	Followed            bool        `json:"followed"`
-	Mutual              bool        `json:"mutual"`
-	Authenticated       bool        `json:"authenticated"`
-	LastLoginTime       int64       `json:"lastLoginTime"`
-	LastLoginIP         string      `json:"lastLoginIP"`
-	RemarkName          interface{} `json:"remarkName"`
-	ViptypeVersion      int64       `json:"viptypeVersion"`
-	AuthenticationTypes int64       `json:"authenticationTypes"`
-	AvatarDetail        interface{} `json:"avatarDetail"`
-	Anchor              bool        `json:"anchor"`
+	UserId              int64  `json:"userId"`
+	UserType            int64  `json:"userType"`
+	Nickname            string `json:"nickname"`
+	AvatarImgId         int64  `json:"avatarImgId"`
+	AvatarUrl           string `json:"avatarUrl"`
+	BackgroundImgId     int64  `json:"backgroundImgId"`
+	BackgroundUrl       string `json:"backgroundUrl"`
+	Signature           string `json:"signature"`
+	CreateTime          int64  `json:"createTime"`
+	UserName            string `json:"userName"`
+	AccountType         int64  `json:"accountType"`
+	ShortUserName       string `json:"shortUserName"`
+	Birthday            int64  `json:"birthday"`
+	Authority           int64  `json:"authority"`
+	Gender              int64  `json:"gender"`
+	AccountStatus       int64  `json:"accountStatus"`
+	Province            int64  `json:"province"`
+	City                int64  `json:"city"`
+	AuthStatus          int64  `json:"authStatus"`
+	Description         any    `json:"description"`
+	DetailDescription   any    `json:"detailDescription"`
+	DefaultAvatar       bool   `json:"defaultAvatar"`
+	ExpertTags          any    `json:"expertTags"`
+	Experts             any    `json:"experts"`
+	DjStatus            int64  `json:"djStatus"`
+	LocationStatus      int64  `json:"locationStatus"`
+	VipType             int64  `json:"vipType"`
+	Followed            bool   `json:"followed"`
+	Mutual              bool   `json:"mutual"`
+	Authenticated       bool   `json:"authenticated"`
+	LastLoginTime       int64  `json:"lastLoginTime"`
+	LastLoginIP         string `json:"lastLoginIP"`
+	RemarkName          any    `json:"remarkName"`
+	ViptypeVersion      int64  `json:"viptypeVersion"`
+	AuthenticationTypes int64  `json:"authenticationTypes"`
+	AvatarDetail        any    `json:"avatarDetail"`
+	Anchor              bool   `json:"anchor"`
 }
 
 // GetUserInfo 获取用户信息.
@@ -201,7 +201,7 @@ func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInf
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -238,12 +238,14 @@ func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRef
 	// 其中header结构体中得字段X-antiCheatToken也传和checkToken同样之
 
 	// 经测试MUSIC_R_U需要传参,否则会返回bizCode返回400错误
-	// opts.SetHeader("x-anticheattoken", "9ca17ae2e6ffcda170e2e6ee88fb7db79eaf96f0409ab48aa3c54b929e9ab0d670b1ee8891d55fed93fd85b52af0feaec3b92af8f1e1a2e65293eb8c91c45b869a9fa6d45e948997daec44ad9b98a6cc70b59dee9e")
-	// opts.SetCookies(&http.Cookie{Name: "MUSIC_R_U", Value: "00C572559E9EC4370FB21EB2CDFC28BA79632C61958228B75DA68C65488B3719DE982C68ED14E9026C527B9896FC29CF399F86469F18716A44AAC30F6FEF8A40BCD5575D6D311B95ACE21C05E94AF988B7"})
+	// opts.SetHeader("x-anticheattoken",
+	// "9ca17ae2e6ffcda170e2e6ee88fb7db79eaf96f0409ab48aa3c54b929e9ab0d670b1ee8891d55fed93fd85b52af0feaec3b92af8f1e1a2e65293eb8c91c45b869a9fa6d45e948997daec44ad9b98a6cc70b59dee9e")
+	// opts.SetCookies(&http.Cookie{Name: "MUSIC_R_U", Value:
+	// "00C572559E9EC4370FB21EB2CDFC28BA79632C61958228B75DA68C65488B3719DE982C68ED14E9026C527B9896FC29CF399F86469F18716A44AAC30F6FEF8A40BCD5575D6D311B95ACE21C05E94AF988B7"})
 	opts.SetCookies(&http.Cookie{Name: "os", Value: "pc"}) // 解决400问题
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -271,13 +273,13 @@ func (a *Api) RegisterAnonymous(ctx context.Context, req *RegisterAnonymousReq) 
 	}
 	username, err := crypto.Anonymous(req.Username)
 	if err != nil {
-		return nil, fmt.Errorf("Anonymous: %w", err)
+		return nil, fmt.Errorf("anonymous: %w", err)
 	}
 	req.Username = username
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -310,7 +312,7 @@ func (a *Api) SendSMS(ctx context.Context, req *SendSMSReq) (*SendSMSResp, error
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -339,7 +341,7 @@ func (a *Api) SMSVerify(ctx context.Context, req *SMSVerifyReq) (*SMSVerifyResp,
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil
@@ -381,40 +383,40 @@ type LoginCellphoneRespAccount struct {
 }
 
 type LoginCellphoneRespProfile struct {
-	AvatarUrl                 string      `json:"avatarUrl"`
-	VipType                   int64       `json:"vipType"`
-	AuthStatus                int64       `json:"authStatus"`
-	DjStatus                  int64       `json:"djStatus"`
-	DetailDescription         string      `json:"detailDescription"`
-	Experts                   struct{}    `json:"experts"`
-	ExpertTags                interface{} `json:"expertTags"`
-	AccountStatus             int64       `json:"accountStatus"`
-	Nickname                  string      `json:"nickname"`
-	Birthday                  int64       `json:"birthday"`
-	Gender                    int64       `json:"gender"`
-	Province                  int64       `json:"province"`
-	City                      int64       `json:"city"`
-	AvatarImgId               int64       `json:"avatarImgId"`
-	BackgroundImgId           int64       `json:"backgroundImgId"`
-	UserType                  int64       `json:"userType"`
-	DefaultAvatar             bool        `json:"defaultAvatar"`
-	Mutual                    bool        `json:"mutual"`
-	RemarkName                interface{} `json:"remarkName"`
-	AvatarImgIdStr            string      `json:"avatarImgIdStr"`
-	BackgroundImgIdStr        string      `json:"backgroundImgIdStr"`
-	Followed                  bool        `json:"followed"`
-	BackgroundUrl             string      `json:"backgroundUrl"`
-	Description               string      `json:"description"`
-	UserId                    int64       `json:"userId"`
-	Signature                 string      `json:"signature"`
-	Authority                 int64       `json:"authority"`
-	AvatarImgIdStr1           string      `json:"avatarImgId_str"`
-	Followeds                 int64       `json:"followeds"`
-	Follows                   int64       `json:"follows"`
-	EventCount                int64       `json:"eventCount"`
-	AvatarDetail              interface{} `json:"avatarDetail"`
-	PlaylistCount             int64       `json:"playlistCount"`
-	PlaylistBeSubscribedCount int64       `json:"playlistBeSubscribedCount"`
+	AvatarUrl                 string   `json:"avatarUrl"`
+	VipType                   int64    `json:"vipType"`
+	AuthStatus                int64    `json:"authStatus"`
+	DjStatus                  int64    `json:"djStatus"`
+	DetailDescription         string   `json:"detailDescription"`
+	Experts                   struct{} `json:"experts"`
+	ExpertTags                any      `json:"expertTags"`
+	AccountStatus             int64    `json:"accountStatus"`
+	Nickname                  string   `json:"nickname"`
+	Birthday                  int64    `json:"birthday"`
+	Gender                    int64    `json:"gender"`
+	Province                  int64    `json:"province"`
+	City                      int64    `json:"city"`
+	AvatarImgId               int64    `json:"avatarImgId"`
+	BackgroundImgId           int64    `json:"backgroundImgId"`
+	UserType                  int64    `json:"userType"`
+	DefaultAvatar             bool     `json:"defaultAvatar"`
+	Mutual                    bool     `json:"mutual"`
+	RemarkName                any      `json:"remarkName"`
+	AvatarImgIdStr            string   `json:"avatarImgIdStr"`
+	BackgroundImgIdStr        string   `json:"backgroundImgIdStr"`
+	Followed                  bool     `json:"followed"`
+	BackgroundUrl             string   `json:"backgroundUrl"`
+	Description               string   `json:"description"`
+	UserId                    int64    `json:"userId"`
+	Signature                 string   `json:"signature"`
+	Authority                 int64    `json:"authority"`
+	AvatarImgIdStr1           string   `json:"avatarImgId_str"`
+	Followeds                 int64    `json:"followeds"`
+	Follows                   int64    `json:"follows"`
+	EventCount                int64    `json:"eventCount"`
+	AvatarDetail              any      `json:"avatarDetail"`
+	PlaylistCount             int64    `json:"playlistCount"`
+	PlaylistBeSubscribedCount int64    `json:"playlistBeSubscribedCount"`
 }
 
 type LoginCellphoneRespBindings struct {
@@ -435,7 +437,7 @@ func (a *Api) LoginCellphone(ctx context.Context, req *LoginCellphoneReq) (*Logi
 		url    = "https://interface.music.163.com/eapi/w/login/cellphone" // use weapi 出现 8821需要行为验证码验证
 		reply  LoginCellphoneResp
 		opts   = api.NewOptions()
-		params = make(map[string]interface{})
+		params = make(map[string]any)
 	)
 	opts.CryptoMode = api.CryptoModeEAPI
 	if req.Countrycode <= 0 {
@@ -458,7 +460,7 @@ func (a *Api) LoginCellphone(ctx context.Context, req *LoginCellphoneReq) (*Logi
 
 	resp, err := a.client.Request(ctx, url, params, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
 	_ = resp
 	return &reply, nil

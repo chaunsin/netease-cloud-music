@@ -10,12 +10,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/spf13/cobra"
+
+	qrcode2 "github.com/skip2/go-qrcode"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
-
-	qrcode2 "github.com/skip2/go-qrcode"
-	"github.com/spf13/cobra"
 )
 
 type loginQrcodeCmd struct {
@@ -72,7 +73,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 		return fmt.Errorf("QrcodeCreateKey: %w", err)
 	}
 	if key.UniKey == "" {
-		return fmt.Errorf("QrcodeCreateKey resp: %+v\n", key)
+		return fmt.Errorf("QrcodeCreateKey resp: %+v", key)
 	}
 
 	// 2. 生成二维码
@@ -80,7 +81,8 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 		CodeKey:  key.UniKey,
 		Level:    qrcode2.RecoveryLevel(c.level),
 		Platform: "web",
-		DeviceId: ""})
+		DeviceId: "",
+	})
 	if err != nil {
 		return fmt.Errorf("QrcodeGenerate: %s", err)
 	}
@@ -96,7 +98,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 	if err := os.MkdirAll(c.dir, os.ModePerm); err != nil {
 		return fmt.Errorf("MkdirAll: %w", err)
 	}
-	var file = filepath.Join(c.dir, "qrcode.png")
+	file := filepath.Join(c.dir, "qrcode.png")
 	if err := os.WriteFile(file, qr.Qrcode, os.ModePerm); err != nil {
 		return err
 	}
@@ -121,7 +123,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 		log.Debug("QrcodeCheck resp: %v\n", resp)
 		switch resp.Code {
 		case 800: // 二维码不存在、已过期、用户取消授权
-			return fmt.Errorf("current QrcodeCheck resp: %v\n", resp)
+			return fmt.Errorf("current QrcodeCheck resp: %v", resp)
 		case 801: // 等待扫码
 			continue
 		case 802: // 正在扫码授权中
@@ -129,7 +131,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 		case 803: // 授权登录成功
 			goto ok
 		default:
-			return fmt.Errorf("登录失败 QrcodeCheck resp: %v\n", resp)
+			return fmt.Errorf("登录失败 QrcodeCheck resp: %v", resp)
 		}
 	}
 ok:

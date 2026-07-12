@@ -72,7 +72,7 @@ func NewFromNCM(n *ncm.NCM, filename string) error {
 		return err
 	}
 
-	var img = new(bytes.Buffer)
+	img := new(bytes.Buffer)
 	if err := n.DecodeCover(img); err != nil {
 		return fmt.Errorf("DecodeCover: %w", err)
 	}
@@ -94,7 +94,7 @@ func SetMetadata(tag Tagger, imgData []byte, meta *ncm.MetadataMusic) error {
 	}
 
 	if len(imgData) > 0 {
-		var mime = ncm.DetectCoverType(imgData).MIME()
+		mime := ncm.DetectCoverType(imgData).MIME()
 		if err := tag.SetCover(imgData, mime); err != nil {
 			return fmt.Errorf("SetCover(%v): %w", mime, err)
 		}
@@ -124,7 +124,7 @@ func SetMetadata(tag Tagger, imgData []byte, meta *ncm.MetadataMusic) error {
 		}
 	}
 
-	var artists = make([]string, 0)
+	artists := make([]string, 0)
 	for _, artist := range meta.Artists {
 		artists = append(artists, artist.Name)
 	}

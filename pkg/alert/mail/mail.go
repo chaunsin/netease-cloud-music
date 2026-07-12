@@ -70,10 +70,10 @@ func (c *Client) Send(ctx context.Context, content string) error {
 	for _, to := range c.cfg.To {
 		m := mail.NewMsg()
 		if err := m.From(c.cfg.Username); err != nil {
-			return fmt.Errorf("From: %w", err)
+			return fmt.Errorf("from: %w", err)
 		}
 		if err := m.To(to); err != nil {
-			return fmt.Errorf("To: %w", err)
+			return fmt.Errorf("to: %w", err)
 		}
 		m.Subject("This is my first mail with go-mail!")
 		m.SetBodyString(mail.TypeTextPlain, content)

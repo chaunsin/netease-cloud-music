@@ -10,18 +10,19 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	neturl "net/url"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
-	ncmcrypto "github.com/chaunsin/netease-cloud-music/pkg/crypto"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
-
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	neturl "net/url"
+
+	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
+	ncmcrypto "github.com/chaunsin/netease-cloud-music/pkg/crypto"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
 )
 
 func TestRewriteXeapiURL(t *testing.T) {
@@ -129,7 +130,7 @@ func TestXeapiRequestSetsEncryptedAppHeaders(t *testing.T) {
 		assert.NotEmpty(t, r.FormValue("B"))
 		assert.NotEmpty(t, r.FormValue("S"))
 		assert.NotEmpty(t, r.FormValue("R"))
-		w.Write(encryptLegacyEapiResponse(t, []byte(`{"code":200}`)))
+		_, _ = w.Write(encryptLegacyEapiResponse(t, []byte(`{"code":200}`)))
 	}))
 	defer server.Close()
 
@@ -150,7 +151,7 @@ func TestXeapiRequestSetsEncryptedAppHeaders(t *testing.T) {
 
 	opts := NewOptions()
 	opts.CryptoMode = CryptoModeXEAPI
-	var reply map[string]interface{}
+	var reply map[string]any
 	_, err = client.Request(context.Background(), server.URL+"/eapi/song/detail?id=1", map[string]string{"id": "1"}, &reply, opts)
 	require.NoError(t, err)
 

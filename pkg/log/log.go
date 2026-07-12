@@ -75,7 +75,7 @@ func New(cfg *Config) *Logger {
 		level.Set(slog.LevelDebug)
 	}
 
-	var opts = slog.HandlerOptions{
+	opts := slog.HandlerOptions{
 		AddSource:   true,
 		Level:       &level,
 		ReplaceAttr: nil,

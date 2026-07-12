@@ -3,5 +3,4 @@
 
 package api
 
-type Header struct {
-}
+type Header struct{}

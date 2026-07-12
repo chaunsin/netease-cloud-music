@@ -14,14 +14,14 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cheggaaa/pb/v3"
+	"github.com/spf13/cobra"
+	"golang.org/x/sync/semaphore"
+
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/ncm"
 	"github.com/chaunsin/netease-cloud-music/pkg/ncm/tag"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/cheggaaa/pb/v3"
-	"github.com/spf13/cobra"
-	"golang.org/x/sync/semaphore"
 )
 
 type NCMOpts struct {
@@ -83,7 +83,7 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 		c.cmd.Println("nothing was entered")
 		return nil
 	}
-	var fileList = make([]string, 0, len(input))
+	fileList := make([]string, 0, len(input))
 
 	// 处理命令行输入的内容
 	for _, fd := range slices.Compact(input) {
@@ -123,7 +123,7 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 				return nil
 			}
 
-			var f = filepath.Join(file, path)
+			f := filepath.Join(file, path)
 			if filepath.Ext(f) != ".ncm" {
 				return nil
 			}
@@ -140,7 +140,7 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 	}
 	log.Debug("filelist: %+v", fileList)
 
-	if err := os.MkdirAll(c.opts.Output, 0755); err != nil {
+	if err := os.MkdirAll(c.opts.Output, 0o755); err != nil {
 		return fmt.Errorf("mkdir: %w", err)
 	}
 
@@ -203,7 +203,7 @@ func (c *NCM) decode(filename string) error {
 		dest      = filepath.Join(c.opts.Output, name+"."+extend)
 	)
 
-	if err := utils.MkdirIfNotExist(c.opts.Output, 0755); err != nil {
+	if err := utils.MkdirIfNotExist(c.opts.Output, 0o755); err != nil {
 		return fmt.Errorf("MkdirIfNotExist: %w", err)
 	}
 	tmp, err := os.CreateTemp(c.opts.Output, fmt.Sprintf("ncm-*-%s.%s.tmp", name, extend))
@@ -239,7 +239,7 @@ func (c *NCM) decode(filename string) error {
 		return fmt.Errorf("rename: %w", err)
 	}
 
-	if err := os.Chmod(dest, 0644); err != nil {
+	if err := os.Chmod(dest, 0o644); err != nil {
 		return fmt.Errorf("chmod: %w", err)
 	}
 	return nil

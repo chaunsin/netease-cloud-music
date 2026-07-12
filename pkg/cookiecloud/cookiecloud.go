@@ -114,7 +114,7 @@ func (c *Client) Get(ctx context.Context, req *GetReq) (*GetResp, error) {
 	)
 
 	// 云端解密
-	var method = resty.MethodGet
+	method := resty.MethodGet
 	if req.CloudDecryption {
 		method = resty.MethodPost
 		cli = cli.SetBody(map[string]string{
@@ -122,8 +122,7 @@ func (c *Client) Get(ctx context.Context, req *GetReq) (*GetResp, error) {
 		})
 	}
 
-	var res, err = cli.SetResult(&resp).Execute(method, "/get/"+req.Uuid)
-
+	res, err := cli.SetResult(&resp).Execute(method, "/get/"+req.Uuid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to request server: %v", err)
 	}

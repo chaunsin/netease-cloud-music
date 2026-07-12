@@ -8,19 +8,16 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
-
-	"github.com/spf13/cobra"
 )
-
-type LogoutOpts struct{}
 
 type Logout struct {
 	root *Root
 	cmd  *cobra.Command
-	opts LogoutOpts
 	l    *log.Logger
 }
 
