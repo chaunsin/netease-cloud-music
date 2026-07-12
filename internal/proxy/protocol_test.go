@@ -97,12 +97,15 @@ func TestParseEAPIEnvelopeUsesFirstAndLastSeparator(t *testing.T) {
 func TestDecodeEAPIRequestInvalidFallsBackToRawForm(t *testing.T) {
 	u := mustURL(t, "https://interface.music.163.com/eapi/test")
 	header := http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}
-	body := []byte("params=not-hex&token=secret")
+	body := []byte("params=not-hex&e_r=true&token=secret")
 
 	result := decodeRequest(http.MethodPost, u, header, body, false)
 
 	if result.status != decodeStatusFailed {
 		t.Fatalf("status = %q, want failed", result.status)
+	}
+	if !result.responseEncrypted {
+		t.Fatal("fallback lost the e_r response-encryption hint")
 	}
 	if !strings.Contains(string(result.body), `"params": "not-hex"`) {
 		t.Fatalf("raw form was not retained: %s", result.body)
@@ -125,6 +128,29 @@ func TestParseFormTrimsNeteaseZeroPadding(t *testing.T) {
 	values, ok = parseForm(header, []byte("value=100%25"))
 	if !ok || values.Get("value") != "100%" {
 		t.Fatalf("legitimate percent value changed: %#v", values)
+	}
+}
+
+func TestParseFormRejectsMalformedDeclaredContentType(t *testing.T) {
+	values, ok := parseForm(http.Header{"Content-Type": {"not a media type"}}, []byte("token=secret"))
+	if ok || values != nil {
+		t.Fatalf("malformed declared content type parsed as form: %#v", values)
+	}
+}
+
+func TestDecodeRequestOnlyReportsEmptyBodyForBodyMethods(t *testing.T) {
+	u := mustURL(t, "https://music.163.com/api/test")
+	for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodDelete} {
+		result := decodeRequest(method, u, nil, nil, false)
+		if strings.Contains(result.detail, "empty request body") {
+			t.Fatalf("%s request reported an unexpected empty body: %q", method, result.detail)
+		}
+	}
+	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodPatch} {
+		result := decodeRequest(method, u, nil, nil, false)
+		if !strings.Contains(result.detail, "empty request body") {
+			t.Fatalf("%s request did not report an empty body: %q", method, result.detail)
+		}
 	}
 }
 
@@ -370,6 +396,10 @@ func mustURL(t *testing.T, raw string) *url.URL {
 		t.Fatal(err)
 	}
 	return u
+}
+
+func decodeRequest(method string, u *url.URL, header http.Header, body []byte, showSensitive bool) decodeResult {
+	return decodeRequestLimited(method, u, header, body, showSensitive, defaultJSONDisplayLimit)
 }
 
 func encryptEAPIResponseForTest(t *testing.T, plaintext []byte) []byte {

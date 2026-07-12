@@ -52,15 +52,15 @@ func Run(ctx context.Context, rawConfig Config) error {
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", cfg.ListenAddr, err)
 	}
-	ca, generated, err := loadOrCreateCAWithPolicy(cfg.CACertPath, cfg.CAKeyPath, cfg.RequirePrivateCAPath)
+	ca, generated, err := loadOrCreateCA(cfg.CACertPath, cfg.CAKeyPath, cfg.RequirePrivateCAPath)
 	if err != nil {
 		_ = listener.Close()
 		return fmt.Errorf("load proxy CA: %w", err)
 	}
-	tracked := newTrackedListener(listener)
+	tracked := newTrackedListener(listener, defaultConnectHandshakeTimeout)
 	recorder := newRecorder(cfg.Out, cfg.MaxBodyBytes, cfg.ShowSensitive)
 	defer recorder.Close()
-	proxyServer, transport := newProxyServerWithTrackedListener(cfg, matcher, ca, recorder, tracked)
+	proxyServer, transport := newProxyServer(cfg, matcher, ca, recorder, tracked)
 	httpServer := &http.Server{
 		Handler:           proxyServer,
 		ReadHeaderTimeout: 10 * time.Second,
@@ -103,11 +103,7 @@ func Run(ctx context.Context, rawConfig Config) error {
 	}
 }
 
-func newProxyServer(cfg Config, matcher *hostMatcher, ca *tls.Certificate, recorder *recorder) (*goproxy.ProxyHttpServer, *http.Transport) {
-	return newProxyServerWithTrackedListener(cfg, matcher, ca, recorder, nil)
-}
-
-func newProxyServerWithTrackedListener(cfg Config, matcher *hostMatcher, ca *tls.Certificate, recorder *recorder, tracked *trackedListener) (*goproxy.ProxyHttpServer, *http.Transport) {
+func newProxyServer(cfg Config, matcher *hostMatcher, ca *tls.Certificate, recorder *recorder, tracked *trackedListener) (*goproxy.ProxyHttpServer, *http.Transport) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
 	transport.TLSClientConfig = nil
@@ -126,18 +122,19 @@ func newProxyServerWithTrackedListener(cfg Config, matcher *hostMatcher, ca *tls
 	target := goproxy.ReqConditionFunc(func(req *http.Request, _ *goproxy.ProxyCtx) bool {
 		return matcher.Match(requestHost(req))
 	})
-	handshakeTimeout := defaultConnectHandshakeTimeout
-	if tracked != nil && tracked.handshakeTimeout > 0 {
-		handshakeTimeout = tracked.handshakeTimeout
-	}
-	baseTLSConfig := goproxy.TLSConfigFromCA(ca)
 	tlsConfig := func(host string, proxyCtx *goproxy.ProxyCtx) (*tls.Config, error) {
-		config, err := baseTLSConfig(host, proxyCtx)
+		handshakeTimeout := defaultConnectHandshakeTimeout
+		if tracked != nil && tracked.handshakeTimeout > 0 {
+			handshakeTimeout = tracked.handshakeTimeout
+		}
+
+		config, err := goproxy.TLSConfigFromCA(ca)(host, proxyCtx)
 		if err != nil {
 			return nil, err
 		}
 		return withMITMHandshakeTimeout(config, handshakeTimeout), nil
 	}
+
 	server.OnRequest().HandleConnectFunc(func(host string, proxyCtx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
 		if matcher.Match(host) {
 			if tracked != nil && proxyCtx != nil && proxyCtx.Req != nil {
@@ -159,11 +156,10 @@ func newProxyServerWithTrackedListener(cfg Config, matcher *hostMatcher, ca *tls
 			session:       proxyCtx.Session,
 			started:       time.Now(),
 			requestMethod: req.Method,
+			requestURL:    cloneURL(req.URL),
 			requestHeader: req.Header.Clone(),
 		}
-		requestURL := cloneURL(req.URL)
-		state.requestURL = requestURL
-		prepareRequestCapture(state, req, requestURL, cfg.MaxBodyBytes, recorder)
+		prepareRequestCapture(state, req, cfg.MaxBodyBytes, recorder)
 		proxyCtx.UserData = state
 
 		proxyCtx.RoundTripper = goproxy.RoundTripperFunc(func(outbound *http.Request, _ *goproxy.ProxyCtx) (*http.Response, error) {
@@ -180,19 +176,18 @@ func newProxyServerWithTrackedListener(cfg Config, matcher *hostMatcher, ca *tls
 				}
 				return nil, roundTripErr
 			}
+
 			if response != nil {
 				state.responseBody = newBodySnapshot(response.Header, response.ContentLength)
+				state.responseCaptured = true
+				hasBody := response.Body != nil && response.Body != http.NoBody
+				omittedReason := bodyOmissionReason(state.responseBody.contentType, state.requestURL.Path)
 				switch {
 				case isUpgradeResponse(response):
 					state.responseBody.omittedReason = "protocol upgrade body omitted"
-					state.responseCaptured = true
-				case response.Body == nil || response.Body == http.NoBody:
-					state.responseCaptured = true
-				case bodyOmissionReason(state.responseBody.contentType, requestURL.Path) != "":
-					state.responseBody.omittedReason = bodyOmissionReason(state.responseBody.contentType, requestURL.Path)
-					state.responseCaptured = true
-				default:
-					state.responseCaptured = true
+				case hasBody && omittedReason != "":
+					state.responseBody.omittedReason = omittedReason
+				case hasBody:
 					state.responseDeferred = true
 					responseMetadata := cloneResponseMetadata(response)
 					response.Body = newCaptureReadCloser(response.Body, state.responseBody, cfg.MaxBodyBytes, func(snapshot bodySnapshot) {
@@ -236,13 +231,13 @@ func newProxyServerWithTrackedListener(cfg Config, matcher *hostMatcher, ca *tls
 	return server, transport
 }
 
-func prepareRequestCapture(state *captureState, request *http.Request, requestURL *url.URL, limit int64, recorder *recorder) {
+func prepareRequestCapture(state *captureState, request *http.Request, limit int64, recorder *recorder) {
 	state.requestBody = newBodySnapshot(request.Header, request.ContentLength)
-	state.requestRecord, state.requestDecoded = recorder.beginRequest(state, request.Method, requestURL)
+	state.requestRecord, state.requestDecoded = newRequestRecord(state.requestURL)
 	finish := func(snapshot bodySnapshot) {
 		state.requestBody = snapshot
 		state.requestOnce.Do(func() {
-			recorder.finishRequest(state.requestRecord, state, request.Method, requestURL)
+			recorder.finishRequest(state.requestRecord, state)
 		})
 	}
 
@@ -250,7 +245,7 @@ func prepareRequestCapture(state *captureState, request *http.Request, requestUR
 		finish(state.requestBody)
 		return
 	}
-	if reason := bodyOmissionReason(state.requestBody.contentType, requestURL.Path); reason != "" {
+	if reason := bodyOmissionReason(state.requestBody.contentType, state.requestURL.Path); reason != "" {
 		state.requestBody.omittedReason = reason
 		finish(state.requestBody)
 		return
@@ -312,7 +307,7 @@ func badGatewayResponse(request *http.Request) *http.Response {
 		Proto:         "HTTP/1.1",
 		ProtoMajor:    1,
 		ProtoMinor:    1,
-		Header:        http.Header{"Content-Type": []string{"text/plain; charset=utf-8"}},
+		Header:        http.Header{"Content-Type": {"text/plain; charset=utf-8"}},
 		Body:          io.NopCloser(strings.NewReader(body)),
 		ContentLength: int64(len(body)),
 		Request:       request,
@@ -323,7 +318,8 @@ func isUpgradeResponse(response *http.Response) bool {
 	if response == nil {
 		return false
 	}
-	if response.StatusCode == http.StatusSwitchingProtocols || headerHasToken(response.Header, "Connection", "upgrade") {
+	if response.StatusCode == http.StatusSwitchingProtocols ||
+		headerHasToken(response.Header, "Connection", "upgrade") {
 		return true
 	}
 	_, readWriter := response.Body.(io.ReadWriter)
@@ -370,14 +366,14 @@ func requestHost(req *http.Request) string {
 }
 
 func printStartup(cfg Config, address net.Addr, ca *tls.Certificate, generated bool) {
-	state := "loaded"
+	var state = "loaded"
 	if generated {
 		state = "generated"
 	}
-	fingerprint := sha256.Sum256(ca.Leaf.Raw)
+
 	fmt.Fprintf(cfg.ErrOut, "ncmctl proxy listening on http://%s\n", address.String())
 	fmt.Fprintf(cfg.ErrOut, "CA certificate (%s): %s\n", state, cfg.CACertPath)
-	fmt.Fprintf(cfg.ErrOut, "CA SHA-256: %s\n", formatFingerprint(fingerprint[:]))
+	fmt.Fprintf(cfg.ErrOut, "CA SHA-256: %s\n", formatFingerprint(sha256.Sum256(ca.Leaf.Raw)))
 	fmt.Fprintln(cfg.ErrOut, "Trust this CA on the client before capturing HTTPS. Press Ctrl+C to stop.")
 	if !isLoopbackListenAddress(cfg.ListenAddr) {
 		fmt.Fprintln(cfg.ErrOut, "WARNING: this unauthenticated open proxy is reachable beyond this machine; use only on a trusted network behind a firewall.")
@@ -387,7 +383,7 @@ func printStartup(cfg Config, address net.Addr, ca *tls.Certificate, generated b
 	}
 }
 
-func formatFingerprint(raw []byte) string {
+func formatFingerprint(raw [sha256.Size]byte) string {
 	parts := make([]string, len(raw))
 	for i, value := range raw {
 		parts[i] = fmt.Sprintf("%02X", value)
@@ -402,8 +398,12 @@ type diagnosticWriter struct {
 
 func (w *diagnosticWriter) Write(p []byte) (int, error) {
 	output := redactDiagnostic(p, w.showSensitive)
-	if _, err := w.out.Write(output); err != nil {
+	n, err := w.out.Write(output)
+	if err != nil {
 		return 0, err
+	}
+	if n != len(output) {
+		return 0, io.ErrShortWrite
 	}
 	return len(p), nil
 }

@@ -41,7 +41,7 @@ func TestNormalizeConfigCAPolicy(t *testing.T) {
 	require.True(t, strictExplicitConfig.RequirePrivateCAPath)
 }
 
-func TestNormalizeConfigRejectsBodyLimitWithoutTruncationSentinel(t *testing.T) {
+func TestNormalizeConfigRejectsUnboundedBodyLimit(t *testing.T) {
 	_, err := normalizeConfig(Config{MaxBodyBytes: math.MaxInt64})
 	require.ErrorContains(t, err, "less than")
 

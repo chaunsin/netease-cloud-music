@@ -98,7 +98,7 @@ func TestFormatJSONRecursiveRedactionAndUseNumber(t *testing.T) {
 		"redirect": "{\"url\":\"https://music.163.com/next?access_token=nested-url-secret\"}"
 	}`)
 
-	formatted, original, err := formatJSON(input, false)
+	formatted, _, err := formatJSONLimited(input, false, defaultJSONDisplayLimit)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,20 +112,88 @@ func TestFormatJSONRecursiveRedactionAndUseNumber(t *testing.T) {
 	if !strings.Contains(text, "9007199254740993") || !strings.Contains(text, "visible") {
 		t.Fatalf("safe data changed: %s", text)
 	}
-	if !valueRequestEncrypted(map[string]any{"wrapper": `{"e_r":true}`}) {
+	_, encrypted, err := formatJSONLimited([]byte(`{"wrapper":"{\"e_r\":true}"}`), false, defaultJSONDisplayLimit)
+	if err != nil || !encrypted.requestEncrypted {
 		t.Fatal("nested JSON string e_r was not detected")
+	}
+	original, err := decodeJSON(input)
+	if err != nil {
+		t.Fatal(err)
 	}
 	object := original.(map[string]any)
 	if number, ok := object["id"].(json.Number); !ok || number.String() != "9007199254740993" {
 		t.Fatalf("number was not decoded with UseNumber: %#v", object["id"])
 	}
 
-	visible, _, err := formatJSON(input, true)
+	visible, _, err := formatJSONLimited(input, true, defaultJSONDisplayLimit)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(visible), "top-secret") || !strings.Contains(string(visible), "cookie-secret") {
 		t.Fatalf("showSensitive did not bypass redaction: %s", visible)
+	}
+}
+
+func TestFormatValuesForDisplayPreservesFormSemantics(t *testing.T) {
+	html := strings.Repeat("<", 64)
+	formatted, meta, err := formatValuesForDisplay(url.Values{
+		"e_r":   {"true"},
+		"empty": {},
+		"html":  {html},
+		"ids":   {"1", "2"},
+		"token": {"secret"},
+	}, false, 256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !meta.requestEncrypted || !json.Valid(formatted) {
+		t.Fatalf("invalid formatted values: meta=%+v body=%s", meta, formatted)
+	}
+	decoded, err := decodeJSON(formatted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := decoded.(map[string]any)
+	if value["html"] != html || value["token"] != redactedValue {
+		t.Fatalf("scalar values changed: %#v", value)
+	}
+	if len(value["empty"].([]any)) != 0 || len(value["ids"].([]any)) != 2 {
+		t.Fatalf("multi-value fields changed: %#v", value)
+	}
+	if _, _, err := formatValuesForDisplay(url.Values{"value": {strings.Repeat("x", 256)}}, false, 32); !errors.Is(err, errJSONDisplayLimit) {
+		t.Fatalf("oversized form error = %v, want display limit", err)
+	}
+}
+
+func TestFormatValuesForDisplayFailsClosedOnInvalidUTF8(t *testing.T) {
+	invalid := string(append([]byte("private-value"), 0xff))
+	values := url.Values{"note": {invalid}}
+
+	formatted, _, err := formatValuesForDisplay(values, false, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !json.Valid(formatted) || strings.Contains(string(formatted), "private-value") || !strings.Contains(string(formatted), unsafeTextPlaceholder) {
+		t.Fatalf("invalid form value did not fail closed: %q", formatted)
+	}
+	query := formatQuery(values, false, 1024)
+	if !json.Valid(query) || strings.Contains(string(query), "private-value") || !strings.Contains(string(query), unsafeTextPlaceholder) {
+		t.Fatalf("invalid query value did not fail closed: %q", query)
+	}
+
+	display := formatBody(
+		http.Header{"Content-Type": {"application/x-www-form-urlencoded"}},
+		[]byte("note=private-value%FF"),
+		false,
+		1024,
+	)
+	if !display.structured || !json.Valid(display.body) || strings.Contains(string(display.body), "private-value") || !strings.Contains(string(display.body), unsafeTextPlaceholder) {
+		t.Fatalf("invalid form body did not fail closed: %#v", display)
+	}
+
+	visible, _, err := formatValuesForDisplay(values, true, 1024)
+	if err != nil || !json.Valid(visible) || !strings.Contains(string(visible), "private-value") {
+		t.Fatalf("show-sensitive invalid value was not safely encoded: body=%q err=%v", visible, err)
 	}
 }
 
@@ -173,7 +241,7 @@ func TestUnstructuredBodiesFailClosedUnlessSensitiveOutputIsEnabled(t *testing.T
 	header := http.Header{"Content-Type": {"application/json"}}
 	malformed := []byte(`{"MUSIC\u005fU":"escaped-cookie-secret",`)
 
-	redacted := formatRequestBody(header, malformed, false, 1024)
+	redacted := formatBody(header, malformed, false, 1024)
 	if strings.Contains(string(redacted.body), "escaped-cookie-secret") {
 		t.Fatalf("malformed JSON leaked a secret: %q", redacted.body)
 	}
@@ -181,17 +249,17 @@ func TestUnstructuredBodiesFailClosedUnlessSensitiveOutputIsEnabled(t *testing.T
 		t.Fatalf("malformed JSON did not fail closed: %#v", redacted)
 	}
 
-	visible := formatRequestBody(header, malformed, true, 1024)
+	visible := formatBody(header, malformed, true, 1024)
 	if string(visible.body) != string(malformed) {
 		t.Fatalf("show-sensitive did not retain malformed body: %q", visible.body)
 	}
 
 	nonUTF8 := append([]byte("MUSIC_U=invalid-byte-secret"), 0xff)
-	redacted = formatRequestBody(http.Header{"Content-Type": {"text/plain"}}, nonUTF8, false, 1024)
+	redacted = formatBody(http.Header{"Content-Type": {"text/plain"}}, nonUTF8, false, 1024)
 	if strings.Contains(string(redacted.body), "invalid-byte-secret") {
 		t.Fatalf("non-UTF-8 body leaked a secret: %q", redacted.body)
 	}
-	visible = formatRequestBody(http.Header{"Content-Type": {"text/plain"}}, nonUTF8, true, 1024)
+	visible = formatBody(http.Header{"Content-Type": {"text/plain"}}, nonUTF8, true, 1024)
 	if string(visible.body) != string(nonUTF8) {
 		t.Fatalf("show-sensitive changed non-UTF-8 body: %q", visible.body)
 	}
@@ -207,7 +275,7 @@ func TestJSONDisplayHasDepthAndOutputBudgets(t *testing.T) {
 	if _, _, err := formatJSONLimited(compact, false, int64(len(compact))); !errors.Is(err, errJSONDisplayLimit) {
 		t.Fatalf("compact JSON error = %v, want display limit", err)
 	}
-	display := formatRequestBody(http.Header{"Content-Type": {"application/json"}}, compact, false, int64(len(compact)))
+	display := formatBody(http.Header{"Content-Type": {"application/json"}}, compact, false, int64(len(compact)))
 	if strings.Contains(string(display.body), `"a":1`) || !strings.Contains(string(display.body), "body omitted") {
 		t.Fatalf("over-budget JSON did not fail closed: %q", display.body)
 	}

@@ -25,22 +25,6 @@ const (
 	recorderCloseTimeout  = 250 * time.Millisecond
 )
 
-type recorder struct {
-	out           io.Writer
-	maxBodyBytes  int64
-	showSensitive bool
-
-	mu sync.Mutex
-
-	submitMu   sync.Mutex
-	tasks      chan func()
-	stop       chan struct{}
-	workerDone chan struct{}
-	closeOnce  sync.Once
-	closed     atomic.Bool
-	dropped    atomic.Uint64
-}
-
 // requestRecord coordinates request decoding with later response logging. It
 // uses callbacks rather than having an output worker wait, so a full-duplex
 // response can finish before its request body without deadlocking the queue.
@@ -52,125 +36,27 @@ type requestRecord struct {
 	callbacks []func(decodeResult)
 }
 
-func newRecorder(out io.Writer, maxBodyBytes int64, showSensitive bool) *recorder {
-	if maxBodyBytes <= 0 {
-		maxBodyBytes = defaultJSONDisplayLimit
+func newRequestRecord(requestURL *url.URL) (*requestRecord, decodeResult) {
+	path := ""
+	if requestURL != nil {
+		path = requestURL.Path
 	}
-	r := &recorder{
-		out:           out,
-		maxBodyBytes:  maxBodyBytes,
-		showSensitive: showSensitive,
-		tasks:         make(chan func(), recorderQueueCapacity),
-		stop:          make(chan struct{}),
-		workerDone:    make(chan struct{}),
+	result := decodeResult{
+		protocol: classifyProtocol(path),
+		status:   decodeStatusPlaintext,
+		apiPath:  path,
 	}
-	go r.run()
-	return r
-}
-
-// Close prevents future captures and waits only briefly for the worker. A
-// blocked stdout/FIFO must never delay proxy shutdown indefinitely.
-func (r *recorder) Close() {
-	r.CloseWithTimeout(recorderCloseTimeout)
-}
-
-func (r *recorder) CloseWithTimeout(timeout time.Duration) {
-	if r == nil {
-		return
+	if requestURL != nil {
+		// Preserve the response-encryption hint if overload drops full decoding.
+		result.responseEncrypted = valuesRequestEncrypted(requestURL.Query())
 	}
-	r.closeOnce.Do(func() {
-		r.submitMu.Lock()
-		defer r.submitMu.Unlock()
-		r.closed.Store(true)
-		close(r.stop)
-	})
-	if timeout <= 0 {
-		return
+	switch result.protocol {
+	case protocolWEAPI:
+		result.status = decodeStatusUnsupported
+	case protocolXEAPI:
+		result.status = decodeStatusUnsupported
 	}
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-	select {
-	case <-r.workerDone:
-	case <-timer.C:
-	}
-}
-
-// Flush waits for work accepted before the barrier. It is primarily useful for
-// controlled shutdown/tests; normal request forwarding must never wait for it.
-func (r *recorder) Flush(timeout time.Duration) bool {
-	if r == nil || timeout <= 0 {
-		return false
-	}
-	done := make(chan struct{})
-	if !r.submit(func() { close(done) }) {
-		return false
-	}
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-	select {
-	case <-done:
-		return true
-	case <-timer.C:
-		return false
-	}
-}
-
-func (r *recorder) run() {
-	defer close(r.workerDone)
-	for {
-		select {
-		case <-r.stop:
-			// Close stops new submissions first, then lets already accepted work
-			// flush when the writer is healthy. CloseWithTimeout still returns if
-			// a terminal/FIFO remains blocked.
-			for {
-				select {
-				case task := <-r.tasks:
-					if task != nil {
-						r.writeDroppedNotice()
-						task()
-					}
-				default:
-					return
-				}
-			}
-		case task := <-r.tasks:
-			if task == nil {
-				continue
-			}
-			r.writeDroppedNotice()
-			task()
-		}
-	}
-}
-
-func (r *recorder) submit(task func()) bool {
-	if r == nil || task == nil {
-		return false
-	}
-	r.submitMu.Lock()
-	defer r.submitMu.Unlock()
-	if r.closed.Load() {
-		return false
-	}
-	select {
-	case <-r.stop:
-		return false
-	default:
-	}
-	select {
-	case r.tasks <- task:
-		return true
-	default:
-		r.dropped.Add(1)
-		return false
-	}
-}
-
-func (r *recorder) writeDroppedNotice() {
-	if count := r.dropped.Swap(0); count > 0 {
-		r.writeBlock([]byte(fmt.Sprintf("[%s] CAPTURE_DROPPED count=%d reason=output_queue_full\n", time.Now().Format(time.RFC3339Nano), count)))
-	}
+	return &requestRecord{}, result
 }
 
 func (record *requestRecord) begin() bool {
@@ -197,7 +83,7 @@ func (record *requestRecord) complete(result decodeResult) {
 	}
 	record.completed = true
 	record.result = result
-	callbacks := append([]func(decodeResult){}, record.callbacks...)
+	callbacks := record.callbacks
 	record.callbacks = nil
 	record.mu.Unlock()
 	for _, callback := range callbacks {
@@ -220,52 +106,109 @@ func (record *requestRecord) onComplete(callback func(decodeResult)) {
 	callback(result)
 }
 
-func (r *recorder) beginRequest(_ *captureState, _ string, requestURL *url.URL) (*requestRecord, decodeResult) {
-	result := decodeResult{
-		protocol: classifyProtocol(requestPath(requestURL)),
-		status:   decodeStatusPlaintext,
-		apiPath:  requestPath(requestURL),
-	}
-	if requestURL != nil {
-		// Preserve the response-encryption hint if overload drops full decoding.
-		result.responseEncrypted = valuesRequestEncrypted(requestURL.Query())
-	}
-	switch result.protocol {
-	case protocolWEAPI:
-		result.status = decodeStatusUnsupported
-	case protocolXEAPI:
-		result.status = decodeStatusUnsupported
-	}
-	return &requestRecord{}, result
+type recorder struct {
+	out           io.Writer
+	maxBodyBytes  int64
+	showSensitive bool
+
+	submitMu   sync.Mutex
+	tasks      chan func()
+	workerDone chan struct{}
+	closeOnce  sync.Once
+	closed     bool
+	dropped    atomic.Uint64
 }
 
-func (r *recorder) finishRequest(record *requestRecord, state *captureState, method string, requestURL *url.URL) {
+func newRecorder(out io.Writer, maxBodyBytes int64, showSensitive bool) *recorder {
+	if maxBodyBytes <= 0 {
+		maxBodyBytes = defaultJSONDisplayLimit
+	}
+	r := &recorder{
+		out:           out,
+		maxBodyBytes:  maxBodyBytes,
+		showSensitive: showSensitive,
+		tasks:         make(chan func(), recorderQueueCapacity),
+		workerDone:    make(chan struct{}),
+	}
+	go r.run()
+	return r
+}
+
+// Close prevents future captures and waits only briefly for the worker. A
+// blocked stdout/FIFO must never delay proxy shutdown indefinitely.
+func (r *recorder) Close() {
+	r.CloseWithTimeout(recorderCloseTimeout)
+}
+
+func (r *recorder) CloseWithTimeout(timeout time.Duration) {
+	if r == nil {
+		return
+	}
+	r.closeOnce.Do(func() {
+		r.submitMu.Lock()
+		r.closed = true
+		close(r.tasks)
+		r.submitMu.Unlock()
+	})
+	if timeout <= 0 {
+		return
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-r.workerDone:
+	case <-timer.C:
+	}
+}
+
+func (r *recorder) run() {
+	defer close(r.workerDone)
+	for task := range r.tasks {
+		r.writeDroppedNotice()
+		task()
+	}
+}
+
+func (r *recorder) submit(task func()) bool {
+	if r == nil || task == nil {
+		return false
+	}
+	r.submitMu.Lock()
+	defer r.submitMu.Unlock()
+	if r.closed {
+		return false
+	}
+	select {
+	case r.tasks <- task:
+		return true
+	default:
+		r.dropped.Add(1)
+		return false
+	}
+}
+
+func (r *recorder) writeDroppedNotice() {
+	if count := r.dropped.Swap(0); count > 0 {
+		r.writeBlock([]byte(fmt.Sprintf("[%s] CAPTURE_DROPPED count=%d reason=output_queue_full\n", time.Now().Format(time.RFC3339Nano), count)))
+	}
+}
+
+func (r *recorder) finishRequest(record *requestRecord, state *captureState) {
 	if record == nil || !record.begin() {
 		return
 	}
 	provisional := state.requestDecoded
 	if !r.submit(func() {
 		body, captureDetail := r.bodyForDisplay(state.requestBody)
-		decoded := decodeRequestLimited(method, requestURL, state.requestHeader, body, r.showSensitive, r.maxBodyBytes)
+		decoded := decodeRequestLimited(state.requestMethod, state.requestURL, state.requestHeader, body, r.showSensitive, r.maxBodyBytes)
 		detail := joinDetails(decoded.detail, captureDetail, snapshotDetail(state.requestBody))
-		r.writeRequestBlock(state, method, requestURL, decoded, detail)
+		r.writeRequestBlock(state, decoded, detail)
 		// Complete only after the request block is emitted so response records
 		// stay ordered whenever stdout is able to make progress.
 		record.complete(decoded)
 	}) {
 		record.complete(provisional)
 	}
-}
-
-// recordRequest remains a small compatibility wrapper for direct callers. New
-// server paths use beginRequest/finishRequest to delay capture until a streaming
-// request body has reached its terminal state.
-func (r *recorder) recordRequest(state *captureState, method string, requestURL *url.URL) decodeResult {
-	record, provisional := r.beginRequest(state, method, requestURL)
-	state.requestRecord = record
-	state.requestDecoded = provisional
-	r.finishRequest(record, state, method, requestURL)
-	return provisional
 }
 
 func (r *recorder) recordResponse(state *captureState, response *http.Response) {
@@ -316,15 +259,15 @@ func (r *recorder) recordResponseError(state *captureState, responseErr error) {
 	recordError(state.requestDecoded)
 }
 
-func (r *recorder) writeRequestBlock(state *captureState, method string, requestURL *url.URL, decoded decodeResult, detail string) {
+func (r *recorder) writeRequestBlock(state *captureState, decoded decodeResult, detail string) {
 	var block bytes.Buffer
 	fmt.Fprintf(&block, "[%s] #%06d REQUEST protocol=%s decode=%s\n",
 		time.Now().Format(time.RFC3339Nano), state.session, decoded.protocol, decoded.status)
-	fmt.Fprintf(&block, "%s %s\n", escapeLogField(method), escapeLogField(redactURL(requestURL, r.showSensitive)))
+	fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactURL(state.requestURL, r.showSensitive)))
 	if decoded.responseEncrypted {
 		fmt.Fprintln(&block, "response-encrypted: true")
 	}
-	if decoded.apiPath != "" && decoded.apiPath != requestPath(requestURL) {
+	if decoded.apiPath != "" && (state.requestURL == nil || decoded.apiPath != state.requestURL.Path) {
 		fmt.Fprintf(&block, "api-path: %s\n", escapeLogField(decoded.apiPath))
 	}
 	if len(decoded.query) > 0 {
@@ -355,13 +298,6 @@ func (r *recorder) writeResponseBlock(state *captureState, response *http.Respon
 		fmt.Fprintf(&block, "detail: %s\n", escapeLogField(r.redactDiagnostic(detail)))
 	}
 	r.writeBlock(block.Bytes())
-}
-
-func requestPath(requestURL *url.URL) string {
-	if requestURL == nil {
-		return ""
-	}
-	return requestURL.Path
 }
 
 func (r *recorder) redactDiagnostic(value string) string {
@@ -440,17 +376,15 @@ func (r *recorder) writeSection(block *bytes.Buffer, name string, body []byte) {
 	}
 }
 
+// A single recorder worker serializes all production calls to writeBlock.
 func (r *recorder) writeBlock(block []byte) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
 	if r.out == nil {
 		return
 	}
-	_, _ = r.out.Write(block)
 	if len(block) == 0 || block[len(block)-1] != '\n' {
-		_, _ = io.WriteString(r.out, "\n")
+		block = append(block, '\n')
 	}
-	_, _ = io.WriteString(r.out, "\n")
+	_, _ = r.out.Write(append(block, '\n'))
 }
 
 func writeHeaders(block *bytes.Buffer, headers http.Header, showSensitive bool) {
@@ -466,7 +400,7 @@ func writeHeaders(block *bytes.Buffer, headers http.Header, showSensitive bool) 
 		return
 	}
 	for _, key := range keys {
-		for _, value := range redacted.Values(key) {
+		for _, value := range redacted[key] {
 			fmt.Fprintf(block, "  %s: %s\n", escapeLogField(key), escapeLogField(value))
 		}
 	}

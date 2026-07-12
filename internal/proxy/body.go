@@ -4,11 +4,9 @@
 package proxy
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -26,50 +24,6 @@ type bodySnapshot struct {
 	truncated     bool
 	omittedReason string
 	captureErr    error
-}
-
-type replayReadCloser struct {
-	io.Reader
-	closer io.Closer
-}
-
-func (r *replayReadCloser) Close() error {
-	if r.closer == nil {
-		return nil
-	}
-	return r.closer.Close()
-}
-
-func snapshotBody(body io.ReadCloser, header http.Header, contentLength, limit int64, path string) (bodySnapshot, io.ReadCloser) {
-	snapshot := newBodySnapshot(header, contentLength)
-	if body == nil || body == http.NoBody {
-		return snapshot, body
-	}
-	if reason := bodyOmissionReason(snapshot.contentType, path); reason != "" {
-		snapshot.omittedReason = reason
-		return snapshot, body
-	}
-
-	consumed, err := io.ReadAll(io.LimitReader(body, captureReadLimit(limit)))
-	restored := &replayReadCloser{
-		Reader: io.MultiReader(bytes.NewReader(consumed), body),
-		closer: body,
-	}
-	snapshot.captureErr = err
-	if int64(len(consumed)) > limit {
-		snapshot.raw = append([]byte(nil), consumed[:limit]...)
-		snapshot.truncated = true
-	} else {
-		snapshot.raw = append([]byte(nil), consumed...)
-	}
-	return snapshot, restored
-}
-
-func captureReadLimit(limit int64) int64 {
-	if limit == math.MaxInt64 {
-		return math.MaxInt64
-	}
-	return limit + 1
 }
 
 func newBodySnapshot(header http.Header, contentLength int64) bodySnapshot {
@@ -126,10 +80,7 @@ func (r *captureReadCloser) Read(p []byte) (int, error) {
 		r.readBytes += int64(n)
 		remaining := r.limit - int64(len(r.captured))
 		if remaining > 0 {
-			captureLen := int64(n)
-			if captureLen > remaining {
-				captureLen = remaining
-			}
+			captureLen := min(int64(n), remaining)
 			r.captured = append(r.captured, p[:captureLen]...)
 		}
 		if int64(n) > remaining {
@@ -181,7 +132,8 @@ func (r *captureReadCloser) Close() error {
 }
 
 func bodyOmissionReason(contentType, path string) string {
-	mediaType := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	mediaType, _, _ := strings.Cut(contentType, ";")
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
 	switch {
 	case strings.HasPrefix(mediaType, "audio/"):
 		return "audio body omitted"

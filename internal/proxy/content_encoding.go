@@ -17,7 +17,7 @@ import (
 
 func decodeHTTPContent(raw []byte, contentEncoding string, limit int64) ([]byte, bool, error) {
 	encodings := strings.Split(strings.ToLower(contentEncoding), ",")
-	data := append([]byte(nil), raw...)
+	data := raw
 	for i := len(encodings) - 1; i >= 0; i-- {
 		encoding := strings.TrimSpace(encodings[i])
 		if encoding == "" || encoding == "identity" {

@@ -11,10 +11,7 @@ import (
 )
 
 func secureCAPrivateKey(path string) error {
-	if err := os.Chmod(path, 0o600); err != nil {
-		return err
-	}
-	return nil
+	return os.Chmod(path, 0o600)
 }
 
 func secureCAPrivateDir(path string) error {

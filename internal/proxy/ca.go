@@ -24,19 +24,14 @@ import (
 	"github.com/elazarl/goproxy"
 )
 
-const caRSAKeyBits = 2048
+const (
+	caRSAKeyBits          = 2048
+	maxCachedCertificates = 256
+)
 
-const maxCachedCertificates = 256
-
-// loadOrCreateCA loads an explicit CA pair or creates a new private pair.
-// Callers managing ncmctl's default CA should use loadOrCreateCAWithPolicy.
-func loadOrCreateCA(certPath, keyPath string) (*tls.Certificate, bool, error) {
-	return loadOrCreateCAWithPolicy(certPath, keyPath, false)
-}
-
-// loadOrCreateCAWithPolicy manages a CA pair. When requirePrivateCAPath is
+// loadOrCreateCA manages a CA pair. When requirePrivateCAPath is
 // true, existing parent directories must remain private as well as the key.
-func loadOrCreateCAWithPolicy(certPath, keyPath string, requirePrivateCAPath bool) (*tls.Certificate, bool, error) {
+func loadOrCreateCA(certPath, keyPath string, requirePrivateCAPath bool) (*tls.Certificate, bool, error) {
 	if certPath == "" || keyPath == "" {
 		return nil, false, fmt.Errorf("CA certificate and key paths are required")
 	}
@@ -241,25 +236,18 @@ func uniqueParentDirs(paths ...string) []string {
 
 func ensurePrivateDir(dir string) error {
 	info, err := os.Stat(dir)
-	if err == nil {
-		if !info.IsDir() {
-			return fmt.Errorf("CA parent path %q is not a directory", dir)
-		}
-		if err := secureCAPrivateDir(dir); err != nil {
-			return err
-		}
-		return nil
+	if err == nil && !info.IsDir() {
+		return fmt.Errorf("CA parent path %q is not a directory", dir)
 	}
-	if !os.IsNotExist(err) {
+	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("inspect CA directory %q: %w", dir, err)
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("create CA directory %q: %w", dir, err)
+	if os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return fmt.Errorf("create CA directory %q: %w", dir, err)
+		}
 	}
-	if err := secureCAPrivateDir(dir); err != nil {
-		return err
-	}
-	return nil
+	return secureCAPrivateDir(dir)
 }
 
 func writeExclusive(path string, data []byte, mode os.FileMode) (err error) {
@@ -289,6 +277,8 @@ func writeExclusive(path string, data []byte, mode os.FileMode) (err error) {
 	return nil
 }
 
+var _ goproxy.CertStorage = (*memoryCertStore)(nil)
+
 type memoryCertStore struct {
 	mu    sync.Mutex
 	certs map[string]*memoryCertEntry
@@ -306,7 +296,10 @@ func newMemoryCertStore() *memoryCertStore {
 }
 
 func (s *memoryCertStore) Fetch(hostname string, gen func() (*tls.Certificate, error)) (*tls.Certificate, error) {
-	key := certificateCacheKey(hostname)
+	// A trailing dot changes the name goproxy signs. Preserve it in the cache
+	// key so a certificate for "music.163.com." cannot be reused for the bare
+	// hostname (or vice versa).
+	key := strings.ToLower(hostname)
 	s.mu.Lock()
 	if s.certs == nil {
 		s.certs = make(map[string]*memoryCertEntry)
@@ -336,13 +329,6 @@ func (s *memoryCertStore) Fetch(hostname string, gen func() (*tls.Certificate, e
 	return entry.cert, entry.err
 }
 
-func certificateCacheKey(hostname string) string {
-	// A trailing dot changes the name goproxy signs. Preserve it in the cache
-	// key so a certificate for "music.163.com." cannot be reused for the bare
-	// hostname (or vice versa).
-	return strings.ToLower(hostname)
-}
-
 func (s *memoryCertStore) evictOldestLocked() {
 	for len(s.order) > 0 {
 		oldest := s.order[0]
@@ -362,5 +348,3 @@ func (s *memoryCertStore) removeFromOrderLocked(key string) {
 		}
 	}
 }
-
-var _ goproxy.CertStorage = (*memoryCertStore)(nil)

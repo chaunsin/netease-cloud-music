@@ -228,7 +228,7 @@ func TestProxyDoesNotAddAcceptEncoding(t *testing.T) {
 	require.Empty(t, <-acceptEncoding)
 }
 
-func TestRecorderDoesNotInterleaveConcurrentBlocks(t *testing.T) {
+func TestRecorderSerializesConcurrentSubmissions(t *testing.T) {
 	t.Parallel()
 
 	output := &lockedBuffer{}
@@ -236,6 +236,7 @@ func TestRecorderDoesNotInterleaveConcurrentBlocks(t *testing.T) {
 	t.Cleanup(recorder.Close)
 	const blocks = 32
 	expected := make([]string, blocks)
+	accepted := make(chan bool, blocks)
 	var group sync.WaitGroup
 	for i := 0; i < blocks; i++ {
 		block := fmt.Sprintf("BEGIN-%02d\n%s\nEND-%02d\n", i, strings.Repeat(strconv.Itoa(i%10), 4096), i)
@@ -243,10 +244,14 @@ func TestRecorderDoesNotInterleaveConcurrentBlocks(t *testing.T) {
 		group.Add(1)
 		go func(block string) {
 			defer group.Done()
-			recorder.writeBlock([]byte(block))
+			accepted <- recorder.submit(func() { recorder.writeBlock([]byte(block)) })
 		}(block)
 	}
 	group.Wait()
+	for range blocks {
+		require.True(t, <-accepted)
+	}
+	require.Eventually(t, func() bool { return flushRecorder(recorder, 100*time.Millisecond) }, time.Second, 10*time.Millisecond)
 
 	text := output.String()
 	for _, block := range expected {
@@ -572,7 +577,7 @@ func TestRecorderRedactsResponseErrorDetails(t *testing.T) {
 		requestURL:    requestURL,
 	}, fmt.Errorf("fetch https://user:password@music.163.com/api?token=error-secret failed"))
 
-	require.True(t, recorder.Flush(time.Second))
+	require.True(t, flushRecorder(recorder, time.Second))
 	text := output.String()
 	require.Contains(t, text, "RESPONSE_ERROR")
 	require.Contains(t, text, redactedValue)
@@ -646,7 +651,7 @@ func TestRunReportsListenConflictBeforeCreatingCA(t *testing.T) {
 
 func TestPrintStartupWarnsForLANAndSensitiveOutput(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "proxy")
-	ca, _, err := loadOrCreateCA(filepath.Join(dir, "ca.crt"), filepath.Join(dir, "ca.key"))
+	ca, _, err := loadOrCreateCA(filepath.Join(dir, "ca.crt"), filepath.Join(dir, "ca.key"), false)
 	require.NoError(t, err)
 	var diagnostics bytes.Buffer
 	printStartup(Config{
@@ -661,6 +666,12 @@ func TestPrintStartupWarnsForLANAndSensitiveOutput(t *testing.T) {
 	require.Contains(t, text, "trusted network behind a firewall")
 	require.Contains(t, text, "terminal or redirected files")
 	require.Contains(t, text, "CA SHA-256")
+}
+
+func TestDiagnosticWriterReportsShortWrites(t *testing.T) {
+	n, err := (&diagnosticWriter{out: shortWriter{}, showSensitive: true}).Write([]byte("diagnostic"))
+	require.ErrorIs(t, err, io.ErrShortWrite)
+	require.Zero(t, n)
 }
 
 func TestRunClosesActiveConnectTunnel(t *testing.T) {
@@ -946,10 +957,28 @@ func TestPlaintextTargetConnectClearsDeadlineAfterRequestHeaders(t *testing.T) {
 	require.Equal(t, "plaintext response", string(body))
 }
 
+func TestTrackedConnFindsSplitPlaintextHeaderEnd(t *testing.T) {
+	client, server := net.Pipe()
+	t.Cleanup(func() {
+		_ = client.Close()
+		_ = server.Close()
+	})
+	conn := &trackedConn{Conn: server}
+	conn.armHandshakeDeadline(time.Second)
+	conn.observeRead([]byte("GET / HTTP/1.1\r\nHost: music.163.com\r\n\r"))
+	conn.observeRead([]byte("\n"))
+
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+	require.False(t, conn.handshakeDeadlineActive)
+	require.False(t, conn.plaintextPending)
+	require.Nil(t, conn.plaintextHeader)
+}
+
 func newTestProxy(t *testing.T, domains []string, maxBodyBytes int64) (*url.URL, *tls.Certificate, *lockedBuffer, *lockedBuffer, *http.Transport) {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "proxy")
-	ca, _, err := loadOrCreateCA(filepath.Join(dir, "ca.crt"), filepath.Join(dir, "ca.key"))
+	ca, _, err := loadOrCreateCA(filepath.Join(dir, "ca.crt"), filepath.Join(dir, "ca.key"), false)
 	require.NoError(t, err)
 	matcher, err := newHostMatcher(domains)
 	require.NoError(t, err)
@@ -962,7 +991,7 @@ func newTestProxy(t *testing.T, domains []string, maxBodyBytes int64) (*url.URL,
 		ErrOut:        diagnostics,
 	}
 	recorder := newRecorder(output, maxBodyBytes, false)
-	proxyServer, upstreamTransport := newProxyServer(cfg, matcher, ca, recorder)
+	proxyServer, upstreamTransport := newProxyServer(cfg, matcher, ca, recorder, nil)
 	server := httptest.NewServer(proxyServer)
 	t.Cleanup(server.Close)
 	t.Cleanup(upstreamTransport.CloseIdleConnections)
@@ -975,13 +1004,13 @@ func newTestProxy(t *testing.T, domains []string, maxBodyBytes int64) (*url.URL,
 func newTrackedTestProxy(t *testing.T, domains []string, handshakeTimeout time.Duration) (*url.URL, *tls.Certificate, *lockedBuffer, *lockedBuffer, *http.Transport) {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "proxy")
-	ca, _, err := loadOrCreateCA(filepath.Join(dir, "ca.crt"), filepath.Join(dir, "ca.key"))
+	ca, _, err := loadOrCreateCA(filepath.Join(dir, "ca.crt"), filepath.Join(dir, "ca.key"), false)
 	require.NoError(t, err)
 	matcher, err := newHostMatcher(domains)
 	require.NoError(t, err)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	tracked := newTrackedListenerWithHandshakeTimeout(listener, handshakeTimeout)
+	tracked := newTrackedListener(listener, handshakeTimeout)
 	output := &lockedBuffer{}
 	diagnostics := &lockedBuffer{}
 	cfg := Config{
@@ -991,7 +1020,7 @@ func newTrackedTestProxy(t *testing.T, domains []string, handshakeTimeout time.D
 		ErrOut:        diagnostics,
 	}
 	recorder := newRecorder(output, cfg.MaxBodyBytes, false)
-	proxyServer, upstreamTransport := newProxyServerWithTrackedListener(cfg, matcher, ca, recorder, tracked)
+	proxyServer, upstreamTransport := newProxyServer(cfg, matcher, ca, recorder, tracked)
 	httpServer := &http.Server{
 		Handler:           proxyServer,
 		ReadHeaderTimeout: time.Second,
@@ -1109,3 +1138,7 @@ func (b *lockedBuffer) String() string {
 	defer b.mu.RUnlock()
 	return b.buffer.String()
 }
+
+type shortWriter struct{}
+
+func (shortWriter) Write(p []byte) (int, error) { return max(0, len(p)-1), nil }

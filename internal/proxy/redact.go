@@ -78,10 +78,6 @@ func (b *limitedDisplayBuffer) writeByte(value byte) error {
 	return nil
 }
 
-func (b *limitedDisplayBuffer) bytes() []byte {
-	return b.buffer.Bytes()
-}
-
 func redactHeaders(header http.Header, showSensitive bool) http.Header {
 	redacted := make(http.Header, len(header))
 	for key, values := range header {
@@ -129,24 +125,20 @@ func redactValues(values url.Values, showSensitive bool) url.Values {
 	return result
 }
 
-// formatJSON is retained for focused unit tests. Proxy capture paths must use
-// formatJSONLimited with the configured display limit.
-func formatJSON(data []byte, showSensitive bool) ([]byte, any, error) {
-	formatted, _, err := formatJSONLimited(data, showSensitive, defaultJSONDisplayLimit)
-	if err != nil {
-		return nil, nil, err
-	}
-	value, err := decodeJSON(data)
-	if err != nil {
-		return nil, nil, err
-	}
-	return formatted, value, nil
-}
-
 // formatJSONLimited streams JSON tokens into a bounded output buffer. It never
 // creates a full pretty-printed copy before enforcing the configured limit.
 func formatJSONLimited(data []byte, showSensitive bool, limit int64) ([]byte, jsonDisplayMeta, error) {
-	if err := validateJSONForDisplay(data, limit); err != nil {
+	if limit <= 0 || int64(len(data)) > limit {
+		return nil, jsonDisplayMeta{}, errJSONInputLimit
+	}
+	return formatJSON(data, showSensitive, limit)
+}
+
+func formatJSON(data []byte, showSensitive bool, limit int64) ([]byte, jsonDisplayMeta, error) {
+	if !utf8.Valid(data) {
+		return nil, jsonDisplayMeta{}, errors.New("JSON input is not valid UTF-8")
+	}
+	if err := validateJSONDepth(data); err != nil {
 		return nil, jsonDisplayMeta{}, err
 	}
 	output, err := newLimitedDisplayBuffer(limit, len(data))
@@ -168,17 +160,7 @@ func formatJSONLimited(data []byte, showSensitive bool, limit int64) ([]byte, js
 		}
 		return nil, jsonDisplayMeta{}, err
 	}
-	return output.bytes(), formatter.meta, nil
-}
-
-func validateJSONForDisplay(data []byte, limit int64) error {
-	if limit <= 0 || int64(len(data)) > limit {
-		return errJSONInputLimit
-	}
-	if !utf8.Valid(data) {
-		return errors.New("JSON input is not valid UTF-8")
-	}
-	return validateJSONDepth(data)
+	return output.buffer.Bytes(), formatter.meta, nil
 }
 
 func validateJSONDepth(data []byte) error {
@@ -234,27 +216,127 @@ func decodeJSON(data []byte) (any, error) {
 	return value, nil
 }
 
-// marshalPretty is retained for non-body display helpers. It has the same
-// bounded writer as captured JSON so form/query rendering cannot grow without
-// limit either.
-func marshalPretty(value any) ([]byte, error) {
-	formatted, _, err := formatValueForDisplay(value, true, defaultJSONDisplayLimit)
-	return formatted, err
-}
-
-func formatValueForDisplay(value any, showSensitive bool, limit int64) ([]byte, jsonDisplayMeta, error) {
+func formatValuesForDisplay(values url.Values, showSensitive bool, limit int64) ([]byte, jsonDisplayMeta, error) {
 	output, err := newLimitedDisplayBuffer(limit, 0)
 	if err != nil {
 		return nil, jsonDisplayMeta{}, err
 	}
-	formatter := valueDisplayFormatter{
+	formatter := valuesDisplayFormatter{
 		output:        output,
 		showSensitive: showSensitive,
 	}
-	if err := formatter.writeValue(value, "", 0, false); err != nil {
+	if err := formatter.writeValues(values); err != nil {
 		return nil, jsonDisplayMeta{}, err
 	}
-	return output.bytes(), formatter.meta, nil
+	return output.buffer.Bytes(), formatter.meta, nil
+}
+
+// valuesDisplayFormatter keeps form and query formatting bounded without first
+// materializing a second, potentially much larger JSON representation.
+type valuesDisplayFormatter struct {
+	output        *limitedDisplayBuffer
+	showSensitive bool
+	meta          jsonDisplayMeta
+}
+
+func (f *valuesDisplayFormatter) writeValues(values url.Values) error {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	if err := f.output.writeByte('{'); err != nil {
+		return err
+	}
+	for i, key := range keys {
+		if i == 0 {
+			if err := f.output.writeByte('\n'); err != nil {
+				return err
+			}
+		} else if err := f.output.writeString(",\n"); err != nil {
+			return err
+		}
+		if err := f.writeIndent(1); err != nil {
+			return err
+		}
+		if err := writeJSONString(f.output, strings.ToValidUTF8(key, "\uFFFD")); err != nil {
+			return err
+		}
+		if err := f.output.writeString(": "); err != nil {
+			return err
+		}
+		if err := f.writeEntries(key, values[key], 1); err != nil {
+			return err
+		}
+	}
+	if len(keys) > 0 {
+		if err := f.output.writeByte('\n'); err != nil {
+			return err
+		}
+	}
+	return f.output.writeByte('}')
+}
+
+func (f *valuesDisplayFormatter) writeEntries(key string, entries []string, depth int) error {
+	if !f.showSensitive && sensitiveKey(key) {
+		return writeJSONString(f.output, redactedValue)
+	}
+	switch len(entries) {
+	case 0:
+		return f.output.writeString("[]")
+	case 1:
+		if normalizeKey(key) == "er" && truthy(entries[0]) {
+			f.meta.requestEncrypted = true
+		}
+		if strings.EqualFold(key, "url") {
+			f.meta.rootURL = entries[0]
+		}
+		return f.writeString(entries[0])
+	default:
+		return f.writeArray(entries, depth)
+	}
+}
+
+func (f *valuesDisplayFormatter) writeArray(entries []string, depth int) error {
+	if err := f.output.writeByte('['); err != nil {
+		return err
+	}
+	for i, entry := range entries {
+		if i == 0 {
+			if err := f.output.writeByte('\n'); err != nil {
+				return err
+			}
+		} else if err := f.output.writeString(",\n"); err != nil {
+			return err
+		}
+		if err := f.writeIndent(depth + 1); err != nil {
+			return err
+		}
+		if err := f.writeString(entry); err != nil {
+			return err
+		}
+	}
+	if err := f.output.writeByte('\n'); err != nil {
+		return err
+	}
+	if err := f.writeIndent(depth); err != nil {
+		return err
+	}
+	return f.output.writeByte(']')
+}
+
+func (f *valuesDisplayFormatter) writeString(value string) error {
+	if f.showSensitive && !utf8.ValidString(value) {
+		value = strings.ToValidUTF8(value, "\uFFFD")
+	}
+	redacted, nestedMeta := redactJSONStringWithMeta(value, f.showSensitive)
+	f.meta.requestEncrypted = f.meta.requestEncrypted || nestedMeta.requestEncrypted
+	return writeJSONString(f.output, redacted)
+}
+
+func (f *valuesDisplayFormatter) writeIndent(depth int) error {
+	return f.output.writeString(strings.Repeat("  ", depth))
 }
 
 type jsonDisplayFormatter struct {
@@ -276,7 +358,7 @@ func (f *jsonDisplayFormatter) writeValue(key string, depth int, rootURL bool) e
 		if err := f.discardValue(token, depth); err != nil {
 			return err
 		}
-		return f.writeJSONString(redactedValue)
+		return writeJSONString(f.output, redactedValue)
 	}
 	if normalizeKey(key) == "er" && truthy(token) {
 		f.meta.requestEncrypted = true
@@ -300,7 +382,7 @@ func (f *jsonDisplayFormatter) writeValue(key string, depth int, rootURL bool) e
 	case string:
 		redacted, nestedMeta := redactJSONStringWithMeta(typed, f.showSensitive)
 		f.meta.requestEncrypted = f.meta.requestEncrypted || nestedMeta.requestEncrypted
-		return f.writeJSONString(redacted)
+		return writeJSONString(f.output, redacted)
 	case json.Number:
 		return f.output.writeString(typed.String())
 	case bool:
@@ -341,7 +423,7 @@ func (f *jsonDisplayFormatter) writeObject(depth int) error {
 		if err := f.writeIndent(depth + 1); err != nil {
 			return err
 		}
-		if err := f.writeJSONString(key); err != nil {
+		if err := writeJSONString(f.output, key); err != nil {
 			return err
 		}
 		if err := f.output.writeString(": "); err != nil {
@@ -467,203 +549,48 @@ func (f *jsonDisplayFormatter) writeIndent(depth int) error {
 	return f.output.writeString(strings.Repeat("  ", depth))
 }
 
-func (f *jsonDisplayFormatter) writeJSONString(value string) error {
-	return writeJSONString(f.output, value)
-}
-
-type valueDisplayFormatter struct {
-	output        *limitedDisplayBuffer
-	showSensitive bool
-	meta          jsonDisplayMeta
-}
-
-func (f *valueDisplayFormatter) writeValue(value any, key string, depth int, rootURL bool) error {
-	if depth > maxJSONDisplayDepth {
-		return errJSONDepth
-	}
-	if !f.showSensitive && key != "" && sensitiveKey(key) {
-		return writeJSONString(f.output, redactedValue)
-	}
-	if normalizeKey(key) == "er" && truthy(value) {
-		f.meta.requestEncrypted = true
-	}
-	if rootURL {
-		if text, ok := value.(string); ok {
-			f.meta.rootURL = text
-		}
-	}
-
-	switch typed := value.(type) {
-	case map[string]any:
-		keys := make([]string, 0, len(typed))
-		for childKey := range typed {
-			keys = append(keys, childKey)
-		}
-		sort.Strings(keys)
-		if err := f.output.writeByte('{'); err != nil {
-			return err
-		}
-		for i, childKey := range keys {
-			if i == 0 {
-				if err := f.output.writeByte('\n'); err != nil {
-					return err
-				}
-			} else if err := f.output.writeString(",\n"); err != nil {
-				return err
-			}
-			if err := f.output.writeString(strings.Repeat("  ", depth+1)); err != nil {
-				return err
-			}
-			if err := writeJSONString(f.output, childKey); err != nil {
-				return err
-			}
-			if err := f.output.writeString(": "); err != nil {
-				return err
-			}
-			if err := f.writeValue(typed[childKey], childKey, depth+1, depth == 0 && strings.EqualFold(childKey, "url")); err != nil {
-				return err
-			}
-		}
-		if len(keys) > 0 {
-			if err := f.output.writeByte('\n'); err != nil {
-				return err
-			}
-			if err := f.output.writeString(strings.Repeat("  ", depth)); err != nil {
-				return err
-			}
-		}
-		return f.output.writeByte('}')
-	case []any:
-		if err := f.output.writeByte('['); err != nil {
-			return err
-		}
-		for i, child := range typed {
-			if i == 0 {
-				if err := f.output.writeByte('\n'); err != nil {
-					return err
-				}
-			} else if err := f.output.writeString(",\n"); err != nil {
-				return err
-			}
-			if err := f.output.writeString(strings.Repeat("  ", depth+1)); err != nil {
-				return err
-			}
-			if err := f.writeValue(child, "", depth+1, false); err != nil {
-				return err
-			}
-		}
-		if len(typed) > 0 {
-			if err := f.output.writeByte('\n'); err != nil {
-				return err
-			}
-			if err := f.output.writeString(strings.Repeat("  ", depth)); err != nil {
-				return err
-			}
-		}
-		return f.output.writeByte(']')
-	case string:
-		redacted, nestedMeta := redactJSONStringWithMeta(typed, f.showSensitive)
-		f.meta.requestEncrypted = f.meta.requestEncrypted || nestedMeta.requestEncrypted
-		return writeJSONString(f.output, redacted)
-	case json.Number:
-		return f.output.writeString(typed.String())
-	case bool:
-		if typed {
-			return f.output.writeString("true")
-		}
-		return f.output.writeString("false")
-	case nil:
-		return f.output.writeString("null")
-	case float64, float32, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		encoded, err := json.Marshal(typed)
-		if err != nil {
-			return err
-		}
-		return f.output.writeString(string(encoded))
-	default:
-		return fmt.Errorf("unsupported display value %T", value)
-	}
-}
-
 func writeJSONString(output *limitedDisplayBuffer, value string) error {
 	if err := output.writeByte('"'); err != nil {
 		return err
 	}
-	for _, runeValue := range value {
+	start := 0
+	for index, runeValue := range value {
+		var escaped string
 		switch runeValue {
 		case '\\':
-			if err := output.writeString(`\\`); err != nil {
-				return err
-			}
+			escaped = `\\`
 		case '"':
-			if err := output.writeString(`\"`); err != nil {
-				return err
-			}
+			escaped = `\"`
 		case '\b':
-			if err := output.writeString(`\b`); err != nil {
-				return err
-			}
+			escaped = `\b`
 		case '\f':
-			if err := output.writeString(`\f`); err != nil {
-				return err
-			}
+			escaped = `\f`
 		case '\n':
-			if err := output.writeString(`\n`); err != nil {
-				return err
-			}
+			escaped = `\n`
 		case '\r':
-			if err := output.writeString(`\r`); err != nil {
-				return err
-			}
+			escaped = `\r`
 		case '\t':
-			if err := output.writeString(`\t`); err != nil {
-				return err
-			}
+			escaped = `\t`
 		default:
 			if runeValue < 0x20 {
-				if err := output.writeString(fmt.Sprintf(`\u%04x`, runeValue)); err != nil {
-					return err
-				}
-				continue
-			}
-			if err := output.writeString(string(runeValue)); err != nil {
-				return err
+				escaped = fmt.Sprintf(`\u%04x`, runeValue)
 			}
 		}
+		if escaped == "" {
+			continue
+		}
+		if err := output.writeString(value[start:index]); err != nil {
+			return err
+		}
+		if err := output.writeString(escaped); err != nil {
+			return err
+		}
+		start = index + utf8.RuneLen(runeValue)
+	}
+	if err := output.writeString(value[start:]); err != nil {
+		return err
 	}
 	return output.writeByte('"')
-}
-
-func redactValue(value any, key string, showSensitive bool) any {
-	return redactValueAtDepth(value, key, showSensitive, 0)
-}
-
-func redactValueAtDepth(value any, key string, showSensitive bool, depth int) any {
-	if !showSensitive && key != "" && sensitiveKey(key) {
-		return redactedValue
-	}
-	if depth >= maxJSONDisplayDepth {
-		return redactedValue
-	}
-
-	switch typed := value.(type) {
-	case map[string]any:
-		result := make(map[string]any, len(typed))
-		for childKey, child := range typed {
-			result[childKey] = redactValueAtDepth(child, childKey, showSensitive, depth+1)
-		}
-		return result
-	case []any:
-		result := make([]any, len(typed))
-		for i, child := range typed {
-			result[i] = redactValueAtDepth(child, "", showSensitive, depth+1)
-		}
-		return result
-	case string:
-		return redactJSONString(typed, showSensitive)
-	default:
-		return value
-	}
 }
 
 func redactJSONString(value string, showSensitive bool) string {
@@ -702,14 +629,16 @@ func redactJSONStringWithMeta(value string, showSensitive bool) (string, jsonDis
 		return value[:start] + string(formatted) + value[start+len(trimmed):], meta
 	}
 
-	parsed, err := url.Parse(trimmed)
-	if err == nil && (parsed.RawQuery != "" || parsed.User != nil) {
-		redacted := redactURL(parsed, false)
-		start := strings.Index(value, trimmed)
-		if start < 0 {
-			return redacted, jsonDisplayMeta{}
+	if strings.ContainsAny(trimmed, "?@") {
+		parsed, err := url.Parse(trimmed)
+		if err == nil && (parsed.RawQuery != "" || parsed.User != nil) {
+			redacted := redactURL(parsed, false)
+			start := strings.Index(value, trimmed)
+			if start < 0 {
+				return redacted, jsonDisplayMeta{}
+			}
+			return value[:start] + redacted + value[start+len(trimmed):], jsonDisplayMeta{}
 		}
-		return value[:start] + redacted + value[start+len(trimmed):], jsonDisplayMeta{}
 	}
 	return string(redactText([]byte(value), false)), jsonDisplayMeta{}
 }
@@ -787,22 +716,6 @@ func escapeLogField(value string) string {
 	return buffer.String()
 }
 
-func valuesToValue(values url.Values) map[string]any {
-	result := make(map[string]any, len(values))
-	for key, entries := range values {
-		if len(entries) == 1 {
-			result[key] = entries[0]
-			continue
-		}
-		items := make([]any, len(entries))
-		for i, entry := range entries {
-			items[i] = entry
-		}
-		result[key] = items
-	}
-	return result
-}
-
 func sensitiveKey(key string) bool {
 	normalized := normalizeKey(key)
 	if normalized == "" {
@@ -833,7 +746,8 @@ func sensitiveKey(key string) bool {
 func normalizeKey(key string) string {
 	var builder strings.Builder
 	builder.Grow(len(key))
-	for _, r := range strings.ToLower(key) {
+	for _, r := range key {
+		r = unicode.ToLower(r)
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
 			builder.WriteRune(r)
 		}
@@ -855,35 +769,6 @@ func valuesRequestEncrypted(values url.Values) bool {
 	return false
 }
 
-func valueRequestEncrypted(value any) bool {
-	switch typed := value.(type) {
-	case map[string]any:
-		for key, child := range typed {
-			if normalizeKey(key) == "er" && truthy(child) {
-				return true
-			}
-			if valueRequestEncrypted(child) {
-				return true
-			}
-		}
-	case []any:
-		for _, child := range typed {
-			if valueRequestEncrypted(child) {
-				return true
-			}
-		}
-	case string:
-		trimmed := strings.TrimSpace(typed)
-		if len(trimmed) >= 2 && (trimmed[0] == '{' || trimmed[0] == '[') {
-			if formatted, meta, err := formatJSONLimited([]byte(trimmed), false, defaultJSONDisplayLimit); err == nil {
-				_ = formatted
-				return meta.requestEncrypted
-			}
-		}
-	}
-	return false
-}
-
 func truthy(value any) bool {
 	switch typed := value.(type) {
 	case bool:
@@ -896,12 +781,6 @@ func truthy(value any) bool {
 	case json.Number:
 		floatValue, err := typed.Float64()
 		return err == nil && floatValue != 0
-	case float64:
-		return typed != 0
-	case int:
-		return typed != 0
-	case int64:
-		return typed != 0
 	}
 	return false
 }

@@ -54,9 +54,7 @@ type decodeResult struct {
 	responseEncrypted bool
 }
 
-const (
-	eapiSeparator = "-36cd479b6b5-"
-)
+const eapiSeparator = "-36cd479b6b5-"
 
 func classifyProtocol(requestPath string) protocol {
 	p := requestPath
@@ -85,10 +83,6 @@ func hasPathPrefix(value, prefix string) bool {
 	return value == prefix || strings.HasPrefix(value, prefix+"/")
 }
 
-func decodeRequest(method string, u *url.URL, header http.Header, body []byte, showSensitive bool) decodeResult {
-	return decodeRequestLimited(method, u, header, body, showSensitive, defaultJSONDisplayLimit)
-}
-
 func decodeRequestLimited(method string, u *url.URL, header http.Header, body []byte, showSensitive bool, maxBodyBytes int64) decodeResult {
 	if u == nil {
 		u = &url.URL{}
@@ -97,19 +91,20 @@ func decodeRequestLimited(method string, u *url.URL, header http.Header, body []
 		maxBodyBytes = defaultJSONDisplayLimit
 	}
 
+	query := u.Query()
 	result := decodeResult{
-		protocol: classifyProtocol(u.Path),
-		status:   decodeStatusPlaintext,
-		apiPath:  u.Path,
-		query:    formatQuery(u.Query(), showSensitive, maxBodyBytes),
+		protocol:          classifyProtocol(u.Path),
+		status:            decodeStatusPlaintext,
+		apiPath:           u.Path,
+		query:             formatQuery(query, showSensitive, maxBodyBytes),
+		responseEncrypted: valuesRequestEncrypted(query),
 	}
-	result.responseEncrypted = valuesRequestEncrypted(u.Query())
 
 	switch result.protocol {
 	case protocolEAPI:
-		return decodeEAPIRequest(result, u.Query(), header, body, showSensitive, maxBodyBytes)
+		return decodeEAPIRequest(result, query, header, body, showSensitive, maxBodyBytes)
 	case protocolLinux:
-		return decodeLinuxRequest(result, u.Query(), header, body, showSensitive, maxBodyBytes)
+		return decodeLinuxRequest(result, query, header, body, showSensitive, maxBodyBytes)
 	case protocolWEAPI:
 		result.status = decodeStatusUnsupported
 		result.detail = "weapi request decryption unsupported: the random AES key cannot be recovered"
@@ -118,7 +113,7 @@ func decodeRequestLimited(method string, u *url.URL, header http.Header, body []
 		result.detail = "xeapi request decryption unsupported: the session key is unavailable"
 	}
 
-	display := formatRequestBody(header, body, showSensitive, maxBodyBytes)
+	display := formatBody(header, body, showSensitive, maxBodyBytes)
 	result.body = display.body
 	if display.structured {
 		result.responseEncrypted = result.responseEncrypted || display.meta.requestEncrypted
@@ -181,13 +176,12 @@ func parseEAPIEnvelope(plaintext []byte) (string, []byte, error) {
 		return "", nil, errors.New("eapi envelope is incomplete")
 	}
 
-	want := fmt.Sprintf("%x", md5.Sum([]byte("nobody"+apiPath+"use"+string(payload)+"md5forencrypt")))
+	want := md5.Sum([]byte("nobody" + apiPath + "use" + string(payload) + "md5forencrypt"))
 	got, err := hex.DecodeString(digest)
 	if err != nil || len(got) != md5.Size {
 		return "", nil, errors.New("eapi envelope digest is invalid")
 	}
-	wantBytes, _ := hex.DecodeString(want)
-	if !bytes.Equal(got, wantBytes) {
+	if !bytes.Equal(got, want[:]) {
 		return "", nil, errors.New("eapi envelope digest mismatch")
 	}
 	return apiPath, payload, nil
@@ -252,7 +246,8 @@ func decodeLinuxRequest(base decodeResult, query url.Values, header http.Header,
 
 func failedRequestFallback(base decodeResult, header http.Header, body []byte, showSensitive bool, maxBodyBytes int64, detail string) decodeResult {
 	base.status = decodeStatusFailed
-	display := formatRequestBody(header, body, showSensitive, maxBodyBytes)
+	display := formatBody(header, body, showSensitive, maxBodyBytes)
+	base.responseEncrypted = base.responseEncrypted || display.meta.requestEncrypted
 	base.detail = appendDetail(detail, display.detail)
 	if display.structured {
 		base.detail = appendDetail(base.detail, "showing safely formatted request")
@@ -288,7 +283,7 @@ func decodeResponse(request decodeResult, header http.Header, body []byte, maxBo
 	switch request.protocol {
 	case protocolEAPI:
 		if !request.responseEncrypted {
-			display := formatRawBody(header, body, showSensitive, maxBodyBytes)
+			display := formatBody(header, body, showSensitive, maxBodyBytes)
 			result.status = decodeStatusRaw
 			result.body = display.body
 			result.detail = appendDetail("non-JSON EAPI response; response encryption was not declared", display.detail)
@@ -298,7 +293,7 @@ func decodeResponse(request decodeResult, header http.Header, body []byte, maxBo
 		if err == nil {
 			result.status = decodeStatusDecrypted
 			result.responseEncrypted = true
-			display := formatDecryptedBody(header, plaintext, showSensitive, maxBodyBytes)
+			display := formatBody(header, plaintext, showSensitive, maxBodyBytes)
 			result.body = display.body
 			result.detail = appendDetail("eapi encrypted response decrypted ("+encoding+")", display.detail)
 			if gzipDecoded {
@@ -307,7 +302,7 @@ func decodeResponse(request decodeResult, header http.Header, body []byte, maxBo
 			return result
 		}
 		result.status = decodeStatusFailed
-		display := formatRawBody(header, body, showSensitive, maxBodyBytes)
+		display := formatBody(header, body, showSensitive, maxBodyBytes)
 		result.body = display.body
 		result.detail = appendDetail(responseFailureDetail(request, "eapi response decrypt: "+err.Error()), display.detail)
 		return result
@@ -316,13 +311,13 @@ func decodeResponse(request decodeResult, header http.Header, body []byte, maxBo
 		// cannot recover. Treat non-JSON responses as opaque instead of trying
 		// the unrelated static EAPI key and reporting a misleading failure.
 		result.status = decodeStatusUnsupported
-		display := formatRawBody(header, body, showSensitive, maxBodyBytes)
+		display := formatBody(header, body, showSensitive, maxBodyBytes)
 		result.body = display.body
 		result.detail = appendDetail(string(request.protocol)+" response is not JSON; passive response decryption unsupported", display.detail)
 		return result
 	case protocolLinux:
 		if !request.responseEncrypted {
-			display := formatRawBody(header, body, showSensitive, maxBodyBytes)
+			display := formatBody(header, body, showSensitive, maxBodyBytes)
 			result.status = decodeStatusRaw
 			result.body = display.body
 			result.detail = appendDetail("non-JSON Linux response; response encryption was not declared", display.detail)
@@ -332,18 +327,18 @@ func decodeResponse(request decodeResult, header http.Header, body []byte, maxBo
 		if err == nil {
 			result.status = decodeStatusDecrypted
 			result.responseEncrypted = true
-			display := formatDecryptedBody(header, plaintext, showSensitive, maxBodyBytes)
+			display := formatBody(header, plaintext, showSensitive, maxBodyBytes)
 			result.body = display.body
 			result.detail = appendDetail("linux encrypted response decrypted", display.detail)
 			return result
 		}
 		result.status = decodeStatusFailed
-		display := formatRawBody(header, body, showSensitive, maxBodyBytes)
+		display := formatBody(header, body, showSensitive, maxBodyBytes)
 		result.body = display.body
 		result.detail = appendDetail(responseFailureDetail(request, "linux response decrypt: "+err.Error()), display.detail)
 		return result
 	default:
-		display := formatRawBody(header, body, showSensitive, maxBodyBytes)
+		display := formatBody(header, body, showSensitive, maxBodyBytes)
 		result.body = display.body
 		result.status = decodeStatusRaw
 		result.detail = appendDetail("response body is not JSON", display.detail)
@@ -396,10 +391,6 @@ func gunzipLimited(data []byte, limit int64) ([]byte, error) {
 	return decoded, nil
 }
 
-func formatDecryptedBody(header http.Header, body []byte, showSensitive bool, maxBodyBytes int64) bodyDisplay {
-	return formatRequestBody(header, body, showSensitive, maxBodyBytes)
-}
-
 func responseFailureDetail(request decodeResult, failure string) string {
 	if request.responseEncrypted {
 		return failure + "; request declared an encrypted response; showing raw response"
@@ -414,7 +405,7 @@ type bodyDisplay struct {
 	detail     string
 }
 
-func formatRequestBody(header http.Header, body []byte, showSensitive bool, maxBodyBytes int64) bodyDisplay {
+func formatBody(header http.Header, body []byte, showSensitive bool, maxBodyBytes int64) bodyDisplay {
 	if maxBodyBytes <= 0 {
 		maxBodyBytes = defaultJSONDisplayLimit
 	}
@@ -425,7 +416,7 @@ func formatRequestBody(header http.Header, body []byte, showSensitive bool, maxB
 		return bodyDisplay{body: formatted, structured: true, meta: meta}
 	}
 	if values, ok := parseForm(header, body); ok {
-		formatted, meta, err := formatValueForDisplay(valuesToValue(values), showSensitive, maxBodyBytes)
+		formatted, meta, err := formatValuesForDisplay(values, showSensitive, maxBodyBytes)
 		if err == nil {
 			return bodyDisplay{body: formatted, structured: true, meta: meta}
 		}
@@ -443,15 +434,11 @@ func formatRequestBody(header http.Header, body []byte, showSensitive bool, maxB
 	}
 }
 
-func formatRawBody(header http.Header, body []byte, showSensitive bool, maxBodyBytes int64) bodyDisplay {
-	return formatRequestBody(header, body, showSensitive, maxBodyBytes)
-}
-
 func formatQuery(values url.Values, showSensitive bool, maxBodyBytes int64) []byte {
 	if len(values) == 0 {
 		return []byte{}
 	}
-	formatted, _, err := formatValueForDisplay(valuesToValue(values), showSensitive, maxBodyBytes)
+	formatted, _, err := formatValuesForDisplay(values, showSensitive, maxBodyBytes)
 	if err != nil {
 		return safeBodyPlaceholder(maxBodyBytes, "query omitted because it exceeds the display limit")
 	}
@@ -488,7 +475,11 @@ func firstValueFold(values url.Values, name string) (string, bool) {
 }
 
 func parseForm(header http.Header, body []byte) (url.Values, bool) {
-	mediaType, _, _ := mime.ParseMediaType(header.Get("Content-Type"))
+	contentType := header.Get("Content-Type")
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil && contentType != "" {
+		return nil, false
+	}
 	formContentType := strings.EqualFold(mediaType, "application/x-www-form-urlencoded")
 	if !formContentType {
 		// A declared non-form media type must not fall through to the loose
@@ -560,18 +551,4 @@ func appendDetail(existing, detail string) string {
 		return detail
 	}
 	return existing + "; " + detail
-}
-
-func stringField(value any, name string) string {
-	object, ok := value.(map[string]any)
-	if !ok {
-		return ""
-	}
-	for key, raw := range object {
-		if strings.EqualFold(key, name) {
-			text, _ := raw.(string)
-			return text
-		}
-	}
-	return ""
 }

@@ -9,7 +9,6 @@ import (
 	"compress/gzip"
 	"compress/zlib"
 	"io"
-	"math"
 	"net/http"
 	"testing"
 	"time"
@@ -17,52 +16,6 @@ import (
 	"github.com/andybalholm/brotli"
 	"github.com/stretchr/testify/require"
 )
-
-func TestSnapshotBodyRestoresCompleteStream(t *testing.T) {
-	t.Parallel()
-
-	original := bytes.Repeat([]byte("body-"), 100)
-	snapshot, restored := snapshotBody(
-		io.NopCloser(bytes.NewReader(original)),
-		http.Header{"Content-Type": []string{"application/json"}},
-		int64(len(original)),
-		64,
-		"/api/test",
-	)
-
-	require.True(t, snapshot.truncated)
-	require.Len(t, snapshot.raw, 64)
-	forwarded, err := io.ReadAll(restored)
-	require.NoError(t, err)
-	require.Equal(t, original, forwarded)
-	require.NoError(t, restored.Close())
-}
-
-func TestSnapshotBodySkipsBinaryWithoutConsuming(t *testing.T) {
-	t.Parallel()
-
-	original := []byte{0x01, 0x02, 0x03}
-	body := io.NopCloser(bytes.NewReader(original))
-	snapshot, restored := snapshotBody(
-		body,
-		http.Header{"Content-Type": []string{"audio/mpeg"}},
-		int64(len(original)),
-		64,
-		"/song.mp3",
-	)
-
-	require.Equal(t, "audio body omitted", snapshot.omittedReason)
-	forwarded, err := io.ReadAll(restored)
-	require.NoError(t, err)
-	require.Equal(t, original, forwarded)
-}
-
-func TestCaptureReadLimitSaturatesAtMaxInt64(t *testing.T) {
-	t.Parallel()
-
-	require.Equal(t, int64(math.MaxInt64), captureReadLimit(math.MaxInt64))
-	require.Equal(t, int64(1025), captureReadLimit(1024))
-}
 
 func TestBodyOmissionReason(t *testing.T) {
 	t.Parallel()

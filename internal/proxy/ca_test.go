@@ -30,7 +30,7 @@ func TestLoadOrCreateCAGeneratesAndReuses(t *testing.T) {
 	certPath := filepath.Join(dir, "ca.crt")
 	keyPath := filepath.Join(dir, "ca.key")
 
-	ca, created, err := loadOrCreateCA(certPath, keyPath)
+	ca, created, err := loadOrCreateCA(certPath, keyPath, false)
 	if err != nil {
 		t.Fatalf("loadOrCreateCA() error = %v", err)
 	}
@@ -57,7 +57,7 @@ func TestLoadOrCreateCAGeneratesAndReuses(t *testing.T) {
 	}
 
 	firstCertificate := append([]byte(nil), ca.Certificate[0]...)
-	ca, created, err = loadOrCreateCA(certPath, keyPath)
+	ca, created, err = loadOrCreateCA(certPath, keyPath, false)
 	if err != nil {
 		t.Fatalf("second loadOrCreateCA() error = %v", err)
 	}
@@ -76,13 +76,13 @@ func TestLoadOrCreateCARepairsKeyPermissions(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "proxy")
 	certPath := filepath.Join(dir, "ca.crt")
 	keyPath := filepath.Join(dir, "ca.key")
-	if _, _, err := loadOrCreateCA(certPath, keyPath); err != nil {
+	if _, _, err := loadOrCreateCA(certPath, keyPath, false); err != nil {
 		t.Fatalf("loadOrCreateCA() error = %v", err)
 	}
 	if err := os.Chmod(keyPath, 0o644); err != nil {
 		t.Fatalf("chmod key: %v", err)
 	}
-	if _, created, err := loadOrCreateCA(certPath, keyPath); err != nil {
+	if _, created, err := loadOrCreateCA(certPath, keyPath, false); err != nil {
 		t.Fatalf("loadOrCreateCA() error = %v", err)
 	} else if created {
 		t.Fatal("existing CA reported as newly created")
@@ -90,41 +90,41 @@ func TestLoadOrCreateCARepairsKeyPermissions(t *testing.T) {
 	assertPermissions(t, keyPath, 0o600)
 }
 
-func TestLoadOrCreateCAWithPolicyRejectsBroadExistingManagedDirectory(t *testing.T) {
+func TestLoadOrCreateCARejectsBroadExistingManagedDirectory(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows fails closed before checking Unix permissions")
 	}
 	dir := filepath.Join(t.TempDir(), "proxy")
 	certPath := filepath.Join(dir, "ca.crt")
 	keyPath := filepath.Join(dir, "ca.key")
-	if _, _, err := loadOrCreateCA(certPath, keyPath); err != nil {
+	if _, _, err := loadOrCreateCA(certPath, keyPath, false); err != nil {
 		t.Fatalf("create CA: %v", err)
 	}
 	if err := os.Chmod(dir, 0o755); err != nil {
 		t.Fatalf("chmod CA directory: %v", err)
 	}
 
-	_, _, err := loadOrCreateCAWithPolicy(certPath, keyPath, true)
+	_, _, err := loadOrCreateCA(certPath, keyPath, true)
 	if err == nil || !strings.Contains(err.Error(), "permissions are too broad") {
-		t.Fatalf("loadOrCreateCAWithPolicy() error = %v, want private directory error", err)
+		t.Fatalf("loadOrCreateCA() error = %v, want private directory error", err)
 	}
 }
 
-func TestLoadOrCreateCAWithPolicyAllowsExplicitExistingBroadDirectory(t *testing.T) {
+func TestLoadOrCreateCAAllowsExplicitExistingBroadDirectory(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows fails closed before checking Unix permissions")
 	}
 	dir := filepath.Join(t.TempDir(), "proxy")
 	certPath := filepath.Join(dir, "ca.crt")
 	keyPath := filepath.Join(dir, "ca.key")
-	if _, _, err := loadOrCreateCA(certPath, keyPath); err != nil {
+	if _, _, err := loadOrCreateCA(certPath, keyPath, false); err != nil {
 		t.Fatalf("create CA: %v", err)
 	}
 	if err := os.Chmod(dir, 0o755); err != nil {
 		t.Fatalf("chmod CA directory: %v", err)
 	}
 
-	if _, created, err := loadOrCreateCAWithPolicy(certPath, keyPath, false); err != nil {
+	if _, created, err := loadOrCreateCA(certPath, keyPath, false); err != nil {
 		t.Fatalf("load explicit CA: %v", err)
 	} else if created {
 		t.Fatal("existing explicit CA reported as newly created")
@@ -146,7 +146,7 @@ func TestLoadOrCreateCAFailsClosedOnPartialPair(t *testing.T) {
 				t.Fatalf("write fixture: %v", err)
 			}
 
-			if _, _, err := loadOrCreateCA(certPath, keyPath); err == nil {
+			if _, _, err := loadOrCreateCA(certPath, keyPath, false); err == nil {
 				t.Fatal("loadOrCreateCA() unexpectedly succeeded")
 			}
 			got, err := os.ReadFile(path)
@@ -202,7 +202,7 @@ func TestLoadOrCreateCARejectsInvalidExistingPair(t *testing.T) {
 			keyPath := filepath.Join(dir, "ca.key")
 			writeTestCertificatePair(t, certPath, keyPath, &tt.template, tt.mismatched)
 
-			_, _, err := loadOrCreateCA(certPath, keyPath)
+			_, _, err := loadOrCreateCA(certPath, keyPath, false)
 			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
 				t.Fatalf("loadOrCreateCA() error = %v, want substring %q", err, tt.wantError)
 			}
@@ -220,17 +220,17 @@ func TestLoadOrCreateCARejectsCorruptPair(t *testing.T) {
 	if err := os.WriteFile(keyPath, []byte("corrupt key"), 0o600); err != nil {
 		t.Fatalf("write key: %v", err)
 	}
-	if _, _, err := loadOrCreateCA(certPath, keyPath); err == nil {
+	if _, _, err := loadOrCreateCA(certPath, keyPath, false); err == nil {
 		t.Fatal("loadOrCreateCA() unexpectedly succeeded")
 	}
 }
 
 func TestLoadOrCreateCARejectsUnsafeInputs(t *testing.T) {
-	if _, _, err := loadOrCreateCA("", "key"); err == nil {
+	if _, _, err := loadOrCreateCA("", "key", false); err == nil {
 		t.Fatal("empty certificate path unexpectedly succeeded")
 	}
 	path := filepath.Join(t.TempDir(), "same")
-	if _, _, err := loadOrCreateCA(path, path); err == nil {
+	if _, _, err := loadOrCreateCA(path, path, false); err == nil {
 		t.Fatal("identical certificate and key paths unexpectedly succeeded")
 	}
 }
