@@ -66,7 +66,7 @@ func snapshotBody(body io.ReadCloser, header http.Header, contentLength, limit i
 }
 
 func captureReadLimit(limit int64) int64 {
-	if limit >= math.MaxInt64 {
+	if limit == math.MaxInt64 {
 		return math.MaxInt64
 	}
 	return limit + 1

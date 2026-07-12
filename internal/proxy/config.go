@@ -74,7 +74,7 @@ func normalizeConfig(cfg Config) (Config, error) {
 		return Config{}, fmt.Errorf("max body bytes must be greater than zero")
 	}
 	// Capture code uses MaxBodyBytes + 1 as a truncation sentinel.
-	if cfg.MaxBodyBytes >= math.MaxInt64 {
+	if cfg.MaxBodyBytes == math.MaxInt64 {
 		return Config{}, fmt.Errorf("max body bytes must be less than %d", math.MaxInt64)
 	}
 	if cfg.ShutdownTimeout <= 0 {

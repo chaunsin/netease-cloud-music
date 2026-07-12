@@ -112,7 +112,7 @@ func (c *Proxy) validate() error {
 		return fmt.Errorf("max-body must be greater than zero")
 	}
 	// Capture helpers reserve one extra byte to distinguish truncation.
-	if c.opts.MaxBodyBytes >= math.MaxInt64 {
+	if c.opts.MaxBodyBytes == math.MaxInt64 {
 		return fmt.Errorf("max-body must be less than %d bytes", math.MaxInt64)
 	}
 	return nil

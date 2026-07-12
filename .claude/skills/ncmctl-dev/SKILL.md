@@ -40,12 +40,12 @@ config/                   # Config structs + default config.yaml
 ```bash
 make build                # Build binary → ./ncmctl
 make install              # Install to $GOPATH/bin
-go test -v ./...          # Run all tests
-go test -v -run TestName ./example/  # Run single test
+go test -v ./...          # Run the default test suite
+go test -tags=integration -v -run TestName ./example/  # Run a live example integration test
 make build-image          # Build Docker image
 ```
 
-Requires Go >= 1.25.0. Tests needing login require cookie file or should be skipped.
+Requires Go >= 1.25.0. Example integration tests require the `integration` tag, use the real NetEase network, and can log in, upload, or download with an account. Tests needing login require a cookie file or should be skipped.
 
 ## CLI Commands
 

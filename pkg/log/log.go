@@ -67,7 +67,7 @@ func New(cfg *Config) *Logger {
 		level.Set(slog.LevelDebug)
 	case "info":
 		level.Set(slog.LevelInfo)
-	case "level":
+	case "warn":
 		level.Set(slog.LevelWarn)
 	case "error":
 		level.Set(slog.LevelError)

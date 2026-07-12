@@ -20,8 +20,8 @@ make install
 # 运行测试
 go test -v ./...
 
-# 运行单个测试
-go test -v -run TestWeapiLoginByQrcode ./example/
+# 运行单个示例集成测试（访问真实网络，可能需要登录并产生账号操作）
+go test -tags=integration -v -run TestWeapiLoginByQrcode ./example/
 ```
 
 ### Docker
