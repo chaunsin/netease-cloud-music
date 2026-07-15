@@ -21,7 +21,7 @@ const (
 	audioFormatWav  = "wav"
 )
 
-// Tagger interface for both mp3 and flac
+// Tagger interface for both mp3 and flac.
 type Tagger interface {
 	SetCover(buf []byte, mime string) error
 	SetCoverUrl(coverUrl string) error
@@ -137,7 +137,7 @@ func SetMetadata(tag Tagger, imgData []byte, meta *ncm.MetadataMusic) error {
 }
 
 func fetchUrl(url string) ([]byte, error) {
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -148,9 +148,9 @@ func fetchUrl(url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to download album pic: remote returned %d", res.StatusCode)
 	}
-	defer res.Body.Close()
 	return io.ReadAll(res.Body)
 }

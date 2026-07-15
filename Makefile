@@ -11,9 +11,13 @@ BUILD_TIME=$(shell date "+%Y-%m-%d %H:%M:%S%z")
 fmt:
 	golangci-lint fmt -c .golangci.yaml ./...
 
+.PHONY: lintfix
+lintfix:
+	golangci-lint run -c .golangci.yaml --fix ./...
+
 .PHONY: lint
 lint:
-	golangci-lint run -c .golangci.yaml --fix ./...
+	golangci-lint run -c .golangci.yaml ./...
 
 .PHONY: test
 test:

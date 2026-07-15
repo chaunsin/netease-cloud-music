@@ -1,43 +1,51 @@
-# This file contains all available configuration options
-# with their default values (in comments).
-#
-# This file is not a configuration example,
-# it contains the exhaustive configuration with explanations of the options.
-
-# Defines the configuration version.
-# The only possible value is "2".
+# 本文件包含所有可用的配置选项及其默认值（在注释中说明）。
+# 详情参考: https://github.com/golangci/golangci-lint/blob/main/.golangci.reference.yml
 version: "2"
 
 linters:
-  # Default set of linters.
-  # The value can be:
-  # - `standard`: the "Default" linters https://golangci-lint.run/docs/linters/#all-linters
-  # - `all`: enables all linters by default.
-  # - `none`: disables all linters by default.
-  # - `fast`: enables only linters considered as "fast" (`golangci-lint help linters --json | jq '[ .[] | select(.fast==true) ] | map(.name)'`).
-  # Default: standard
+  # 默认的 linter 集合。
+  # 取值可以是：
+  # - `standard`："默认" linters https://golangci-lint.run/docs/linters/#all-linters
+  # - `all`：默认启用所有 linters。
+  # - `none`：默认禁用所有 linters。
+  # - `fast`：仅启用被视为"快速"的 linters（`golangci-lint help linters --json | jq '[ .[] | select(.fast==true) ] | map(.name)'`）。
+  # 默认值：standard
   default: all
 
-  # Disable specific linters.
+  # 禁用特定的 linters。
   disable:
+    - cyclop # 圈复杂度（执行路径）
+    - lll # 限制单行代码长度
+    - interfacebloat #接口定义允许的最大方法数
+    - gochecknoinits # 检查是否使用了init方法
+    - gocognit # 代码认知复杂度
+    - gocyclo # 圈复杂度
+    - goheader # 限制文件头Lisense目前存在覆盖其它协议问题暂时注释，可配置忽略指定文件
+    - gomodguard # 弃用使用gomodguard_v2版本
+    - mnd
+    - maintidx # 可维护性指数
+    - nestif # 控制if复杂度
+    - nlreturn # 在 return 语句前增加一个空行（newline before return）。
+    - testpackage # 测试文件package命名规范是否携带_test,如果开启则不能测试私有变量和方法了。
+    - wsl
 
-  # All available settings of specific linters.
+  # 特定 linters 的所有可用设置。
   settings:
     asasalint:
-      # To specify a set of function names to exclude.
-      # The values are merged with the builtin exclusions.
-      # The builtin exclusions can be disabled by setting `use-builtin-exclusions` to `false`.
-      # Default: ["^(fmt|log|logger|t|)\.(Print|Fprint|Sprint|Fatal|Panic|Error|Warn|Warning|Info|Debug|Log)(|f|ln)$"]
+      # 指定要排除的一组函数名。
+      # 这些值会与内置排除项合并。
+      # 可通过将 `use-builtin-exclusions` 设置为 `false` 来禁用内置排除项。
+      # 默认值：["^(fmt|log|logger|t|)\.(Print|Fprint|Sprint|Fatal|Panic|Error|Warn|Warning|Info|Debug|Log)(|f|ln)$"]
       exclude:
-    
-      # To enable/disable the asasalint builtin exclusions of function names.
-      # See the default value of `exclude` to get the builtin exclusions.
-      # Default: true
+
+      # 启用/禁用 asasalint 的函数名内置排除项。
+      # 参见 `exclude` 的默认值以获取内置排除项。
+      # 默认值：true
       use-builtin-exclusions: true
 
     bidichk:
-      # The following configurations check for all mentioned invisible Unicode runes.
-      # All runes are enabled by default.
+      # 以下配置用于检查所有提到的不可见 Unicode 字符。
+      # 所有字符默认启用。
       left-to-right-embedding: false
       right-to-left-embedding: false
       pop-directional-formatting: false
@@ -49,102 +57,103 @@ linters:
       pop-directional-isolate: false
 
     bodyclose:
-      # Check that the response body is consumed.
-      # This has false positives.
-      # Default: false
-      check-consumption: true
+      # 检查响应体是否已被消费。
+      # 存在误报。
+      # 默认值：false
+      check-consumption: false
 
     copyloopvar:
-      # Check all assigning the loop variable to another variable.
-      # Default: false
-      check-alias: true
+      # 检查所有将循环变量赋值给另一个变量的情况。
+      # 默认值：false
+      check-alias: false
 
+    # 圈复杂度（执行路径）
     cyclop:
-      # The maximal code complexity to report.
-      # Default: 10
-      max-complexity: 10
-      # The maximal average package complexity.
-      # If it's higher than 0.0 (float) the check is enabled.
-      # Default: 0.0
-      package-average: 0.5
+      # 报告的最大代码复杂度。
+      # 默认值：10
+      max-complexity: 12
+      # 最大平均包复杂度。
+      # 如果大于 0.0（浮点数）则启用检查。
+      # 默认值：0.0
+      package-average: 8
 
     decorder:
-      # Required order of `type`, `const`, `var` and `func` declarations inside a file.
-      # Default: types before constants before variables before functions.
+      # 文件内 `type`、`const`、`var` 和 `func` 声明所需的顺序。
+      # 默认值：类型在常量之前，常量在变量之前，变量在函数之前。
       dec-order:
         - type
         - const
         - var
         - func
 
-      # If true, underscore vars (vars with "_" as the name) will be ignored at all checks.
-      # Default: false (underscore vars are not ignored)
+      # 如果为 true，下划线变量（名称为 "_" 的变量）在所有检查中都会被忽略。
+      # 默认值：false（不忽略下划线变量）
       ignore-underscore-vars: false
 
-      # If true, order of declarations is not checked at all.
-      # Default: true (disabled)
+      # 如果为 true，则完全不检查声明顺序。
+      # 默认值：true（禁用）
       disable-dec-order-check: true
 
-      # If true, `init` func can be anywhere in file (does not have to be declared before all other functions).
-      # Default: true (disabled)
+      # 如果为 true，`init` 函数可以在文件中的任意位置（不必声明在所有其他函数之前）。
+      # 默认值：true（禁用）
       disable-init-func-first-check: true
 
-      # If true, multiple global `type`, `const` and `var` declarations are allowed.
-      # Default: true (disabled)
+      # 如果为 true，允许多个全局 `type`、`const` 和 `var` 声明。
+      # 默认值：true（禁用）
       disable-dec-num-check: true
 
-      # If true, type declarations will be ignored for dec num check.
-      # Default: false (type statements are not ignored)
+      # 如果为 true，类型声明在声明数量检查时将被忽略。
+      # 默认值：false（不忽略类型声明）
       disable-type-dec-num-check: false
 
-      # If true, const declarations will be ignored for dec num check.
-      # Default: false (const statements are not ignored)
+      # 如果为 true，常量声明在声明数量检查时将被忽略。
+      # 默认值：false（不忽略常量声明）
       disable-const-dec-num-check: false
 
-      # If true, var declarations will be ignored for dec num check.
-      # Default: false (var statements are not ignored)
+      # 如果为 true，变量声明在声明数量检查时将被忽略。
+      # 默认值：false（不忽略变量声明）
       disable-var-dec-num-check: false
 
     depguard:
-      # Rules to apply.
+      # 要应用的规则。
       #
-      # Variables:
-      # - File Variables
-      #   Use an exclamation mark `!` to negate a variable.
-      #   Example: `!$test` matches any file that is not a go test file.
+      # 变量：
+      # - 文件变量
+      #   使用感叹号 `!` 来否定一个变量。
+      #   例如：`!$test` 匹配任何不是 go 测试文件的文件。
       #
-      #   `$all` - matches all go files
-      #   `$test` - matches all go test files
+      #   `$all` - 匹配所有 go 文件
+      #   `$test` - 匹配所有 go 测试文件
       #
-      # - Package Variables
+      # - 包变量
       #
-      #   `$gostd` - matches all of go's standard library (Pulled from `GOROOT`)
+      #   `$gostd` - 匹配所有 go 标准库（从 `GOROOT` 获取）
       #
-      # Default (applies if no custom rules are defined): Only allow $gostd in all files.
+      # 默认值（未定义自定义规则时适用）：所有文件中只允许 $gostd。
       rules:
-        # Name of a rule.
+        # 规则名称。
         main:
-          # Defines package matching behavior. Available modes:
-          # - `original`: allowed if it doesn't match the deny list and either matches the allow list or the allow list is empty.
-          # - `strict`: allowed only if it matches the allow list and either doesn't match the deny list or the allow rule is more specific (longer) than the deny rule.
-          # - `lax`: allowed if it doesn't match the deny list or the allow rule is more specific (longer) than the deny rule.
-          # Default: "original"
+          # 定义包匹配行为。可用模式：
+          # - `original`：如果不匹配拒绝列表，且匹配允许列表或允许列表为空，则允许。
+          # - `strict`：仅当匹配允许列表，且不匹配拒绝列表或允许规则更具体（更长）时才允许。
+          # - `lax`：如果不匹配拒绝列表，或允许规则更具体（更长）时允许。
+          # 默认值："original"
           list-mode: lax
-          # List of file globs that will match this list of settings to compare against.
-          # By default, if a path is relative, it is relative to the directory where the golangci-lint command is executed.
-          # The placeholder '${base-path}' is substituted with a path relative to the mode defined with `run.relative-path-mode`.
-          # The placeholder '${config-path}' is substituted with a path relative to the configuration file.
-          # Default: $all
+          # 将匹配此设置列表的文件 glob 列表，用于比较。
+          # 默认情况下，如果路径是相对路径，则相对于执行 golangci-lint 命令的目录。
+          # 占位符 '${base-path}' 会被替换为相对于 `run.relative-path-mode` 所定义模式的路径。
+          # 占位符 '${config-path}' 会被替换为相对于配置文件的路径。
+          # 默认值：$all
           files:
-        
-          # List of allowed packages.
-          # Entries can be a variable (starting with $), a string prefix, or an exact match (if ending with $).
-          # Default: []
+
+          # 允许的包列表。
+          # 条目可以是变量（以 $ 开头）、字符串前缀或精确匹配（以 $ 结尾）。
+          # 默认值：[]
           allow:
-        
-          # List of packages that are not allowed.
-          # Entries can be a variable (starting with $), a string prefix, or an exact match (if ending with $).
-          # Default: []
+
+          # 不允许的包列表。
+          # 条目可以是变量（以 $ 开头）、字符串前缀或精确匹配（以 $ 结尾）。
+          # 默认值：[]
           deny:
             - pkg: "math/rand$"
               desc: use math/rand/v2
@@ -153,74 +162,76 @@ linters:
             - pkg: "github.com/pkg/errors"
               desc: Should be replaced by standard lib errors package
 
+    # 检查赋值语句中是否存在过多的空白标识符（例如 x, _, _, _, := f()）。
     dogsled:
-      # Checks assignments with too many blank identifiers.
-      # Default: 2
-      max-blank-identifiers: 2
+      # 检查有过多空白标识符的赋值。
+      # 默认值：2
+      max-blank-identifiers: 3
 
+    # 检测重复代码
     dupl:
-      # Tokens count to trigger issue.
-      # Default: 150
+      # 触发问题的 token 数量。
+      # 默认值：150
       threshold: 150
 
     dupword:
-      # Keywords for detecting duplicate words.
-      # If this list is not empty, only the words defined in this list will be detected.
-      # Default: []
+      # 用于检测重复单词的关键词。
+      # 如果此列表不为空，则仅检测此列表中定义的单词。
+      # 默认值：[]
       keywords:
         - "the"
         - "and"
         - "a"
-      # Keywords used to ignore detection.
-      # Default: []
+      # 用于忽略检测的关键词。
+      # 默认值：[]
       ignore:
-    
-      # Checks only comments, skip strings.
-      # Default: false
-      comments-only: true
 
+      # 仅检查注释，跳过字符串。
+      # 默认值：false
+      comments-only: false
+
+    # 限制匿名嵌入字段在 struct 中的排列格式
     embeddedstructfieldcheck:
-      # Checks that there is an empty space between the embedded fields and regular fields.
-      # Default: true
+      # 检查嵌入字段和常规字段之间是否有空行。
+      # 默认值：true
       empty-line: true
-      # Checks that sync.Mutex and sync.RWMutex are not used as embedded fields.
-      # Default: false
+      # 检查 sync.Mutex 和 sync.RWMutex 是否未用作嵌入字段。
+      # 默认值：false
       forbid-mutex: true
 
     errcheck:
-      # Report about not checking of errors in type assertions: `a := b.(MyStruct)`.
-      # Such cases aren't reported by default.
-      # Default: false
+      # 报告类型断言中未检查错误的情况：`a := b.(MyStruct)`。
+      # 此类情况默认不报告。
+      # 默认值：false
       check-type-assertions: true
 
-      # Report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`.
-      # Such cases aren't reported by default.
-      # Default: false
+      # 报告将错误赋值给空白标识符的情况：`num, _ := strconv.Atoi(numStr)`。
+      # 此类情况默认不报告。
+      # 默认值：false
       check-blank: true
 
-      # To disable the errcheck built-in exclude list.
-      # See `-excludeonly` option in https://github.com/kisielk/errcheck#excluding-functions for details.
-      # Default: false
+      # 禁用 errcheck 内置排除列表。
+      # 详情参见 https://github.com/kisielk/errcheck#excluding-functions 中的 `-excludeonly` 选项。
+      # 默认值：false
       disable-default-exclusions: true
 
-      # List of functions to exclude from checking, where each entry is a single function to exclude.
-      # See https://github.com/kisielk/errcheck#excluding-functions for details.
+      # 要从检查中排除的函数列表，每个条目是一个要排除的单个函数。
+      # 详情参见 https://github.com/kisielk/errcheck#excluding-functions。
       exclude-functions:
         - fmt.Printf
         - fmt.Println
         - (*os.File).Close
 
-      # Display function signature instead of selector.
-      # Default: false
+      # 显示函数签名而非选择器。
+      # 默认值：false
       verbose: true
 
     errchkjson:
-      # With check-error-free-encoding set to true, errchkjson does warn about errors
-      # from json encoding functions that are safe to be ignored,
-      # because they are not possible to happen.
+      # 当 check-error-free-encoding 设置为 true 时，errchkjson 会对来自 json 编码函数的错误发出警告，
+      # 这些错误可以安全地忽略，因为它们不可能发生。
       #
-      # If check-error-free-encoding is set to true and errcheck linter is enabled,
-      # it is recommended to add the following exceptions to prevent from false positives:
+      # 如果 check-error-free-encoding 设置为 true 且启用了 errcheck linter，
+      # 建议添加以下例外以防止误报：
       #
       #     linters:
       #       settings:
@@ -229,1005 +240,610 @@ linters:
       #             - encoding/json.Marshal
       #             - encoding/json.MarshalIndent
       #
-      # Default: false
+      # 默认值：false
       check-error-free-encoding: true
 
-      # Issue on struct encoding that doesn't have exported fields.
-      # Default: false
+      # 对没有导出字段的结构体编码发出报告。
+      # 默认值：false
       report-no-exported: false
 
     errorlint:
-      # Check whether fmt.Errorf uses the %w verb for formatting errors.
-      # See the https://github.com/polyfloyd/go-errorlint for caveats.
-      # Default: true
+      # 检查 fmt.Errorf 是否使用 %w 动词来格式化错误。
+      # 注意事项参见 https://github.com/polyfloyd/go-errorlint。
+      # 默认值：true
       errorf: true
-      # Permit more than 1 %w verb, valid per Go 1.20 (requires `errorf: true`).
-      # Default: true
+      # 允许超过 1 个 %w 动词，Go 1.20 起有效（需要 `errorf: true`）。
+      # 默认值：true
       errorf-multi: false
-      # Check for plain type assertions and type switches.
-      # Default: true
+      # 检查普通类型断言和类型 switch。
+      # 默认值：true
       asserts: true
-      # Check for plain error comparisons.
-      # Default: true
-      comparison: false
-      # Allowed errors.
-      # Default: []
+      # 检查普通错误比较。
+      # 默认值：true
+      comparison: true
+      # 允许的错误。
+      # 默认值：[]
       allowed-errors:
         - err: "io.EOF"
           fun: "example.com/pkg.Read"
-      # Allowed error "wildcards".
-      # Default: []
+      # 允许的错误"通配符"。
+      # 默认值：[]
       allowed-errors-wildcard:
         - err: "example.com/pkg.ErrMagic"
           fun: "example.com/pkg.Magic"
 
     exhaustive:
-      # Program elements to check for exhaustiveness.
-      # Default: [ switch ]
+      # 检查穷举性的程序元素。
+      # 默认值：[ switch ]
       check:
         - switch
         - map
-      # Presence of "default" case in switch statements satisfies exhaustiveness,
-      # even if all enum members are not listed.
-      # Default: false
+      # switch 语句中存在 "default" 分支即满足穷举性，
+      # 即使未列出所有枚举成员。
+      # 默认值：false
       default-signifies-exhaustive: true
-      # Enum members matching the supplied regex do not have to be listed in
-      # switch statements to satisfy exhaustiveness.
-      # Default: ""
-      ignore-enum-members: "Example.+"
-      # Enum types matching the supplied regex do not have to be listed in
-      # switch statements to satisfy exhaustiveness.
-      # Default: ""
-      ignore-enum-types: "Example.+"
-      # Consider enums only in package scopes, not in inner scopes.
-      # Default: false
+      # 匹配所提供正则表达式的枚举成员不必列在
+      # switch 语句中即可满足穷举性。
+      # 默认值：""
+      ignore-enum-members: ""
+      # 匹配所提供正则表达式的枚举类型不必列在
+      # switch 语句中即可满足穷举性。
+      # 默认值：""
+      ignore-enum-types: ""
+      # 仅在包作用域中考虑枚举，不在内部作用域中考虑。
+      # 默认值：false
       package-scope-only: true
-      # Only run exhaustive check on switches with "//exhaustive:enforce" comment.
-      # Default: false
-      explicit-exhaustive-switch: true
-      # Only run exhaustive check on map literals with "//exhaustive:enforce" comment.
-      # Default: false
-      explicit-exhaustive-map: true
-      # Switch statement requires default case even if exhaustive.
-      # Default: false
-      default-case-required: true
+      # 仅对带有 "//exhaustive:enforce" 注释的 switch 运行穷举检查。
+      # 默认值：false
+      explicit-exhaustive-switch: false
+      # 仅对带有 "//exhaustive:enforce" 注释的 map 字面量运行穷举检查。
+      # 默认值：false
+      explicit-exhaustive-map: false
+      # switch 语句即使穷举也要求有 default 分支。
+      # 默认值：false
+      default-case-required: false
 
     exhaustruct:
-      # List of regular expressions to match type names that should be processed.
-      # Anonymous structs can be matched by '<anonymous>' alias.
+      # 需要处理的类型名称的正则表达式列表。
+      # 匿名结构体可以通过 '<anonymous>' 别名匹配。
       #
-      # Each regular expression must match the full type name, including package path.
-      # For example, to match type `net/http.Cookie` regular expression should be `.*/http\.Cookie`,
-      # but not `http\.Cookie`.
-      # Default: []
+      # 每个正则表达式必须匹配完整的类型名称，包括包路径。
+      # 例如，要匹配类型 `net/http.Cookie`，正则表达式应为 `.*/http\.Cookie`，
+      # 而不是 `http\.Cookie`。
+      # 默认值：[]
       include:
         - '.+\.Test'
         - 'example\.com/package\.ExampleStruct[\d]{1,2}'
-      # List of regular expressions to match type names that should be excluded from processing.
-      # Anonymous structs can be matched by '<anonymous>' alias.
-      # Has precedence over `include`.
-      # Each regular expression must match the full type name, including package path.
-      # For example, to match type `net/http.Cookie` regular expression should be `.*/http\.Cookie`,
-      # but not `http\.Cookie`.
-      # Default: []
+      # 要从处理中排除的类型名称的正则表达式列表。
+      # 匿名结构体可以通过 '<anonymous>' 别名匹配。
+      # 优先级高于 `include`。
+      # 每个正则表达式必须匹配完整的类型名称，包括包路径。
+      # 例如，要匹配类型 `net/http.Cookie`，正则表达式应为 `.*/http\.Cookie`，
+      # 而不是 `http\.Cookie`。
+      # 默认值：[]
       exclude:
-        - '.+/cobra\.Command$'
-      # Allows empty structures, effectively excluding them from the check.
-      # Default: false
-      allow-empty: true
-      # List of regular expressions to match type names that should be allowed to be empty.
-      # Anonymous structs can be matched by '<anonymous>' alias.
-      # Each regular expression must match the full type name, including package path.
-      # For example, to match type `net/http.Cookie` regular expression should be `.*/http\.Cookie`,
-      # but not `http\.Cookie`.
-      # Default: []
+  
+      # 允许空结构体，实际上是将其从检查中排除。
+      # 默认值：false
+      allow-empty: false
+
+      # 允许为空的类型名称的正则表达式列表。
+      # 匿名结构体可以通过 '<anonymous>' 别名匹配。
+      # 每个正则表达式必须匹配完整的类型名称，包括包路径。
+      # 例如，要匹配类型 `net/http.Cookie`，正则表达式应为 `.*/http\.Cookie`，
+      # 而不是 `http\.Cookie`。
+      # 默认值：[]
       allow-empty-rx:
         - '.*/http\.Cookie'
-      # Allows empty structures in return statements.
-      # Default: false
-      allow-empty-returns: true
-      # Allows empty structures in variable declarations.
-      # Default: false
-      allow-empty-declarations: true
+
+      # 允许在 return 语句中使用空结构体。
+      # 默认值：false
+      allow-empty-returns: false
+
+      # 允许在变量声明中使用空结构体。
+      # 默认值：false
+      allow-empty-declarations: false
 
     fatcontext:
-      # Check for potential fat contexts in struct pointers.
-      # May generate false positives.
-      # Default: false
-      check-struct-pointers: true
+      # 检查结构体指针中潜在的 fat context。可能产生误报。
+      # 默认值：false
+      check-struct-pointers: false
 
     forbidigo:
-      # Forbid the following identifiers (list of regexp).
-      # Default: ["^(fmt\\.Print(|f|ln)|print|println)$"]
+      # 禁止以下标识符（正则表达式列表）。
+      # 默认值：["^(fmt\\.Print(|f|ln)|print|println)$"]
       forbid:
-        # Built-in bootstrapping functions.
+        # 内置引导函数。
         - pattern: ^print(ln)?$
-        # Optional message that gets included in error reports.
+        # 可选的消息，将包含在错误报告中。
         - pattern: ^fmt\.Print.*$
           msg: Do not commit print statements.
-        # Alternatively, put messages at the end of the regex, surrounded by `(# )?`.
-        # Escape any special characters. Those messages get included in error reports.
+        # 或者，将消息放在正则表达式的末尾，用 `(# )?` 包围。
+        # 转义任何特殊字符。这些消息将包含在错误报告中。
         - pattern: 'fmt\.Print.*(# Do not commit print statements\.)?'
-        # Forbid spew Dump, whether it is called as function or method.
-        # Depends on analyze-types below.
+        # 禁止 spew Dump，无论是作为函数还是方法调用。
+        # 依赖于下方的 analyze-types。
         - pattern: ^spew\.(ConfigState\.)?Dump$
-        # The package name might be ambiguous.
-        # The full import path can be used as additional criteria.
-        # Depends on analyze-types below.
+        # 包名可能有歧义。
+        # 可以使用完整的导入路径作为附加条件。
+        # 依赖于下方的 analyze-types。
         - pattern: ^v1.Dump$
           pkg: ^example.com/pkg/api/v1$
-      # Exclude godoc examples from forbidigo checks.
-      # Default: true
+
+      # 从 forbidigo 检查中排除 godoc 示例。
+      # 默认值：true
       exclude-godoc-examples: false
-      # Instead of matching the literal source code,
-      # use type information to replace expressions with strings that contain the package name
-      # and (for methods and fields) the type name.
-      # This makes it possible to handle import renaming and forbid struct fields and methods.
-      # Default: false
+      
+      # 不是匹配字面源代码，
+      # 而是使用类型信息将表达式替换为包含包名的字符串
+      # 以及（对于方法和字段）类型名。
+      # 这使得处理导入重命名以及禁止结构体字段和方法成为可能。
+      # 默认值：false
       analyze-types: true
 
     funcorder:
-      # Checks that constructors are placed after the structure declaration.
-      # Default: true
-      constructor: false
-      # Checks if the exported methods of a structure are placed before the non-exported ones.
-      # Default: true
-      struct-method: false
-      # Checks if the constructors and/or structure methods are sorted alphabetically.
-      # Default: false
-      alphabetical: true
-      # Checks that exported functions are placed before unexported functions.
-      # Default: false
+      # 检查构造函数是否放置在结构体声明之后。
+      # 默认值：true
+      constructor: true
+      # 检查结构体的导出方法是否放置在非导出方法之前。
+      # 默认值：true
+      struct-method: true
+      # 检查构造函数和/或结构体方法是否按字母顺序排序。
+      # 默认值：false
+      alphabetical: false
+      # 检查导出函数是否放置在非导出函数之前。
+      # 默认值：false
       function: true
 
     funlen:
-      # Checks the number of lines in a function.
-      # If lower than 0, disable the check.
-      # Default: 60
+      # 检查函数中的行数。
+      # 如果小于 0，则禁用此检查。
+      # 默认值：60
       lines: -1
-      # Checks the number of statements in a function.
-      # If lower than 0, disable the check.
-      # Default: 40
+      # 检查函数中的语句数。
+      # 如果小于 0，则禁用此检查。
+      # 默认值：40
       statements: -1
-      # Ignore comments when counting lines.
-      # Default: true
-      ignore-comments: false
+      # 计算行数时忽略注释。
+      # 默认值：true
+      ignore-comments: true
 
+    # https://github.com/onsi/ginkgo BDD测试框架
     ginkgolinter:
-      # Suppress the wrong length assertion warning.
-      # Default: false
+      # 抑制错误的长度断言警告。
+      # 默认值：false
       suppress-len-assertion: true
 
-      # Suppress the wrong nil assertion warning.
-      # Default: false
+      # 抑制错误的 nil 断言警告。
+      # 默认值：false
       suppress-nil-assertion: true
 
-      # Suppress the wrong error assertion warning.
-      # Default: false
+      # 抑制错误的 error 断言警告。
+      # 默认值：false
       suppress-err-assertion: true
 
-      # Suppress the wrong comparison assertion warning.
-      # Default: false
+      # 抑制错误的比较断言警告。
+      # 默认值：false
       suppress-compare-assertion: true
 
-      # Suppress the function all in async assertion warning.
-      # Default: false
+      # 抑制异步断言中的函数调用警告。
+      # 默认值：false
       suppress-async-assertion: true
 
-      # Suppress warning for comparing values from different types, like `int32` and `uint32`.
-      # Default: false
+      # 抑制比较不同类型值（如 `int32` 和 `uint32`）的警告。
+      # 默认值：false
       suppress-type-compare-assertion: true
 
-      # Trigger warning for ginkgo focus containers like `FDescribe`, `FContext`, `FWhen` or `FIt`.
-      # Default: false
+      # 对 ginkgo focus 容器（如 `FDescribe`、`FContext`、`FWhen` 或 `FIt`）触发警告。
+      # 默认值：false
       forbid-focus-container: true
 
-      # Don't trigger warnings for HaveLen(0)
-      # Default: false
+      # 不对 HaveLen(0) 触发警告
+      # 默认值：false
       allow-havelen-zero: true
 
-      # Force using `Expect` with `To`, `ToNot` or `NotTo`.
-      # Reject using `Expect` with `Should` or `ShouldNot`.
-      # Default: false
+      # 强制使用 `Expect` 配合 `To`、`ToNot` 或 `NotTo`。
+      # 拒绝使用 `Expect` 配合 `Should` 或 `ShouldNot`。
+      # 默认值：false
       force-expect-to: true
 
-      # Best effort validation of async intervals (timeout and polling).
-      # Ignored if `suppress-async-assertion` is true.
-      # Default: false
+      # 尽力验证异步间隔（超时和轮询）。
+      # 如果 `suppress-async-assertion` 为 true 则忽略。
+      # 默认值：false
       validate-async-intervals: true
 
-      # Trigger a warning for variable assignments in ginkgo containers like `Describe`, `Context` and `When`, instead of in `BeforeEach()`.
-      # Default: false
+      # 对在 ginkgo 容器（如 `Describe`、`Context` 和 `When`）中的变量赋值触发警告，而不是在 `BeforeEach()` 中。
+      # 默认值：false
       forbid-spec-pollution: true
 
-      # Force using the Succeed matcher for error functions, and the HaveOccurred matcher for non-function error values.
-      # Default: false
+      # 强制对 error 函数使用 Succeed 匹配器，对非函数 error 值使用 HaveOccurred 匹配器。
+      # 默认值：false
       force-succeed: true
 
-      # Force adding assertion descriptions to gomega matchers.
-      # Default: false
+      # 强制向 gomega 匹配器添加断言描述。
+      # 默认值：false
       force-assertion-description: true
 
-      # Force using `ToNot`, `ShouldNot` instead of `To(Not())`.
-      # Default: false
+      # 强制使用 `ToNot`、`ShouldNot` 而不是 `To(Not())`。
+      # 默认值：false
       force-tonot: true
 
     gochecksumtype:
-      # Presence of `default` case in switch statements satisfies exhaustiveness, if all members are not listed.
-      # Default: true
-      default-signifies-exhaustive: false
-      # Include shared interfaces in the exhaustiveness check.
-      # Default: false
+      # 如果未列出所有成员，switch 语句中存在 `default` 分支即满足穷举性。
+      # 默认值：true
+      default-signifies-exhaustive: true
+      # 在穷举性检查中包含共享接口。
+      # 默认值：false
       include-shared-interfaces: true
 
+    # 代码认知复杂度（Cognitive Complexity）简单来说一个开发者阅读这段代码，需要花费多少脑力去理解它。
     gocognit:
-      # Minimal code complexity to report.
-      # Default: 30 (but we recommend 10-20)
-      min-complexity: 10
+      # 报告的最小代码复杂度。
+      # 默认值：30（但建议使用 10-20）
+      min-complexity: 15
 
+    # const配置
     goconst:
-      # Minimal length of string constant.
-      # Default: 3
+      # 字符串常量的最小长度。
+      # 默认值：3
       min-len: 2
-      # Minimum occurrences of constant string count to trigger issue.
-      # Default: 3
+      # 触发问题的常量字符串最小出现次数。
+      # 默认值：3
       min-occurrences: 2
-      # Look for existing constants matching the values.
-      # Default: true
-      match-constant: false
-      # Search also for duplicated numbers.
-      # Default: false
+      # 查找与值匹配的现有常量。
+      # 默认值：true
+      match-constant: true
+      # 同时搜索重复的数字。
+      # 默认值：false
       numbers: true
-      # Minimum value, only works with `goconst.numbers`.
-      # Default: 3
+      # 最小值，仅与 `goconst.numbers` 一起使用。
+      # 默认值：3
       min: 2
-      # Maximum value, only works with `goconst.numbers`.
-      # Default: 3
+      # 最大值，仅与 `goconst.numbers` 一起使用。
+      # 默认值：3
       max: 2
-      # Ignore when constant is not used as function argument.
-      # Default: true
-      ignore-calls: false
-      # Exclude strings matching the given regular expression.
-      # Default: ""
+      # 当常量未用作函数参数时忽略。
+      # 默认值：true
+      ignore-calls: true
+      # 排除匹配给定正则表达式的字符串。
+      # 默认值：""
       ignore-string-values:
         - 'foo.+'
-      # Detects constants with identical values.
-      # Default: false
+      # 检测具有相同值的常量。
+      # 默认值：false
       find-duplicates: true
-      # Evaluates of constant expressions like Prefix + "suffix".
-      # Default: false
+      # 评估常量表达式，如 Prefix + "suffix"。
+      # 默认值：false
       eval-const-expressions: true
-      # Ignore strings from test files.
-      # Default: false
+      # 忽略测试文件中的字符串。
+      # 默认值：false
       ignore-tests: true
-      # Ignore string literals in calls to these functions
-      # Default: empty list
+      # 忽略对这些函数的调用中的字符串字面量
+      # 默认值：空列表
       ignore-functions:
         - log.Info
         - slog.Warn
         - fmt.Errorf
 
     gocritic:
-      # Disable all checks.
-      # Default: false
-      disable-all: true
-      # Which checks should be enabled in addition to default checks; can't be combined with 'disabled-checks'.
-      # By default, list of stable checks is used (https://go-critic.com/overview#checks-overview):
-      #   appendAssign, argOrder, assignOp, badCall, badCond, captLocal, caseOrder, codegenComment, commentFormatting,
-      #   defaultCaseOrder, deprecatedComment, dupArg, dupBranchBody, dupCase, dupSubExpr, elseif, exitAfterDefer,
-      #   flagDeref, flagName, ifElseChain, mapKey, newDeref, offBy1, regexpMust, singleCaseSwitch, sloppyLen,
-      #   sloppyTypeAssert, switchTrue, typeSwitchVar, underef, unlambda, unslice, valSwap, wrapperFunc
-      # To see which checks are enabled run `GL_DEBUG=gocritic golangci-lint run --enable=gocritic`.
-      enabled-checks:
-        # Detects suspicious append result assignments.
-        # https://go-critic.com/overview.html#appendassign
-        - appendAssign
-        # Detects `append` chains to the same slice that can be done in a single `append` call.
-        # https://go-critic.com/overview.html#appendcombine
-        - appendCombine
-        # Detects suspicious arguments order.
-        # https://go-critic.com/overview.html#argorder
-        - argOrder
-        # Detects assignments that can be simplified by using assignment operators.
-        # https://go-critic.com/overview.html#assignop
-        - assignOp
-        # Detects suspicious function calls.
-        # https://go-critic.com/overview.html#badcall
-        - badCall
-        # Detects suspicious condition expressions.
-        # https://go-critic.com/overview.html#badcond
-        - badCond
-        # Detects suspicious mutex lock/unlock operations.
-        # https://go-critic.com/overview.html#badlock
-        - badLock
-        # Detects suspicious regexp patterns.
-        # https://go-critic.com/overview.html#badregexp
-        - badRegexp
-        # Detects bad usage of sort package.
-        # https://go-critic.com/overview.html#badsorting
-        - badSorting
-        # Detects bad usage of sync.OnceFunc.
-        # https://go-critic.com/overview.html#badsynconcefunc
-        - badSyncOnceFunc
-        # Detects bool expressions that can be simplified.
-        # https://go-critic.com/overview.html#boolexprsimplify
-        - boolExprSimplify
-        # Detects when predeclared identifiers are shadowed in assignments.
-        # https://go-critic.com/overview.html#builtinshadow
-        - builtinShadow
-        # Detects top-level declarations that shadow the predeclared identifiers.
-        # https://go-critic.com/overview.html#builtinshadowdecl
-        - builtinShadowDecl
-        # Detects capitalized names for local variables.
-        # https://go-critic.com/overview.html#captlocal
-        - captLocal
-        # Detects erroneous case order inside switch statements.
-        # https://go-critic.com/overview.html#caseorder
-        - caseOrder
-        # Detects malformed 'code generated' file comments.
-        # https://go-critic.com/overview.html#codegencomment
-        - codegenComment
-        # Detects comments with non-idiomatic formatting.
-        # https://go-critic.com/overview.html#commentformatting
-        - commentFormatting
-        # Detects commented-out code inside function bodies.
-        # https://go-critic.com/overview.html#commentedoutcode
-        - commentedOutCode
-        # Detects commented-out imports.
-        # https://go-critic.com/overview.html#commentedoutimport
-        - commentedOutImport
-        # Detects when default case in switch isn't on 1st or last position.
-        # https://go-critic.com/overview.html#defaultcaseorder
-        - defaultCaseOrder
-        # Detects loops inside functions that use defer.
-        # https://go-critic.com/overview.html#deferinloop
-        - deferInLoop
-        # Detects deferred function literals that can be simplified.
-        # https://go-critic.com/overview.html#deferunlambda
-        - deferUnlambda
-        # Detects malformed 'deprecated' doc-comments.
-        # https://go-critic.com/overview.html#deprecatedcomment
-        - deprecatedComment
-        # Detects comments that silence go lint complaints about doc-comment.
-        # https://go-critic.com/overview.html#docstub
-        - docStub
-        # Detects suspicious duplicated arguments.
-        # https://go-critic.com/overview.html#duparg
-        - dupArg
-        # Detects duplicated branch bodies inside conditional statements.
-        # https://go-critic.com/overview.html#dupbranchbody
-        - dupBranchBody
-        # Detects duplicated case clauses inside switch or select statements.
-        # https://go-critic.com/overview.html#dupcase
-        - dupCase
-        # Detects multiple imports of the same package under different aliases.
-        # https://go-critic.com/overview.html#dupimport
-        - dupImport
-        # Detects duplicated option function arguments in variadic function calls.
-        # https://go-critic.com/overview.html#dupoption
-        - dupOption
-        # Detects suspicious duplicated sub-expressions.
-        # https://go-critic.com/overview.html#dupsubexpr
-        - dupSubExpr
-        # Detects suspicious formatting strings usage.
-        # https://go-critic.com/overview.html#dynamicfmtstring
-        - dynamicFmtString
-        # Detects else with nested if statement that can be replaced with else-if.
-        # https://go-critic.com/overview.html#elseif
-        - elseif
-        # Detects suspicious empty declarations blocks.
-        # https://go-critic.com/overview.html#emptydecl
-        - emptyDecl
-        # Detects fallthrough that can be avoided by using multi case values.
-        # https://go-critic.com/overview.html#emptyfallthrough
-        - emptyFallthrough
-        # Detects empty string checks that can be written more idiomatically.
-        # https://go-critic.com/overview.html#emptystringtest
-        - emptyStringTest
-        # Detects unoptimal strings/bytes case-insensitive comparison.
-        # https://go-critic.com/overview.html#equalfold
-        - equalFold
-        # Detects unwanted dependencies on the evaluation order.
-        # https://go-critic.com/overview.html#evalorder
-        - evalOrder
-        # Detects calls to exit/fatal inside functions that use defer.
-        # https://go-critic.com/overview.html#exitafterdefer
-        - exitAfterDefer
-        # Detects exposed methods from sync.Mutex and sync.RWMutex.
-        # https://go-critic.com/overview.html#exposedsyncmutex
-        - exposedSyncMutex
-        # Detects suspicious reassignment of error from another package.
-        # https://go-critic.com/overview.html#externalerrorreassign
-        - externalErrorReassign
-        # Detects problems in filepath.Join() function calls.
-        # https://go-critic.com/overview.html#filepathjoin
-        - filepathJoin
-        # Detects immediate dereferencing of `flag` package pointers.
-        # https://go-critic.com/overview.html#flagderef
-        - flagDeref
-        # Detects suspicious flag names.
-        # https://go-critic.com/overview.html#flagname
-        - flagName
-        # Detects hex literals that have mixed case letter digits.
-        # https://go-critic.com/overview.html#hexliteral
-        - hexLiteral
-        # Detects nil usages in http.NewRequest calls, suggesting http.NoBody as an alternative.
-        # https://go-critic.com/overview.html#httpnobody
-        - httpNoBody
-        # Detects params that incur excessive amount of copying.
-        # https://go-critic.com/overview.html#hugeparam
-        - hugeParam
-        # Detects repeated if-else statements and suggests to replace them with switch statement.
-        # https://go-critic.com/overview.html#ifelsechain
-        - ifElseChain
-        # Detects when imported package names shadowed in the assignments.
-        # https://go-critic.com/overview.html#importshadow
-        - importShadow
-        # Detects strings.Index calls that may cause unwanted allocs.
-        # https://go-critic.com/overview.html#indexalloc
-        - indexAlloc
-        # Detects non-assignment statements inside if/switch init clause.
-        # https://go-critic.com/overview.html#initclause
-        - initClause
-        # Detects suspicious map literal keys.
-        # https://go-critic.com/overview.html#mapkey
-        - mapKey
-        # Detects method expression call that can be replaced with a method call.
-        # https://go-critic.com/overview.html#methodexprcall
-        - methodExprCall
-        # Finds where nesting level could be reduced.
-        # https://go-critic.com/overview.html#nestingreduce
-        - nestingReduce
-        # Detects immediate dereferencing of `new` expressions.
-        # https://go-critic.com/overview.html#newderef
-        - newDeref
-        # Detects return statements those results evaluate to nil.
-        # https://go-critic.com/overview.html#nilvalreturn
-        - nilValReturn
-        # Detects old-style octal literals.
-        # https://go-critic.com/overview.html#octalliteral
-        - octalLiteral
-        # Detects various off-by-one kind of errors.
-        # https://go-critic.com/overview.html#offby1
-        - offBy1
-        # Detects if function parameters could be combined by type and suggest the way to do it.
-        # https://go-critic.com/overview.html#paramtypecombine
-        - paramTypeCombine
-        # Detects expressions like []rune(s)[0] that may cause unwanted rune slice allocation.
-        # https://go-critic.com/overview.html#preferdecoderune
-        - preferDecodeRune
-        # Detects concatenation with os.PathSeparator which can be replaced with filepath.Join.
-        # https://go-critic.com/overview.html#preferfilepathjoin
-        - preferFilepathJoin
-        # Detects fmt.Sprint(f/ln) calls which can be replaced with fmt.Fprint(f/ln).
-        # https://go-critic.com/overview.html#preferfprint
-        - preferFprint
-        # Detects w.Write or io.WriteString calls which can be replaced with w.WriteString.
-        # https://go-critic.com/overview.html#preferstringwriter
-        - preferStringWriter
-        # Detects WriteRune calls with rune literal argument that is single byte and reports to use WriteByte instead.
-        # https://go-critic.com/overview.html#preferwritebyte
-        - preferWriteByte
-        # Detects input and output parameters that have a type of pointer to referential type.
-        # https://go-critic.com/overview.html#ptrtorefparam
-        - ptrToRefParam
-        # Detects append all its data while range it.
-        # https://go-critic.com/overview.html#rangeappendall
-        - rangeAppendAll
-        # Detects expensive copies of `for` loop range expressions.
-        # https://go-critic.com/overview.html#rangeexprcopy
-        - rangeExprCopy
-        # Detects loops that copy big objects during each iteration.
-        # https://go-critic.com/overview.html#rangevalcopy
-        - rangeValCopy
-        # Detects redundant fmt.Sprint calls.
-        # https://go-critic.com/overview.html#redundantsprint
-        - redundantSprint
-        # Detects `regexp.Compile*` that can be replaced with `regexp.MustCompile*`.
-        # https://go-critic.com/overview.html#regexpmust
-        - regexpMust
-        # Detects suspicious regexp patterns.
-        # https://go-critic.com/overview.html#regexppattern
-        - regexpPattern
-        # Detects regexp patterns that can be simplified.
-        # https://go-critic.com/overview.html#regexpsimplify
-        - regexpSimplify
-        # Detects suspicious http.Error call without following return.
-        # https://go-critic.com/overview.html#returnafterhttperror
-        - returnAfterHttpError
-        # Runs user-defined rules using ruleguard linter.
-        # https://go-critic.com/overview.html#ruleguard
-        - ruleguard
-        # Detects switch statements that could be better written as if statement.
-        # https://go-critic.com/overview.html#singlecaseswitch
-        - singleCaseSwitch
-        # Detects slice clear loops, suggests an idiom that is recognized by the Go compiler.
-        # https://go-critic.com/overview.html#sliceclear
-        - sliceClear
-        # Detects usage of `len` when result is obvious or doesn't make sense.
-        # https://go-critic.com/overview.html#sloppylen
-        - sloppyLen
-        # Detects suspicious/confusing re-assignments.
-        # https://go-critic.com/overview.html#sloppyreassign
-        - sloppyReassign
-        # Detects redundant type assertions.
-        # https://go-critic.com/overview.html#sloppytypeassert
-        - sloppyTypeAssert
-        # Detects suspicious sort.Slice calls.
-        # https://go-critic.com/overview.html#sortslice
-        - sortSlice
-        # Detects "%s" formatting directives that can be replaced with %q.
-        # https://go-critic.com/overview.html#sprintfquotedstring
-        - sprintfQuotedString
-        # Detects issue in Query() and Exec() calls.
-        # https://go-critic.com/overview.html#sqlquery
-        - sqlQuery
-        # Detects string concat operations that can be simplified.
-        # https://go-critic.com/overview.html#stringconcatsimplify
-        - stringConcatSimplify
-        # Detects redundant conversions between string and []byte.
-        # https://go-critic.com/overview.html#stringxbytes
-        - stringXbytes
-        # Detects strings.Compare usage.
-        # https://go-critic.com/overview.html#stringscompare
-        - stringsCompare
-        # Detects switch-over-bool statements that use explicit `true` tag value.
-        # https://go-critic.com/overview.html#switchtrue
-        - switchTrue
-        # Detects sync.Map load+delete operations that can be replaced with LoadAndDelete.
-        # https://go-critic.com/overview.html#syncmaploadanddelete
-        - syncMapLoadAndDelete
-        # Detects manual conversion to milli- or microseconds.
-        # https://go-critic.com/overview.html#timeexprsimplify
-        - timeExprSimplify
-        # Detects TODO comments without detail/assignee.
-        # https://go-critic.com/overview.html#todocommentwithoutdetail
-        - todoCommentWithoutDetail
-        # Detects function with too many results.
-        # https://go-critic.com/overview.html#toomanyresultschecker
-        - tooManyResultsChecker
-        # Detects potential truncation issues when comparing ints of different sizes.
-        # https://go-critic.com/overview.html#truncatecmp
-        - truncateCmp
-        # Detects repeated type assertions and suggests to replace them with type switch statement.
-        # https://go-critic.com/overview.html#typeassertchain
-        - typeAssertChain
-        # Detects method declarations preceding the type definition itself.
-        # https://go-critic.com/overview.html#typedeffirst
-        - typeDefFirst
-        # Detects type switches that can benefit from type guard clause with variable.
-        # https://go-critic.com/overview.html#typeswitchvar
-        - typeSwitchVar
-        # Detects unneeded parenthesis inside type expressions and suggests to remove them.
-        # https://go-critic.com/overview.html#typeunparen
-        - typeUnparen
-        # Detects unchecked errors in if statements.
-        # https://go-critic.com/overview.html#uncheckedinlineerr
-        - uncheckedInlineErr
-        # Detects dereference expressions that can be omitted.
-        # https://go-critic.com/overview.html#underef
-        - underef
-        # Detects redundant statement labels.
-        # https://go-critic.com/overview.html#unlabelstmt
-        - unlabelStmt
-        # Detects function literals that can be simplified.
-        # https://go-critic.com/overview.html#unlambda
-        - unlambda
-        # Detects unnamed results that may benefit from names.
-        # https://go-critic.com/overview.html#unnamedresult
-        - unnamedResult
-        # Detects unnecessary braced statement blocks.
-        # https://go-critic.com/overview.html#unnecessaryblock
-        - unnecessaryBlock
-        # Detects redundantly deferred calls.
-        # https://go-critic.com/overview.html#unnecessarydefer
-        - unnecessaryDefer
-        # Detects slice expressions that can be simplified to sliced expression itself.
-        # https://go-critic.com/overview.html#unslice
-        - unslice
-        # Detects value swapping code that are not using parallel assignment.
-        # https://go-critic.com/overview.html#valswap
-        - valSwap
-        # Detects conditions that are unsafe due to not being exhaustive.
-        # https://go-critic.com/overview.html#weakcond
-        - weakCond
-        # Ensures that `//nolint` comments include an explanation.
-        # https://go-critic.com/overview.html#whynolint
-        - whyNoLint
-        # Detects function calls that can be replaced with convenience wrappers.
-        # https://go-critic.com/overview.html#wrapperfunc
-        - wrapperFunc
-        # Detects Yoda style expressions and suggests to replace them.
-        # https://go-critic.com/overview.html#yodastyleexpr
-        - yodaStyleExpr
-        # Detects bytes.Repeat with 0 value.
-        # https://go-critic.com/overview.html#zerobyterepeat
-        - zeroByteRepeat
-
-      # Enable all checks.
-      # Default: false
-      enable-all: false
-      # Which checks should be disabled; can't be combined with 'enabled-checks'.
-      # Default: []
+      # 启用所有检查。
+      # 检查列表为 (https://go-critic.com/overview#checks-overview)
+      # 默认值：false
+      enable-all: true
+      # 应禁用哪些检查；不能与 'enabled-checks' 同时使用。
+      # 默认值：[]
       disabled-checks:
 
-      # Enable multiple checks by tags in addition to default checks.
-      # Run `GL_DEBUG=gocritic golangci-lint run --enable=gocritic` to see all tags and checks.
-      # See https://github.com/go-critic/go-critic#usage -> section "Tags".
-      # Default: []
+      # 除了默认检查外，按标签启用多个检查。
+      # 运行 `GL_DEBUG=gocritic golangci-lint run --enable=gocritic` 查看所有标签和检查。
+      # 参见 https://github.com/go-critic/go-critic#usage -> "Tags" 部分。
+      # 默认值：[]
       enabled-tags:
 
       disabled-tags:
 
-      # Settings passed to gocritic.
-      # The settings key is the name of a supported gocritic checker.
-      # The list of supported checkers can be found at https://go-critic.com/overview.
+      # 传递给 gocritic 的设置。
+      # 设置键是受支持的 gocritic 检查器的名称。
+      # 受支持的检查器列表可在 https://go-critic.com/overview 找到。
       settings:
-        # Must be valid enabled check name.
+        # 必须是有效的已启用检查名称。
         captLocal:
-          # Whether to restrict checker to params only.
-          # Default: true
+          # 是否将检查器限制为仅参数。
+          # 默认值：true
           paramsOnly: true
         commentedOutCode:
-          # Min length of the comment that triggers a warning.
-          # Default: 15
+          # 触发警告的注释最小长度。
+          # 默认值：15
           minLength: 15
         elseif:
-          # Whether to skip balanced if-else pairs.
-          # Default: true
+          # 是否跳过平衡的 if-else 对。
+          # 默认值：true
           skipBalanced: true
         hugeParam:
-          # Size in bytes that makes the warning trigger.
-          # Default: 80
+          # 触发警告的字节大小。
+          # 默认值：80
           sizeThreshold: 80
         ifElseChain:
-          # Min number of if-else blocks that makes the warning trigger.
-          # Default: 2
+          # 触发警告的 if-else 块最小数量。
+          # 默认值：2
           minThreshold: 2
         nestingReduce:
-          # Min number of statements inside a branch to trigger a warning.
-          # Default: 5
+          # 触发警告的分支内语句最小数量。
+          # 默认值：5
           bodyWidth: 5
         rangeExprCopy:
-          # Size in bytes that makes the warning trigger.
-          # Default: 512
+          # 触发警告的字节大小。
+          # 默认值：512
           sizeThreshold: 512
-          # Whether to check test functions
-          # Default: true
+          # 是否检查测试函数
+          # 默认值：true
           skipTestFuncs: true
         rangeValCopy:
-          # Size in bytes that makes the warning trigger.
-          # Default: 128
+          # 触发警告的字节大小。
+          # 默认值：128
           sizeThreshold: 128
-          # Whether to check test functions.
-          # Default: true
+          # 是否检查测试函数。
+          # 默认值：true
           skipTestFuncs: true
         ruleguard:
-          # Enable debug to identify which 'Where' condition was rejected.
-          # The value of the parameter is the name of a function in a ruleguard file.
+          # 启用调试以识别哪个 'Where' 条件被拒绝。
+          # 该参数的值是 ruleguard 文件中的函数名。
           #
-          # When a rule is evaluated:
-          # If:
-          #   The Match() clause is accepted; and
-          #   One of the conditions in the Where() clause is rejected,
-          # Then:
-          #   ruleguard prints the specific Where() condition that was rejected.
+          # 当规则被评估时：
+          # 如果：
+          #   Match() 子句被接受；且
+          #   Where() 子句中的某个条件被拒绝，
+          # 那么：
+          #   ruleguard 会打印被拒绝的具体 Where() 条件。
           #
-          # The option is passed to the ruleguard 'debug-group' argument.
-          # Default: ""
+          # 该选项传递给 ruleguard 的 'debug-group' 参数。
+          # 默认值：""
           debug: ''
-          # Determines the behavior when an error occurs while parsing ruleguard files.
-          # If flag is not set, log error and skip rule files that contain an error.
-          # If flag is set, the value must be a comma-separated list of error conditions.
-          # - 'all':    fail on all errors.
-          # - 'import': ruleguard rule imports a package that cannot be found.
-          # - 'dsl':    gorule file does not comply with the ruleguard DSL.
-          # Default: ""
+          # 确定解析 ruleguard 文件时发生错误的行为。
+          # 如果未设置此标志，则记录错误并跳过包含错误的规则文件。
+          # 如果设置此标志，则值必须为逗号分隔的错误条件列表。
+          # - 'all'：    对所有错误失败。
+          # - 'import'：ruleguard 规则导入了无法找到的包。
+          # - 'dsl'：    gorule 文件不符合 ruleguard DSL。
+          # 默认值：""
           failOn: dsl,import
-          # Comma-separated list of file paths containing ruleguard rules.
-          # By default, if a path is relative, it is relative to the directory where the golangci-lint command is executed.
-          # The placeholder '${base-path}' is substituted with a path relative to the mode defined with `run.relative-path-mode`.
-          # The placeholder '${config-path}' is substituted with a path relative to the configuration file.
-          # Glob patterns such as 'rules-*.go' may be specified.
-          # Default: ""
+          # 包含 ruleguard 规则的文件路径的逗号分隔列表。
+          # 默认情况下，如果路径是相对路径，则相对于执行 golangci-lint 命令的目录。
+          # 占位符 '${base-path}' 被替换为相对于 `run.relative-path-mode` 所定义模式的路径。
+          # 占位符 '${config-path}' 被替换为相对于配置文件的路径。
+          # 可以指定 glob 模式，如 'rules-*.go'。
+          # 默认值：""
           rules: ''
-          # Comma-separated list of enabled groups or skip empty to enable everything.
-          # Tags can be defined with # character prefix.
-          # Default: "<all>"
+          # 启用组的逗号分隔列表，留空则启用所有。
+          # 标签可以用 # 字符前缀定义。
+          # 默认值："<all>"
           enable: ""
-          # Comma-separated list of disabled groups or skip empty to enable everything.
-          # Tags can be defined with # character prefix.
-          # Default: ""
+          # 禁用组的逗号分隔列表，留空则启用所有。
+          # 标签可以用 # 字符前缀定义。
+          # 默认值：""
           disable: ""
         tooManyResultsChecker:
-          # Maximum number of results.
-          # Default: 5
+          # 最大结果数。
+          # 默认值：5
           maxResults: 5
         truncateCmp:
-          # Whether to skip int/uint/uintptr types.
-          # Default: true
+          # 是否跳过 int/uint/uintptr 类型。
+          # 默认值：true
           skipArchDependent: true
         underef:
-          # Whether to skip (*x).method() calls where x is a pointer receiver.
-          # Default: true
+          # 是否跳过 (*x).method() 调用（其中 x 是指针接收者）。
+          # 默认值：true
           skipRecvDeref: true
         unnamedResult:
-          # Whether to check exported functions.
-          # Default: false
+          # 是否检查导出函数。
+          # 默认值：false
           checkExported: false
 
+    # 检查 圈复杂度（Cyclomatic Complexity）gocyclo 是早期版本的圈复杂度检查器，cyclop 是它的增强替代品。
     gocyclo:
-      # Minimal code complexity to report.
-      # Default: 30 (but we recommend 10-20)
+      # 报告的最小代码复杂度。
+      # 默认值：30（但建议使用 10-20）
       min-complexity: 30
 
+    # 控制godoc文档规范
     godoclint:
-      # Default set of rules to enable.
-      # Possible values are: `basic`, `all` or `none`.
-      # Default: `basic` (enables `pkg-doc`, `single-pkg-doc`, `start-with-name`, and `deprecated`)
-      default: all
+      # 默认启用的规则集。
+      # 可选值为：`basic`、`all` 或 `none`。
+      # 默认值：`basic`（启用 `pkg-doc`、`single-pkg-doc`、`start-with-name` 和 `deprecated`）
+      default: basic
 
-      # List of rules to disable.
-      # Default: empty
+      # 要禁用的规则列表。
+      # 默认值：空
       disable:
 
-      # A map for fine-tuning individual rules.
-      # All subkeys are optional.
+      # 用于微调单个规则的映射。
+      # 所有子键都是可选的。
       options:
         max-len:
-          # Maximum line length for godocs, not including the `//`, `/*` or `*/` tokens.
-          # Default: 77
-          length: 127
+          # godoc 的最大行长度，不包括 `//`、`/*` 或 `*/` 标记。
+          # 默认值：77
+          length: 128
 
         require-doc:
-          # Ignore exported (public) symbols when applying the `require-doc` rule.
-          # Default: false
+          # 应用 `require-doc` 规则时忽略导出（公开）符号。
+          # 默认值：false
           ignore-exported: true
 
-          # Ignore unexported (private) symbols when applying the `require-doc` rule.
-          # Default: true
+          # 应用 `require-doc` 规则时忽略非导出（私有）符号。
+          # 默认值：true
           ignore-unexported: false
 
         start-with-name:
-          # Include unexported symbols when applying the `start-with-name` rule.
-          # Default: false
+          # 应用 `start-with-name` 规则时包含非导出符号。
+          # 默认值：false
           include-unexported: true
 
+    # 注释检查
     godot:
-      # Comments to be checked: `declarations`, `toplevel`, `noinline` or `all`.
-      # Default: declarations
-      scope: toplevel
-      # List of regexps for excluding particular comment lines from check.
-      # Default: []
+      # 要检查的注释：`declarations`、`toplevel`、`noinline` 或 `all`。
+      # 默认值：declarations
+      scope: declarations
+      # 用于从检查中排除特定注释行的正则表达式列表。
+      # 默认值：[]
       exclude:
-        # Exclude todo and fixme comments.
+        # 排除 todo 和 fixme 注释。
         - "^fixme:"
         - "^todo:"
-      # Check that each sentence ends with a period.
-      # Default: true
-      period: false
-      # Check that each sentence starts with a capital letter.
-      # Default: false
+        - "^note:"
+        - "^bug:"
+      # 检查每个句子是否以句号结尾。
+      # 默认值：true
+      period: true
+      # 检查每个句子是否以大写字母开头。
+      # 默认值：false
       capital: true
 
     godox:
-      # Report any comments starting with keywords, this is useful for TODO or FIXME comments that
-      # might be left in the code accidentally and should be resolved before merging.
-      # Default: ["TODO", "BUG", "FIXME"]
+      # 报告以关键字开头的注释，这对于可能被意外留在代码中、
+      # 应在合并前解决的 TODO 或 FIXME 注释很有用。
+      # 默认值：["TODO", "BUG", "FIXME"]
       keywords:
         - TODO
         - BUG
         - FIXME
         - NOTE
-        - OPTIMIZE # marks code that should be optimized before merging
-        - HACK # marks hack-around that should be removed before merging
+        - OPTIMIZE # 标记在合并前应优化的代码
+        - HACK # 标记在合并前应移除的临时变通方案
 
-    # 文件头部License设置
+    # 文件头部License设置. 问题: 如果copy了别人得代码会覆盖当执行时会覆盖掉对应的License设置，可以通过exclusions.paths配置忽略。
     goheader:
-      # Supports two types 'const` and `regexp`.
-      # Values can be used recursively.
-      # Default: {}
+      # 支持两种类型：'const` 和 `regexp`。
+      # 值可以递归使用。
+      # 默认值：{}
       values:
         const:
-          # Define here const type values in format k:v.
-          # For example:
-          COMPANY: MY COMPANY
-        regexp:
-          # Define here regexp type values.
-          # For example:
-          AUTHOR: .*@mycompany\.com
-      # The template used for checking.
-      # Put here copyright header template for source code files.
-      # Note: {{ YEAR }} is a builtin value that returns the year relative to the current machine time.
-      # Default: ""
+          # 在此处定义 const 类型值，格式为 k:v。
+          COMPANY: Copyright (c)
+          AUTHOR: chaunsin
+      # 用于检查的模板。
+      # 在此处放置源代码文件的版权头模板。
+      # 注意：{{ YEAR }} 是一个内置值，返回相对于当前机器时间的年份。
+      # 默认值：""
       template: |-
-        {{ AUTHOR }} {{ COMPANY }} {{ YEAR }}
-        SPDX-License-Identifier: Apache-2.0
-
-        Licensed under the Apache License, Version 2.0 (the "License");
-        you may not use this file except in compliance with the License.
-        You may obtain a copy of the License at:
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-        Unless required by applicable law or agreed to in writing, software
-        distributed under the License is distributed on an "AS IS" BASIS,
-        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-        See the License for the specific language governing permissions and
-        limitations under the License.
-      # As alternative of directive 'template', you may put the path to file with the template source.
-      # Useful if you need to load the template from a specific file.
-      # By default, if a path is relative, it is relative to the directory where the golangci-lint command is executed.
-      # The placeholder '${base-path}' is substituted with a path relative to the mode defined with `run.relative-path-mode`.
-      # The placeholder '${config-path}' is substituted with a path relative to the configuration file.
-      # Default: ""
+        {{ COMPANY }} {{ YEAR }} {{ AUTHOR }}
+        SPDX-License-Identifier: MIT
+        
+      # 作为 'template' 指令的替代方案，可以指定包含模板源的文件路径。
+      # 如果需要从特定文件加载模板则很有用。
+      # 默认情况下，如果路径是相对路径，则相对于执行 golangci-lint 命令的目录。
+      # 占位符 '${base-path}' 被替换为相对于 `run.relative-path-mode` 所定义模式的路径。
+      # 占位符 '${config-path}' 被替换为相对于配置文件的路径。
+      # 默认值：""
       template-path: ”“
 
+    # go.mod管理
     gomoddirectives:
-      # Allow local `replace` directives.
-      # Default: false
+      # 允许本地 `replace` 指令。
+      # 默认值：false
       replace-local: false
-      # List of allowed `replace` directives.
-      # Default: []
+      # 允许的 `replace` 指令列表。
+      # 默认值：[]
       replace-allow-list:
    
-      # Allow to not explain why the version has been retracted in the `retract` directives.
-      # Default: false
+      # 允许在 `retract` 指令中不解释版本被撤回的原因。
+      # 默认值：false
       retract-allow-no-explanation: false
-      # Forbid the use of the `exclude` directives.
-      # Default: false
+      # 禁止使用 `exclude` 指令。
+      # 默认值：false
       exclude-forbidden: false
-      # Forbid the use of the `ignore` directives (>= go1.25).
-      # Default: false
+      # 禁止使用 `ignore` 指令（>= go1.25）。
+      # 默认值：false
       ignore-forbidden: false
-      # Forbid the use of the `toolchain` directive.
-      # Default: false
+      # 禁止使用 `toolchain` 指令。
+      # 默认值：false
       toolchain-forbidden: false
-      # Defines a pattern to validate `toolchain` directive.
-      # Default: '' (no match)
+      # 定义用于验证 `toolchain` 指令的模式。
+      # 默认值：'' (no match)
       toolchain-pattern: 'go1\.23\.\d+$'
-      # Forbid the use of the `tool` directives.
-      # Default: false
+      # 禁止使用 `tool` 指令。
+      # 默认值：false
       tool-forbidden: false
-      # Forbid the use of the `godebug` directive.
-      # Default: false
+      # 禁止使用 `godebug` 指令。
+      # 默认值：false
       go-debug-forbidden: false
-      # Defines a pattern to validate `go` minimum version directive.
-      # Default: '' (no match)
+      # 定义用于验证 `go` 最低版本指令的模式。
+      # 默认值：'' (no match)
       go-version-pattern: '\d\.\d+(\.0)?'
-      # Check the validity of the module path.
-      # Default: false
+      # 检查模块路径的有效性。
+      # 默认值：false
       check-module-path: false
 
     gomodguard_v2:
-      # Blocks 'replace' directives using local filesystem paths
-      # Default: false
+      # 阻止使用本地文件系统路径的 'replace' 指令
+      # 默认值：false
       local-replace-directives: false
-      # List of allowed modules.
+      # 允许的模块列表。
       allowed:
-      # List of blocked modules.
+      # 阻止的模块列表。
       blocked:
 
+    # 代码安全检测
     gosec:
-      # To select a subset of rules to run.
-      # Available rules: https://github.com/securego/gosec#available-rules
-      # Default: [] - means include all rules
+      # 选择要运行的规则子集。
+      # 可用规则：https://github.com/securego/gosec#available-rules
+      # 默认值：[] - 表示包含所有规则
       includes:
-        - G101 # Look for hardcoded credentials
-        - G102 # Bind to all interfaces
-        - G103 # Audit the use of unsafe block
-        - G104 # Audit errors not checked
-        - G106 # Audit the use of ssh.InsecureIgnoreHostKey function
-        - G107 # Url provided to HTTP request as taint input
-        - G108 # Profiling endpoint is automatically exposed
-        - G109 # Converting strconv.Atoi result to int32/int16
-        - G110 # Detect io.Copy instead of io.CopyN when decompression
-        - G111 # Detect http.Dir('/') as a potential risk
-        - G112 # Detect ReadHeaderTimeout not configured as a potential risk
-        - G113 # HTTP request smuggling via conflicting headers or bare LF in body parsing
-        - G114 # Use of net/http serve function that has no support for setting timeouts
-        - G115 # Type conversion which leads to integer overflow
-        - G116 # Detect Trojan Source attacks using bidirectional Unicode characters
-        - G117 # Potential exposure of secrets via JSON/YAML/XML/TOML marshaling
-        - G118 # Context propagation failure leading to goroutine/resource leaks
-        - G119 # Unsafe redirect policy may propagate sensitive headers
-        - G120 # Unbounded form parsing in HTTP handlers can cause memory exhaustion
-        - G121 # Unsafe CrossOriginProtection bypass patterns
-        - G122 # Filesystem TOCTOU race risk in filepath.Walk/WalkDir callbacks
-        - G123 # TLS resumption may bypass VerifyPeerCertificate when VerifyConnection is unset
-        - G124 # Insecure HTTP cookie configuration missing Secure, HttpOnly, or SameSite attributes
-        - G201 # SQL query construction using format string
-        - G202 # SQL query construction using string concatenation
-        - G203 # Use of unescaped data in HTML templates
-        - G204 # Audit use of command execution
-        - G301 # Poor file permissions used when creating a directory
-        - G302 # Poor file permissions used when creation file or using chmod
-        - G303 # Creating tempfile using a predictable path
-        - G304 # File path provided as taint input
-        - G305 # File path traversal when extracting zip archive
-        - G306 # Poor file permissions used when writing to a file
-        - G307 # Poor file permissions used when creating a file with os.Create
-        - G401 # Detect the usage of MD5 or SHA1
-        - G402 # Look for bad TLS connection settings
-        - G403 # Ensure minimum RSA key length of 2048 bits
-        - G404 # Insecure random number source (rand)
-        - G405 # Detect the usage of DES or RC4
-        - G406 # Detect the usage of deprecated MD4 or RIPEMD160
-        - G408 # Stateful misuse of ssh.PublicKeyCallback leading to auth bypass
-        - G501 # Import blocklist: crypto/md5
-        - G502 # Import blocklist: crypto/des
-        - G503 # Import blocklist: crypto/rc4
-        - G504 # Import blocklist: net/http/cgi
-        - G505 # Import blocklist: crypto/sha1
-        - G506 # Import blocklist: golang.org/x/crypto/md4
-        - G507 # Import blocklist: golang.org/x/crypto/ripemd160
-        - G601 # Implicit memory aliasing in RangeStmt
-        - G602 # Possible slice bounds out of range
-        - G701 # SQL injection via taint analysis
-        - G702 # Command injection via taint analysis
-        - G703 # Path traversal via taint analysis
-        - G704 # SSRF via taint analysis
-        - G705 # XSS via taint analysis
-        - G706 # Log injection via taint analysis
-        - G707 # SMTP command/header injection via taint analysis
-        - G708 # Server-side template injection via taint analysis
-        - G709 # Unsafe deserialization of untrusted data via taint analysis
-        - G710 # Open redirect via taint analysis
 
-      # To specify a set of rules to explicitly exclude.
-      # Available rules: https://github.com/securego/gosec#available-rules
-      # Default: []
+      # 指定要显式排除的规则集。
+      # 可用规则：https://github.com/securego/gosec#available-rules
+      # 默认值：[]
       excludes:
+        - G402 # InsecureSkipVerify
 
-      # Filter out the issues with a lower severity than the given value.
-      # Valid options are: low, medium, high.
-      # Default: low
+      # 过滤掉严重程度低于给定值的问题。
+      # 有效选项为：low、medium、high。
+      # 默认值：low
       severity: medium
 
-      # Filter out the issues with a lower confidence than the given value.
-      # Valid options are: low, medium, high.
-      # Default: low
+      # 过滤掉置信度低于给定值的问题。
+      # 有效选项为：low、medium、high。
+      # 默认值：low
       confidence: medium
 
-      # Concurrency value.
-      # Default: the number of logical CPUs usable by the current process.
+      # 并发值。
+      # 默认值：当前进程可用的逻辑 CPU 数量。
       concurrency: 12
 
-      # To specify the configuration of rules.
+      # 指定规则的配置。
       config:
-        # Globals are applicable to all rules.
+        # 全局设置适用于所有规则。
         global:
-          # If true, ignore #nosec in comments (and an alternative as well).
-          # Default: false
+          # 如果为 true，则忽略注释中的 #nosec（以及替代前缀）。
+          # 默认值：false
           nosec: false
-          # Add an alternative comment prefix to #nosec (both will work at the same time).
-          # Default: ""
+          # 为 #nosec 添加替代注释前缀（两者同时生效）。
+          # 默认值：""
           "#nosec": ""
-          # Define whether nosec issues are counted as finding or not.
-          # Default: false
+          # 定义 nosec 问题是否计为发现结果。
+          # 默认值：false
           show-ignored: false
-          # Audit mode enables addition checks that for normal code analysis might be too nosy.
-          # Default: false
+          # 审计模式启用额外检查，这些检查对于普通代码分析可能过于繁琐。
+          # 默认值：false
           audit: false
         G101:
-          # Regexp pattern for variables and constants to find.
-          # Default: "(?i)passwd|pass|password|pwd|secret|token|pw|apiKey|bearer|cred"
+          # 用于查找变量和常量的正则表达式模式。
+          # 默认值："(?i)passwd|pass|password|pwd|secret|token|pw|apiKey|bearer|cred"
           pattern: ""
-          # If true, complain about all cases (even with low entropy).
-          # Default: false
+          # 如果为 true，则对所有情况都报告（即使是低熵的）。
+          # 默认值：false
           ignore_entropy: false
-          # Maximum allowed entropy of the string.
-          # Default: "80.0"
+          # 字符串的最大允许熵值。
+          # 默认值："80.0"
           entropy_threshold: "80.0"
-          # Maximum allowed value of entropy/string length.
-          # Is taken into account if entropy >= entropy_threshold/2.
-          # Default: "3.0"
+          # 熵/字符串长度的最大允许值。
+          # 当熵 >= entropy_threshold/2 时生效。
+          # 默认值："3.0"
           per_char_threshold: "3.0"
-          # Calculate entropy for first N chars of the string.
-          # Default: "16"
+          # 计算字符串前 N 个字符的熵。
+          # 默认值："16"
           truncate: "32"
-        # Additional functions to ignore while checking unhandled errors.
-        # Following functions always ignored:
+        # 检查未处理错误时要忽略的附加函数。
+        # 以下函数始终被忽略：
         #   bytes.Buffer:
         #     - Write
         #     - WriteByte
@@ -1251,1363 +867,663 @@ linters:
         #     - Write
         #   os:
         #     - Unsetenv
-        # Default: {}
+        # 默认值：{}
         G104:
           fmt:
             - Fscanf
         G111:
-          # Regexp pattern to find potential directory traversal.
-          # Default: "http\\.Dir\\(\"\\/\"\\)|http\\.Dir\\('\\/'\\)"
+          # 用于查找潜在目录遍历的正则表达式模式。
+          # 默认值："http\\.Dir\\(\"\\/\"\\)|http\\.Dir\\('\\/'\\)"
           pattern: "custom\\.Dir\\(\\)"
-        # Maximum allowed permissions mode for os.Mkdir and os.MkdirAll.
-        # Default: "0750"
+        # os.Mkdir 和 os.MkdirAll 的最大允许权限模式。
+        # 默认值："0750"
         G301: "0750"
-        # Maximum allowed permissions mode for os.OpenFile and os.Chmod.
-        # Default: "0600"
+        # os.OpenFile 和 os.Chmod 的最大允许权限模式。
+        # 默认值："0600"
         G302: "0600"
-        # Maximum allowed permissions mode for os.WriteFile and ioutil.WriteFile.
-        # Default: "0600"
+        # os.WriteFile 和 ioutil.WriteFile 的最大允许权限模式。
+        # 默认值："0600"
         G306: "0600"
 
     gosmopolitan:
-      # Allow and ignore `time.Local` usages.
+      # 允许并忽略 `time.Local` 的使用。
       #
-      # Default: false
+      # 默认值：false
       allow-time-local: true
-      # List of fully qualified names in the `full/pkg/path.name` form, to act as "i18n escape hatches".
-      # String literals inside call-like expressions to, or struct literals of those names,
-      # are exempt from the writing system check.
+      # 以 `full/pkg/path.name` 形式表示的完全限定名称列表，作为"i18n 逃逸口"。
+      # 对这些名称的调用类表达式中的字符串字面量，或这些名称的结构体字面量，
+      # 豁免书写系统检查。
       #
-      # Default: []
+      # 默认值：[]
       escape-hatches:
-      # List of Unicode scripts to watch for any usage in string literals.
+      # 要监控在字符串字面量中使用的 Unicode 脚本列表。
       # https://pkg.go.dev/unicode#pkg-variables
       #
-      # Default: ["Han"]
+      # 默认值：["Han"]
       watch-for-scripts:
-        - Devanagari
         - Han
-        - Hangul
-        - Hiragana
-        - Katakana
 
     govet:
-      # Enable all analyzers.
-      # Default: false
+      # 启用所有分析器。
+      # 默认值：false
       enable-all: true
-      # Disable analyzers by name.
-      # (In addition to default
+      # 按名称禁用分析器。
+      # （除了默认的
       #   atomicalign, deepequalerrors, fieldalignment, findcall, nilness, reflectvaluecompare, shadow, sortslice,
       #   timeformat, unusedwrite
-      # ).
-      # Run `GL_DEBUG=govet golangci-lint run --enable=govet` to see default, all available analyzers, and enabled analyzers.
-      # Default: []
+      # )。
+      # 运行 `GL_DEBUG=govet golangci-lint run --enable=govet` 查看默认、所有可用和已启用的分析器。
+      # 默认值：[]
       disable:
+       - fieldalignment # 会根据字段大小和对齐要求调整声明顺序，试图减少结构体 padding。
 
-      # Settings per analyzer.
+      # 每个分析器的设置。
       settings:
-        # Analyzer name, run `go tool vet help` to see all analyzers.
+        # 分析器名称，运行 `go tool vet help` 查看所有分析器。
         printf:
-          # Comma-separated list of print function names to check (in addition to default, see `go tool vet help printf`).
-          # Default: []
+          # 要检查的 print 函数名称的逗号分隔列表（除默认外，参见 `go tool vet help printf`）。
+          # 默认值：[]
           funcs:
             - (github.com/golangci/golangci-lint/v2/pkg/logutils.Log).Infof
             - (github.com/golangci/golangci-lint/v2/pkg/logutils.Log).Warnf
             - (github.com/golangci/golangci-lint/v2/pkg/logutils.Log).Errorf
             - (github.com/golangci/golangci-lint/v2/pkg/logutils.Log).Fatalf
         shadow:
-          # Whether to be strict about shadowing; can be noisy.
-          # Default: false
-          strict: true
+          # 是否对变量遮蔽严格检查；可能产生较多噪音。
+          # 默认值：false
+          strict: false
         unusedresult:
-          # Comma-separated list of functions whose results must be used.
-          # (In addition to default:
+          # 结果必须被使用的函数的逗号分隔列表。
+          # （除默认外：
           #   context.WithCancel, context.WithDeadline, context.WithTimeout, context.WithValue, errors.New, fmt.Errorf,
           #   fmt.Sprint, fmt.Sprintf, sort.Reverse
-          # ).
-          # Default: []
+          # )。
+          # 默认值：[]
           funcs:
 
-          # Comma-separated list of names of methods of type func() string whose results must be used.
-          # (In addition to default Error,String).
-          # Default: []
+          # 类型为 func() string 的方法名称的逗号分隔列表，其结果必须被使用。
+          # （除默认的 Error、String 外）。
+          # 默认值：[]
           stringmethods:
 
     grouper:
-      # Require the use of a single global 'const' declaration only.
-      # Default: false
+      # 要求仅使用单个全局 'const' 声明。
+      # 默认值：false
       const-require-single-const: false
-      # Require the use of grouped global 'const' declarations.
-      # Default: false
+      # 要求使用分组的全局 'const' 声明。
+      # 默认值：false
       const-require-grouping: false
 
-      # Require the use of a single 'import' declaration only.
-      # Default: false
+      # 要求仅使用单个 'import' 声明。
+      # 默认值：false
       import-require-single-import: false
-      # Require the use of grouped 'import' declarations.
-      # Default: false
+      # 要求使用分组的 'import' 声明。
+      # 默认值：false
       import-require-grouping: false
 
-      # Require the use of a single global 'type' declaration only.
-      # Default: false
+      # 要求仅使用单个全局 'type' 声明。
+      # 默认值：false
       type-require-single-type: false
-      # Require the use of grouped global 'type' declarations.
-      # Default: false
+      # 要求使用分组的全局 'type' 声明。
+      # 默认值：false
       type-require-grouping: false
 
-      # Require the use of a single global 'var' declaration only.
-      # Default: false
+      # 要求仅使用单个全局 'var' 声明。
+      # 默认值：false
       var-require-single-var: false
-      # Require the use of grouped global 'var' declarations.
-      # Default: false
+      # 要求使用分组的全局 'var' 声明。
+      # 默认值：false
       var-require-grouping: false
 
     iface:
-      # List of analyzers.
-      # Default: ["identical"]
+      # 分析器列表。
+      # 默认值：["identical"]
       enable:
-        - identical # Identifies interfaces in the same package that have identical method sets.
-        - unused # Identifies interfaces that are not used anywhere in the same package where the interface is defined.
-        - opaque # Identifies functions that return interfaces, but the actual returned value is always a single concrete implementation.
-        - unexported # Identifies interfaces that are not exported but are used in exported functions or methods.
+        - identical # 识别同一包中具有相同方法集的接口。
+        - unused # 识别在定义接口的同一包中任何地方都未被使用的接口。
+        - opaque # 识别返回接口但实际返回值始终是单个具体实现的函数。
+        - unexported # 识别未导出但用于导出函数或方法中的接口。
       settings:
         unused:
-          # List of packages path to exclude from the check.
-          # Default: []
+          # 要从检查中排除的包路径列表。
+          # 默认值：[]
           exclude:
-            - github.com/example/log
 
     # import导包别名设置
     importas:
-      # Do not allow unaliased imports of aliased packages.
-      # Default: false
-      no-unaliased: true
-      # Do not allow non-required aliases.
-      # Default: false
-      no-extra-aliases: true
-      # List of aliases.
-      # Default: []
+      # 不允许对已设置别名的包进行无别名导入。
+      # 默认值：false
+      no-unaliased: false
+      # 不允许非必需的别名。
+      # 默认值：false
+      no-extra-aliases: false
+      # 别名列表。
+      # 默认值：[]
       alias:
 
     inamedparam:
-      # Skips check for interface methods with only a single parameter.
-      # Default: false
+      # 跳过对只有单个参数的接口方法的检查。
+      # 默认值：false
       skip-single-param: true
 
     ineffassign:
-      # Check escaping variables of type error, may cause false positives.
-      # Default: false
+      # 检查 error 类型的逃逸变量，可能产生误报。
+      # 默认值：false
       check-escaping-errors: true
 
+    # 接口定义允许的最大方法数
     interfacebloat:
-      # The maximum number of methods allowed for an interface.
-      # Default: 10
+      # 接口允许的最大方法数。
+      # 默认值：10
       max: 5
 
     iotamixing:
-      # Whether to report individual consts rather than just the const block.
-      # Default: false
+      # 是否报告单个常量而不仅是常量块。
+      # 默认值：false
       report-individual: true
 
     ireturn:
-      # List of interfaces to allow.
-      # Lists of the keywords and regular expressions matched to interface or package names can be used.
-      # `allow` and `reject` settings cannot be used at the same time.
+      # 允许的接口列表。
+      # 可以使用与接口或包名匹配的关键字和正则表达式列表。
+      # `allow` 和 `reject` 设置不能同时使用。
       #
-      # Keywords:
-      # - `empty` for `interface{}`
-      # - `error` for errors
-      # - `stdlib` for standard library
-      # - `anon` for anonymous interfaces
-      # - `generic` for generic interfaces added in go 1.18
+      # 关键字：
+      # - `empty` 表示 `interface{}`
+      # - `error` 表示 error
+      # - `stdlib` 表示标准库
+      # - `anon` 表示匿名接口
+      # - `generic` 表示 go 1.18 中添加的泛型接口
       #
-      # Default: [anon, error, empty, stdlib]
+      # 默认值：[anon, error, empty, stdlib]
       allow:
-        - anon
-        ## You can specify idiomatic endings for interface
-        # - (or|er)$
+        # 你可以为接口指定惯用结尾
+        - (or|er)$
 
-      # List of interfaces to reject.
-      # Lists of the keywords and regular expressions matched to interface or package names can be used.
-      # `allow` and `reject` settings cannot be used at the same time.
+      # 要拒绝的接口列表。
+      # 可以使用与接口或包名匹配的关键字和正则表达式列表。
+      # `allow` 和 `reject` 设置不能同时使用。
       #
-      # Keywords:
-      # - `empty` for `interface{}`
-      # - `error` for errors
-      # - `stdlib` for standard library
-      # - `anon` for anonymous interfaces
-      # - `generic` for generic interfaces added in go 1.18
+      # 关键字：
+      # - `empty` 表示 `interface{}`
+      # - `error` 表示 error
+      # - `stdlib` 表示标准库
+      # - `anon` 表示匿名接口
+      # - `generic` 表示 go 1.18 中添加的泛型接口
       #
-      # Default: []
+      # 默认值：[]
       reject:
         # - github.com\/user\/package\/v4\.Type
 
     lll:
-      # Max line length, lines longer will be reported.
-      # '\t' is counted as 1 character by default, and can be changed with the tab-width option.
-      # Default: 120.
+      # 最大行长度，超过此长度的行将被报告。
+      # 默认情况下 '\t' 计为 1 个字符，可以通过 tab-width 选项更改。
+      # 默认值：120.
       line-length: 120
-      # Tab width in spaces.
-      # Default: 1
+      # 制表符宽度（以空格为单位）。
+      # 默认值：1
       tab-width: 1
 
     loggercheck:
-      # Allow check for the github.com/go-kit/log library.
-      # Default: true
+      # 允许检查 github.com/go-kit/log 库。
+      # 默认值：true
       kitlog: true
-      # Allow check for the k8s.io/klog/v2 library.
-      # Default: true
+      # 允许检查 k8s.io/klog/v2 库。
+      # 默认值：true
       klog: true
-      # Allow check for the github.com/go-logr/logr library.
-      # Default: true
+      # 允许检查 github.com/go-logr/logr 库。
+      # 默认值：true
       logr: true
-      # Allow check for the log/slog library.
-      # Default: true
+      # 允许检查 log/slog 库。
+      # 默认值：true
       slog: true
-      # Allow check for the "sugar logger" from go.uber.org/zap library.
-      # Default: true
+      # 允许检查 go.uber.org/zap 库中的 "sugar logger"。
+      # 默认值：true
       zap: true
-      # Require all logging keys to be inlined constant strings.
-      # Default: false
+      # 要求所有日志键为内联常量字符串。
+      # 默认值：false
       require-string-key: false
-      # Require printf-like format specifier (%s, %d for example) not present.
-      # Default: false
+      # 要求不出现 printf 类格式说明符（如 %s、%d）。
+      # 默认值：false
       no-printf-like: true
-      # List of custom rules to check against, where each rule is a single logger pattern, useful for wrapped loggers.
-      # For example: https://github.com/timonwong/loggercheck/blob/7395ab86595781e33f7afba27ad7b55e6956ebcd/testdata/custom-rules.txt
-      # Default: empty
+      # 要检查的自定义规则列表，每条规则是一个单一的 logger 模式，适用于包装的 logger。
+      # 例如：https://github.com/timonwong/loggercheck/blob/7395ab86595781e33f7afba27ad7b55e6956ebcd/testdata/custom-rules.txt
+      # 默认值：空
       rules:
-        - k8s.io/klog/v2.InfoS   # package level exported functions
-        - (github.com/go-logr/logr.Logger).Error  # "Methods"
-        - (*go.uber.org/zap.SugaredLogger).With  # Also "Methods", but with a pointer receiver
 
+    # 根据代码复杂度等多个指标计算一个可维护性指数
     maintidx:
-      # Show functions with maintainability index lower than N.
-      # A high index indicates better maintainability (it's kind of the opposite of complexity).
-      # Default: 20
-      under: 100
+      # 显示可维护性指数低于 N 的函数。
+      # 高指数表示更好的可维护性（与复杂度相反）。
+      # 默认值：20
+      under: 20
 
     makezero:
-      # Allow only slices initialized with a length of zero.
-      # Default: false
-      always: true
+      # 仅允许以零长度初始化的切片。
+      # 默认值：false
+      always: false
 
+    # 单词拼写
     misspell:
-      # Correct spellings using locale preferences for US or UK.
-      # Setting locale to US will correct the British spelling of 'colour' to 'color'.
-      # Default is to use a neutral variety of English.
+      # 使用 US 或 UK 的区域设置来纠正拼写。
+      # 将区域设置为 US 会将英式拼写 'colour' 纠正为 'color'。
+      # 默认使用中性英语变体。
       locale: US
-      # Typos to ignore.
-      # Should be in lower case.
-      # Default: []
+      # 要忽略的拼写错误。
+      # 应为小写。
+      # 默认值：[]
       ignore-rules:
 
-      # Extra word corrections.
-      # `typo` and `correction` should only contain letters.
-      # The words are case-insensitive.
-      # Default: []
+      # 额外的单词纠正。
+      # `typo` 和 `correction` 应仅包含字母。
+      # 单词不区分大小写。
+      # 默认值：[]
       extra-words:
         - typo: "iff"
           correction: "if"
         - typo: "cancelation"
           correction: "cancellation"
-      # Mode of the analysis:
-      # - default: checks all the file content.
-      # - restricted: checks only comments.
-      # Default: ""
+      # 分析模式：
+      # - default：检查所有文件内容。
+      # - restricted：仅检查注释。
+      # 默认值：""
       mode: restricted
 
+    # mnd(Magic Number Detector) 代码中不应该直接出现意义不明的数字字面量，而应该使用具名常量。
     mnd:
-      # List of enabled checks, see https://github.com/tommy-muehle/go-mnd/#checks for description.
-      # Default: ["argument", "case", "condition", "operation", "return", "assign"]
+      # 启用的检查列表，参见 https://github.com/tommy-muehle/go-mnd/#checks 了解描述。
+      # 默认值：["argument", "case", "condition", "operation", "return", "assign"]
       checks:
-        - argument
-        - case
-        - condition
-        - operation
-        - return
-        - assign
-      # List of numbers to exclude from analysis.
-      # The numbers should be written as string.
-      # Values always ignored: "1", "1.0", "0" and "0.0".
-      # Default: []
+  
+      # 要从分析中排除的数字列表。
+      # 数字应以字符串形式书写。
+      # 始终忽略的值："1"、"1.0"、"0" 和 "0.0"。
+      # 默认值：[]
       ignored-numbers:
   
-      # List of file patterns to exclude from analysis.
-      # Values always ignored: `.+_test.go`.
-      # Default: []
+      # 要从分析中排除的文件模式列表。
+      # 始终忽略的值：`.+_test.go`。
+      # 默认值：[]
       ignored-files:
 
-      # List of function patterns to exclude from analysis.
-      # Following functions are always ignored: `time.Date`,
-      # `strconv.FormatInt`, `strconv.FormatUint`, `strconv.FormatFloat`,
-      # `strconv.ParseInt`, `strconv.ParseUint`, `strconv.ParseFloat`.
-      # Default: []
+      # 要从分析中排除的函数模式列表。
+      # 以下函数始终被忽略：`time.Date`、
+      # `strconv.FormatInt`、`strconv.FormatUint`、`strconv.FormatFloat`、
+      # `strconv.ParseInt`、`strconv.ParseUint`、`strconv.ParseFloat`。
+      # 默认值：[]
       ignored-functions:
 
     # 代码升级现代化设置
     modernize:
-      # List of analyzers to disable.
-      # By default, all analyzers are enabled.
-      disable:
-        # Replace interface{} with any.
-        - any
-        # Replace []byte(fmt.Sprintf) with fmt.Appendf.
-        - fmtappendf
-        # Remove redundant re-declaration of loop variables.
-        - forvar
-        # Replace explicit loops over maps with calls to maps package.
-        - mapsloop
-        # Replace if/else statements with calls to min or max.
-        - minmax
-        # Simplify code by using go1.26's new(expr).
-        - newexpr
-        # Suggest replacing omitempty with omitzero for struct fields.
-        - omitzero
-        # Remove obsolete //+build comments.
-        - plusbuild
-        # Replace 3-clause for loops with for-range over integers.
-        - rangeint
-        # Replace reflect.TypeOf(x) with TypeFor[T]().
-        - reflecttypefor
-        # Replace loops with slices.Contains or slices.ContainsFunc.
-        - slicescontains
-        # Replace sort.Slice with slices.Sort for basic types.
-        - slicessort
-        # Use iterators instead of Len/At-style APIs.
-        - stditerators
-        # Replace strings.Index etc. with strings.Cut.
-        - stringscut
-        # Replace HasPrefix/TrimPrefix with CutPrefix.
-        - stringscutprefix
-        # Replace ranging over Split/Fields with SplitSeq/FieldsSeq.
-        - stringsseq
-        # Replace += with strings.Builder.
-        - stringsbuilder
-        # Replace context.WithCancel with t.Context in tests.
-        - testingcontext
-        # Replace unsafe pointer arithmetic with function calls.
-        - unsafefuncs
-        # Replace wg.Add(1)/go/wg.Done() with wg.Go.
-        - waitgroup
+      # 要禁用的分析器列表。
+      # 默认情况下，所有分析器均已启用。
+      disable:    
 
     musttag:
-      # A set of custom functions to check in addition to the builtin ones.
-      # Default: json, xml, gopkg.in/yaml.v3, BurntSushi/toml, mitchellh/mapstructure, jmoiron/sqlx
+      # 除了内置函数外，要检查的一组自定义函数。
+      # 默认值：json, xml, gopkg.in/yaml.v3, BurntSushi/toml, mitchellh/mapstructure, jmoiron/sqlx
       functions:
-        # The full name of the function, including the package.
+        # 函数的完整名称，包括包名。
         - name: github.com/hashicorp/hcl/v2/hclsimple.DecodeFile
-          # The struct tag whose presence should be ensured.
+          # 应确保存在的结构体标签。
           tag: hcl
-          # The position of the argument to check.
+          # 要检查的参数位置。
           arg-pos: 2
 
     nakedret:
-      # Make an issue if func has more lines of code than this setting, and it has naked returns.
-      # Default: 30
+      # 如果函数代码行数超过此设置且有裸返回，则产生问题。
+      # 默认值：30
       max-func-lines: 30
 
+    # 控制 if 语句的复杂性
     nestif:
-      # Minimal complexity of if statements to report.
-      # Default: 5
+      # 报告的 if 语句最小复杂度。
+      # 默认值：5
       min-complexity: 5
 
     nilnil:
-      # To check functions with only two return values (`return nil, nil`).
-      # If disabled then returns like `return nil, nil, ..., nil` are supported.
-      # Default: true
-      only-two: false
-      # In addition, detect opposite situation (simultaneous return of non-nil error and valid value).
-      # E.g, `return clone, fh.indexer.Update(clone)` will be considered as invalid.
-      # Default: false
-      detect-opposite: true
-      # List of return types to check.
-      # Default: ["chan", "func", "iface", "map", "ptr", "uintptr", "unsafeptr"]
+      # 检查仅有两个返回值的函数（`return nil, nil`）。
+      # 如果禁用，则支持 `return nil, nil, ..., nil` 形式的返回。
+      # 默认值：true
+      only-two: true
+      # 此外，检测相反情况（同时返回非 nil error 和有效值）。
+      # 例如，`return clone, fh.indexer.Update(clone)` 将被视为无效。
+      # 默认值：false
+      detect-opposite: false
+      # 要检查的返回类型列表。
+      # 默认值：["chan", "func", "iface", "map", "ptr", "uintptr", "unsafeptr"]
       checked-types:
-        - chan
-        - func
-        - iface
-        - map
-        - ptr
-        - uintptr
-        - unsafeptr
 
+    # 在 return 语句前增加一个空行（newline before return）。
+    # 注意此规则和wsl_5有冲突使用要注意。
     nlreturn:
-      # Size of the block (including return statement that is still "OK"),
-      # so no return split required.
-      # Default: 1
+      # 块的大小（包括仍为"OK"的 return 语句），
+      # 因此不需要拆分 return。
+      # 默认值：1
       block-size: 1
 
     nolintlint:
-      # Disable to ensure that all nolint directives actually have an effect.
-      # Default: false
+      # 禁用以确保所有 nolint 指令实际生效。
+      # 默认值：false
       allow-unused: true
-      # Exclude following linters from requiring an explanation.
-      # Default: []
-      allow-no-explanation: [ ]
-      # Enable to require an explanation of nonzero length after each nolint directive.
-      # Default: false
+      # 从需要解释的要求中排除以下 linter。
+      # 默认值：[]
+      allow-no-explanation: []
+      # 启用以要求每个 nolint 指令后必须有非零长度的解释。
+      # 默认值：false
       require-explanation: true
-      # Enable to require nolint directives to mention the specific linter being suppressed.
-      # Default: false
+      # 启用以要求 nolint 指令提及被抑制的具体 linter。
+      # 默认值：false
       require-specific: true
 
     nonamedreturns:
-      # Report named error if it is assigned inside defer.
-      # Default: false
+      # 如果命名 error 在 defer 中被赋值则报告。
+      # 默认值：false
       report-error-in-defer: false
 
     paralleltest:
-      # Ignore missing calls to `t.Parallel()` and only report incorrect uses of it.
-      # Default: false
+      # 忽略缺失的 `t.Parallel()` 调用，仅报告其不正确使用。
+      # 默认值：false
       ignore-missing: true
-      # Ignore missing calls to `t.Parallel()` in subtests.
-      # Top-level tests are still required to have `t.Parallel`,
-      # but subtests are allowed to skip it.
-      # Default: false
+      # 忽略子测试中缺失的 `t.Parallel()` 调用。
+      # 顶层测试仍需要 `t.Parallel`，
+      # 但子测试可以跳过。
+      # 默认值：false
       ignore-missing-subtests: true
-      # Check that `defer` is not used with `t.Parallel`.
-      # (use `t.Cleanup` instead to ensure cleanup runs after parallel subtests complete).
-      # Default: false
+      # 检查 `defer` 是否未与 `t.Parallel` 一起使用。
+      # （改用 `t.Cleanup` 以确保清理在并行子测试完成后运行）。
+      # 默认值：false
       check-cleanup: true
 
     perfsprint:
-      # Enable/disable optimization of integer formatting.
-      # Default: true
-      integer-format: false
-      # Optimizes even if it requires an int or uint type cast.
-      # Default: true
-      int-conversion: false
-      # Enable/disable optimization of error formatting.
-      # Default: true
-      error-format: false
-      # Optimizes into `err.Error()` even if it is only equivalent for non-nil errors.
-      # Default: false
+      # 启用/禁用整数格式化的优化。
+      # 默认值：true
+      integer-format: true
+      # 即使需要 int 或 uint 类型转换也进行优化。
+      # 默认值：true
+      int-conversion: true
+      # 启用/禁用 error 格式化的优化。
+      # 默认值：true
+      error-format: true
+      # 即使仅对非 nil error 等效，也优化为 `err.Error()`。
+      # 默认值：false
       err-error: true
-      # Optimizes `fmt.Errorf`.
-      # Default: true
-      errorf: false
-      # Enable/disable optimization of string formatting.
-      # Default: true
-      string-format: false
-      # Optimizes `fmt.Sprintf` with only one argument.
-      # Default: true
-      sprintf1: false
-      # Optimizes into strings concatenation.
-      # Default: true
-      strconcat: false
-      # Enable/disable optimization of bool formatting.
-      # Default: true
-      bool-format: false
-      # Enable/disable optimization of hex formatting.
-      # Default: true
-      hex-format: false
-      # Enable/disable optimization of concat loop.
-      # Default: true
-      concat-loop: false
-      # Optimization of `concat-loop` even with other operations.
-      # Default: false
+      # 优化 `fmt.Errorf`。
+      # 默认值：true
+      errorf: true
+      # 启用/禁用字符串格式化的优化。
+      # 默认值：true
+      string-format: true
+      # 优化只有一个参数的 `fmt.Sprintf`。
+      # 默认值：true
+      sprintf1: true
+      # 优化为字符串拼接。
+      # 默认值：true
+      strconcat: true
+      # 启用/禁用 bool 格式化的优化。
+      # 默认值：true
+      bool-format: true
+      # 启用/禁用十六进制格式化的优化。
+      # 默认值：true
+      hex-format: true
+      # 启用/禁用拼接循环的优化。
+      # 默认值：true
+      concat-loop: true
+      # 即使有其他操作也优化 `concat-loop`。
+      # 默认值：false
       loop-other-ops: true
 
     prealloc:
-      # IMPORTANT: we don't recommend using this linter before doing performance profiling.
-      # For most programs usage of prealloc will be a premature optimization.
+      # 重要：不建议在性能分析之前使用此 linter。
+      # 对于大多数程序，使用 prealloc 会是过早优化。
 
-      # Report pre-allocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them.
-      # Default: true
-      simple: false
-      # Report pre-allocation suggestions on range loops.
-      # Default: true
-      range-loops: false
-      # Report pre-allocation suggestions on for loops.
-      # Default: false
+      # 仅对没有 returns/breaks/continues/gotos 的简单循环报告预分配建议。
+      # 默认值：true
+      simple: true
+      # 对 range 循环报告预分配建议。
+      # 默认值：true
+      range-loops: true
+      # 对 for 循环报告预分配建议。
+      # 默认值：false
       for-loops: true
 
+    # 不要使用 Go 内置的关键标识符名称作为变量、函数、类型、常量名，否则会覆盖（遮蔽）原本的含义，降低代码可读性。
     predeclared:
-      # List of predeclared identifiers to not report on.
-      # Default: []
+      # 不报告的预声明标识符列表。
+      # 默认值：[]
       ignore:
-        - new
-        - int
-      # Include method names and field names in checks.
-      # Default: false
-      qualified-name: true
+      # 在检查中包含方法名和字段名。
+      # 默认值：false
+      qualified-name: false
 
     promlinter:
-      # Promlinter cannot infer all metrics name in static analysis.
-      # Enable strict mode will also include the errors caused by failing to parse the args.
-      # Default: false
+      # Promlinter 无法在静态分析中推断所有指标名称。
+      # 启用严格模式还将包括因解析参数失败而导致的错误。
+      # 默认值：false
       strict: true
-      # Please refer to https://github.com/yeya24/promlinter#usage for detailed usage.
-      # Default: []
+      # 详细用法请参见 https://github.com/yeya24/promlinter#usage。
+      # 默认值：[]
       disabled-linters:
-        # Help detects issues related to the help text for a metric.
-        - Help
-        # MetricUnits detects issues with metric unit names.
-        - MetricUnits
-        # Counter detects issues specific to counters, as well as patterns that should only be used with counters.
-        - Counter
-        # HistogramSummaryReserved detects when other types of metrics use names or labels reserved for use by histograms and/or summaries.
-        - HistogramSummaryReserved
-        # MetricTypeInName detects when metric types are included in the metric name.
-        - MetricTypeInName
-        # ReservedChars detects colons in metric names.
-        - ReservedChars
-        # CamelCase detects metric names and label names written in camelCase.
-        - CamelCase
-        # UnitAbbreviations detects abbreviated units in the metric name.
-        - UnitAbbreviations
 
     protogetter:
-      # Skip files generated by specified generators from the checking.
-      # Checks only the file's initial comment, which must follow the format: "// Code generated by <generator-name>".
-      # Files generated by protoc-gen-go, protoc-gen-go-grpc, and protoc-gen-grpc-gateway are always excluded automatically.
-      # Default: []
+      # 跳过由指定生成器生成的文件的检查。
+      # 仅检查文件的初始注释，该注释必须遵循格式："// Code generated by <generator-name>"。
+      # 由 protoc-gen-go、protoc-gen-go-grpc 和 protoc-gen-grpc-gateway 生成的文件始终自动排除。
+      # 默认值：[]
       skip-generated-by: []
-      # Skip files matching the specified glob pattern from the checking.
-      # Default: []
+      # 跳过匹配指定 glob 模式的文件的检查。
+      # 默认值：[]
       skip-files:
     
-      # Skip any generated files from the checking.
-      # Default: false
+      # 跳过任何生成文件的检查。
+      # 默认值：false
       skip-any-generated: false
-      # Skip first argument of append function.
-      # Default: false
+      # 跳过 append 函数的第一个参数。
+      # 默认值：false
       replace-first-arg-in-append: false
 
     reassign:
-      # Patterns for global variable names that are checked for reassignment.
-      # See https://github.com/curioswitch/go-reassign#usage
-      # Default: ["EOF", "Err.*"]
+      # 检查重新赋值的全局变量名模式。
+      # 参见 https://github.com/curioswitch/go-reassign#usage
+      # 默认值：["EOF", "Err.*"]
       patterns:
-        - ".*"
 
     recvcheck:
-      # Disables the built-in method exclusions:
+      # 禁用内置方法排除：
       # - `MarshalText`
       # - `MarshalJSON`
       # - `MarshalYAML`
       # - `MarshalXML`
       # - `MarshalBinary`
       # - `GobEncode`
-      # Default: false
-      disable-builtin: true
-      # User-defined method exclusions.
-      # The format is `struct_name.method_name` (ex: `Foo.MethodName`).
-      # A wildcard `*` can use as a struct name (ex: `*.MethodName`).
-      # Default: []
+      # 默认值：false
+      disable-builtin: false
+      # 用户自定义方法排除。
+      # 格式为 `struct_name.method_name`（例如：`Foo.MethodName`）。
+      # 可以使用通配符 `*` 作为结构体名（例如：`*.MethodName`）。
+      # 默认值：[]
       exclusions:
 
     revive:
-      # Maximum number of open files at the same time.
-      # See https://github.com/mgechev/revive#command-line-flags
-      # Defaults to unlimited.
+      # 同时打开的最大文件数。
+      # 参见 https://github.com/mgechev/revive#command-line-flags
+      # 默认无限制。
       max-open-files: 2048
 
-      # Sets the default severity.
-      # See https://github.com/mgechev/revive#configuration
-      # Default: warning
+      # 设置默认严重程度。
+      # 参见 https://github.com/mgechev/revive#configuration
+      # 默认值：warning
       severity: warning
 
-      # Enable all available rules.
-      # Default: false
+      # 启用所有可用规则。
+      # 默认值：false
       enable-all-rules: false
 
-      # By default, the default rules are enabled,
-      # but if you explicitly define or configure a rule, the default rules will be disabled.
-      # This option, when set to `true`, allows you to avoid explicitly redefining default rules when adding a rule.
-      # Default: false
+      # 默认情况下，默认规则已启用，
+      # 但如果显式定义或配置了某条规则，默认规则将被禁用。
+      # 此选项设置为 `true` 时，允许在添加规则时避免显式重新定义默认规则。
+      # 默认值：false
       enable-default-rules: false
 
-      # Enable validation of comment directives.
-      # See https://github.com/mgechev/revive#comment-directives
+      # 启用注释指令的验证。
+      # 参见 https://github.com/mgechev/revive#comment-directives
       directives:
         - name: specify-disable-reason
           severity: error
 
-      # Sets the default failure confidence.
-      # This means that linting errors with less than 0.8 confidence will be ignored.
-      # Default: 0.8
+      # 设置默认失败置信度。
+      # 这意味着置信度低于 0.8 的 lint 错误将被忽略。
+      # 默认值：0.8
       confidence: 0.1
-      # Revive handles the default rules in a way that can be unexpected:
-      # - If there are no explicit rules, the default rules are used.
-      # - If there is at least one explicit rule, the default rules are not used, unless `enable-default-rules` is `true`.
-      # Run `GL_DEBUG=revive golangci-lint run --enable-only=revive` to see default, all available rules, and enabled rules.
+      # Revive 处理默认规则的方式可能出乎意料：
+      # - 如果没有显式规则，则使用默认规则。
+      # - 如果至少有一条显式规则，则不使用默认规则，除非 `enable-default-rules` 为 `true`。
+      # 运行 `GL_DEBUG=revive golangci-lint run --enable-only=revive` 查看默认、所有可用和已启用的规则。
       rules:
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#add-constant
-        - name: add-constant
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - max-lit-count: "3"
-              allow-strs: '""'
-              allow-ints: "0,1,2"
-              allow-floats: "0.0,0.,1.0,1.,2.0,2."
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#argument-limit
-        - name: argument-limit
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments: [ 4 ]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#atomic
-        - name: atomic
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#banned-characters
-        - name: banned-characters
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments: [ "Ω","Σ","σ", "7" ]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#bare-return
-        - name: bare-return
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#blank-imports
-        - name: blank-imports
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#bool-literal-in-expr
-        - name: bool-literal-in-expr
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#call-to-gc
-        - name: call-to-gc
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#cognitive-complexity
-        - name: cognitive-complexity
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments: [ 7 ]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#comment-spacings
-        - name: comment-spacings
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#comments-density
-        - name: comments-density
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments: [ 15 ]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#confusing-naming
-        - name: confusing-naming
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#confusing-results
-        - name: confusing-results
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#constant-logical-expr
-        - name: constant-logical-expr
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#context-as-argument
-        - name: context-as-argument
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - allow-types-before: "*testing.T,*github.com/user/repo/testing.Harness"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#context-keys-type
-        - name: context-keys-type
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#cyclomatic
-        - name: cyclomatic
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments: [ 3 ]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#datarace
-        - name: datarace
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#deep-exit
-        - name: deep-exit
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#defer
-        - name: defer
-          severity: warning
-          disabled: false
-          exclude: [""]
-          # arguments:
-          #   - "call-chain"
-          #   - "loop"
-          #   - "method-call"
-          #   - "recover"
-          #   - "immediate-recover"
-          #   - "return"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#dot-imports
-        - name: dot-imports
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - allowed-packages: ["github.com/onsi/ginkgo/v2", "github.com/onsi/gomega"]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#duplicated-imports
-        - name: duplicated-imports
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#early-return
-        - name: early-return
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "preserve-scope"
-            - "allow-jump"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#empty-block
-        - name: empty-block
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#empty-lines
-        - name: empty-lines
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#enforce-map-style
-        - name: enforce-map-style
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "make"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#enforce-repeated-arg-type-style
-        - name: enforce-repeated-arg-type-style
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "short"
-            # Or this parameter:
-            - func-arg-style: "full"
-              func-ret-val-style: "short"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#enforce-slice-style
-        - name: enforce-slice-style
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "make"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#enforce-switch-style
-        - name: enforce-switch-style
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments: [ "allowNoDefault" ]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#epoch-naming
-        - name: epoch-naming
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#error-naming
-        - name: error-naming
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#error-return
-        - name: error-return
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#error-strings
-        - name: error-strings
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "xerrors.New"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#errorf
-        - name: errorf
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#exported
-        - name: exported
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "check-private-receivers"
-            - "disable-stuttering-check"
-            - "say-repetitive-instead-of-stutters"
-            - "check-public-interface"
-            - "disable-checks-on-constants"
-            - "disable-checks-on-functions"
-            - "disable-checks-on-methods"
-            - "disable-checks-on-types"
-            - "disable-checks-on-variables"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#file-header
-        - name: file-header
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - This is the text that must appear at the top of source files.
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#file-length-limit
-        - name: file-length-limit
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - max: 100
-              skip-comments: true
-              skip-blank-lines: true
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#filename-format
-        - name: filename-format
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "^[_a-z][_a-z0-9]*\\.go$"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#flag-parameter
-        - name: flag-parameter
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#forbidden-call-in-wg-go
-        - name: forbidden-call-in-wg-go
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#function-length
-        - name: function-length
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments: [ 10, 0 ]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#function-result-limit
-        - name: function-result-limit
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments: [ 3 ]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#get-return
-        - name: get-return
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#identical-branches
-        - name: identical-branches
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#identical-ifelseif-branches
-        - name: identical-ifelseif-branches
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#identical-ifelseif-conditions
-        - name: identical-ifelseif-conditions
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#identical-switch-branches
-        - name: identical-switch-branches
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#identical-switch-conditions
-        - name: identical-switch-conditions
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#if-return
-        - name: if-return
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#import-alias-naming
-        - name: import-alias-naming
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "^[a-z][a-z0-9]{0,}$"
-            # Or this parameter:
-            - allow-regex: "^[a-z][a-z0-9]{0,}$"
-              deny-regex: '^v\d+$'
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#import-shadowing
-        - name: import-shadowing
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#imports-blocklist
-        - name: imports-blocklist
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "crypto/md5"
-            - "crypto/sha1"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#increment-decrement
-        - name: increment-decrement
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#indent-error-flow
-        - name: indent-error-flow
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "preserve-scope"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#inefficient-map-lookup
-        - name: inefficient-map-lookup
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#line-length-limit
-        - name: line-length-limit
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments: [ 80 ]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#max-control-nesting
-        - name: max-control-nesting
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments: [ 3 ]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#max-public-structs
-        - name: max-public-structs
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments: [ 3 ]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#modifies-parameter
-        - name: modifies-parameter
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#modifies-value-receiver
-        - name: modifies-value-receiver
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#nested-structs
-        - name: nested-structs
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#optimize-operands-order
-        - name: optimize-operands-order
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#package-comments
-        - name: package-comments
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#package-directory-mismatch
-        - name: package-directory-mismatch
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - ignore-directories: ["testcases", "testinfo"]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#package-naming
-        - name: package-naming
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - convention-name-check-regex: "^[a-z][a-zA-Z0-9]*$"
-              skip-top-level-check: true
-              skip-default-bad-name-check: true
-              check-extra-bad-name: true
-              user-defined-bad-names:
-                - foo
-                - bar
-              skip-collision-with-common-std: true
-              check-collision-with-all-std: false
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#range
-        - name: range
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#range-val-address
-        - name: range-val-address
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#range-val-in-closure
-        - name: range-val-in-closure
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#receiver-naming
-        - name: receiver-naming
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - max-length: 2
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#redefines-builtin-id
-        - name: redefines-builtin-id
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#redundant-build-tag
-        - name: redundant-build-tag
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#redundant-import-alias
-        - name: redundant-import-alias
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#redundant-test-main-exit
-        - name: redundant-test-main-exit
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#string-format
-        - name: string-format
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - - 'core.WriteError[1].Message'
-              - '/^([^A-Z]|$)/'
-              - must not start with a capital letter
-            - - 'fmt.Errorf[0]'
-              - '/(^|[^\.!?])$/'
-              - must not end in punctuation
-            - - panic
-              - '/^[^\n]*$/'
-              - must not contain line breaks
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#string-of-int
-        - name: string-of-int
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#struct-tag
-        - name: struct-tag
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "!validate"
-            - "json,inline"
-            - "bson,outline,gnu"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#superfluous-else
-        - name: superfluous-else
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "preserve-scope"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#time-date
-        - name: time-date
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#time-equal
-        - name: time-equal
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#time-naming
-        - name: time-naming
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unchecked-type-assertion
-        - name: unchecked-type-assertion
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - accept-ignored-assertion-result: true
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unconditional-recursion
-        - name: unconditional-recursion
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unexported-naming
-        - name: unexported-naming
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unexported-return
-        - name: unexported-return
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unhandled-error
-        - name: unhandled-error
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - "^fmt.Printf"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unnecessary-format
-        - name: unnecessary-format
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unnecessary-if
-        - name: unnecessary-if
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unnecessary-stmt
-        - name: unnecessary-stmt
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unreachable-code
-        - name: unreachable-code
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-slices-sort
-        - name: use-slices-sort
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unsecure-url-scheme
-        - name: unsecure-url-scheme
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unused-parameter
-        - name: unused-parameter
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - allow-regex: "^_"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unused-receiver
-        - name: unused-receiver
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - allow-regex: "^_"
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-any
-        - name: use-any
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-errors-new
-        - name: use-errors-new
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-fmt-print
-        - name: use-fmt-print
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-slices-sort
-        - name: use-slices-sort
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-waitgroup-go
-        - name: use-waitgroup-go
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#useless-break
-        - name: useless-break
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#useless-fallthrough
-        - name: useless-fallthrough
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#var-declaration
-        - name: var-declaration
-          severity: warning
-          disabled: false
-          exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#var-naming
-        - name: var-naming
-          severity: warning
-          disabled: false
-          exclude: [""]
-          arguments:
-            - [ "ID" ] # AllowList
-            - [ "VM" ] # DenyList
-            - - skip-initialism-name-checks: true
-                upper-case-const: true
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#waitgroup-by-value
-        - name: waitgroup-by-value
-          severity: warning
-          disabled: false
-          exclude: [""]
-
+   
     rowserrcheck:
-      # database/sql is always checked.
-      # Default: []
+      # database/sql 始终被检查。
+      # 默认值：[]
       packages:
         - github.com/jmoiron/sqlx
 
     # 标准库slog设置
     sloglint:
-      # Report the use of global loggers.
+      # 报告全局 logger 的使用。
       # https://github.com/go-simpler/sloglint#no-global-logger
-      # Values: "all", "default"
-      # Default: ""
+      # 可选值："all"、"default"
+      # 默认值：""
       no-global: "all"
-      # Report the use of functions without a context.Context.
+      # 报告不带 context.Context 的函数使用。
       # https://github.com/go-simpler/sloglint#context-only
-      # Values: "all", "scope"
-      # Default: ""
+      # 可选值："all"、"scope"
+      # 默认值：""
       context: "all"
-      # Report dynamic log messages, such as those that are built with fmt.Sprintf.
+      # 报告动态日志消息，例如使用 fmt.Sprintf 构建的消息。
       # https://github.com/go-simpler/sloglint#static-message
-      # Default: false
+      # 默认值：false
       static-msg: true
-      # Report log messages that do not match a particular style.
+      # 报告不匹配特定风格的日志消息。
       # https://github.com/go-simpler/sloglint#message-style
-      # Values: "lowercased", "capitalized"
-      # Default: ""
+      # 可选值："lowercased"、"capitalized"
+      # 默认值：""
       msg-style: "lowercased"
-      # Report the use of both key-value pairs and attributes within a single function call.
+      # 报告在单个函数调用中同时使用键值对和属性的情况。
       # https://github.com/go-simpler/sloglint#no-mixed-arguments
-      # Default: true
+      # 默认值：true
       no-mixed-args: false
-      # Report any use of attributes as function call arguments.
+      # 报告将属性用作函数调用参数的情况。
       # https://github.com/go-simpler/sloglint#key-value-pairs-only
-      # Default: false
+      # 默认值：false
       kv-only: false
-      # Report any use of key-value pairs as function call arguments.
+      # 报告将键值对用作函数调用参数的情况。
       # https://github.com/go-simpler/sloglint#attributes-only
-      # Default: false
+      # 默认值：false
       attr-only: false
-      # Report two or more arguments on the same line.
+      # 报告同一行上有两个或更多参数的情况。
       # https://github.com/go-simpler/sloglint#arguments-on-separate-lines
-      # Default: false
+      # 默认值：false
       args-on-sep-lines: true
-      # Report the use of string literals as log keys.
+      # 报告将字符串字面量用作日志键的情况。
       # https://github.com/go-simpler/sloglint#constant-keys
-      # Default: false
+      # 默认值：false
       no-raw-keys: true
-      # Report the use of log keys that are not explicitly allowed.
+      # 报告使用未显式允许的日志键。
       # https://github.com/go-simpler/sloglint#allowed-keys
-      # Default: []
+      # 默认值：[]
       allowed-keys:
-      # Report the use of forbidden log keys.
+      # 报告使用被禁止的日志键。
       # https://github.com/go-simpler/sloglint#forbidden-keys
-      # Default: []
+      # 默认值：[]
       forbidden-keys:
         - key
         - password
         - phone
         - screct
-      # Report log keys that do not match a particular naming case.
+      # 报告不匹配特定命名大小写的日志键。
       # https://github.com/go-simpler/sloglint#key-naming-case
-      # Values: "snake", "kebab", "camel", "pascal"
-      # Default: ""
+      # 可选值："snake"、"kebab"、"camel"、"pascal"
+      # 默认值：""
       key-naming-case: "snake"
-      # Analyze custom functions in addition to the standard log/slog functions.
+      # 除了标准 log/slog 函数外，分析自定义函数。
       # https://github.com/go-simpler/sloglint#custom-function-analysis
-      # Default: []
+      # 默认值：[]
       custom-funcs:
-          # The full name of the function, including the package, e.g. "log/slog.Info".
-          # If the function is a method, the receiver type must be wrapped in parentheses, e.g. "(*log/slog.Logger).Info".
+          # 函数的完整名称，包括包名，例如 "log/slog.Info"。
+          # 如果函数是方法，接收者类型必须用括号包裹，例如 "(*log/slog.Logger).Info"。
         - name: "(*golang.org/x/exp/slog.Logger).InfoContext"
-          # The position of the "msg string" argument in the function signature, starting from 0.
-          # If there is no message in the function, a negative value must be passed.
+          # 函数签名中 "msg string" 参数的位置，从 0 开始。
+          # 如果函数中没有消息，则必须传递负值。
           msg-pos: 1
-          # The position of the "args ...any" argument in the function signature, starting from 0.
-          # If there are no arguments in the function, a negative value must be passed.
+          # 函数签名中 "args ...any" 参数的位置，从 0 开始。
+          # 如果函数中没有参数，则必须传递负值。
           args-pos: 2
 
+    # opentelemetry和opencensus 检测设置。
     spancheck:
-      # Checks to enable.
-      # Options include:
-      # - `end`: check that `span.End()` is called
-      # - `record-error`: check that `span.RecordError(err)` is called when an error is returned
-      # - `set-status`: check that `span.SetStatus(codes.Error, msg)` is called when an error is returned
-      # Default: ["end"]
+      # 要启用的检查。
+      # 可选选项包括：
+      # - `end`：检查是否调用了 `span.End()`
+      # - `record-error`：检查返回 error 时是否调用了 `span.RecordError(err)`
+      # - `set-status`：检查返回 error 时是否调用了 `span.SetStatus(codes.Error, msg)`
+      # 默认值：["end"]
       checks:
-        - end
-        - record-error
-        - set-status
-      # A list of regexes for function signatures that silence `record-error` and `set-status` reports
-      # if found in the call path to a returned error.
+
+      # 函数签名的正则表达式列表，如果在返回 error 的调用路径中发现这些签名，
+      # 则抑制 `record-error` 和 `set-status` 的报告。
       # https://github.com/jjti/go-spancheck#ignore-check-signatures
-      # Default: []
+      # 默认值：[]
       ignore-check-signatures:
-        - "telemetry.RecordError"
-      # A list of regexes for additional function signatures that create spans.
-      # This is useful if you have a utility method to create spans.
-      # Each entry should be of the form `<regex>:<telemetry-type>`, where `telemetry-type` can be `opentelemetry` or `opencensus`.
+       
+      # 创建 span 的附加函数签名的正则表达式列表。
+      # 如果你有创建 span 的工具方法则很有用。
+      # 每个条目格式应为 `<regex>:<telemetry-type>`，其中 `telemetry-type` 可以是 `opentelemetry` 或 `opencensus`。
       # https://github.com/jjti/go-spancheck#extra-start-span-signatures
-      # Default: []
+      # 默认值：[]
       extra-start-span-signatures:
 
     # 静态检查
     staticcheck:
       # https://staticcheck.dev/docs/configuration/options/#dot_import_whitelist
-      # Default: ["github.com/mmcloughlin/avo/build", "github.com/mmcloughlin/avo/operand", "github.com/mmcloughlin/avo/reg"]
+      # 默认值：["github.com/mmcloughlin/avo/build", "github.com/mmcloughlin/avo/operand", "github.com/mmcloughlin/avo/reg"]
       dot-import-whitelist:
         - fmt
       # https://staticcheck.dev/docs/configuration/options/#initialisms
-      # Default: ["ACL", "API", "ASCII", "CPU", "CSS", "DNS", "EOF", "GUID", "HTML", "HTTP", "HTTPS", "ID", "IP", "JSON", "QPS", "RAM", "RPC", "SLA", "SMTP", "SQL", "SSH", "TCP", "TLS", "TTL", "UDP", "UI", "GID", "UID", "UUID", "URI", "URL", "UTF8", "VM", "XML", "XMPP", "XSRF", "XSS", "SIP", "RTP", "AMQP", "DB", "TS"]
+      # 默认值：["ACL", "API", "ASCII", "CPU", "CSS", "DNS", "EOF", "GUID", "HTML", "HTTP", "HTTPS", "ID", "IP", "JSON", "QPS", "RAM", "RPC", "SLA", "SMTP", "SQL", "SSH", "TCP", "TLS", "TTL", "UDP", "UI", "GID", "UID", "UUID", "URI", "URL", "UTF8", "VM", "XML", "XMPP", "XSRF", "XSS", "SIP", "RTP", "AMQP", "DB", "TS"]
       initialisms: [ "ACL", "API", "ASCII", "CPU", "CSS", "DNS", "EOF", "GUID", "HTML", "HTTP", "HTTPS", "ID", "IP", "JSON", "QPS", "RAM", "RPC", "SLA", "SMTP", "SQL", "SSH", "TCP", "TLS", "TTL", "UDP", "UI", "GID", "UID", "UUID", "URI", "URL", "UTF8", "VM", "XML", "XMPP", "XSRF", "XSS", "SIP", "RTP", "AMQP", "DB", "TS" ]
       # https://staticcheck.dev/docs/configuration/options/#http_status_code_whitelist
-      # Default: ["200", "400", "404", "500"]
+      # 默认值：["200", "400", "404", "500"]
       http-status-code-whitelist: [ "200", "400", "404", "500" ]
-      # SAxxxx checks in https://staticcheck.dev/docs/configuration/options/#checks
-      # Example (to disable some checks): [ "all", "-SA1000", "-SA1001"]
-      # Run `GL_DEBUG=staticcheck golangci-lint run --enable=staticcheck` to see all available checks and enabled by config checks.
-      # Default: ["all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]
+      # SAxxxx 检查参见 https://staticcheck.dev/docs/configuration/options/#checks
+      # 示例（禁用某些检查）：[ "all", "-SA1000", "-SA1001"]
+      # 运行 `GL_DEBUG=staticcheck golangci-lint run --enable=staticcheck` 查看所有可用检查和配置启用的检查。
+      # 默认值：["all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]
       checks: ["all"]
 
     # 结构体tag标签格式化
     tagalign:
-      # Align and sort can be used together or separately.
+      # align 和 sort 可以一起或单独使用。
       #
-      # Whether enable align. If true, the struct tags will be aligned.
-      # E.g.:
+      # 是否启用对齐。如果为 true，结构体标签将被对齐。
+      # 例如：
       # type FooBar struct {
       #     Bar    string `json:"bar" validate:"required"`
       #     FooFoo int8   `json:"foo_foo" validate:"required"`
       # }
-      # will be formatted to:
+      # 将被格式化为：
       # type FooBar struct {
       #     Bar    string `json:"bar"     validate:"required"`
       #     FooFoo int8   `json:"foo_foo" validate:"required"`
       # }
-      # Default: true.
+      # 默认值：true.
       align: false
-      # Whether enable tags sort.
-      # If true, the tags will be sorted by name in ascending order.
-      # E.g.: `xml:"bar" json:"bar" validate:"required"` -> `json:"bar" validate:"required" xml:"bar"`.
-      # Default: true
-      sort: false
-      # Specify the order of tags, the other tags will be sorted by name.
-      # This option will be ignored if `sort` is false.
-      # Default: []
+      # 是否启用标签排序。
+      # 如果为 true，标签将按名称升序排序。
+      # 例如：`xml:"bar" json:"bar" validate:"required"` -> `json:"bar" validate:"required" xml:"bar"`。
+      # 默认值：true
+      sort: true
+      # 指定标签顺序，其他标签将按名称排序。
+      # 如果 `sort` 为 false，此选项将被忽略。
+      # 默认值：[]
       order:
         - json
         - yaml
@@ -2616,20 +1532,20 @@ linters:
         - mapstructure
         - binding
         - validate
-      # Whether enable strict style.
-      # In this style, the tags will be sorted and aligned in the dictionary order,
-      # and the tags with the same name will be aligned together.
-      # Note: This option will be ignored if 'align' or 'sort' is false.
-      # Default: false
-      strict: true
+      # 是否启用严格样式。
+      # 在此样式中，标签将按字典顺序排序和对齐，
+      # 并且同名标签将在一起对齐。
+      # 注意：如果 'align' 或 'sort' 为 false，此选项将被忽略。
+      # 默认值：false
+      strict: false
 
     # 确保结构体字段的标签（如 json:"userName"）遵循统一的命名风格（例如驼峰式 goCamel、蛇形 snake 等）
     tagliatelle:
-      # Checks the struct tag name case.
+      # 检查结构体标签名称的大小写。
       case:
-        # Defines the association between tag name and case.
-        # Any struct tag name can be used.
-        # Supported string cases:
+        # 定义标签名和大小写之间的关联。
+        # 可以使用任何结构体标签名。
+        # 支持的字符串大小写：
         # - `camel`
         # - `pascal`
         # - `kebab`
@@ -2653,12 +1569,12 @@ linters:
           env: upperSnake
           envconfig: upperSnake
           whatever: snake
-        # Defines the association between tag name and case.
-        # Important: the `extended-rules` overrides `rules`.
-        # Default: empty
+        # 定义标签名和大小写之间的关联。
+        # 重要：`extended-rules` 会覆盖 `rules`。
+        # 默认值：空
         extended-rules:
           json:
-            # Supported string cases:
+            # 支持的字符串大小写：
             # - `camel`
             # - `pascal`
             # - `kebab`
@@ -2672,255 +1588,254 @@ linters:
             # - `lower`
             # - `header`
             #
-            # Required
+            # 必填
             case: camel
-            # Adds 'AMQP', 'DB', 'GID', 'RTP', 'SIP', 'TS' to initialisms,
-            # and removes 'LHS', 'RHS' from initialisms.
-            # Default: false
-            extra-initialisms: true
-            # Defines initialism additions and overrides.
-            # Default: empty
+            # 将 'AMQP'、'DB'、'GID'、'RTP'、'SIP'、'TS' 添加到首字母缩略词，
+            # 并从首字母缩略词中移除 'LHS'、'RHS'。
+            # 默认值：false
+            extra-initialisms: false
+            # 定义首字母缩略词的添加和覆盖。
+            # 默认值：[] 空
             initialism-overrides:
-              DB: true # add a new initialism
-              LHS: false # disable a default initialism.
-              # ...
-        # Uses the struct field name to check the name of the struct tag.
-        # Default: false
+            
+        # 使用结构体字段名检查结构体标签名。
+        # 默认值：false
         use-field-name: true
-        # The field names to ignore.
-        # Default: []
+        # 要忽略的字段名。
+        # 默认值：[]
         ignored-fields:
           - Bar
           - Foo
-        # Overrides the default/root configuration.
-        # Default: []
+        # 覆盖默认/根配置。
+        # 默认值：[]
         overrides:
 
     # github.com/stretchr/testify 检查
     testifylint:
-      # Enable all checkers (https://github.com/Antonboom/testifylint#checkers).
-      # Enable checkers by name
-      # (in addition to default
+      # 启用所有检查器 (https://github.com/Antonboom/testifylint#checkers)。
+      # 按名称启用检查器
+      # （除默认外
       #   blank-import, bool-compare, compares, contains, empty, encoded-compare, equal-values, error-is-as, error-nil,
       #   expected-actual, go-require, float-compare, formatter, len, negative-positive, nil-compare, regexp, require-error,
       #   suite-broken-parallel, suite-dont-use-pkg, suite-extra-assert-call, suite-subtest-run, suite-method-signature,
       #   useless-assert
-      # ).
-      # Default: false
+      # )。
+      # 默认值：false
       enable-all: true
-      # Disable checkers by name
-      # (in addition to default
+      # 按名称禁用检查器
+      # （除默认外
       #   suite-thelper
-      # ).
+      # )。
       disable:
 
       bool-compare:
-        # To ignore user defined types (over builtin bool).
-        # Default: false
-        ignore-custom-types: true
+        # 忽略用户自定义类型（而非内置 bool）。
+        # 默认值：false
+        ignore-custom-types: false
       expected-actual:
-        # Regexp for expected variable name.
-        # Default: (^(exp(ected)?|want(ed)?)([A-Z]\w*)?$)|(^(\w*[a-z])?(Exp(ected)?|Want(ed)?)$)
+        # 期望变量名的正则表达式。
+        # 默认值：(^(exp(ected)?|want(ed)?)([A-Z]\w*)?$)|(^(\w*[a-z])?(Exp(ected)?|Want(ed)?)$)
         pattern: ^expected
       formatter:
-        # To enable go vet's printf checks.
-        # Default: true
-        check-format-string: false
-        # To require f-assertions (e.g. `assert.Equalf`) if format string is used, even if there are no variable-length
-        # variables, i.e. it requires `require.NoErrorf` for both these cases:
+        # 启用 go vet 的 printf 检查。
+        # 默认值：true
+        check-format-string: true
+        # 如果使用了格式字符串，要求使用 f 断言（如 `assert.Equalf`），即使没有可变长度
+        # 变量，即在这两种情况下都要求使用 `require.NoErrorf`：
         # - require.NoErrorf(t, err, "unexpected error")
         # - require.NoErrorf(t, err, "unexpected error for sid: %v", sid)
-        # To understand this behavior, please read the
+        # 要理解此行为，请阅读
         # https://github.com/Antonboom/testifylint?tab=readme-ov-file#historical-reference-of-formatter.
-        # Default: false
-        require-f-funcs: true
-        # To require that the first element of msgAndArgs (msg) has a string type.
-        # For example, in such case assertion like `assert.True(t, b, tt.case)` will be considered as invalid.
-        # Default: true
-        require-string-msg: false
+        # 默认值：false
+        require-f-funcs: false
+        # 要求 msgAndArgs 的第一个元素 (msg) 为字符串类型。
+        # 例如，在这种情况下，`assert.True(t, b, tt.case)` 这样的断言将被视为无效。
+        # 默认值：true
+        require-string-msg: true
       go-require:
-        # To ignore HTTP handlers (like http.HandlerFunc).
-        # Default: false
-        ignore-http-handlers: true
+        # 忽略 HTTP 处理器（如 http.HandlerFunc）。
+        # 默认值：false
+        ignore-http-handlers: false
       require-error:
-        # Regexp for assertions to analyze. If defined, then only matched error assertions will be reported.
-        # Default: ""
-        fn-pattern: ^(Errorf?|NoErrorf?)$
+        # 要分析的断言的正则表达式。如果定义，则仅报告匹配的 error 断言。
+        # 默认值：""
+        fn-pattern: ""
       suite-extra-assert-call:
-        # To require or remove extra Assert() call?
-        # Default: remove
-        mode: require
+        # 要求还是移除额外的 Assert() 调用？
+        # 默认值：remove
+        mode: remove
 
+    # 检查 Go 测试文件 package 声明是否合理
     testpackage:
-      # Regexp pattern to skip files.
-      # Default: "(export|internal)_test\\.go"
+      # 跳过文件的正则表达式模式。
+      # 默认值："(export|internal)_test\\.go"
       skip-regexp: (export|internal)_test\.go
-      # List of packages that don't end with _test that tests are allowed to be in.
-      # Default: "main"
+      # 允许测试所在的不以 _test 结尾的包列表。
+      # 默认值："main"
       allow-packages:
         - main
 
     # 测试用例配置
     thelper:
       test:
-        # Check *testing.T is first param (or after context.Context) of helper function.
-        # Default: true
+        # 检查 *testing.T 是否为辅助函数的第一个参数（或在 context.Context 之后）。
+        # 默认值：true
         first: true
-        # Check *testing.T param has name t.
-        # Default: true
+        # 检查 *testing.T 参数是否名为 t。
+        # 默认值：true
         name: true
-        # Check t.Helper() begins helper function.
-        # Default: true
+        # 检查 t.Helper() 是否位于辅助函数开头。
+        # 默认值：true
         begin: true
       benchmark:
-        # Check *testing.B is first param (or after context.Context) of helper function.
-        # Default: true
+        # 检查 *testing.B 是否为辅助函数的第一个参数（或在 context.Context 之后）。
+        # 默认值：true
         first: true
-        # Check *testing.B param has name b.
-        # Default: true
+        # 检查 *testing.B 参数是否名为 b。
+        # 默认值：true
         name: true
-        # Check b.Helper() begins helper function.
-        # Default: true
+        # 检查 b.Helper() 是否位于辅助函数开头。
+        # 默认值：true
         begin: true
       tb:
-        # Check *testing.TB is first param (or after context.Context) of helper function.
-        # Default: true
+        # 检查 *testing.TB 是否为辅助函数的第一个参数（或在 context.Context 之后）。
+        # 默认值：true
         first: true
-        # Check *testing.TB param has name tb.
-        # Default: true
+        # 检查 *testing.TB 参数是否名为 tb。
+        # 默认值：true
         name: true
-        # Check tb.Helper() begins helper function.
-        # Default: true
+        # 检查 tb.Helper() 是否位于辅助函数开头。
+        # 默认值：true
         begin: true
       fuzz:
-        # Check *testing.F is first param (or after context.Context) of helper function.
-        # Default: true
+        # 检查 *testing.F 是否为辅助函数的第一个参数（或在 context.Context 之后）。
+        # 默认值：true
         first: true
-        # Check *testing.F param has name f.
-        # Default: true
+        # 检查 *testing.F 参数是否名为 f。
+        # 默认值：true
         name: true
-        # Check f.Helper() begins helper function.
-        # Default: true
+        # 检查 f.Helper() 是否位于辅助函数开头。
+        # 默认值：true
         begin: true
 
     # 标准库变量使用限制
     usestdlibvars:
-      # Suggest the use of http.MethodXX.
-      # Default: true
+      # 建议使用 http.MethodXX。
+      # 默认值：true
       http-method: true
-      # Suggest the use of http.StatusXX.
-      # Default: true
+      # 建议使用 http.StatusXX。
+      # 默认值：true
       http-status-code: true
-      # Suggest the use of time.Month in time.Date.
-      # Default: false
+      # 建议在 time.Date 中使用 time.Month。
+      # 默认值：false
       time-date-month: false
-      # Suggest the use of time.Weekday.String().
-      # Default: true
+      # 建议使用 time.Weekday.String()。
+      # 默认值：true
       time-weekday: true
-      # Suggest the use of time.Month.String().
-      # Default: false
+      # 建议使用 time.Month.String()。
+      # 默认值：false
       time-month: false
-      # Suggest the use of time.Layout.
-      # Default: false
+      # 建议使用 time.Layout。
+      # 默认值：false
       time-layout: false
-      # Suggest the use of crypto.Hash.String().
-      # Default: false
+      # 建议使用 crypto.Hash.String()。
+      # 默认值：false
       crypto-hash: false
-      # Suggest the use of rpc.DefaultXXPath.
-      # Default: false
+      # 建议使用 rpc.DefaultXXPath。
+      # 默认值：false
       default-rpc-path: false
-      # Suggest the use of sql.LevelXX.String().
-      # Default: false
+      # 建议使用 sql.LevelXX.String()。
+      # 默认值：false
       sql-isolation-level: false
-      # Suggest the use of tls.SignatureScheme.String().
-      # Default: false
+      # 建议使用 tls.SignatureScheme.String()。
+      # 默认值：false
       tls-signature-scheme: false
-      # Suggest the use of constant.Kind.String().
-      # Default: false
+      # 建议使用 constant.Kind.String()。
+      # 默认值：false
       constant-kind: false
 
     usetesting:
-      # Enable/disable `os.CreateTemp("", ...)` detections.
-      # Default: true
+      # 启用/禁用 `os.CreateTemp("", ...)` 检测。
+      # 默认值：true
       os-create-temp: true
 
-      # Enable/disable `os.MkdirTemp()` detections.
-      # Default: true
+      # 启用/禁用 `os.MkdirTemp()` 检测。
+      # 默认值：true
       os-mkdir-temp: true
 
-      # Enable/disable `os.Setenv()` detections.
-      # Default: true
+      # 启用/禁用 `os.Setenv()` 检测。
+      # 默认值：true
       os-setenv: true
 
-      # Enable/disable `os.TempDir()` detections.
-      # Default: false
+      # 启用/禁用 `os.TempDir()` 检测。
+      # 默认值：false
       os-temp-dir: false
 
-      # Enable/disable `os.Chdir()` detections.
-      # Disabled if Go < 1.24.
-      # Default: true
+      # 启用/禁用 `os.Chdir()` 检测。
+      # 如果 Go < 1.24 则禁用。
+      # 默认值：true
       os-chdir: true
 
-      # Enable/disable `context.Background()` detections.
-      # Disabled if Go < 1.24.
-      # Default: false
+      # 启用/禁用 `context.Background()` 检测。
+      # 如果 Go < 1.24 则禁用。
+      # 默认值：false
       context-background: false
 
-      # Enable/disable `context.TODO()` detections.
-      # Disabled if Go < 1.24.
-      # Default: false
+      # 启用/禁用 `context.TODO()` 检测。
+      # 如果 Go < 1.24 则禁用。
+      # 默认值：false
       context-todo: false
 
     unconvert:
-      # Remove conversions that force intermediate rounding.
-      # Default: false
+      # 移除强制中间舍入的转换。
+      # 默认值：false
       fast-math: true
-      # Be more conservative (experimental).
-      # Default: false
+      # 更加保守（实验性）。
+      # 默认值：false
       safe: true
 
     unparam:
-      # Inspect exported functions.
-      # Set to true if no external program/library imports your code.
+      # 检查导出函数。
+      # 如果没有外部程序/库导入你的代码则设为 true。
       #
-      # IMPORTANT: If you enable this setting, unparam reports many false positives in text editors:
-      # when run on a subdirectory it cannot find external interfaces.
-      # Most editor integrations invoke golangci-lint on the directory containing the changed file.
+      # 重要：如果启用此设置，unparam 在文本编辑器中会报告许多误报：
+      # 在子目录上运行时无法找到外部接口。
+      # 大多数编辑器集成在包含已更改文件的目录上调用 golangci-lint。
       #
-      # Default: false
-      check-exported: true
+      # 默认值：false
+      check-exported: false
 
     # SQL语句构建、查询限制
     unqueryvet:
-      # Enable SQL builder checking.
-      # Default: true
+      # 启用 SQL 构建器检查。
+      # 默认值：true
       check-sql-builders: true
-      # Enable aliased wildcard detection like `SELECT t.*`.
-      # Default: true
+      # 启用别名通配符检测，如 `SELECT t.*`。
+      # 默认值：true
       check-aliased-wildcard: true
-      # Enable string concatenation analysis.
-      # Default: true
+      # 启用字符串拼接分析。
+      # 默认值：true
       check-string-concat: true
-      # Enable format string analysis like `fmt.Sprintf`.
-      # Default: true
+      # 启用格式字符串分析，如 `fmt.Sprintf`。
+      # 默认值：true
       check-format-strings: true
-      # Enable strings.Builder analysis.
-      # Default: true
+      # 启用 strings.Builder 分析。
+      # 默认值：true
       check-string-builder: true
-      # Enable subquery analysis.
-      # Default: true
+      # 启用子查询分析。
+      # 默认值：true
       check-subqueries: true
-      # Detects N+1 Query.
-      # Default: false
+      # 检测 N+1 查询。
+      # 默认值：false
       check-n1: true
-      # Detects SQL injection.
-      # Default: false
+      # 检测 SQL 注入。
+      # 默认值：false
       check-sql-injection: true
-      # Detects transaction leaks.
-      # Default: false
+      # 检测事务泄漏。
+      # 默认值：false
       check-tx-leaks: true
-      # Regex patterns for acceptable `SELECT *` usage.
-      # Default:
+      # 可接受的 `SELECT *` 用法的正则表达式模式。
+      # 默认值：
       # - "SELECT \\* FROM information_schema\\..*"
       # - "SELECT \\* FROM pg_catalog\\..*"
       # - "SELECT COUNT\\(\\*\\)"
@@ -2928,16 +1843,16 @@ linters:
       # - "SELECT MIN\\(\\*\\)"
       allowed-patterns:
       
-      # Allow is a list of SQL patterns to allow (whitelist).
-      # Default: []
+      # allow 是允许的 SQL 模式列表（白名单）。
+      # 默认值：[]
       allow:
     
-      # Functions to ignore (regex patterns)
-      # Default: []
+      # 要忽略的函数（正则表达式模式）
+      # 默认值：[]
       ignored-functions:
 
-      # SQL builder libraries to check.
-      # Default: all true.
+      # 要检查的 SQL 构建器库。
+      # 默认值：全部为 true。
       sql-builders:
         squirrel: true
         gorm: true
@@ -2947,9 +1862,10 @@ linters:
         bun: true
         sqlboiler: true
         jet: true
-      # List of user-defined DSL rules.
+      
+      # 用户自定义 DSL 规则列表。
       # https://github.com/MirrexOne/unqueryvet?tab=readme-ov-file#custom-rules-dsl
-      # Default: []
+      # 默认值：[]
       custom-rules:
         - id: allow-temp-tables
           pattern: "SELECT * FROM $TABLE"
@@ -2960,64 +1876,65 @@ linters:
           when: "!has_where"
           message: "DELETE without WHERE clause"
 
+    # 未使用代码设置
     unused:
-      # Mark all struct fields that have been written to as used.
-      # Default: true
-      field-writes-are-uses: false
-      # Treat IncDec statement (e.g. `i++` or `i--`) as both read and write operation instead of just write.
-      # Default: false
+      # 将所有被写入的结构体字段标记为已使用。
+      # 默认值：true
+      field-writes-are-uses: true
+      # 将 IncDec 语句（如 `i++` 或 `i--`）视为读写操作而不仅仅是写操作。
+      # 默认值：false
       post-statements-are-reads: true
-      # Mark all exported fields as used.
-      # default: true
+      # 将所有导出字段标记为已使用。
+      # 默认值：true
       exported-fields-are-used: false
-      # Mark all function parameters as used.
-      # default: true
-      parameters-are-used: false
-      # Mark all local variables as used.
-      # default: true
-      local-variables-are-used: false
-      # Mark all identifiers inside generated files as used.
-      # Default: true
-      generated-is-used: false
+      # 将所有函数参数标记为已使用。
+      # 默认值：true
+      parameters-are-used: true
+      # 将所有局部变量标记为已使用。
+      # 默认值：true
+      local-variables-are-used: true
+      # 将生成文件中的所有标识符标记为已使用。
+      # 默认值：true
+      generated-is-used: true
 
     varnamelen:
-      # The longest distance, in source lines, that is being considered a "small scope".
-      # Variables used in at most this many lines will be ignored.
-      # Default: 5
-      max-distance: 6
-      # The minimum length of a variable's name that is considered "long".
-      # Variable names that are at least this long will be ignored.
-      # Default: 3
-      min-name-length: 2
-      # Check method receivers.
-      # Default: false
+      # 被视为"小作用域"的最长距离（以源代码行计）。
+      # 最多在此行数内使用的变量将被忽略。
+      # 默认值：5
+      max-distance: 5
+      # 被视为"长"的变量名最小长度。
+      # 至少为此长度的变量名将被忽略。
+      # 默认值：3
+      min-name-length: 3
+      # 检查方法接收者。
+      # 默认值：false
       check-receiver: true
-      # Check named return values.
-      # Default: false
+      # 检查命名返回值。
+      # 默认值：false
       check-return: true
-      # Check type parameters.
-      # Default: false
+      # 检查类型参数。
+      # 默认值：false
       check-type-param: true
-      # Ignore "ok" variables that hold the bool return value of a type assertion.
-      # Default: false
-      ignore-type-assert-ok: true
-      # Ignore "ok" variables that hold the bool return value of a map index.
-      # Default: false
-      ignore-map-index-ok: true
-      # Ignore "ok" variables that hold the bool return value of a channel receive.
-      # Default: false
-      ignore-chan-recv-ok: true
-      # Optional list of variable names that should be ignored completely.
-      # Default: []
+      # 忽略持有类型断言 bool 返回值的 "ok" 变量。
+      # 默认值：false
+      ignore-type-assert-ok: false
+      # 忽略持有 map 索引 bool 返回值的 "ok" 变量。
+      # 默认值：false
+      ignore-map-index-ok: false
+      # 忽略持有 channel 接收 bool 返回值的 "ok" 变量。
+      # 默认值：false
+      ignore-chan-recv-ok: false
+      # 应完全忽略的可选变量名列表。
+      # 默认值：[]
       ignore-names:
         - err
-      # Optional list of variable declarations that should be ignored completely.
-      # Entries must be in one of the following forms (see below for examples):
-      # - for variables, parameters, named return values, method receivers, or type parameters:
-      #   <name> <type>  (<type> can also be a pointer/slice/map/chan/...)
-      # - for constants: const <name>
+      # 应完全忽略的可选变量声明列表。
+      # 条目必须是以下形式之一（示例见下文）：
+      # - 对于变量、参数、命名返回值、方法接收者或类型参数：
+      #   <name> <type>  (<type> 也可以是 pointer/slice/map/chan/...)
+      # - 对于常量：const <name>
       #
-      # Default: []
+      # 默认值：[]
       ignore-decls:
         - c echo.Context
         - t testing.T
@@ -3030,24 +1947,24 @@ linters:
 
     whitespace:
       # 在每个多行 if 语句之后强制添加换行符（或注释）。
-      # Default: false
-      multi-if: true
+      # 默认值：false
+      multi-if: false
       # 会在每个多行函数签名之后强制添加换行符（或注释）。
-      # Default: false
+      # 默认值：false
       multi-func: true
 
     wrapcheck:
-      # An array of strings specifying additional substrings of signatures to ignore.
-      # Unlike 'ignore-sigs', this option extends the default set (or the set specified in 'ignore-sigs') without replacing it entirely.
-      # This allows you to add specific signatures to the ignore list
-      # while retaining the defaults or any items in 'ignore-sigs'.
-      # Default: []
+      # 指定要忽略的签名的附加子字符串数组。
+      # 与 'ignore-sigs' 不同，此选项扩展默认集合（或 'ignore-sigs' 中指定的集合）而不是完全替换。
+      # 这允许你将特定签名添加到忽略列表中
+      # 同时保留默认值或 'ignore-sigs' 中的任何项。
+      # 默认值：[]
       extra-ignore-sigs:
 
-      # An array of strings that specify substrings of signatures to ignore.
-      # If this set, it will override the default set of ignored signatures.
-      # See https://github.com/tomarrell/wrapcheck#configuration for more information.
-      # Default: [".Errorf(", "errors.New(", "errors.Unwrap(", "errors.Join(", ".Wrap(", ".Wrapf(", ".WithMessage(", ".WithMessagef(", ".WithStack("]
+      # 指定要忽略的签名子字符串的字符串数组。
+      # 如果设置此项，将覆盖默认的忽略签名集合。
+      # 更多信息请参见 https://github.com/tomarrell/wrapcheck#configuration。
+      # 默认值：[".Errorf(", "errors.New(", "errors.Unwrap(", "errors.Join(", ".Wrap(", ".Wrapf(", ".WithMessage(", ".WithMessagef(", ".WithStack("]
       ignore-sigs:
         - .Errorf(
         - errors.New(
@@ -3058,149 +1975,134 @@ linters:
         - .WithMessage(
         - .WithMessagef(
         - .WithStack(
-      # An array of strings that specify regular expressions of signatures to ignore.
-      # Default: []
+      # 指定要忽略的签名正则表达式的字符串数组。
+      # 默认值：[]
       ignore-sig-regexps:
-        - \.New.*Error\(
-      # An array of strings that specify globs of packages to ignore.
-      # Default: []
+       
+      # 指定要忽略的包 glob 模式的字符串数组。
+      # 默认值：[]
       ignore-package-globs:
-        - encoding/*
-        - github.com/pkg/*
-      # An array of strings that specify regular expressions of interfaces to ignore.
-      # Default: []
+    
+      # 指定要忽略的接口正则表达式的字符串数组。
+      # 默认值：[]
       ignore-interface-regexps:
       
-      # Determines whether wrapcheck should report errors returned from inside the package.
-      # Default: false
-      report-internal-errors: true
+      # 决定 wrapcheck 是否应报告从包内部返回的错误。
+      # 默认值：false
+      report-internal-errors: false
 
+    # 空格检查器(whitespace linter) 是一款代码检查工具，它鼓励你使用空行来分隔不同类型的代码块，以提高代码可读性.
     wsl_v5:
-      # Allow cuddling a variable if it's used first in the immediate following block,
-      # even if the statement with the block doesn't use the variable.
+      # 如果变量首先在紧接的下一个块中使用，则允许紧挨声明，
+      # 即使带块的语句不使用该变量。
       # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#configuration
-      # Default: true
-      allow-first-in-block: false
+      # 默认值：true
+      allow-first-in-block: true
 
-      # Same as above,
-      # but allows cuddling if the variable is used anywhere in the following (or nested) block.
+      # 与上述相同，
+      # 但如果变量在以下（或嵌套）块中的任何位置使用，则允许紧挨声明。
       # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#configuration
-      # Default: false
-      allow-whole-block: true
+      # 默认值：false
+      allow-whole-block: false
 
-      # If a block contains more than this number of lines,
-      # the branch statement needs to be separated by whitespace.
+      # 如果一个块包含超过此行数，
+      # 分支语句需要用空行分隔。
       # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#configuration
-      # Default: 2
-      branch-max-lines: 4
+      # 默认值：2
+      branch-max-lines: 2
 
-      # If set to a non-negative number,
-      # case blocks need to end with whitespace if exceeding this number
+      # 如果设置为非负数，
+      # case 块超过此数量时需要以空行结尾
       # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#configuration
-      # Default: 0
-      case-max-lines: 2
+      # 默认值：0
+      case-max-lines: 0
 
-      # Max number of cuddled statements allowed above block statements, go, defer and send.
-      # Every cuddled statement must have at least one variable used in the block.
-      # Respects allow-first-in-block and allow-whole-block.
-      # With 0 no cuddling is allowed at all; every cuddle-checked trigger requires a blank line above it
-      # Default: 1
-      cuddle-max-statements: 2
+      # 块语句、go、defer 和 send 上方允许的最大紧挨语句数。
+      # 每个紧挨语句必须至少有一个变量在块中使用。
+      # 遵循 allow-first-in-block 和 allow-whole-block。
+      # 为 0 时完全不允许紧挨；每个紧挨检查触发器都需要在其上方有一个空行
+      # 默认值：1
+      cuddle-max-statements: 1
 
-      # Default checks to use.
-      # Can be `all`, `none`, `default` or empty.
+      # 使用的默认检查。
+      # 可以是 `all`、`none`、`default` 或空。
       # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#checks-and-configuration
-      # Default: ""
+      # 默认值：""
       default: all
 
-      # Enabled checks.
-      # Will be additive to any presets.
+      # 启用的检查。
+      # 将叠加到任何预设上。
       # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#checks-and-configuration
-      # Default: []
+      # 默认值：[]
       enable:
-        - append
-        - assign
-        - branch
-        - decl
-        - defer
-        - err
-        - expr
-        - for
-        - go
-        - if
-        - inc-dec
-        - label
-        - range
-        - return
-        - select
-        - send
-        - switch
-        - type-switch
-        - leading-whitespace
-        - trailing-whitespace
+
+      # 禁用的检查。
+      # 将从任何预设中减去。
+      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#checks-and-configuration
+      # 默认值：[]
+      disable:
         - after-block
         - after-decl
-        - after-defer
+        # - after-defer
         - after-expr
         - after-go
         - assign-exclusive
         - assign-expr
+        - branch
         - cuddle-group
+        - return
 
-      # Disable checks.
-      # Will be subtractive to any preset.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#checks-and-configuration
-      # Default: []
-      disable:
-
-    # The custom section can be used to define linter plugins to be loaded at runtime.
-    # See README documentation for more info.
+    # custom 部分可用于定义在运行时加载的 linter 插件。
+    # 更多信息请参见 README 文档。
     custom:
-      # Each custom linter should have a unique name.
-      # example:
-      #   # The plugin type.
-      #   # It can be `goplugin` or `module`.
-      #   # Default: goplugin
-      #   type: goplugin
-      #   # The path to the plugin *.so. Can be absolute or local.
-      #   # Required for each custom linter.
-      #   path: /path/to/example.so
-      #   # The description of the linter.
-      #   # Optional.
-      #   description: This is an example usage of a plugin linter.
-      #   # Intended to point to the repo location of the linter.
-      #   # Optional.
-      #   original-url: github.com/golangci/example-linter
-      #   # Plugins settings/configuration.
-      #   # Only work with plugin based on `linterdb.PluginConstructor`.
-      #   # Optional.
-      #   settings:
-      #     foo: bar
 
-  # Defines a set of rules to ignore issues.
-  # It does not skip the analysis, and so does not ignore "typecheck" errors.
+  # 定义一组忽略问题的规则。
+  # 它不会跳过分析，因此不会忽略 "typecheck" 错误。
   exclusions:
-    # Mode of the generated files analysis.
+    # 生成文件分析的模式。
     #
-    # - `strict`: sources are excluded by strictly following the Go generated file convention.
-    #    Source files that have lines matching only the following regular expression will be excluded: `^// Code generated .* DO NOT EDIT\.$`
-    #    This line must appear before the first non-comment, non-blank text in the file.
+    # - `strict`：严格遵循 Go 生成文件约定来排除源文件。
+    #    只有行匹配以下正则表达式的源文件才会被排除：`^// Code generated .* DO NOT EDIT\.$`
+    #    此行必须出现在文件中第一个非注释、非空白文本之前。
     #    https://go.dev/s/generatedcode
-    # - `lax`: sources are excluded if they contain lines like `autogenerated file`, `code generated`, `do not edit`, etc.
-    # - `disable`: disable the generated files exclusion.
+    # - `lax`：如果源文件包含 `autogenerated file`、`code generated`、`do not edit` 等行，则被排除。
+    # - `disable`：禁用生成文件排除。
     #
-    # Default: strict
+    # 默认值：strict
     generated: strict
-    # Log a warning if an exclusion rule is unused.
-    # Default: false
-    warn-unused: true
-    # Predefined exclusion rules.
-    # Default: []
+    # 如果排除规则未使用则记录警告。
+    # 默认值：false
+    warn-unused: false
+    # 预定义的排除规则。
+    # 默认值：[]
     presets:
 
-    # # Excluding configuration per-path, per-linter, per-text and per-source.
+    # 按路径、linter、文本和来源排除配置。
+    rules:
+      - path: '_test\.go$'
+        linters:
+          - dogsled
+          - dupl
+          - unqueryvet
+
+      - path: '(^|/)testdata/'
+        linters:
+          - dogsled
+          - dupl
+          - unqueryvet
+
+      - path: '(^|/)vendor/'
+        linters:
+          - unqueryvet
+
+      - path: '(^|/)mock_[^/]*\.go$'
+        linters:
+          - dogsled
+          - dupl
+          - unqueryvet
+
     # rules:
-    #   # Exclude some linters from running on tests files.
+    #   # 排除部分 linter，不对测试文件运行它们。
     #   - path: _test\.go
     #     linters:
     #       - gocyclo
@@ -3208,42 +2110,41 @@ linters:
     #       - dupl
     #       - gosec
 
-    #   # Run some linter only for test files by excluding its issues for everything else.
+    #   # 排除测试文件以外的相关问题，使部分 linter 仅对测试文件运行。
     #   - path-except: _test\.go
     #     linters:
     #       - forbidigo
 
-    #   # Exclude known linters from partially hard-vendored code,
-    #   # which is impossible to exclude via `nolint` comments.
-    #   # `/` will be replaced by the current OS file path separator to properly work on Windows.
+    #   # 从部分硬编码引入的第三方代码中排除已知的 linter，
+    #   # 因为无法通过 `nolint` 注释排除它们。
+    #   # `/` 将替换为当前操作系统的文件路径分隔符，以便在 Windows 上正常工作。
     #   - path: internal/hmac/
     #     text: "weak cryptographic primitive"
     #     linters:
     #       - gosec
 
-    #   # Exclude some `staticcheck` messages.
+    #   # 排除部分 `staticcheck` 消息。
     #   - linters:
     #       - staticcheck
     #     text: "SA9003:"
 
-    #   # Exclude `lll` issues for long lines with `go:generate`.
+    #   # 排除包含 `go:generate` 的长行所产生的 `lll` 问题。
     #   - linters:
     #       - lll
     #     source: "^//go:generate "
 
-    # Which file paths to exclude: they will be analyzed, but issues from them won't be reported.
-    # "/" will be replaced by the current OS file path separator to properly work on Windows.
-    # Default: []
+    # 要排除的文件路径：它们将被分析，但其中的问题不会被报告。
+    # "/" 将被替换为当前操作系统的文件路径分隔符，以便在 Windows 上正常工作。
+    # 默认值：[]
     paths:
 
-    # Which file paths to not exclude.
-    # Default: []
+    # 不排除的文件路径。
+    # 默认值：[]
     paths-except:
 
-
 formatters:
-  # Enable specific formatter.
-  # Default: [] (uses standard Go formatting)
+  # 启用特定的格式化工具。
+  # 默认值：[] (uses standard Go formatting)
   enable:
     - gci
     - gofmt
@@ -3252,47 +2153,44 @@ formatters:
     - golines
     - swaggo
 
-  # Formatters settings.
+  # 格式化工具设置。
   settings:
+    # 配置代码导包格式  
     gci:
-      # Section configuration to compare against.
-      # Section names are case-insensitive and may contain parameters in ().
-      # The default order of sections is `standard > default > custom > blank > dot > alias > localmodule`.
-      # If `custom-order` is `true`, it follows the order of `sections` option.
-      # Default: ["standard", "default"]
+      # 要比较的分节配置。
+      # 分节名称不区分大小写，可以包含 () 中的参数。
+      # 分节的默认顺序为 `standard > default > custom > blank > dot > alias > localmodule`。
+      # 如果 `custom-order` 为 `true`，则遵循 `sections` 选项的顺序。
+      # 默认值：["standard", "default"]
       sections:
-        - standard                       # Standard section: captures all standard packages.
-        - default                        # Default section: contains all imports that could not be matched to another section type.
-        - prefix(github.com/org/project) # Custom section: groups all imports with the specified Prefix.
-        - blank                          # Blank section: contains all blank imports. This section is not present unless explicitly enabled.
-        - dot                            # Dot section: contains all dot imports. This section is not present unless explicitly enabled.
-        - alias                          # Alias section: contains all alias imports. This section is not present unless explicitly enabled.
-        - localmodule                    # Local module section: contains all local packages. This section is not present unless explicitly enabled.
+        - standard                       # 标准库分节：捕获所有标准库包。
+        - default                        # 默认分节：包含所有无法匹配到其他分节类型的导入。
+        - localmodule                    # 本地模块分节：包含所有本地包。除非显式启用，否则不显示此分节。
 
-      # Checks that no inline comments are present.
-      # Default: false
+      # 检查是否存在行内注释。
+      # 默认值：false
       no-inline-comments: true
 
-      # Checks that no prefix comments (comment lines above an import) are present.
-      # Default: false
+      # 检查是否存在前缀注释（导入上方的注释行）。
+      # 默认值：false
       no-prefix-comments: true
 
-      # Enable custom order of sections.
-      # If `true`, make the section order the same as the order of `sections`.
-      # Default: false
-      custom-order: true
+      # 启用自定义分节顺序。
+      # 如果为 `true`，使分节顺序与 `sections` 的顺序相同。
+      # 默认值：false
+      custom-order: false
 
-      # Drops lexical ordering for custom sections.
-      # Default: false
-      no-lex-order: true
+      # 对自定义分节取消字典序排序。
+      # 默认值：false
+      no-lex-order: false
 
     gofmt:
-      # Simplify code: gofmt with `-s` option.
-      # Default: true
+      # 简化代码：使用 `-s` 选项的 gofmt。
+      # 默认值：true
       simplify: true
-      # Apply the rewrite rules to the source before reformatting.
+      # 在重新格式化之前将重写规则应用于源代码。
       # https://pkg.go.dev/cmd/gofmt
-      # Default: []
+      # 默认值：[]
       rewrite-rules:
         - pattern: 'interface{}'
           replacement: 'any'
@@ -3300,295 +2198,292 @@ formatters:
           replacement: 'a[b:]'
 
     gofumpt:
-      # Module path which contains the source code being formatted.
-      # Default: ""
+      # 包含正在格式化的源代码的模块路径。
+      # 默认值：""
       module-path: ""
 
-      # Choose whether to use the extra rules.
-      # Default: false
+      # 选择是否使用额外规则。
+      # 默认值：false
       extra-rules: true
 
     goimports:
-      # A list of prefixes, which, if set, checks import paths
-      # with the given prefixes are grouped after 3rd-party packages.
-      # Default: []
+      # 前缀列表，如果设置，则检查导入路径
+      # 给定前缀的导入是否在第三方包之后分组。
+      # 默认值：[]
       local-prefixes:
 
+    # 缩短过长的代码行。
     golines:
-      # Target maximum line length.
-      # Default: 100
-      max-len: 100
-      # Length of a tabulation.
-      # Default: 4
+      # 目标最大行长度。
+      # 默认值：100
+      max-len: 200
+      # 制表符长度。
+      # 默认值：4
       tab-len: 4
-      # Shorten single-line comments.
-      # Default: false
+      # 缩短单行注释。
+      # 默认值：false
       shorten-comments: false
-      # Default: true
-      reformat-tags: true
-      # Split chained methods on the dots as opposed to the arguments.
-      # Default: true
+      # 默认值：true 注意和linters.settings.tagalign.align有冲突 
+      reformat-tags: false
+      # 在点号处而非参数处拆分链式方法调用。
+      # 默认值：true
       chain-split-dots: true
 
   exclusions:
-    # Log a warning if an exclusion path is unused.
-    # Default: false
-    warn-unused: true
-    # Mode of the generated files analysis.
+    # 如果排除路径未使用则记录警告。
+    # 默认值：false
+    warn-unused: false
+    # 生成文件分析的模式。
     #
-    # - `strict`: sources are excluded by strictly following the Go generated file convention.
-    #    Source files that have lines matching only the following regular expression will be excluded: `^// Code generated .* DO NOT EDIT\.$`
-    #    This line must appear before the first non-comment, non-blank text in the file.
+    # - `strict`：严格遵循 Go 生成文件约定来排除源文件。
+    #    只有行匹配以下正则表达式的源文件才会被排除：`^// Code generated .* DO NOT EDIT\.$`
+    #    此行必须出现在文件中第一个非注释、非空白文本之前。
     #    https://go.dev/s/generatedcode
-    # - `lax`: sources are excluded if they contain lines like `autogenerated file`, `code generated`, `do not edit`, etc.
-    # - `disable`: disable the generated files exclusion.
+    # - `lax`：如果源文件包含 `autogenerated file`、`code generated`、`do not edit` 等行，则被排除。
+    # - `disable`：禁用生成文件排除。
     #
-    # Default: lax
+    # 默认值：lax
     generated: lax
-    # Which file paths to exclude.
-    # This option is ignored when using `--stdin` as the path is unknown.
-    # Default: []
+    # 要排除的文件路径。
+    # 使用 `--stdin` 时此选项被忽略，因为路径未知。
+    # 默认值：[]
     paths:
 
 issues:
-  # Maximum issues count per one linter.
-  # Set to 0 to disable.
-  # Default: 50
-  max-issues-per-linter: 0
+  # 每个 linter 的最大问题数。
+  # 设为 0 以禁用。
+  # 默认值：50
+  max-issues-per-linter: 50
 
-  # Maximum count of issues with the same text.
-  # Set to 0 to disable.
-  # Default: 3
-  max-same-issues: 0
+  # 相同文本问题的最大数量。
+  # 设为 0 以禁用。
+  # 默认值：3
+  max-same-issues: 3
 
-  # Make issues output unique by line.
-  # Default: true
-  uniq-by-line: false
+  # 按行使问题输出唯一。
+  # 默认值：true
+  uniq-by-line: true
 
-  # Show only new issues: if there are unstaged changes or untracked files,
-  # only those changes are analyzed, else only changes in HEAD~ are analyzed.
-  # It's a super-useful option for integration of golangci-lint into existing large codebase.
-  # It's not practical to fix all existing issues at the moment of integration:
-  # much better don't allow issues in new code.
+  # 仅显示新问题：如果有未暂存的更改或未跟踪的文件，
+  # 则仅分析这些更改，否则仅分析 HEAD~ 中的更改。
+  # 这是将 golangci-lint 集成到现有大型代码库中的超级有用选项。
+  # 在集成时修复所有现有问题是不切实际的：
+  # 更好的做法是不允许新代码中出现问题。
   #
-  # Default: false
-  new: true
+  # 默认值：false
+  new: false
 
-  # Show only new issues created after the best common ancestor (merge-base against HEAD).
-  # Default: ""
-  new-from-merge-base: main
+  # 仅显示在最佳公共祖先（HEAD 的 merge-base）之后创建的新问题。
+  # 默认值：""
+  new-from-merge-base: ""
 
-  # Show only new issues created after git revision `REV`.
-  # Default: ""
-  new-from-rev: HEAD
+  # 仅显示在 git 版本 `REV` 之后创建的新问题。
+  # 默认值：""
+  new-from-rev: ""
 
-  # Show only new issues created in git patch with set file path.
-  # Default: ""
-  new-from-patch: path/to/patch/file
+  # 仅显示在指定文件路径的 git patch 中创建的新问题。
+  # 默认值：""
+  new-from-patch: ""
 
-  # Show issues in any part of update files (requires new-from-rev or new-from-patch).
-  # Default: false
-  whole-files: true
+  # 在更新文件的任何部分显示问题（需要 new-from-rev 或 new-from-patch）。
+  # 默认值：false
+  whole-files: false
 
-  # Apply the fixes detected by the linters and formatters (if it's supported by the linter).
-  # Default: false
+  # 应用 linter 和格式化工具检测到的修复（如果 linter 支持）。
+  # 默认值：false
   fix: true
 
-
-# Output configuration options.
+# 输出配置选项。
 output:
-  # The formats used to render issues.
+  # 用于渲染问题的格式。
   formats:
-    # Prints issues in a text format with colors, line number, and linter name.
-    # This format is the default format.
+    # 以文本格式打印问题，带颜色、行号和 linter 名称。
+    # 此格式是默认格式。
     text:
-      # Output path can be either `stdout`, `stderr` or path to the file to write to.
-      # Default: stdout
+      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+      # 默认值：stdout
       path: stdout
-      # Print linter name in the end of issue text.
-      # Default: true
-      print-linter-name: false
-      # Print lines of code with issue.
-      # Default: true
-      print-issued-lines: true
-      # Use colors.
-      # Default: true
-      colors: true
-    # Prints issues in a JSON representation.
-    json:
-      # Output path can be either `stdout`, `stderr` or path to the file to write to.
-      # Default: stdout
-      path: stdout
-    # Prints issues in columns representation separated by tabulations.
-    tab:
-      # Output path can be either `stdout`, `stderr` or path to the file to write to.
-      # Default: stdout
-      path: stdout
-      # Print linter name in the end of issue text.
-      # Default: true
+      # 在问题文本末尾打印 linter 名称。
+      # 默认值：true
       print-linter-name: true
-      # Use colors.
-      # Default: true
-      colors: false
-    # Prints issues in an HTML page.
-    # It uses the Cloudflare CDN (cdnjs) and React.
+      # 打印有问题的代码行。
+      # 默认值：true
+      print-issued-lines: true
+      # 使用颜色。
+      # 默认值：true
+      colors: true
+    # 以 JSON 表示形式打印问题。
+    json:
+      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+      # 默认值：stdout
+      path: stdout
+    # 以制表符分隔的列表示形式打印问题。
+    tab:
+      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+      # 默认值：stdout
+      path: stdout
+      # 在问题文本末尾打印 linter 名称。
+      # 默认值：true
+      print-linter-name: true
+      # 使用颜色。
+      # 默认值：true
+      colors: true
+    # 在 HTML 页面中打印问题。
+    # 它使用 Cloudflare CDN (cdnjs) 和 React。
     html:
-      # Output path can be either `stdout`, `stderr` or path to the file to write to.
-      # Default: stdout
+      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+      # 默认值：stdout
       path: stdout
-    # Prints issues in the Checkstyle format.
+    # 以 Checkstyle 格式打印问题。
     checkstyle:
-      # Output path can be either `stdout`, `stderr` or path to the file to write to.
-      # Default: stdout
+      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+      # 默认值：stdout
       path: stdout
-    # Prints issues in the Code Climate format.
+    # 以 Code Climate 格式打印问题。
     code-climate:
-      # Output path can be either `stdout`, `stderr` or path to the file to write to.
-      # Default: stdout
+      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+      # 默认值：stdout
       path: stdout
-    # Prints issues in the JUnit XML format.
+    # 以 JUnit XML 格式打印问题。
     junit-xml:
-      # Output path can be either `stdout`, `stderr` or path to the file to write to.
-      # Default: stdout
+      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+      # 默认值：stdout
       path: stdout
-      # Support extra JUnit XML fields.
-      # Default: false
-      extended: true
-    # Prints issues in the TeamCity format.
+      # 支持额外的 JUnit XML 字段。
+      # 默认值：false
+      extended: false
+    # 以 TeamCity 格式打印问题。
     teamcity:
-      # Output path can be either `stdout`, `stderr` or path to the file to write to.
-      # Default: stdout
+      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+      # 默认值：stdout
       path: stdout
-    # Prints issues in the SARIF format.
+    # 以 SARIF 格式打印问题。
     sarif:
-      # Output path can be either `stdout`, `stderr` or path to the file to write to.
-      # Default: stdout
+      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+      # 默认值：stdout
       path: stdout
 
-  # Add a prefix to the output file references.
-  # This option is ignored when using `output.path-mode: abs` mode.
-  # Default: ""
+  # 为输出文件引用添加前缀。
+  # 使用 `output.path-mode: abs` 模式时此选项被忽略。
+  # 默认值：""
   path-prefix: ""
 
-  # By default, the report are related to the path obtained by `run.relative-path-mode`.
-  # The mode `abs` allows to show absolute file paths instead of relative file paths.
-  # The option `output.path-prefix` is ignored when using `abs` mode.
-  # Default: ""
+  # 默认情况下，报告与 `run.relative-path-mode` 获取的路径相关。
+  # `abs` 模式允许显示绝对文件路径而非相对文件路径。
+  # 使用 `abs` 模式时 `output.path-prefix` 选项被忽略。
+  # 默认值：""
   path-mode: ""
 
-  # Order to use when sorting results.
-  # Possible values: `file`, `linter`, and `severity`.
+  # 排序结果时使用的顺序。
+  # 可选值：`file`、`linter` 和 `severity`。
   #
-  # If the severity values are inside the following list, they are ordered in this order:
+  # 如果严重程度值在以下列表中，则按此顺序排序：
   #   1. error
   #   2. warning
   #   3. high
   #   4. medium
   #   5. low
-  # Either they are sorted alphabetically.
+  # 否则按字母顺序排序。
   #
-  # Default: ["linter", "file"]
+  # 默认值：["linter", "file"]
   sort-order:
     - linter
-    - severity
-    - file # filepath, line, and column.
+    - file # 文件路径、行和列。
 
-  # Show statistics per linter.
-  # Default: true
-  show-stats: false
+  # 显示每个 linter 的统计信息。
+  # 默认值：true
+  show-stats: true
 
-
-# Options for analysis running.
+# 分析运行选项。
 run:
-  # Timeout for total work, e.g. 30s, 5m, 5m30s.
-  # If the value is lower or equal to 0, the timeout is disabled.
-  # Default: 0 (disabled)
-  timeout: 5m
+  # 总工作超时时间，例如 30s、5m、5m30s。
+  # 如果值小于等于 0，则禁用超时。
+  # 默认值：0 (disabled)
+  timeout: 10m
 
-  # The mode used to evaluate relative paths.
-  # It's used by exclusions, Go plugins, and some linters.
-  # The value can be:
-  # - `gomod`: the paths will be relative to the directory of the `go.mod` file.
-  # - `gitroot`: the paths will be relative to the git root (the parent directory of `.git`).
-  # - `cfg`: the paths will be relative to the configuration file.
-  # - `wd` (NOT recommended): the paths will be relative to the place where golangci-lint is run.
-  # Default: cfg
-  relative-path-mode: gomod
+  # 用于评估相对路径的模式。
+  # 被排除规则、Go 插件和某些 linter 使用。
+  # 值可以是：
+  # - `gomod`：路径将相对于 `go.mod` 文件所在的目录。
+  # - `gitroot`：路径将相对于 git 根目录（`.git` 的父目录）。
+  # - `cfg`：路径将相对于配置文件。
+  # - `wd`（不推荐）：路径将相对于运行 golangci-lint 的位置。
+  # 默认值：cfg
+  relative-path-mode: cfg
 
-  # Exit code when at least one issue was found.
-  # Default: 1
+  # 发现至少一个问题时的退出码。
+  # 默认值：1
   issues-exit-code: 1
 
-  # Include test files or not.
-  # Default: true
-  tests: false
+  # 是否包含测试文件。
+  # 默认值：true
+  tests: true
 
-  # List of build tags, all linters use it.
-  # Default: []
+  # 构建标签列表，所有 linter 都使用它。
+  # 默认值：[]
   build-tags:
 
-  # If set, we pass it to "go list -mod={option}". From "go help modules":
-  # If invoked with -mod=readonly, the go command is disallowed from the implicit
-  # automatic updating of go.mod described above. Instead, it fails when any changes
-  # to go.mod are needed. This setting is most useful to check that go.mod does
-  # not need updates, such as in a continuous integration and testing system.
-  # If invoked with -mod=vendor, the go command assumes that the vendor
-  # directory holds the correct copies of dependencies and ignores
-  # the dependency descriptions in go.mod.
+  # 如果设置，我们将其传递给 "go list -mod={option}"。来自 "go help modules"：
+  # 如果使用 -mod=readonly 调用，go 命令不允许进行上述隐式
+  # 自动更新 go.mod。相反，当需要任何对 go.mod 的
+  # 更改时它会失败。此设置最适合用于检查 go.mod 是否
+  # 不需要更新，例如在持续集成和测试系统中。
+  # 如果使用 -mod=vendor 调用，go 命令假定 vendor
+  # 目录持有正确的依赖副本，并忽略
+  # go.mod 中的依赖描述。
   #
-  # Allowed values: readonly|vendor|mod
-  # Default: ""
+  # 允许的值：readonly|vendor|mod
+  # 默认值：""
   modules-download-mode: readonly
 
-  # Uses version control information during the loading of packages.
-  # Default: false (implies `-buildvcs=false`)
+  # 在加载包时使用版本控制信息。
+  # 默认值：false（等同于 `-buildvcs=false`）
   enable-build-vcs: false
 
-  # Allow multiple parallel golangci-lint instances running.
-  # If false, golangci-lint acquires file lock on start.
-  # Default: false
+  # 允许并行运行多个 golangci-lint 实例。
+  # 如果为 false，golangci-lint 在启动时获取文件锁。
+  # 默认值：false
   allow-parallel-runners: false
 
-  # Allow multiple golangci-lint instances running, but serialize them around a lock.
-  # If false, golangci-lint exits with an error if it fails to acquire file lock on start.
-  # Default: false
+  # 允许运行多个 golangci-lint 实例，但通过锁串行化。
+  # 如果为 false，golangci-lint 在启动时获取文件锁失败则以错误退出。
+  # 默认值：false
   allow-serial-runners: false
 
-  # Define the Go version limit.
-  # Default: use Go version from the go.mod file, fallback on the env var `GOVERSION`, fallback on 1.22.
+  # 定义 Go 版本限制。
+  # 默认值：使用 go.mod 文件中的 Go 版本；若无，则使用环境变量 `GOVERSION`；仍无则使用 1.22。
   go: ''
 
-  # Number of operating system threads (`GOMAXPROCS`) that can execute golangci-lint simultaneously.
-  # Default: 0 (automatically set to match Linux container CPU quota and
-  # fall back to the number of logical CPUs in the machine)
+  # 可以同时执行 golangci-lint 的操作系统线程数（`GOMAXPROCS`）。
+  # 默认值：0（自动设置为与 Linux 容器 CPU 配额匹配，并
+  # 回退到机器的逻辑 CPU 数量）
   concurrency: 0
 
-
 severity:
-  # Set the default severity for issues.
+  # 为问题设置默认严重程度。
   #
-  # If severity rules are defined and the issues do not match or no severity is provided to the rule
-  # this will be the default severity applied.
-  # Severities should match the supported severity names of the selected out format.
+  # 如果定义了严重程度规则但问题不匹配，或规则未提供严重程度，
+  # 则应用此默认严重程度。
+  # 严重程度应与所选输出格式支持的严重程度名称匹配。
   # - Code climate: https://docs.codeclimate.com/docs/issues#issue-severity
   # - Checkstyle: https://checkstyle.sourceforge.io/property_types.html#SeverityLevel
   # - GitHub: https://help.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-error-message
   # - TeamCity: https://www.jetbrains.com/help/teamcity/service-messages.html#Inspection+Instance
   #
-  # `@linter` can be used as severity value to keep the severity from linters (e.g. revive, gosec, ...)
+  # `@linter` 可用作严重程度值，以保留来自 linter（如 revive、gosec 等）的严重程度
   #
-  # Default: ""
+  # 默认值：""
   default: error
 
-  # When a list of severity rules are provided, severity information will be added to lint issues.
-  # Severity rules have the same filtering capability as exclude rules
-  # except you are allowed to specify one matcher per severity rule.
+  # 当提供严重程度规则列表时，严重程度信息将被添加到 lint 问题中。
+  # 严重程度规则具有与排除规则相同的过滤能力，
+  # 但每个严重程度规则只允许指定一个匹配器。
   #
-  # `@linter` can be used as severity value to keep the severity from linters (e.g. revive, gosec, ...)
+  # `@linter` 可用作严重程度值，以保留来自 linter（如 revive、gosec 等）的严重程度
   #
-  # Only affects out formats that support setting severity information.
+  # 仅影响支持设置严重程度信息的输出格式。
   #
-  # Default: []
+  # 默认值：[]
   rules:
     - linters:
         - dupl
