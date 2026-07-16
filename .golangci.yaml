@@ -15,19 +15,32 @@ linters:
   # 禁用特定的 linters。
   disable:
     - cyclop # 圈复杂度（执行路径）
-    - lll # 限制单行代码长度
+    - contextcheck # 存在争议 
+    - err113 # 不能定义局部错误只能定期全局变量方式
+    - ireturn # 存在误报
     - interfacebloat #接口定义允许的最大方法数
     - gochecknoinits # 检查是否使用了init方法
     - gocognit # 代码认知复杂度
+    - goconst # 常量枚举检测，存在很多冲突误报情况
     - gocyclo # 圈复杂度
+    - gochecknoglobals # 禁止定义全局变量（global variables）。
     - goheader # 限制文件头Lisense目前存在覆盖其它协议问题暂时注释，可配置忽略指定文件
     - gomodguard # 弃用使用gomodguard_v2版本
+    - gosmopolitan
+    - lll # 限制单行代码长度
     - mnd
     - maintidx # 可维护性指数
     - nestif # 控制if复杂度
+    - noctx # 检查是否有携带context，对网络相关操作。注意有些场景为了实现context会存在不够优化情况视情况而定
+    - noinlineerr #一个禁止使用内联错误处理的 Go 代码检查工具
     - nlreturn # 在 return 语句前增加一个空行（newline before return）。
+    - tagliatelle # 结构体tag配置,推荐新项目使用，如果对接外部接口存在不符合标准问题则不能使用了
     - testpackage # 测试文件package命名规范是否携带_test,如果开启则不能测试私有变量和方法了。
-    - wsl
+    - varnamelen # 变量长度控制,有些情况下变量名称单个字母表达意思更简洁清晰，如果配置长度配置成1则相当于关闭意义了因此此处关闭
+    - wsl # 旧版规则
+    - wrapcheck # 错误包装
+    # - unparam # 找出函数中"没有实际作用"的参数（parameter）和返回值（return value）。注意容易误报酌情配置,在代码重构场景、新项目场景推荐配置
+    # - containedctx # context是否存在结构体中规则检测，虽然官方建议但有些情况下ctx需要在struct中存在因此需要忽略此规则，也存在争议。
 
   # 特定 linters 的所有可用设置。
   settings:
@@ -208,19 +221,23 @@ linters:
       # 报告将错误赋值给空白标识符的情况：`num, _ := strconv.Atoi(numStr)`。
       # 此类情况默认不报告。
       # 默认值：false
-      check-blank: true
+      check-blank: false
 
       # 禁用 errcheck 内置排除列表。
       # 详情参见 https://github.com/kisielk/errcheck#excluding-functions 中的 `-excludeonly` 选项。
       # 默认值：false
-      disable-default-exclusions: true
+      disable-default-exclusions: false
 
       # 要从检查中排除的函数列表，每个条目是一个要排除的单个函数。
       # 详情参见 https://github.com/kisielk/errcheck#excluding-functions。
       exclude-functions:
+        - fmt.Print
         - fmt.Printf
         - fmt.Println
         - (*os.File).Close
+        - (*bytes.Buffer).Write
+        - (*go.uber.org/zap.Logger).Sync
+        - (*go.uber.org/zap.SugaredLogger).Sync
 
       # 显示函数签名而非选择器。
       # 默认值：false
@@ -241,7 +258,7 @@ linters:
       #             - encoding/json.MarshalIndent
       #
       # 默认值：false
-      check-error-free-encoding: true
+      check-error-free-encoding: false
 
       # 对没有导出字段的结构体编码发出报告。
       # 默认值：false
@@ -533,6 +550,9 @@ linters:
       # 应禁用哪些检查；不能与 'enabled-checks' 同时使用。
       # 默认值：[]
       disabled-checks:
+        - unnamedResult # 当函数返回多个值，或者返回值含义不够直观时，建议使用命名返回值（named result）来表达语义
+        - commentedOutCode # 检测注释中是否包含"被注释掉的代码"（commented-out code）。
+        - unnecessaryBlock
 
       # 除了默认检查外，按标签启用多个检查。
       # 运行 `GL_DEBUG=gocritic golangci-lint run --enable=gocritic` 查看所有标签和检查。
@@ -793,6 +813,10 @@ linters:
       # 可用规则：https://github.com/securego/gosec#available-rules
       # 默认值：[]
       excludes:
+        - G115 # Integer overflow conversion (uint64 -> int64)
+        - G117 # 检测"敏感字段被序列化"
+        - G124 # 检测 cookie 缺安全属性
+        - G304 # 使用变量作为文件路径打开文件，可能导致任意文件读取
         - G402 # InsecureSkipVerify
 
       # 过滤掉严重程度低于给定值的问题。
@@ -901,7 +925,6 @@ linters:
       #
       # 默认值：["Han"]
       watch-for-scripts:
-        - Han
 
     govet:
       # 启用所有分析器。
@@ -1036,8 +1059,11 @@ linters:
       #
       # 默认值：[anon, error, empty, stdlib]
       allow:
-        # 你可以为接口指定惯用结尾
-        - (or|er)$
+        - anon
+        - error
+        - empty
+        - stdlib
+        - (or|er)$  # 你可以为接口指定惯用结尾
 
       # 要拒绝的接口列表。
       # 可以使用与接口或包名匹配的关键字和正则表达式列表。
@@ -1158,6 +1184,7 @@ linters:
       # 默认情况下，所有分析器均已启用。
       disable:    
 
+    # 检查结构体是否有tag标签值。
     musttag:
       # 除了内置函数外，要检查的一组自定义函数。
       # 默认值：json, xml, gopkg.in/yaml.v3, BurntSushi/toml, mitchellh/mapstructure, jmoiron/sqlx
@@ -1272,6 +1299,7 @@ linters:
       # 默认值：false
       loop-other-ops: true
 
+    # 切片预分配控制减少扩容
     prealloc:
       # 重要：不建议在性能分析之前使用此 linter。
       # 对于大多数程序，使用 prealloc 会是过早优化。
@@ -1284,7 +1312,7 @@ linters:
       range-loops: true
       # 对 for 循环报告预分配建议。
       # 默认值：false
-      for-loops: true
+      for-loops: false
 
     # 不要使用 Go 内置的关键标识符名称作为变量、函数、类型、常量名，否则会覆盖（遮蔽）原本的含义，降低代码可读性。
     predeclared:
@@ -1410,7 +1438,7 @@ linters:
       # 报告在单个函数调用中同时使用键值对和属性的情况。
       # https://github.com/go-simpler/sloglint#no-mixed-arguments
       # 默认值：true
-      no-mixed-args: false
+      no-mixed-args: true
       # 报告将属性用作函数调用参数的情况。
       # https://github.com/go-simpler/sloglint#key-value-pairs-only
       # 默认值：false
@@ -1422,11 +1450,11 @@ linters:
       # 报告同一行上有两个或更多参数的情况。
       # https://github.com/go-simpler/sloglint#arguments-on-separate-lines
       # 默认值：false
-      args-on-sep-lines: true
+      args-on-sep-lines: false
       # 报告将字符串字面量用作日志键的情况。
       # https://github.com/go-simpler/sloglint#constant-keys
       # 默认值：false
-      no-raw-keys: true
+      no-raw-keys: false
       # 报告使用未显式允许的日志键。
       # https://github.com/go-simpler/sloglint#allowed-keys
       # 默认值：[]
@@ -1600,12 +1628,10 @@ linters:
             
         # 使用结构体字段名检查结构体标签名。
         # 默认值：false
-        use-field-name: true
+        use-field-name: false
         # 要忽略的字段名。
         # 默认值：[]
         ignored-fields:
-          - Bar
-          - Foo
         # 覆盖默认/根配置。
         # 默认值：[]
         overrides:
@@ -1627,6 +1653,7 @@ linters:
       #   suite-thelper
       # )。
       disable:
+        - error-is-as # 解决Errorf变成了ErrorIsf问题
 
       bool-compare:
         # 忽略用户自定义类型（而非内置 bool）。
@@ -1794,6 +1821,7 @@ linters:
       # 默认值：false
       safe: true
 
+    # 找出函数中"没有实际作用"的参数（parameter）和返回值（return value）。
     unparam:
       # 检查导出函数。
       # 如果没有外部程序/库导入你的代码则设为 true。
@@ -1828,9 +1856,9 @@ linters:
       # 检测 N+1 查询。
       # 默认值：false
       check-n1: true
-      # 检测 SQL 注入。
+      # 检测 SQL 注入。 注意容易误报例如http Get请求
       # 默认值：false
-      check-sql-injection: true
+      check-sql-injection: false
       # 检测事务泄漏。
       # 默认值：false
       check-tx-leaks: true
@@ -1897,6 +1925,7 @@ linters:
       # 默认值：true
       generated-is-used: true
 
+    # 用于检查变量名的长度是否与其使用范围匹配
     varnamelen:
       # 被视为"小作用域"的最长距离（以源代码行计）。
       # 最多在此行数内使用的变量将被忽略。
@@ -1905,16 +1934,16 @@ linters:
       # 被视为"长"的变量名最小长度。
       # 至少为此长度的变量名将被忽略。
       # 默认值：3
-      min-name-length: 3
-      # 检查方法接收者。
+      min-name-length: 2
+      # 检查方法接收者。例如: func (s *Server) Run() {}
       # 默认值：false
-      check-receiver: true
+      check-receiver: false
       # 检查命名返回值。
       # 默认值：false
-      check-return: true
-      # 检查类型参数。
+      check-return: false
+      # 检查类型参数。例如 func Map[T any](...)
       # 默认值：false
-      check-type-param: true
+      check-type-param: false
       # 忽略持有类型断言 bool 返回值的 "ok" 变量。
       # 默认值：false
       ignore-type-assert-ok: false
@@ -1927,7 +1956,9 @@ linters:
       # 应完全忽略的可选变量名列表。
       # 默认值：[]
       ignore-names:
+        - ctx
         - err
+
       # 应完全忽略的可选变量声明列表。
       # 条目必须是以下形式之一（示例见下文）：
       # - 对于变量、参数、命名返回值、方法接收者或类型参数：
@@ -1937,13 +1968,20 @@ linters:
       # 默认值：[]
       ignore-decls:
         - c echo.Context
+        - c gin.Context
         - t testing.T
-        - f *foo.Bar
+        - b testing.B
+        - m testing.M
         - e error
         - i int
-        - const C
+        - r rune
+        - b bool
+        - s string
+        - f float
         - T any
-        - m map[string]int
+        - m map[string]string
+        - const C
+        - w http.ResponseWriter
 
     whitespace:
       # 在每个多行 if 语句之后强制添加换行符（或注释）。
@@ -1953,6 +1991,7 @@ linters:
       # 默认值：false
       multi-func: true
 
+    # 错误包装检查器
     wrapcheck:
       # 指定要忽略的签名的附加子字符串数组。
       # 与 'ignore-sigs' 不同，此选项扩展默认集合（或 'ignore-sigs' 中指定的集合）而不是完全替换。
@@ -1978,10 +2017,13 @@ linters:
       # 指定要忽略的签名正则表达式的字符串数组。
       # 默认值：[]
       ignore-sig-regexps:
+        - \.New.*Error\(
        
       # 指定要忽略的包 glob 模式的字符串数组。
       # 默认值：[]
       ignore-package-globs:
+        - encoding/*
+        - github.com/pkg/*
     
       # 指定要忽略的接口正则表达式的字符串数组。
       # 默认值：[]
@@ -1989,7 +2031,7 @@ linters:
       
       # 决定 wrapcheck 是否应报告从包内部返回的错误。
       # 默认值：false
-      report-internal-errors: false
+      report-internal-errors: true
 
     # 空格检查器(whitespace linter) 是一款代码检查工具，它鼓励你使用空行来分隔不同类型的代码块，以提高代码可读性.
     wsl_v5:
@@ -2295,7 +2337,7 @@ issues:
 
 # 输出配置选项。
 output:
-  # 用于渲染问题的格式。
+  # 用于渲染报告问题的格式。如果配置多种format都会输出，建议只配置一个。
   formats:
     # 以文本格式打印问题，带颜色、行号和 linter 名称。
     # 此格式是默认格式。
@@ -2312,56 +2354,56 @@ output:
       # 使用颜色。
       # 默认值：true
       colors: true
-    # 以 JSON 表示形式打印问题。
-    json:
-      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
-      # 默认值：stdout
-      path: stdout
-    # 以制表符分隔的列表示形式打印问题。
-    tab:
-      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
-      # 默认值：stdout
-      path: stdout
-      # 在问题文本末尾打印 linter 名称。
-      # 默认值：true
-      print-linter-name: true
-      # 使用颜色。
-      # 默认值：true
-      colors: true
-    # 在 HTML 页面中打印问题。
-    # 它使用 Cloudflare CDN (cdnjs) 和 React。
-    html:
-      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
-      # 默认值：stdout
-      path: stdout
-    # 以 Checkstyle 格式打印问题。
-    checkstyle:
-      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
-      # 默认值：stdout
-      path: stdout
-    # 以 Code Climate 格式打印问题。
-    code-climate:
-      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
-      # 默认值：stdout
-      path: stdout
-    # 以 JUnit XML 格式打印问题。
-    junit-xml:
-      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
-      # 默认值：stdout
-      path: stdout
-      # 支持额外的 JUnit XML 字段。
-      # 默认值：false
-      extended: false
-    # 以 TeamCity 格式打印问题。
-    teamcity:
-      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
-      # 默认值：stdout
-      path: stdout
-    # 以 SARIF 格式打印问题。
-    sarif:
-      # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
-      # 默认值：stdout
-      path: stdout
+    # # 以 JSON 表示形式打印问题。
+    # json:
+    #   # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+    #   # 默认值：stdout
+    #   path: stdout
+    # # 以制表符分隔的列表示形式打印问题。
+    # tab:
+    #   # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+    #   # 默认值：stdout
+    #   path: stdout
+    #   # 在问题文本末尾打印 linter 名称。
+    #   # 默认值：true
+    #   print-linter-name: true
+    #   # 使用颜色。
+    #   # 默认值：true
+    #   colors: true
+    # # 在 HTML 页面中打印问题。
+    # # 它使用 Cloudflare CDN (cdnjs) 和 React。
+    # html:
+    #   # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+    #   # 默认值：stdout
+    #   path: stdout
+    # # 以 Checkstyle 格式打印问题。
+    # checkstyle:
+    #   # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+    #   # 默认值：stdout
+    #   path: stdout
+    # # 以 Code Climate 格式打印问题。
+    # code-climate:
+    #   # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+    #   # 默认值：stdout
+    #   path: stdout
+    # # 以 JUnit XML 格式打印问题。
+    # junit-xml:
+    #   # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+    #   # 默认值：stdout
+    #   path: stdout
+    #   # 支持额外的 JUnit XML 字段。
+    #   # 默认值：false
+    #   extended: false
+    # # 以 TeamCity 格式打印问题。
+    # teamcity:
+    #   # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+    #   # 默认值：stdout
+    #   path: stdout
+    # # 以 SARIF 格式打印问题。
+    # sarif:
+    #   # 输出路径可以是 `stdout`、`stderr` 或写入文件的路径。
+    #   # 默认值：stdout
+    #   path: stdout
 
   # 为输出文件引用添加前缀。
   # 使用 `output.path-mode: abs` 模式时此选项被忽略。
