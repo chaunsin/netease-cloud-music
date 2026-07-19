@@ -26,8 +26,8 @@ type ApiWebLogReqJson struct {
 	IsWebview int64  `json:"is_webview"`
 }
 
-// ApiWebLogReq .
-// [{"action":"_pv","useForRefer":true,"json":{"_plist":[{"_oid":"page_web_register_login"},{"_oid":"page_h5_biz"}],"_elist":[],"_spm":"page_web_register_login|page_h5_biz","_scm":":::|::","_eventtime":1704464373629,"_sessid":"1704464373588#479","g_dprefer":"[F:1][1704464373588#479]","is_webview":1}}]
+// ApiWebLogReq describes a web analytics event payload.
+// [{"action":"_pv","useForRefer":true,"json":{"_plist":[{"_oid":"page_web_register_login"},{"_oid":"page_h5_biz"}],"_elist":[],"_spm":"page_web_register_login|page_h5_biz","_scm":":::|::","_eventtime":1704464373629,"_sessid":"1704464373588#479","g_dprefer":"[F:1][1704464373588#479]","is_webview":1}}].
 type ApiWebLogReq struct {
 	CsrfToken   string           `json:"csrf_token"`
 	Action      string           `json:"action"`
@@ -41,7 +41,7 @@ type ApiWebLogResp struct {
 
 // ApiWebLog 日志上报
 // 目前已知使用场景
-// 1. 登录使用行为
+// 1. 登录使用行为.
 func (a *Api) ApiWebLog(ctx context.Context, req *ApiWebLogReq) (*ApiWebLogResp, error) {
 	var (
 		url  = "https://interface.music.163.com/api/feedback/weblog"
@@ -57,6 +57,7 @@ func (a *Api) ApiWebLog(ctx context.Context, req *ApiWebLogReq) (*ApiWebLogResp,
 	if err != nil {
 		return nil, err
 	}
+
 	_ = reply
 	return &resp, nil
 }
@@ -78,7 +79,7 @@ func (a *Api) ApiWebLog(ctx context.Context, req *ApiWebLogReq) (*ApiWebLogResp,
 // (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","mainsite":"1"}}]"
 // 6.未知
 // "[{\"action\":\"mobile_monitor\",\"json\":{\"meta._ver\":2,\"meta._dataName\":\"pip_lyric_monitor\",\"action\":\"impress\",\"userAgent\":\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
-// AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\",\"chromeVersion\":120,\"mainsite\":\"1\"}}]",
+// AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\",\"chromeVersion\":120,\"mainsite\":\"1\"}}]",.
 type WebLogReq struct {
 	CsrfToken string           `json:"csrf_token"` // 可不用传递
 	Logs      []map[string]any `json:"logs"`       // 具体事件内容
@@ -93,7 +94,7 @@ type WebLogResp struct {
 	types.RespCommon[string]
 }
 
-// WebLog 日志上报
+// WebLog 日志上报.
 func (a *Api) WebLog(ctx context.Context, req *WebLogReq) (*WebLogResp, error) {
 	var (
 		url  = "https://music.163.com/weapi/feedback/weblog"
@@ -107,8 +108,9 @@ func (a *Api) WebLog(ctx context.Context, req *WebLogReq) (*WebLogResp, error) {
 
 	data, err := json.Marshal(req.Logs)
 	if err != nil {
-		return nil, fmt.Errorf("json.Marshal(req.Logs) error: %v", err)
+		return nil, fmt.Errorf("json.Marshal(req.Logs) error: %w", err)
 	}
+
 	request := &webLogReq{
 		CsrfToken: req.CsrfToken,
 		Logs:      string(data),
@@ -118,6 +120,7 @@ func (a *Api) WebLog(ctx context.Context, req *WebLogReq) (*WebLogResp, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	_ = reply
 	return &resp, nil
 }

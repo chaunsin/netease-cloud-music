@@ -54,19 +54,6 @@ func NewNCM(root *Root, l *log.Logger) *NCM {
 	return c
 }
 
-func (c *NCM) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./ncm", "output music dir")
-	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "concurrent decrypt count")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", false, "disable set a music tag info")
-}
-
-func (c *NCM) validate() error {
-	if c.opts.Parallel > 50 || c.opts.Parallel < 1 {
-		return fmt.Errorf("parallel must be between 1 and 50")
-	}
-	return nil
-}
-
 func (c *NCM) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
 }
@@ -75,14 +62,29 @@ func (c *NCM) Command() *cobra.Command {
 	return c.cmd
 }
 
+func (c *NCM) addFlags() {
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./ncm", "output music dir")
+	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "concurrent decrypt count")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", false, "disable set a music tag info")
+}
+
+func (c *NCM) validate() error {
+	if c.opts.Parallel > 50 || c.opts.Parallel < 1 {
+		return errors.New("parallel must be between 1 and 50")
+	}
+	return nil
+}
+
 func (c *NCM) execute(ctx context.Context, input []string) error {
 	if err := c.validate(); err != nil {
 		return fmt.Errorf("validate: %w", err)
 	}
-	if len(input) <= 0 {
+
+	if len(input) == 0 {
 		c.cmd.Println("nothing was entered")
 		return nil
 	}
+
 	fileList := make([]string, 0, len(input))
 
 	// 处理命令行输入的内容
@@ -92,10 +94,12 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 		if err != nil {
 			return fmt.Errorf("ExpandTilde: %w", err)
 		}
+
 		exist, isDir, err := utils.CheckPath(fd)
 		if err != nil {
 			return fmt.Errorf("CheckPath: %w", err)
 		}
+
 		if !exist {
 			c.cmd.Printf("%s not found\n", fd)
 			return nil
@@ -106,6 +110,7 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 			if filepath.Ext(file) != ".ncm" {
 				return fmt.Errorf("%s is not .ncm file", file)
 			}
+
 			fileList = append(fileList, file)
 			continue
 		}
@@ -117,7 +122,7 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 			}
 
 			if d.IsDir() {
-				if depth := len(filepath.SplitList(path)); depth > 3 {
+				if depth := relativePathDepth(path); depth > 3 {
 					return fmt.Errorf("maximum supported directory depth is 3: %s", path)
 				}
 				return nil
@@ -127,6 +132,7 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 			if filepath.Ext(f) != ".ncm" {
 				return nil
 			}
+
 			fileList = append(fileList, f)
 			return nil
 		}); err != nil {
@@ -135,12 +141,13 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 	}
 
 	fileList = slices.Compact(fileList)
-	if len(fileList) <= 0 {
+	if len(fileList) == 0 {
 		return errors.New("no input file or the file does not meet the conditions")
 	}
-	log.Debug("filelist: %+v", fileList)
 
-	if err := os.MkdirAll(c.opts.Output, 0o755); err != nil {
+	log.Debugf("filelist: %+v", fileList)
+
+	if err := os.MkdirAll(c.opts.Output, 0o755); err != nil { //nolint:gosec // User-selected media output is intentionally world-readable.
 		return fmt.Errorf("mkdir: %w", err)
 	}
 
@@ -154,23 +161,28 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 		if err := sema.Acquire(ctx, 1); err != nil {
 			return fmt.Errorf("acquire: %w", err)
 		}
+
 		go func(file string) {
 			defer func() {
 				sema.Release(1)
+
 				if x := recover(); x != nil {
 					stack := string(debug.Stack())
 					c.cmd.Printf("decode fail [%s]: %v, stack: %v\n", file, x, stack)
-					log.Error("decode fail [%s]: %v, stack:%v", file, x, stack)
+					log.Errorf("decode fail [%s]: %v, stack:%v", file, x, stack)
 				}
 			}()
+
 			if err := c.decode(file); err != nil {
 				c.cmd.Printf("decode[%s]: %v\n", file, err)
-				log.Error("decode[%s]: %v", file, err)
+				log.Errorf("decode[%s]: %v", file, err)
 				return
 			}
+
 			bar.Increment()
 		}(f)
 	}
+
 	if err := sema.Acquire(ctx, c.opts.Parallel); err != nil {
 		return fmt.Errorf("wait: %w", err)
 	}
@@ -182,7 +194,11 @@ func (c *NCM) decode(filename string) error {
 	if err != nil {
 		return fmt.Errorf("open: %w", err)
 	}
-	defer _ncm.Close()
+	defer func() {
+		if closeErr := _ncm.Close(); closeErr != nil {
+			log.Errorf("close ncm file: %v", closeErr)
+		}
+	}()
 
 	var (
 		meta   = _ncm.Metadata()
@@ -203,15 +219,17 @@ func (c *NCM) decode(filename string) error {
 		dest      = filepath.Join(c.opts.Output, name+"."+extend)
 	)
 
-	if err := utils.MkdirIfNotExist(c.opts.Output, 0o755); err != nil {
-		return fmt.Errorf("MkdirIfNotExist: %w", err)
+	if mkdirErr := utils.MkdirIfNotExist(c.opts.Output, 0o755); mkdirErr != nil {
+		return fmt.Errorf("MkdirIfNotExist: %w", mkdirErr)
 	}
+
 	tmp, err := os.CreateTemp(c.opts.Output, fmt.Sprintf("ncm-*-%s.%s.tmp", name, extend))
 	if err != nil {
 		return fmt.Errorf("CreateTemp: %w", err)
 	}
 	defer tmp.Close()
-	log.Debug("tempdir: %s", tmp.Name())
+
+	log.Debugf("tempdir: %s", tmp.Name())
 
 	if err := _ncm.DecodeMusic(tmp); err != nil {
 		_ = os.Remove(tmp.Name())
@@ -231,15 +249,16 @@ func (c *NCM) decode(filename string) error {
 	}
 	// 显示关闭文件避免Windows系统无法重命名错误:The process cannot access the file because it is being used by another process
 	if err := tmp.Close(); err != nil {
-		log.Error("close %s file err: %s", tmp.Name(), err)
+		log.Errorf("close %s file err: %s", tmp.Name(), err)
 		_ = os.Remove(tmp.Name())
 	}
+
 	if err := os.Rename(tmp.Name(), dest); err != nil {
 		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("rename: %w", err)
 	}
 
-	if err := os.Chmod(dest, 0o644); err != nil {
+	if err := os.Chmod(dest, 0o644); err != nil { //nolint:gosec // Decrypted media keeps conventional read permissions.
 		return fmt.Errorf("chmod: %w", err)
 	}
 	return nil

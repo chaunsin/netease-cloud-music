@@ -6,7 +6,7 @@ package eapi
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPlaylist(t *testing.T) {
@@ -16,6 +16,6 @@ func TestPlaylist(t *testing.T) {
 		Limit:  "30",
 	}
 	got, err := cli.Playlist(ctx, &req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Logf("Playlist: %+v\n", got)
 }

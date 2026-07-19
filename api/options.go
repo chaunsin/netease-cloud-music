@@ -3,7 +3,10 @@
 
 package api
 
-import "net/http"
+import (
+	"maps"
+	"net/http"
+)
 
 type CryptoMode string
 
@@ -24,6 +27,45 @@ type Options struct {
 	XeapiAppVer string
 }
 
+func NewOptions() *Options {
+	return &Options{
+		Method:     http.MethodPost,
+		CryptoMode: CryptoModeWEAPI,
+		Headers:    make(map[string]string),
+		Cookies:    []*http.Cookie{},
+	}
+}
+
+func (o *Options) SetCryptoModeAPI() *Options {
+	o.CryptoMode = CryptoModeAPI
+	return o
+}
+
+func (o *Options) SetCryptoModeEAPI() *Options {
+	o.CryptoMode = CryptoModeEAPI
+	return o
+}
+
+func (o *Options) SetCryptoModeWEAPI() *Options {
+	o.CryptoMode = CryptoModeWEAPI
+	return o
+}
+
+func (o *Options) SetCryptoModeLinux() *Options {
+	o.CryptoMode = CryptoModeLinux
+	return o
+}
+
+func (o *Options) SetCryptoModeXEAPI() *Options {
+	o.CryptoMode = CryptoModeXEAPI
+	return o
+}
+
+func (o *Options) SetMethod(method string) *Options {
+	o.Method = method
+	return o
+}
+
 func (o *Options) SetCookies(c ...*http.Cookie) {
 	o.Cookies = append(o.Cookies, c...)
 }
@@ -34,9 +76,7 @@ func (o *Options) SetHeader(key, value string) *Options {
 }
 
 func (o *Options) SetHeaders(h map[string]string) *Options {
-	for k, v := range h {
-		o.Headers[k] = v
-	}
+	maps.Copy(o.Headers, h)
 	return o
 }
 
@@ -48,13 +88,4 @@ func (o *Options) SetXeapiOS(os string) *Options {
 func (o *Options) SetXeapiAppVer(appVer string) *Options {
 	o.XeapiAppVer = appVer
 	return o
-}
-
-func NewOptions() *Options {
-	return &Options{
-		Method:     http.MethodPost,
-		CryptoMode: CryptoModeWEAPI,
-		Headers:    make(map[string]string),
-		Cookies:    []*http.Cookie{},
-	}
 }

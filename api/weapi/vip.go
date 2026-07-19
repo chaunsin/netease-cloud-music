@@ -5,6 +5,7 @@ package weapi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -26,10 +27,10 @@ type VipRewardGetResp struct {
 
 // VipRewardGet 领取vip成长值
 // url:
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipRewardGet(ctx context.Context, req *VipRewardGetReq) (*VipRewardGetResp, error) {
-	if len(req.TaskIds) <= 0 {
-		return nil, fmt.Errorf("taskIds is empty")
+	if len(req.TaskIds) == 0 {
+		return nil, errors.New("taskIds is empty")
 	}
 
 	var (
@@ -45,6 +46,7 @@ func (a *Api) VipRewardGet(ctx context.Context, req *VipRewardGetReq) (*VipRewar
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -61,7 +63,7 @@ type VipRewardGetAllRespData struct {
 
 // VipRewardGetAll 领取vip所有成长值
 // url:
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipRewardGetAll(ctx context.Context, req *VipRewardGetAllReq) (*VipRewardGetAllResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/task/reward/getall"
@@ -73,6 +75,7 @@ func (a *Api) VipRewardGetAll(ctx context.Context, req *VipRewardGetAllReq) (*Vi
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -126,7 +129,7 @@ type VipTaskRespData struct {
 
 // VipTask vip任务列表 todo:该任务列表应该是旧接口貌似
 // url:
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipTask(ctx context.Context, req *VipTaskReq) (*VipTaskResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/task/list"
@@ -138,6 +141,7 @@ func (a *Api) VipTask(ctx context.Context, req *VipTaskReq) (*VipTaskResp, error
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -196,7 +200,7 @@ type VipTaskV2RespData struct {
 
 // VipTaskV2 vip任务列表V2 貌似也是旧接口
 // url:
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipTaskV2(ctx context.Context, req *VipTaskV2Req) (*VipTaskV2Resp, error) {
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/task/newlist"
@@ -208,6 +212,7 @@ func (a *Api) VipTaskV2(ctx context.Context, req *VipTaskV2Req) (*VipTaskV2Resp,
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -263,7 +268,7 @@ type VipInfoRespData struct {
 
 // VipInfo vip信息
 // har:
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipInfo(ctx context.Context, req *VipInfoReq) (*VipInfoResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/music-vip-membership/front/vip/info"
@@ -275,6 +280,7 @@ func (a *Api) VipInfo(ctx context.Context, req *VipInfoReq) (*VipInfoResp, error
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -355,7 +361,7 @@ type VipClientInfoRespData struct {
 
 // VipClientInfo vip信息
 // har:
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipClientInfo(ctx context.Context, req *VipClientInfoReq) (*VipClientInfoResp, error) {
 	var (
 		url   = "https://music.163.com/api/music-vip-membership/client/vip/info"
@@ -367,6 +373,7 @@ func (a *Api) VipClientInfo(ctx context.Context, req *VipClientInfoReq) (*VipCli
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -430,7 +437,7 @@ type VipGrowPointRespData struct {
 
 // VipGrowPoint 获取当前账号 VIP 成长值信息
 // har: 46.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipGrowPoint(ctx context.Context, req *VipGrowPointReq) (*VipGrowPointResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/growhpoint/basic"
@@ -442,6 +449,7 @@ func (a *Api) VipGrowPoint(ctx context.Context, req *VipGrowPointReq) (*VipGrowP
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -539,7 +547,7 @@ type VipProgressListRespDataSchemaContent struct {
 
 // VipProgressList vip成长任务列表(日常任务)
 // har: 43.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipProgressList(ctx context.Context, req *VipProgressListReq) (*VipProgressListResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/middle/vip/mission/user/progress/list"
@@ -551,6 +559,7 @@ func (a *Api) VipProgressList(ctx context.Context, req *VipProgressListReq) (*Vi
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -563,7 +572,7 @@ type VipSignInfoResp struct {
 	types.RespCommon[[]VipSignInfoRespData] // 貌似一次只返回7条也就是七天
 }
 
-// VipSignInfoRespData 当Today为true时则RecordId、Time、SongId有值返回则为0
+// VipSignInfoRespData 当Today为true时则RecordId、Time、SongId有值返回则为0.
 type VipSignInfoRespData struct {
 	RecordId  int64  `json:"recordId"`
 	UserId    int64  `json:"userId"`
@@ -577,7 +586,7 @@ type VipSignInfoRespData struct {
 
 // VipSignInfo 签到信息
 // har: 44.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipSignInfo(ctx context.Context, req *VipSignInfoReq) (*VipSignInfoResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/user/sign/info"
@@ -589,6 +598,7 @@ func (a *Api) VipSignInfo(ctx context.Context, req *VipSignInfoReq) (*VipSignInf
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -610,7 +620,7 @@ type VipMAXScoreRespData struct {
 
 // VipMAXScore 本月可获取的最大成长值，有待确定
 // har: 45.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipMAXScore(ctx context.Context, req *VipMAXScoreReq) (*VipMAXScoreResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/user/max/score"
@@ -622,6 +632,7 @@ func (a *Api) VipMAXScore(ctx context.Context, req *VipMAXScoreReq) (*VipMAXScor
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -660,7 +671,7 @@ type VipNewListDataLevelAuthList struct {
 
 // VipNewList 尊享权益列表
 // har: 47.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipNewList(ctx context.Context, req *VipNewListReq) (*VipNewListResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/level/auth/new/list"
@@ -672,6 +683,7 @@ func (a *Api) VipNewList(ctx context.Context, req *VipNewListReq) (*VipNewListRe
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -789,7 +801,7 @@ type VipCashierInfoDataUser struct {
 
 // VipCashierInfo todo:具体作用待分析
 // har: 48.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipCashierInfo(ctx context.Context, req *VipCashierInfoReq) (*VipCashierInfoResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/music-vip-membership/cashier/info"
@@ -801,6 +813,7 @@ func (a *Api) VipCashierInfo(ctx context.Context, req *VipCashierInfoReq) (*VipC
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -826,7 +839,7 @@ type VipLevelListData struct {
 
 // VipLevelList 获取黑胶每升一级成长值
 // har: 49.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipLevelList(ctx context.Context, req *VipLevelListReq) (*VipLevelListResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/level/list"
@@ -838,6 +851,7 @@ func (a *Api) VipLevelList(ctx context.Context, req *VipLevelListReq) (*VipLevel
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -863,7 +877,7 @@ type VipWelfareListData struct {
 		SolidBackgroundColor  string `json:"solidBackgroundColor"`
 		ButtonBackgroundColor string `json:"buttonBackgroundColor"`
 		ButtonTextColor       string `json:"buttonTextColor"`
-	} `json:"welfareIcon,omitempty"`
+	} `json:"welfareIcon,omitzero"`
 	JumpUrl           string  `json:"jumpUrl"`
 	EffectStartTime   int64   `json:"effectStartTime"`
 	EffectEndTime     int64   `json:"effectEndTime"`
@@ -882,7 +896,7 @@ type VipWelfareListData struct {
 
 // VipWelfareList 尊享福利列表
 // har: 50.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipWelfareList(ctx context.Context, req *VipWelfareListReq) (*VipWelfareListResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/level/welfare/new/list"
@@ -894,12 +908,14 @@ func (a *Api) VipWelfareList(ctx context.Context, req *VipWelfareListReq) (*VipW
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type VipDetailListReq struct {
 	types.ReqCommon
+
 	IsSupportHistoryGift bool `json:"isSupportHistoryGift"`
 }
 
@@ -931,7 +947,7 @@ type VipDetailListData struct {
 
 // VipDetailList 等级特权详情列表
 // har: 51.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipDetailList(ctx context.Context, req *VipDetailListReq) (*VipDetailListResp, error) {
 	var (
 		url = fmt.Sprintf("https://interface3.music.163.com/weapi/vipnewcenter/app/level/auth/new/detail/list?isSupportHistoryGift=%v",
@@ -944,12 +960,14 @@ func (a *Api) VipDetailList(ctx context.Context, req *VipDetailListReq) (*VipDet
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type VipConfigReq struct {
 	types.ReqCommon
+
 	ConfigName string `json:"configName"` // viplevel.paytask.tasklist
 }
 
@@ -972,7 +990,7 @@ type VipConfigDataList struct {
 
 // VipConfig 快速成长通道
 // har: 52.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipConfig(ctx context.Context, req *VipConfigReq) (*VipConfigResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/music-vip-configuration/config/query"
@@ -988,6 +1006,7 @@ func (a *Api) VipConfig(ctx context.Context, req *VipConfigReq) (*VipConfigResp,
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -1016,7 +1035,7 @@ type VipDowngradeCompensateData struct {
 
 // VipDowngradeCompensate 降级补偿,貌似实在黑胶乐签领取失败场景触发
 // har: 53.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipDowngradeCompensate(ctx context.Context, req *VipDowngradeCompensateReq) (*VipDowngradeCompensateResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/level/downgrade/compensate"
@@ -1028,12 +1047,14 @@ func (a *Api) VipDowngradeCompensate(ctx context.Context, req *VipDowngradeCompe
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type VipInterestsReq struct {
 	types.ReqCommon
+
 	InterestsType string `json:"interestsType"`
 }
 
@@ -1043,7 +1064,7 @@ type VipInterestsResp struct {
 
 // VipInterests 未知待分析
 // har: 54.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipInterests(ctx context.Context, req *VipInterestsReq) (*VipInterestsResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipauth/app/interests/userrecord/get"
@@ -1055,6 +1076,7 @@ func (a *Api) VipInterests(ctx context.Context, req *VipInterestsReq) (*VipInter
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -1153,7 +1175,7 @@ type VipFloatDataRespData struct {
 
 // VipFloatData todo: 相关用户信息数据待明确
 // har: 55.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipFloatData(ctx context.Context, req *VipFloatDataReq) (*VipFloatDataResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/vip-center-bff/float/data"
@@ -1165,12 +1187,14 @@ func (a *Api) VipFloatData(ctx context.Context, req *VipFloatDataReq) (*VipFloat
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type VipCommonListReq struct {
 	types.ReqCommon
+
 	PositionType string `json:"positionType"` // eg:25
 }
 
@@ -1199,7 +1223,7 @@ type VipCommonListRespDataContentListChildren struct {
 
 // VipCommonList 首页布局列表例如：vip成长任务、热门活动、我的vip特权
 // har: 56.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipCommonList(ctx context.Context, req *VipCommonListReq) (*VipCommonListResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/resource/common/list"
@@ -1211,12 +1235,14 @@ func (a *Api) VipCommonList(ctx context.Context, req *VipCommonListReq) (*VipCom
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type VipNewAccountPageReq struct {
 	types.ReqCommon
+
 	GroupName string `json:"groupName"` // eg: t2
 }
 
@@ -1247,7 +1273,7 @@ type VipNewAccountPageRespData struct {
 
 // VipNewAccountPage 会员中心(手机点击抽屉顶部所展示的信息)
 // har: 57.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipNewAccountPage(ctx context.Context, req *VipNewAccountPageReq) (*VipNewAccountPageResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/resource/newaccountpage"
@@ -1259,12 +1285,14 @@ func (a *Api) VipNewAccountPage(ctx context.Context, req *VipNewAccountPageReq) 
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type VipTaskSignReq struct {
 	types.ReqCommon
+
 	IsNew string `json:"isNew,omitempty"`
 }
 
@@ -1274,7 +1302,7 @@ type VipTaskSignResp struct {
 
 // VipTaskSign 黑胶乐签
 // har: 58.har、59.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) VipTaskSign(ctx context.Context, req *VipTaskSignReq) (*VipTaskSignResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/weapi/vip-center-bff/task/sign"
@@ -1289,12 +1317,14 @@ func (a *Api) VipTaskSign(ctx context.Context, req *VipTaskSignReq) (*VipTaskSig
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type VipWelfareClaimReq struct {
 	types.ReqCommon
+
 	WelfareId int64 `json:"welfareId"` // 福利id
 }
 
@@ -1303,7 +1333,7 @@ type VipWelfareClaimResp struct {
 }
 
 // VipWelfareClaim 领取黑胶会员尊享福利
-// needLogin: 是
+// needLogin: 是.
 func (a *Api) VipWelfareClaim(ctx context.Context, req *VipWelfareClaimReq) (*VipWelfareClaimResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/welfare/claim"
@@ -1315,12 +1345,14 @@ func (a *Api) VipWelfareClaim(ctx context.Context, req *VipWelfareClaimReq) (*Vi
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type VipMiddlePageViewReportReq struct {
 	types.ReqCommon
+
 	WebkitContext string `json:"-"` // netease_webkit_context, 透传到请求头
 	Data          string `json:"data"`
 }
@@ -1345,7 +1377,7 @@ type VipMiddlePageViewReportResp struct {
 }
 
 // VipMiddlePageViewReport 上报中台页面浏览时长
-// needLogin: 是
+// needLogin: 是.
 func (a *Api) VipMiddlePageViewReport(ctx context.Context, req *VipMiddlePageViewReportReq) (*VipMiddlePageViewReportResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/middle/page/view/report"
@@ -1358,6 +1390,7 @@ func (a *Api) VipMiddlePageViewReport(ctx context.Context, req *VipMiddlePageVie
 	opts.SetHeader("Host", "interface.music.163.com")
 	opts.SetHeader("Origin", "https://music.163.com")
 	opts.SetHeader("Referer", "https://music.163.com/")
+
 	if req.WebkitContext != "" {
 		opts.SetHeader("netease_webkit_context", req.WebkitContext)
 	}
@@ -1366,6 +1399,7 @@ func (a *Api) VipMiddlePageViewReport(ctx context.Context, req *VipMiddlePageVie
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

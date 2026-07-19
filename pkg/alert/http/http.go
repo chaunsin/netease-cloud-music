@@ -60,6 +60,7 @@ func (c *Client) Send(ctx context.Context, content string) error {
 	if err != nil {
 		return err
 	}
+
 	if resp.StatusCode() != http.StatusOK {
 		return fmt.Errorf("http: status code: %d", resp.StatusCode())
 	}

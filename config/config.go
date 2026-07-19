@@ -4,6 +4,7 @@
 package config
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"strings"
@@ -11,8 +12,6 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
-
-	_ "embed"
 
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/pkg/database"
@@ -29,10 +28,12 @@ var (
 
 func init() {
 	var err error
+
 	HomeDir, err = os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
+
 	if err := yaml.Unmarshal(defaultConfigByte, &defaultConfig); err != nil {
 		panic(fmt.Sprintf("defaultConfig.Unmarshal: %s", err))
 	}
@@ -77,12 +78,15 @@ func New(cfgPath ...string) (*Config, error) {
 	v.AllowEmptyEnv(true)
 	v.SetConfigType("yaml")
 	v.SetConfigFile(_cfgPath)
+
 	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("ReadInConfig: %w", err)
 	}
+
 	if err := v.UnmarshalExact(&conf, opts); err != nil {
 		return nil, fmt.Errorf("UnmarshalExact: %w", err)
 	}
+
 	if err := conf.Validate(); err != nil {
 		return nil, err
 	}
@@ -94,8 +98,7 @@ func (c *Config) ReplaceMagicVariables(name, value string) (*Config, bool) {
 	var (
 		isset   bool
 		mapping = func(k string) string {
-			switch k {
-			case name:
+			if k == name {
 				isset = true
 				return value
 			}

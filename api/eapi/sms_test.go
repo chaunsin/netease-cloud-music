@@ -6,7 +6,7 @@ package eapi
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -21,8 +21,8 @@ func TestCaptchaSend(t *testing.T) {
 		CTCode: ct,
 	}
 	got, err := cli.CaptchaSend(ctx, &req)
-	assert.NoError(t, err)
-	t.Logf("CaptchaSend: %+v\n", got)
+	require.Nil(t, got)
+	require.EqualError(t, err, "CaptchaSend is not implemented")
 }
 
 func TestCaptchaVerify(t *testing.T) {
@@ -33,6 +33,6 @@ func TestCaptchaVerify(t *testing.T) {
 		Captcha: "2129",
 	}
 	got, err := cli.CaptchaVerify(ctx, &req)
-	assert.NoError(t, err)
-	t.Logf("CaptchaVerify: %+v\n", got)
+	require.Nil(t, got)
+	require.EqualError(t, err, "CaptchaVerify is not implemented")
 }

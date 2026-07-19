@@ -9,6 +9,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -52,7 +53,7 @@ type xeapiStateResult struct {
 }
 
 func (c *Client) xeapiEncrypt(ctx context.Context, rawURL string, req any, opts *Options, contentType string) (string, map[string]string, error) {
-	envelopeURL, xeapiURL, err := rewriteXeapiURL(rawURL) // todo: url xeapi todo
+	envelopeURL, xeapiURL, err := rewriteXeapiURL(rawURL) // Pending: url xeapi todo
 	if err != nil {
 		return "", nil, err
 	}
@@ -67,19 +68,22 @@ func (c *Client) xeapiEncrypt(ctx context.Context, rawURL string, req any, opts 
 		DeviceID:    c.GetDeviceId(),
 		UserAgent:   xeapiUserAgent(opts),
 	}
-	result, err := c.xeapiState(ctx, encryptReq)
+
+	result, err := c.xeapiState(ctx, &encryptReq)
 	if err != nil {
 		return "", nil, fmt.Errorf("xeapiState: %w", err)
 	}
-	encryptData, err := crypto.XeapiEncrypt(encryptReq, result.key, result.session)
+
+	encryptData, err := crypto.XeapiEncrypt(&encryptReq, result.key, result.session)
 	if err != nil {
 		return "", nil, fmt.Errorf("XeapiEncrypt: %w", err)
 	}
 	return xeapiURL, encryptData, nil
 }
 
-func (c *Client) xeapiState(ctx context.Context, req crypto.EncryptRequest) (*xeapiStateResult, error) {
+func (c *Client) xeapiState(ctx context.Context, req *crypto.EncryptRequest) (*xeapiStateResult, error) {
 	c.xeapiMu.Lock()
+
 	var (
 		key          = c.xeapiKey
 		session      = c.xeapiSession
@@ -87,12 +91,14 @@ func (c *Client) xeapiState(ctx context.Context, req crypto.EncryptRequest) (*xe
 		groupKey     = strings.Join([]string{req.DeviceID, req.AppVersion, req.OS, req.UserAgent}, "\x00")
 	)
 	c.xeapiMu.Unlock()
+
 	if !needsRefresh {
 		return &xeapiStateResult{key: key, session: session}, nil
 	}
 
 	value, err, _ := c.xeapiRefresh.Do(groupKey, func() (any, error) {
 		c.xeapiMu.Lock()
+
 		var (
 			key            = c.xeapiKey
 			session        = c.xeapiSession
@@ -101,11 +107,12 @@ func (c *Client) xeapiState(ctx context.Context, req crypto.EncryptRequest) (*xe
 			currentSK      = key.SK
 		)
 		c.xeapiMu.Unlock()
+
 		if !needsRefresh {
 			return &xeapiStateResult{key: key, session: session}, nil
 		}
 
-		refreshed, err := c.refreshXeapiPublicKey(ctx, xeapiKeyRefreshRequest{
+		refreshed, err := c.refreshXeapiPublicKey(ctx, &xeapiKeyRefreshRequest{
 			DeviceID:          req.DeviceID,
 			CurrentKeyVersion: currentVersion,
 			AppVersion:        req.AppVersion,
@@ -115,9 +122,11 @@ func (c *Client) xeapiState(ctx context.Context, req crypto.EncryptRequest) (*xe
 		if err != nil {
 			return nil, fmt.Errorf("refreshXeapiPublicKey: %w", err)
 		}
+
 		if strings.TrimSpace(refreshed.SK) == "" {
 			refreshed.SK = currentSK
 		}
+
 		if strings.TrimSpace(refreshed.SK) == "" {
 			return nil, crypto.ErrServerKeyMissing
 		}
@@ -131,11 +140,15 @@ func (c *Client) xeapiState(ctx context.Context, req crypto.EncryptRequest) (*xe
 	if err != nil {
 		return nil, err
 	}
-	result := value.(*xeapiStateResult)
+
+	result, ok := value.(*xeapiStateResult)
+	if !ok {
+		return nil, fmt.Errorf("unexpected xeapi state result %T", value)
+	}
 	return result, nil
 }
 
-func (c *Client) refreshXeapiPublicKey(ctx context.Context, req xeapiKeyRefreshRequest) (*crypto.PublicKeyState, error) {
+func (c *Client) refreshXeapiPublicKey(ctx context.Context, req *xeapiKeyRefreshRequest) (*crypto.PublicKeyState, error) {
 	nonce, err := generateXeapiNonce()
 	if err != nil {
 		return nil, err
@@ -152,7 +165,7 @@ func (c *Client) refreshXeapiPublicKey(ctx context.Context, req xeapiKeyRefreshR
 			"requestType":       "active",
 			"signature":         crypto.XeapiSign(timestamp, nonce),
 			"timestamp":         timestamp,
-			"t1":                "", // todo: Filling
+			"t1":                "", // Pending: Filling
 			"t2":                "",
 			"uid":               "",
 		}
@@ -172,16 +185,20 @@ func (c *Client) refreshXeapiPublicKey(ctx context.Context, req xeapiKeyRefreshR
 	if err != nil {
 		return nil, fmt.Errorf("xeapi public key request: %w", err)
 	}
+
 	if response.StatusCode()/100 != 2 {
 		return nil, fmt.Errorf("xeapi public key http status %d: %s", response.StatusCode(), string(response.Body()))
 	}
 
 	var reply xeapiKeyResponse
+
 	decoder := json.NewDecoder(bytes.NewReader(response.Body()))
 	decoder.UseNumber()
-	if err := decoder.Decode(&reply); err != nil {
-		return nil, fmt.Errorf("json.Decode xeapi public key response: %w", err)
+
+	if decodeErr := decoder.Decode(&reply); decodeErr != nil {
+		return nil, fmt.Errorf("json.Decode xeapi public key response: %w", decodeErr)
 	}
+
 	if reply.Code != http.StatusOK || reply.Data.EncryptedData == "" {
 		return nil, fmt.Errorf("xeapi public key failed: code=%d message=%s", reply.Code, reply.Message)
 	}
@@ -190,15 +207,17 @@ func (c *Client) refreshXeapiPublicKey(ctx context.Context, req xeapiKeyRefreshR
 	if err != nil {
 		return nil, err
 	}
+
 	expectedSignature := crypto.XeapiSign(respTimestamp, nonce)
 	if reply.Data.Signature == "" || !hmac.Equal([]byte(expectedSignature), []byte(reply.Data.Signature)) {
-		return nil, fmt.Errorf("xeapi public key response signature mismatch")
+		return nil, errors.New("xeapi public key response signature mismatch")
 	}
 
 	state, err := crypto.XeapiDecryptPublicKey(reply.Data.EncryptedData)
 	if err != nil {
 		return nil, fmt.Errorf("XeapiDecryptPublicKey: %w", err)
 	}
+
 	state.DeviceID = req.DeviceID
 	return state, nil
 }
@@ -208,18 +227,20 @@ func (c *Client) updateXeapiSession(response *resty.Response) {
 		return
 	}
 
-	sessionID := strings.TrimSpace(response.Header().Get("x-encr-ssid"))
-	sessionKey := strings.TrimSpace(response.Header().Get("x-encr-sskey"))
-	if sessionID == "" || sessionKey == "" {
+	session := crypto.Session{
+		ID:  strings.TrimSpace(response.Header().Get("X-Encr-Ssid")),
+		Key: strings.TrimSpace(response.Header().Get("X-Encr-Sskey")),
+	}
+	if session.ID == "" || session.Key == "" {
 		return
 	}
 
 	c.xeapiMu.Lock()
-	c.xeapiSession = crypto.Session{ID: sessionID, Key: sessionKey}
+	c.xeapiSession = session
 	c.xeapiMu.Unlock()
 }
 
-func rewriteXeapiURL(rawURL string) (envelopeURL, requestURL string, err error) {
+func rewriteXeapiURL(rawURL string) (string, string, error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return "", "", fmt.Errorf("url.Parse xeapi url: %w", err)
@@ -248,6 +269,7 @@ func rewriteXeapiURL(rawURL string) (envelopeURL, requestURL string, err error) 
 		}
 		break
 	}
+
 	if !replaced {
 		return "", "", fmt.Errorf("xeapi url path must contain /api, /eapi, or /xeapi: %s", parsedURL.Path)
 	}
@@ -274,6 +296,7 @@ func generateXeapiNonce() (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("rand.Int xeapi nonce: %w", err)
 		}
+
 		nonce[i] = byte('0' + n.Int64())
 	}
 	return string(nonce), nil
@@ -284,11 +307,12 @@ func rawTimestampString(raw json.RawMessage) (string, error) {
 	if err := json.Unmarshal(raw, &text); err == nil {
 		return text, nil
 	}
+
 	var num json.Number
 	if err := json.Unmarshal(raw, &num); err == nil {
 		return num.String(), nil
 	}
-	return "", fmt.Errorf("xeapi public key response timestamp invalid")
+	return "", errors.New("xeapi public key response timestamp invalid")
 }
 
 func xeapiUserAgent(opts *Options) string {

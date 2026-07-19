@@ -47,9 +47,10 @@ func TestCaptureReadCloserFinalizesOnClose(t *testing.T) {
 
 	original := []byte("complete response")
 	snapshots := make(chan bodySnapshot, 2)
+	initial := newBodySnapshot(http.Header{"Content-Type": []string{"text/plain"}}, int64(len(original)))
 	reader := newCaptureReadCloser(
 		&eofWithDataReadCloser{data: original, terminalErr: io.EOF},
-		newBodySnapshot(http.Header{"Content-Type": []string{"text/plain"}}, int64(len(original))),
+		&initial,
 		int64(len(original)),
 		func(snapshot bodySnapshot) { snapshots <- snapshot },
 	)
@@ -62,6 +63,7 @@ func TestCaptureReadCloserFinalizesOnClose(t *testing.T) {
 	require.Empty(t, snapshots, "response logging must not run in the Read hot path")
 
 	require.NoError(t, reader.Close())
+
 	snapshot := <-snapshots
 	require.Equal(t, original, snapshot.raw)
 	require.NoError(t, snapshot.captureErr)
@@ -73,14 +75,16 @@ func TestCaptureReadCloserReportsEarlyClose(t *testing.T) {
 	t.Parallel()
 
 	snapshots := make(chan bodySnapshot, 1)
+	initial := newBodySnapshot(http.Header{}, 6)
 	reader := newCaptureReadCloser(
 		io.NopCloser(bytes.NewReader([]byte("unread"))),
-		newBodySnapshot(http.Header{}, 6),
+		&initial,
 		64,
 		func(snapshot bodySnapshot) { snapshots <- snapshot },
 	)
 
 	require.NoError(t, reader.Close())
+
 	snapshot := <-snapshots
 	require.ErrorIs(t, snapshot.captureErr, errBodyClosedBeforeEOF)
 	require.Empty(t, snapshot.raw)
@@ -96,18 +100,21 @@ func TestCaptureReadCloserWaitsForInFlightRead(t *testing.T) {
 		closed:  make(chan struct{}),
 	}
 	snapshots := make(chan bodySnapshot, 1)
+	initial := newBodySnapshot(http.Header{}, int64(len(original)))
 	reader := newCaptureReadCloser(
 		underlying,
-		newBodySnapshot(http.Header{}, int64(len(original))),
+		&initial,
 		int64(len(original)),
 		func(snapshot bodySnapshot) { snapshots <- snapshot },
 	)
+
 	readResult := make(chan struct {
 		body []byte
 		err  error
 	}, 1)
 	go func() {
 		buffer := make([]byte, len(original))
+
 		n, err := reader.Read(buffer)
 		readResult <- struct {
 			body []byte
@@ -116,17 +123,21 @@ func TestCaptureReadCloserWaitsForInFlightRead(t *testing.T) {
 	}()
 
 	<-underlying.started
+
 	closeResult := make(chan error, 1)
 	go func() { closeResult <- reader.Close() }()
+
 	select {
 	case err := <-closeResult:
 		require.NoError(t, err)
 	case <-time.After(2 * time.Second):
 		t.Fatal("Close did not wait for the in-flight read")
 	}
+
 	result := <-readResult
 	require.ErrorIs(t, result.err, io.EOF)
 	require.Equal(t, original, result.body)
+
 	snapshot := <-snapshots
 	require.Equal(t, original, snapshot.raw)
 	require.NoError(t, snapshot.captureErr)
@@ -145,7 +156,10 @@ func TestDecodeHTTPContent(t *testing.T) {
 			name:     "gzip",
 			encoding: "gzip",
 			encode: func(t *testing.T, input []byte) []byte {
+				t.Helper()
+
 				var output bytes.Buffer
+
 				writer := gzip.NewWriter(&output)
 				_, err := writer.Write(input)
 				require.NoError(t, err)
@@ -157,7 +171,10 @@ func TestDecodeHTTPContent(t *testing.T) {
 			name:     "zlib deflate",
 			encoding: "deflate",
 			encode: func(t *testing.T, input []byte) []byte {
+				t.Helper()
+
 				var output bytes.Buffer
+
 				writer := zlib.NewWriter(&output)
 				_, err := writer.Write(input)
 				require.NoError(t, err)
@@ -169,7 +186,10 @@ func TestDecodeHTTPContent(t *testing.T) {
 			name:     "raw deflate",
 			encoding: "deflate",
 			encode: func(t *testing.T, input []byte) []byte {
+				t.Helper()
+
 				var output bytes.Buffer
+
 				writer, err := flate.NewWriter(&output, flate.DefaultCompression)
 				require.NoError(t, err)
 				_, err = writer.Write(input)
@@ -182,7 +202,10 @@ func TestDecodeHTTPContent(t *testing.T) {
 			name:     "brotli",
 			encoding: "br",
 			encode: func(t *testing.T, input []byte) []byte {
+				t.Helper()
+
 				var output bytes.Buffer
+
 				writer := brotli.NewWriter(&output)
 				_, err := writer.Write(input)
 				require.NoError(t, err)
@@ -207,6 +230,7 @@ func TestDecodeHTTPContentLimitsExpandedBody(t *testing.T) {
 	t.Parallel()
 
 	var compressed bytes.Buffer
+
 	writer := gzip.NewWriter(&compressed)
 	_, err := writer.Write(bytes.Repeat([]byte("x"), 4096))
 	require.NoError(t, err)
@@ -228,6 +252,7 @@ func (r *eofWithDataReadCloser) Read(p []byte) (int, error) {
 	if r.read {
 		return 0, io.EOF
 	}
+
 	r.read = true
 	return copy(p, r.data), r.terminalErr
 }

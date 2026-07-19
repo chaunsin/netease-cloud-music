@@ -21,18 +21,18 @@ func TestValidateListenAddress(t *testing.T) {
 }
 
 func TestNormalizeConfigCAPolicy(t *testing.T) {
-	defaultConfig, err := normalizeConfig(Config{})
+	defaultConfig, err := normalizeConfig(&Config{})
 	require.NoError(t, err)
 	require.True(t, defaultConfig.RequirePrivateCAPath)
 
-	explicitConfig, err := normalizeConfig(Config{
+	explicitConfig, err := normalizeConfig(&Config{
 		CACertPath: "testdata/ca.crt",
 		CAKeyPath:  "testdata/ca.key",
 	})
 	require.NoError(t, err)
 	require.False(t, explicitConfig.RequirePrivateCAPath)
 
-	strictExplicitConfig, err := normalizeConfig(Config{
+	strictExplicitConfig, err := normalizeConfig(&Config{
 		CACertPath:           "testdata/ca.crt",
 		CAKeyPath:            "testdata/ca.key",
 		RequirePrivateCAPath: true,
@@ -42,10 +42,10 @@ func TestNormalizeConfigCAPolicy(t *testing.T) {
 }
 
 func TestNormalizeConfigRejectsUnboundedBodyLimit(t *testing.T) {
-	_, err := normalizeConfig(Config{MaxBodyBytes: math.MaxInt64})
+	_, err := normalizeConfig(&Config{MaxBodyBytes: math.MaxInt64})
 	require.ErrorContains(t, err, "less than")
 
-	config, err := normalizeConfig(Config{MaxBodyBytes: math.MaxInt64 - 1})
+	config, err := normalizeConfig(&Config{MaxBodyBytes: math.MaxInt64 - 1})
 	require.NoError(t, err)
 	require.Equal(t, int64(math.MaxInt64-1), config.MaxBodyBytes)
 }

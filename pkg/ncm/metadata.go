@@ -20,24 +20,26 @@ func (a *Artist) UnmarshalJSON(data []byte) error {
 	}
 
 	if len(v) != 2 {
-		fmt.Printf("ncm: parse artist err,len:%v type:%T value:%+v\n", len(v), v, v)
+		return fmt.Errorf("ncm: artist must contain name and id, got %d values", len(v))
 	}
 
 	var ok bool
+
 	a.Name, ok = v[0].(string)
 	if !ok {
-		fmt.Printf("ncm: parse artist.name err type:%T value:%+v\n", v, v)
+		return fmt.Errorf("ncm: artist name has type %T", v[0])
 	}
+
 	id, ok := v[1].(float64)
 	if !ok {
-		fmt.Printf("ncm: parse artist.id err type:%T value:%+v\n", v, v)
-		return nil
+		return fmt.Errorf("ncm: artist id has type %T", v[1])
 	}
+
 	a.Id = int64(id)
 	return nil
 }
 
-// AlbumPicDocId 解决有的歌曲id为int有的歌曲id为string问题
+// AlbumPicDocId 解决有的歌曲id为int有的歌曲id为string问题.
 type AlbumPicDocId string
 
 func (a *AlbumPicDocId) UnmarshalJSON(data []byte) error {
@@ -45,7 +47,7 @@ func (a *AlbumPicDocId) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MetadataMusic .
+// MetadataMusic describes the music metadata stored in an NCM file.
 type MetadataMusic struct {
 	Id            int64         `json:"musicId"`
 	Name          string        `json:"musicName"`

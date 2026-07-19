@@ -32,6 +32,7 @@ func TestNCBLChaCha20RFC8439Vector(t *testing.T) {
 func TestNCBLChaCha20JavaScriptVectorCrossesBlockBoundary(t *testing.T) {
 	key := decodeHex(t, "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
 	nonce := decodeHex(t, "000000090000004a00000000")
+
 	plaintext := make([]byte, 80)
 	for index := range plaintext {
 		plaintext[index] = byte(index)
@@ -77,10 +78,12 @@ func TestEncryptNCBLMatchesJavaScriptGolden(t *testing.T) {
 
 func TestEncryptNCBLCompressionRoundTrip(t *testing.T) {
 	meta := []byte(`{"MUSIC_U":"token","os":"pc"}`)
+
 	body := make([]byte, 2048)
 	for index := range body {
 		body[index] = byte(index*31 + 7)
 	}
+
 	key := decodeHex(t, "a50102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
 	uuid := decodeHex(t, "00112233445566778899aabbccddeeff")
 
@@ -123,9 +126,11 @@ func TestEncryptNCBLCompressionRoundTrip(t *testing.T) {
 			assert.Equal(t, key[1:], decoded.keyA[1:])
 			assert.Equal(t, uint32(0xfffffffe), decoded.firstSequence)
 			assert.Equal(t, decoded.firstSequence+uint32(len(decoded.sequences)-1), decoded.lastSequence)
+
 			for index, sequence := range decoded.sequences {
 				assert.Equal(t, decoded.firstSequence+uint32(index), sequence)
 			}
+
 			require.True(t, bytes.HasPrefix(decoded.compressed, test.magic))
 			assert.Equal(t, body, test.decompress(t, decoded.compressed))
 		})
@@ -210,7 +215,7 @@ func TestNCBLExplicitZeroOptionSemantics(t *testing.T) {
 	assert.Equal(t, []uint32{0}, decoded.sequences)
 
 	_, err = EncryptNCBL(nil, nil, WithNCBLMaxFrameSize(0))
-	assert.ErrorContains(t, err, "max frame size must be between 1 and 65535, got 0")
+	require.ErrorContains(t, err, "max frame size must be between 1 and 65535, got 0")
 }
 
 func TestNCBLOptionsCanBeReusedConcurrently(t *testing.T) {
@@ -227,6 +232,7 @@ func TestNCBLOptionsCanBeReusedConcurrently(t *testing.T) {
 		payload []byte
 		err     error
 	}
+
 	results := make(chan result, 16)
 	for range cap(results) {
 		go func() {
@@ -234,6 +240,7 @@ func TestNCBLOptionsCanBeReusedConcurrently(t *testing.T) {
 			results <- result{payload: payload, err: err}
 		}()
 	}
+
 	for range cap(results) {
 		got := <-results
 		require.NoError(t, got.err)
@@ -287,15 +294,15 @@ func TestEncryptNCBLMetadataLimit(t *testing.T) {
 		})
 
 		_, err := EncryptNCBL(make([]byte, ncblMaxMetadataSize+1), nil, probe)
-		assert.ErrorContains(t, err, "65462 bytes")
-		assert.ErrorContains(t, err, "maximum is 65461")
+		require.ErrorContains(t, err, "65462 bytes")
+		require.ErrorContains(t, err, "maximum is 65461")
 		assert.False(t, optionApplied)
 	})
 }
 
 func TestEncryptNCBLPropagatesRandomAndCompressionErrors(t *testing.T) {
 	_, err := EncryptNCBL(nil, nil, withNCBLRandomSource(bytes.NewReader(nil)))
-	assert.ErrorContains(t, err, "generate key")
+	require.ErrorContains(t, err, "generate key")
 
 	want := errors.New("compression failed")
 	_, err = EncryptNCBL(
@@ -340,23 +347,28 @@ func decodeNCBL(t *testing.T, payload []byte) decodedNCBLPayload {
 	counter := binary.LittleEndian.Uint32(uuid[ncblNonceSize:]) >> 2
 
 	var meta bytes.Buffer
+
 	for position := NCBLHeaderFixedLen; position < headerLen; {
 		require.LessOrEqual(t, position+ncblMetaHeaderLen, headerLen)
 		blockType := binary.LittleEndian.Uint16(payload[position : position+2])
 		blockLen := int(binary.LittleEndian.Uint16(payload[position+2 : position+4]))
 		position += ncblMetaHeaderLen
 		require.LessOrEqual(t, position+blockLen, headerLen)
+
 		if blockType == NCBLMetaBlockType {
 			plaintext, err := ncblChaCha20(keyB, counter, nonce, payload[position:position+blockLen])
 			require.NoError(t, err)
 			_, err = meta.Write(plaintext)
 			require.NoError(t, err)
 		}
+
 		position += blockLen
 	}
 
 	var compressed bytes.Buffer
+
 	sequences := make([]uint32, 0)
+
 	for position := headerLen; position < len(payload); {
 		require.LessOrEqual(t, position+6, len(payload))
 		frameLen := int(binary.LittleEndian.Uint16(payload[position : position+2]))
@@ -367,6 +379,7 @@ func decodeNCBL(t *testing.T, payload []byte) decodedNCBLPayload {
 		require.NoError(t, err)
 		_, err = compressed.Write(plaintext)
 		require.NoError(t, err)
+
 		position += frameLen
 	}
 
@@ -383,6 +396,7 @@ func decodeNCBL(t *testing.T, payload []byte) decodedNCBLPayload {
 
 func unwrapNCBLKey(t *testing.T, keyB []byte) []byte {
 	t.Helper()
+
 	p, ok := new(big.Int).SetString("337838269511367116547262517807543394287", 10)
 	require.True(t, ok)
 	q, ok := new(big.Int).SetString("339484579896250424463517790785600633139", 10)
@@ -396,6 +410,7 @@ func unwrapNCBLKey(t *testing.T, keyB []byte) []byte {
 
 	modulus := new(big.Int).Mul(p, q)
 	assert.Equal(t, 0, modulus.Cmp(ncblRSAModulus))
+
 	key := new(big.Int).SetBytes(keyB)
 	key.Exp(key, privateExponent, modulus)
 	return key.FillBytes(make([]byte, ncblKeySize))
@@ -403,8 +418,10 @@ func unwrapNCBLKey(t *testing.T, keyB []byte) []byte {
 
 func decompressNCBLZstandard(t *testing.T, compressed []byte) []byte {
 	t.Helper()
+
 	reader, err := zstd.NewReader(nil)
 	require.NoError(t, err)
+
 	defer reader.Close()
 
 	body, err := reader.DecodeAll(compressed, nil)
@@ -414,9 +431,13 @@ func decompressNCBLZstandard(t *testing.T, compressed []byte) []byte {
 
 func decompressNCBLGzip(t *testing.T, compressed []byte) []byte {
 	t.Helper()
+
 	reader, err := gzip.NewReader(bytes.NewReader(compressed))
 	require.NoError(t, err)
-	defer reader.Close()
+
+	t.Cleanup(func() {
+		require.NoError(t, reader.Close())
+	})
 
 	body, err := io.ReadAll(reader)
 	require.NoError(t, err)
@@ -425,6 +446,7 @@ func decompressNCBLGzip(t *testing.T, compressed []byte) []byte {
 
 func decodeHex(t *testing.T, value string) []byte {
 	t.Helper()
+
 	data, err := hex.DecodeString(value)
 	require.NoError(t, err)
 	return data

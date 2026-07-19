@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	stdlog "log"
 	"log/slog"
 	"os"
 	"runtime"
@@ -57,11 +58,13 @@ func New(cfg *Config) *Logger {
 	if cfg == nil {
 		cfg = &defaultConfig
 	}
+
 	if err := cfg.Validate(); err != nil {
 		panic(fmt.Sprintf("config validate: %s", err))
 	}
 
 	var level slog.LevelVar
+
 	switch cfg.Level {
 	case "debug":
 		level.Set(slog.LevelDebug)
@@ -85,17 +88,20 @@ func New(cfg *Config) *Logger {
 	if cfg.Stdout {
 		w = append(w, os.Stderr)
 	}
+
 	w = append(w, &cfg.Rotate)
 
 	var h slog.Handler
+
 	switch cfg.Format {
 	case "json":
 		h = slog.NewJSONHandler(io.MultiWriter(w...), &opts)
 	case "text":
-		fallthrough
+		h = slog.NewTextHandler(io.MultiWriter(w...), &opts)
 	default:
 		h = slog.NewTextHandler(io.MultiWriter(w...), &opts)
 	}
+
 	h = h.WithAttrs([]slog.Attr{slog.String("app", cfg.App)})
 
 	l := Logger{
@@ -126,32 +132,34 @@ func log(h slog.Handler, lv slog.Level, msg string, args ...any) {
 	if !h.Enabled(ctx, lv) {
 		return
 	}
+
 	var pcs [1]uintptr
 	runtime.Callers(3, pcs[:]) // skip [Callers, Info]
 	r := slog.NewRecord(time.Now(), lv, msg, pcs[0])
 	r.Add(args...)
+
 	if err := h.Handle(ctx, r); err != nil {
-		fmt.Printf("[log] handle err:%s\n", err)
+		stdlog.Printf("[log] handler error: %v", err)
 	}
 }
 
-func Debug(format string, args ...any) {
+func Debugf(format string, args ...any) {
 	log(Default.l.Handler(), slog.LevelDebug, fmt.Sprintf(format, args...))
 }
 
-func Info(format string, args ...any) {
+func Infof(format string, args ...any) {
 	log(Default.l.Handler(), slog.LevelInfo, fmt.Sprintf(format, args...))
 }
 
-func Warn(format string, args ...any) {
+func Warnf(format string, args ...any) {
 	log(Default.l.Handler(), slog.LevelWarn, fmt.Sprintf(format, args...))
 }
 
-func Error(format string, args ...any) {
+func Errorf(format string, args ...any) {
 	log(Default.l.Handler(), slog.LevelError, fmt.Sprintf(format, args...))
 }
 
-func Fatal(format string, args ...any) {
+func Fatalf(format string, args ...any) {
 	log(Default.l.Handler(), slog.LevelError, fmt.Sprintf(format, args...))
 	os.Exit(1)
 }

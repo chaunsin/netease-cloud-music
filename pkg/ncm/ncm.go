@@ -14,7 +14,7 @@ import (
 	"os"
 )
 
-// IsNCMFile check whether the file is ncm file
+// IsNCMFile check whether the file is ncm file.
 func IsNCMFile(rs io.ReadSeeker) error {
 	if rs == nil {
 		return errors.New("io.ReadSeeker is nil")
@@ -23,17 +23,19 @@ func IsNCMFile(rs io.ReadSeeker) error {
 	if _, err := rs.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
+
 	header := make([]byte, 8)
 	if err := binary.Read(rs, binary.LittleEndian, &header); err != nil {
 		return fmt.Errorf("binary.Read: %w", err)
 	}
+
 	if string(header) != "CTENFDAM" {
 		return fmt.Errorf("isn't netease cloud music copyright file detail: %s", string(header))
 	}
 	return nil
 }
 
-// DecodeKey decode key
+// DecodeKey decode key.
 func DecodeKey(rs io.ReadSeeker) ([]byte, error) {
 	if rs == nil {
 		return nil, errors.New("io.ReadSeeker is nil")
@@ -53,15 +55,17 @@ func DecodeKey(rs io.ReadSeeker) ([]byte, error) {
 
 func decodeKey(rs io.ReadSeeker) ([]byte, error) {
 	keyBuf := make([]byte, 4)
+
 	keyLen, err := readUint32(keyBuf, rs)
 	if err != nil {
 		return nil, err
 	}
 
 	keyData := make([]byte, keyLen)
-	if _, err := rs.Read(keyData); err != nil {
-		return nil, err
+	if _, readErr := rs.Read(keyData); readErr != nil {
+		return nil, readErr
 	}
+
 	for i := range keyData {
 		keyData[i] ^= 0x64
 	}
@@ -94,17 +98,19 @@ func DecodeMeta(rs io.ReadSeeker) (*Metadata, error) {
 
 	// whether a decoded key is successful
 	keyBuf := make([]byte, 4)
+
 	keyLen, err := readUint32(keyBuf, rs)
 	if err != nil {
 		return nil, fmt.Errorf("readUint32.keyBuf: %w", err)
 	}
 
-	if _, err := rs.Seek(int64(keyLen), io.SeekCurrent); err != nil {
-		return nil, err
+	if _, seekErr := rs.Seek(int64(keyLen), io.SeekCurrent); seekErr != nil {
+		return nil, seekErr
 	}
 
 	// get metadata length
 	metaBuf := make([]byte, 4)
+
 	metaLen, err := readUint32(metaBuf, rs)
 	if err != nil {
 		return nil, fmt.Errorf("readUint32.metaBuf: %w", err)
@@ -115,7 +121,7 @@ func DecodeMeta(rs io.ReadSeeker) (*Metadata, error) {
 	if metaLen <= 0 {
 		meta.mt = "music"
 		meta.music = &MetadataMusic{
-			Format: "mp3", // todo: 没有元数据目前则默认为MP3,这可能不符合实际得扩展后缀
+			Format: "mp3", // Pending: 没有元数据目前则默认为MP3,这可能不符合实际得扩展后缀
 		}
 		return &meta, nil
 		// // // whether a decoded key is successful
@@ -174,6 +180,7 @@ func DecodeMeta(rs io.ReadSeeker) (*Metadata, error) {
 	if _, err = rs.Read(metadata); err != nil {
 		return nil, fmt.Errorf("read.metadata: %w", err)
 	}
+
 	for i := range metadata {
 		metadata[i] ^= 0x63
 	}
@@ -190,21 +197,23 @@ func DecodeMeta(rs io.ReadSeeker) (*Metadata, error) {
 		return nil, fmt.Errorf("decryptAes128Ecb: %w", err)
 	}
 
-	sep := bytes.IndexByte(data, ':')
-	if sep == -1 {
+	before, after, ok := bytes.Cut(data, []byte{':'})
+	if !ok {
 		return nil, errors.New("invalid ncm meta file")
 	}
 
-	meta.mt = MetadataType(data[:sep])
+	meta.mt = MetadataType(before)
 	switch meta.mt {
-	case "music":
-		if err := json.Unmarshal(data[sep+1:], &meta.music); err != nil {
+	case MetadataTypeMusic:
+		if err := json.Unmarshal(after, &meta.music); err != nil {
 			return nil, fmt.Errorf("json.Unmarshal.music: %w", err)
 		}
-	case "dj":
-		if err := json.Unmarshal(data[sep+1:], &meta.dj); err != nil {
+	case MetadataTypeDJ:
+		if err := json.Unmarshal(after, &meta.dj); err != nil {
 			return nil, fmt.Errorf("json.Unmarshal.dj: %w", err)
 		}
+	default:
+		return nil, fmt.Errorf("unsupported metadata type %q", meta.mt)
 	}
 	return &meta, nil
 }
@@ -222,41 +231,44 @@ func decodeCover(rs io.ReadSeeker) ([]byte, int64, error) {
 
 	// whether a decoded key is successful
 	keyBuf := make([]byte, 4)
+
 	keyLen, err := readUint32(keyBuf, rs)
 	if err != nil {
 		return nil, 0, fmt.Errorf("readUint32.keyBuf: %w", err)
 	}
 
-	if _, err := rs.Seek(int64(keyLen), io.SeekCurrent); err != nil {
-		return nil, 0, err
+	if _, seekErr := rs.Seek(int64(keyLen), io.SeekCurrent); seekErr != nil {
+		return nil, 0, seekErr
 	}
 
 	// get metadata length
 	metaBuf := make([]byte, 4)
+
 	metaLen, err := readUint32(metaBuf, rs)
 	if err != nil {
 		return nil, 0, fmt.Errorf("readUint32.metaBuf: %w", err)
 	}
+
 	if metaLen > 0 {
-		if _, err := rs.Seek(int64(metaLen), io.SeekCurrent); err != nil {
-			return nil, 0, err
+		if _, seekErr := rs.Seek(int64(metaLen), io.SeekCurrent); seekErr != nil {
+			return nil, 0, seekErr
 		}
 	}
 
 	// 5 bytes gap + 4 bytes image crc
-	if _, err := rs.Seek(9, io.SeekCurrent); err != nil {
-		return nil, 0, err
+	if _, seekErr := rs.Seek(9, io.SeekCurrent); seekErr != nil {
+		return nil, 0, seekErr
 	}
 
 	// get cover image length
 	imgBuf := make([]byte, 4)
+
 	imgLen, err := readUint32(imgBuf, rs)
 	if err != nil {
 		return nil, 0, fmt.Errorf("readUint32.imgBuf: %w", err)
 	}
 	// imgLen <= 0 that means no cover image
 	if imgLen <= 0 {
-		fmt.Println("ncm: invalid cover image length or no cover data")
 		return nil, 0, nil
 	}
 
@@ -280,7 +292,7 @@ func DecodeCoverType(rs io.ReadSeeker) (CoverType, error) {
 	return DetectCoverType(data), nil
 }
 
-// DecodeCover decode cover image
+// DecodeCover decode cover image.
 func DecodeCover(rs io.ReadSeeker, w io.Writer) error {
 	if rs == nil || w == nil {
 		return errors.New("io.ReadSeeker or io.Writer is nil")
@@ -318,8 +330,8 @@ func DecodeMusic(rs io.ReadSeeker, w io.Writer) error {
 	if err := DecodeCover(rs, io.Discard); err != nil {
 		return fmt.Errorf("DecodeCover: %w", err)
 	}
-	_, err = decryptMusic(box, rs, w)
-	return err
+
+	return decryptMusic(box, rs, w)
 }
 
 type NCM struct {
@@ -335,8 +347,9 @@ type NCM struct {
 }
 
 type File struct {
-	f *os.File
 	*NCM
+
+	f *os.File
 }
 
 func (f *File) Close() error {
@@ -379,12 +392,14 @@ func FromReadSeeker(rs io.ReadSeeker) (*NCM, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decodeKey: %w", err)
 	}
+
 	ncm.box = box
 
 	// decode metadata
 	{
 		// get metadata length
 		metaBuf := make([]byte, 4)
+
 		metaLen, err := readUint32(metaBuf, rs)
 		if err != nil {
 			return nil, fmt.Errorf("readUint32.metaBuf: %w", err)
@@ -457,6 +472,7 @@ func FromReadSeeker(rs io.ReadSeeker) (*NCM, error) {
 			if _, err = rs.Read(metadata); err != nil {
 				return nil, fmt.Errorf("metadata: %w", err)
 			}
+
 			for i := range metadata {
 				metadata[i] ^= 0x63
 			}
@@ -472,24 +488,25 @@ func FromReadSeeker(rs io.ReadSeeker) (*NCM, error) {
 				return nil, fmt.Errorf("decryptAes128Ecb: %w", err)
 			}
 
-			sep := bytes.IndexByte(meta, ':')
-			if sep == -1 {
+			before, after, ok := bytes.Cut(meta, []byte{':'})
+			if !ok {
 				return nil, errors.New("invalid ncm meta file")
 			}
 
-			md := Metadata{mt: MetadataType(meta[:sep])}
+			md := Metadata{mt: MetadataType(before)}
 			switch md.mt {
 			case "music":
-				if err := json.Unmarshal(meta[sep+1:], &md.music); err != nil {
+				if err := json.Unmarshal(after, &md.music); err != nil {
 					return nil, fmt.Errorf("json.Unmarshal.music: %w", err)
 				}
 			case "dj":
-				if err := json.Unmarshal(meta[sep+1:], &md.dj); err != nil {
+				if err := json.Unmarshal(after, &md.dj); err != nil {
 					return nil, fmt.Errorf("json.Unmarshal.dj: %w", err)
 				}
 			default:
 				return nil, fmt.Errorf("unknown ncm meta type: %s", md.mt)
 			}
+
 			ncm.metadata = &md
 		}
 	}
@@ -501,10 +518,12 @@ func FromReadSeeker(rs io.ReadSeeker) (*NCM, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		ncm.coverOffset = offset
 
 		// get cover image length
 		imgBuf := make([]byte, 4)
+
 		imgLen, err := readUint32(imgBuf, rs)
 		if err != nil {
 			return nil, fmt.Errorf("readUint32.imgBuf: %w", err)
@@ -515,6 +534,7 @@ func FromReadSeeker(rs io.ReadSeeker) (*NCM, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		ncm.musicOffset = offset
 	}
 	return &ncm, nil
@@ -532,10 +552,12 @@ func (n *NCM) DecodeCoverType() (CoverType, error) {
 	if err != nil {
 		return CoverTypeUnknown, fmt.Errorf("seek(%v): %w", n.coverOffset, err)
 	}
+
 	_ = offset
 
 	// get cover image length
 	imgBuf := make([]byte, 4)
+
 	imgLen, err := readUint32(imgBuf, n.rs)
 	if err != nil {
 		return CoverTypeUnknown, fmt.Errorf("readUint32.imgBuf: %w", err)
@@ -559,22 +581,24 @@ func (n *NCM) DecodeCover(w io.Writer) error {
 	if w == nil {
 		return errors.New("io.Writer is nil")
 	}
+
 	offset, err := n.rs.Seek(n.coverOffset, io.SeekStart)
 	if err != nil {
 		return fmt.Errorf("seek(%v): %w", n.coverOffset, err)
 	}
+
 	_ = offset
 
 	// get cover image length
 	imgBuf := make([]byte, 4)
+
 	imgLen, err := readUint32(imgBuf, n.rs)
 	if err != nil {
 		return fmt.Errorf("readUint32.imgBuf: %w", err)
 	}
 	// image data can length 0
 	if imgLen <= 0 {
-		// return errors.New("invalid cover image length or no cover data")
-		fmt.Println("ncm: invalid cover image length or no cover data")
+		return nil
 	}
 
 	// copy image data to w
@@ -588,11 +612,12 @@ func (n *NCM) DecodeMusic(w io.Writer) error {
 	if w == nil {
 		return errors.New("io.Writer is nil")
 	}
+
 	offset, err := n.rs.Seek(n.musicOffset, io.SeekStart)
 	if err != nil {
 		return fmt.Errorf("seek(%v): %w", n.musicOffset, err)
 	}
+
 	_ = offset
-	_, err = decryptMusic(n.box, n.rs, w)
-	return err
+	return decryptMusic(n.box, n.rs, w)
 }

@@ -1,14 +1,15 @@
 ---
 title: ncmctl Command Reference
-description: All command flags, parameters, and examples for ncmctl CLI.
-version: "0.2.0"
+description: Current command flags, behavior, safety boundaries, and configuration schema for ncmctl.
+version: "0.3.0"
 ---
 
 # Command Reference
 
-## Table of Contents
+## Contents
 
-- [Getting Help](#getting-help)
+- [Getting help](#getting-help)
+- [Global flags](#global-flags)
 - [task](#task)
 - [sign](#sign)
 - [partner](#partner)
@@ -19,371 +20,370 @@ version: "0.2.0"
 - [crypto](#crypto)
 - [curl](#curl)
 - [proxy](#proxy)
-- [Exit Codes](#exit-codes)
-- [Environment Variables](#environment-variables)
-- [Configuration File](#configuration-file)
+- [completion](#completion)
+- [Configuration](#configuration)
 
-## Getting Help
+Login and installation are documented in `install-and-login.md`.
+
+## Getting help
+
+The installed binary is authoritative for its version:
 
 ```bash
-# Show global help
 ncmctl --help
-
-# Show help for a specific command
-ncmctl task --help
-ncmctl download --help
-ncmctl login --help
+ncmctl COMMAND --help
+ncmctl login METHOD --help
+ncmctl crypto encrypt --help
+ncmctl crypto decrypt --help
 ```
+
+Do not infer that a value accepted by a generic flag is implemented by every subcommand. The limitations below reflect the current source behavior.
+
+## Global flags
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--debug` | false | Enable debug/stdout logging and network debug |
+| `-c, --config <file>` | none | Select this exact YAML file; current source has the loader issue described below |
+| `--home <dir>` | OS user home | Substitute this value for `${HOME}` in runtime paths |
+| `-v, --version` | - | Print build and runtime version information |
+
+Without `--config`, ncmctl uses embedded defaults. It does not automatically read `~/.ncmctl/config.yaml`.
 
 ## task
 
-Run daily tasks on a cron schedule as a long-running service. Requires login.
+Run selected account tasks on cron schedules as a long-running service. Login is required.
 
 ```bash
-# Run all tasks (sign + partner + scrobble)
+# No selectors means all three jobs
 ncmctl task
 
-# Selective execution
+# Only sign and scrobble
 ncmctl task --sign --scrobble
 
-# Custom cron schedule
-ncmctl task --scrobble.cron "0 20 * * *"
-
-# Custom timezone
-ncmctl task -l America/New_York
+# Change the scrobble schedule and timezone
+ncmctl task --scrobble \
+  --scrobble.cron '0 20 * * *' \
+  --location Asia/Shanghai
 ```
 
-Runs as a service; press Ctrl+C to stop. Uses standard [crontab](https://crontab.guru/) expressions.
-
 | Flag | Default | Description |
-|------|---------|-------------|
-| `--sign` | false | Enable sign task |
-| `--partner` | false | Enable partner task |
-| `--scrobble` | false | Enable scrobble task |
-| `--runAll` | false | Enable all tasks |
-| `--sign.cron` | `0 10 * * *` | Sign cron expression |
-| `--partner.cron` | `0 18 * * *` | Partner cron expression |
-| `--scrobble.cron` | `0 18 * * *` | Scrobble cron expression |
-| `--sign.automatic` | false | Auto-claim sign rewards (**ban risk!**) |
-| `--partner.star` | `3,4` | Base song score range (1-5) |
-| `--partner.extStar` | `2,3,4` | Extra song score range (1-5) |
-| `--partner.extNum` | `random` | Extra eval count: `random` (2-7) or number |
-| `--scrobble.num` | 300 | Scrobble song count |
-| `-l, --location` | `Asia/Shanghai` | Timezone |
+| --- | --- | --- |
+| `--runAll` | false | Register all jobs; no selectors has the same effect |
+| `--sign` | false | Register the sign job |
+| `--partner` | false | Register the partner job |
+| `--scrobble` | false | Register the scrobble job |
+| `--sign.cron` | `0 10 * * *` | Sign schedule |
+| `--partner.cron` | `0 18 * * *` | Partner schedule |
+| `--scrobble.cron` | `0 18 * * *` | Scrobble schedule |
+| `--sign.automatic` | false | Claim eligible sign/VIP rewards; increased account risk |
+| `--partner.star` | `3,4` | Base evaluation score choices, each 1-5 |
+| `--partner.extStar` | `2,3,4` | Extra evaluation score choices, each 1-5 |
+| `--partner.extNum` | `random` | Extra evaluation count: `random` (2-7) or 0-15 |
+| `--scrobble.num` | 300 | Requested play-log count, 1-300 |
+| `-l, --location` | `Asia/Shanghai` | IANA timezone for cron |
+
+Schedules use standard five-field cron syntax. Press Ctrl+C or send SIGTERM to stop the service.
 
 ## sign
 
-Single execution of daily check-in (YunBei + VIP). Requires login.
+Run YunBei and eligible VIP sign-in actions once. Login is required.
 
 ```bash
 ncmctl sign
-ncmctl sign -a  # Auto-claim rewards (ban risk!)
+ncmctl sign --automatic
 ```
 
 | Flag | Default | Description |
-|------|---------|-------------|
-| `-a, --automatic` | false | Auto-claim sign-in rewards (**ban risk!**) |
+| --- | --- | --- |
+| `-a, --automatic` | false | Claim available YunBei and VIP rewards in addition to sign-in |
 
-Execution flow:
-1. YunBei sign-in (云贝签到)
-2. If `--automatic`: claim sign-in rewards and complete YunBei tasks
-3. VIP grow point check
-4. VIP task sign (黑胶乐签)
-5. If `--automatic`: claim VIP growth rewards
+Automatic reward handling performs more account actions and may increase risk-control exposure.
 
 ## partner
 
-Music partner auto-evaluation. Requires login and partner qualification.
+Submit music-partner evaluations once. Login and partner eligibility are required.
 
 ```bash
 ncmctl partner
-ncmctl partner -s 3,4 -e 2,3,4
-ncmctl partner -n 5
+ncmctl partner --star 3,4 --extra 2,3,4
+ncmctl partner --num 5
 ```
 
 | Flag | Default | Description |
-|------|---------|-------------|
-| `-s, --star` | `3,4` | Base song score range (1-5, unique) |
-| `-e, --extra` | `2,3,4` | Extra song score range (1-5, unique) |
-| `-n, --num` | `random` | Extra eval count: `random` (2-7) or number (0-15) |
+| --- | --- | --- |
+| `-s, --star` | `3,4` | Unique base score choices from 1 through 5 |
+| `-e, --extra` | `2,3,4` | Unique extra score choices from 1 through 5 |
+| `-n, --num` | `random` | Extra evaluation count: `random` (2-7) or 0-15 |
 
-Execution flow:
-1. Check partner qualification (`PartnerUserinfo`)
-2. Get 5 base daily songs (`PartnerDailyTask`)
-3. For each song: simulate listening (15-25s random delay) → report play → evaluate with random score
-4. Get extra task songs (`PartnerExtraTask`)
-5. Evaluate extra songs (2-7 random count)
-
-Error code 703 = not a music partner. Code 405 = task already completed.
+The command reports play events, waits 15-24 seconds per item, and submits evaluations. It changes account state; do not use it as a connectivity test. Failures propagate through the process exit status and through the `task` scheduler log.
 
 ## scrobble
 
-Scrobble songs to increase listen count. Requires login. **High ban risk!**
+Submit play logs to increase the account's listen count. Login is required and the feature has a high risk of account restrictions.
 
 ```bash
 ncmctl scrobble
-ncmctl scrobble -n 200
+ncmctl scrobble --num 200
 ```
 
 | Flag | Default | Description |
-|------|---------|-------------|
-| `-n, --num` | 300 | Number of songs (1-300) |
+| --- | --- | --- |
+| `-n, --num` | 300 | Requested songs, 1-300; the daily total is capped at 300 |
 
-Execution flow:
-1. Get user info and check level (skip if max level 10)
-2. Check today's scrobble count from database
-3. Get Top list playlists
-4. For each playlist: get track IDs, filter already-heard songs via database
-5. Submit play logs via `WebLog` API
-6. Record played songs in database for dedup
-
-Dedup data in `~/.ncmctl/database/badger/` — do not delete. May not reach 300 if Top list songs are limited or already heard.
+Deduplication and the daily counter are stored in `<home>/.ncmctl/database/badger/`. Deleting the database loses the local history and does not reset NetEase's server-side count. The command may complete fewer songs when the available top-list tracks are already recorded.
 
 ## download
 
-Download songs, albums, playlists by ID or URL. Requires login.
+Download songs, albums, artists, or playlists. Login is required.
 
 ```bash
-# Single song by URL
-ncmctl download -l hires 'https://music.163.com/song?id=1820944399'
+# Song ID or URL
+ncmctl download --level hires 1820944399
+ncmctl download --level lossless \
+  'https://music.163.com/song?id=1820944399'
 
-# Single song by ID
-ncmctl download -l hires 1820944399
-
-# Album
-ncmctl download -p 5 'https://music.163.com/#/album?id=34608111'
-
-# Artist
+# Album, artist, or playlist URL
+ncmctl download 'https://music.163.com/#/album?id=34608111'
 ncmctl download --strict 'https://music.163.com/#/artist?id=33400892'
-
-# Playlist
 ncmctl download 'https://music.163.com/playlist?id=593617579'
 
-# Custom output
-ncmctl download -l SQ 'song_url' -o ./download/
+# Destination and parallelism
+ncmctl download --output ./music --parallel 5 1820944399
 ```
 
 | Flag | Default | Description |
-|------|---------|-------------|
+| --- | --- | --- |
 | `-o, --output` | `./download` | Output directory |
-| `-p, --parallel` | 5 | Parallel downloads (max 20) |
-| `-l, --level` | `lossless` | Quality level (see below) |
-| `--encode-type` | `flac` | Song encode type |
-| `--immerse-type` | `c51` | Song immerse type |
-| `--strict` | false | Skip if quality unavailable |
-| `--tag` | true | Write audio tags (set `--tag=false` to disable) |
+| `-p, --parallel` | 5 | Concurrent downloads, 1-20 |
+| `-l, --level` | `lossless` | Requested quality |
+| `--encode-type` | `flac` | Encode type sent to the player endpoint |
+| `--immerse-type` | `c51` | Immersive-audio type sent to the endpoint |
+| `--strict` | false | Skip a song if the exact requested quality is unavailable |
+| `--tag` | true | Compatibility placeholder; download tag writing is not implemented and either boolean value currently has no effect |
 
-**Quality levels:**
+Quality names and aliases:
 
-| Level | Aliases | Format |
-|-------|---------|--------|
-| `standard` | `128` | 128kbps |
-| `higher` | `192` | 192kbps |
-| `exhigh` | `HQ`, `320` | 320kbps |
-| `lossless` | `SQ` | FLAC |
+| Quality | Aliases | Nominal level |
+| --- | --- | --- |
+| `standard` | `128` | 128 kbps |
+| `higher` | `192` | 192 kbps |
+| `exhigh` | `HQ`, `320` | 320 kbps |
+| `lossless` | `SQ` | Lossless |
 | `hires` | `HR` | Hi-Res |
 
-**URL parsing:** Supports song/album/artist/playlist URLs or plain numeric IDs. The `Parse()` function extracts resource type and ID from input.
-
-**Download flow:**
-1. Parse input → determine resource type and IDs
-2. Fetch song details via `SongDetail` API
-3. For each song: query quality → get download URL via `SongPlayerV1` → download with progress bar → verify MD5 → rename temp file
+The command writes to a temporary file, verifies the server-provided MD5, and then renames the completed file.
 
 ## cloud
 
-Upload music files to NetEase cloud disk. Requires login.
+Upload one local music file or recursively scan one directory. Login is required and uploads modify the account's cloud disk.
 
 ```bash
-# Single file
 ncmctl cloud '/path/to/music.mp3'
-
-# Directory
 ncmctl cloud '/path/to/music/'
-
-# With filters
-ncmctl cloud -p 5 -m 1MB -r '.*\.flac$' '/path/to/music/'
+ncmctl cloud --parallel 5 --minsize 1MB \
+  --regexp '.*\.flac$' '/path/to/music/'
 ```
 
 | Flag | Default | Description |
-|------|---------|-------------|
-| `-p, --parallel` | 3 | Parallel uploads (max 10) |
-| `-m, --minsize` | none | Minimum file size (e.g., `1MB`, `500KB`) |
-| `-r, --regexp` | none | Filename regex filter |
+| --- | --- | --- |
+| `-p, --parallel` | 3 | Concurrent uploads, supported range 1-10 |
+| `-m, --minsize` | none | Skip smaller files; units include B, KB, and MB variants |
+| `-r, --regexp` | none | Regular expression matched against candidate paths |
 
-**Upload flow:**
-1. Read file and compute MD5
-2. Check if upload needed (`CloudUploadCheck`)
-3. Get upload token (`CloudTokenAlloc`)
-4. Upload file data (`CloudUpload`)
-5. Submit metadata (`CloudInfo`)
-6. Check transcoding status (`CloudMusicStatus`, retry up to 3 times)
-7. Publish to account (`CloudPublish`)
-
-**Constraints:** Max file size 500MB, max directory depth 3, only music file extensions.
+The current upload limit is 500 MB per file, and directory traversal rejects paths deeper than three levels. The command accepts extensions recognized by the repository's music-extension list, submits local tag metadata, polls conversion up to three times, and publishes the uploaded song to the account.
 
 ## ncm
 
-Decrypt `.ncm` encrypted files to playable formats. No login required.
+Decode local `.ncm` files without logging in.
 
 ```bash
-# Single file
-ncmctl ncm '/path/to/file.ncm' -o ./output
+ncmctl ncm '/path/to/file.ncm' --output ./decoded
+ncmctl ncm '/path/to/directory' --output ./decoded --parallel 10
 
-# Directory (batch)
-ncmctl ncm '/path/to/ncm/files' -o ./output -p 10
+# Historical inverted flag: this disables tag writing
+ncmctl ncm '/path/to/file.ncm' --tag
 ```
 
 | Flag | Default | Description |
-|------|---------|-------------|
+| --- | --- | --- |
 | `-o, --output` | `./ncm` | Output directory |
-| `-p, --parallel` | 10 | Parallel decryption (1-50) |
-| `--tag` | true | Write audio tags (set `--tag=false` to disable) |
+| `-p, --parallel` | 10 | Concurrent decodes, 1-50 |
+| `--tag` | false | Despite its name, setting it disables tag writing |
 
-**NCM format decryption:**
-1. Read magic header
-2. Decrypt RC4 key using AES-128-ECB
-3. Decrypt metadata using AES-128-ECB (JSON with song info)
-4. Stream-decode audio data using RC4 cipher
-
-Audio tag handling supports MP3 (ID3v2), FLAC (Vorbis), WAV. Max directory depth 3.
+Tags are written by default for supported MP3 and FLAC output. Directory traversal rejects paths deeper than three levels. Existing destination names are preserved by adding a numeric suffix.
 
 ## crypto
 
-Encrypt/decrypt API parameters for debugging NetEase Cloud Music API traffic. No login required.
-
-> **Note**: This is a debugging tool for analyzing API requests/responses. It is not for bypassing authentication or circumventing API protections. Use only for legitimate debugging of your own traffic.
+Inspect legacy API encryption formats locally. This is a debugging tool, not an authentication bypass.
 
 ```bash
-# Encrypt
-ncmctl crypto encrypt -k weapi '{"key":"value"}'
+# Encrypt JSON
+ncmctl crypto encrypt --kind weapi '{"key":"value"}'
+ncmctl crypto encrypt --kind eapi \
+  --url /eapi/v3/song/detail '{"c":[]}'
+ncmctl crypto encrypt --kind linux '{"method":"POST"}'
 
-# Decrypt
-ncmctl crypto decrypt -k eapi 'ciphertext'
+# Direct EAPI request decryption
+ncmctl crypto decrypt --kind eapi --encode hex 'CIPHERTEXT'
 
-# Decrypt from HAR file
-ncmctl crypto decrypt http_request.har
+# EAPI-focused HAR processing; restrict the path for mixed captures
+ncmctl crypto decrypt --url '/eapi/*' capture.har
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-k, --kind` | `weapi` | Mode: `weapi`/`eapi`/`linux` |
-| `-o, --output` | none | Output file path |
+Parent flags:
 
-Subcommands: `encrypt`, `decrypt`
+| Flag | Default | Description |
+| --- | --- | --- |
+| `-k, --kind` | `weapi` | Accepted encryption mode: `weapi`, `eapi`, or `linux` |
+| `-o, --output` | stdout | Write JSON output to this file |
+
+`encrypt` adds `-u, --url`, which is required for EAPI because the route participates in the digest.
+
+`decrypt` adds:
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `-e, --encode` | `hex` | Ciphertext encoding: `string`, `hex`, or `base64` |
+| `-u, --url` | `*` | Path glob used while selecting HAR entries |
+
+Current limitation: direct request decryption is implemented for EAPI. WEAPI requires the unavailable random client key; direct Linux and plain-API decrypt branches are not implemented. `--kind` being accepted by the parent command does not imply decrypt support.
+
+HAR files and decrypted output can contain credentials and personal data. Store and share them as secrets.
 
 ## curl
 
-Invoke NetEase Cloud Music API methods directly with auto encryption. No login required (but most APIs need it).
-
-> **Note**: `ncmctl curl` is a subcommand of ncmctl for calling NetEase Cloud Music APIs, not the system `curl` tool. It handles API encryption automatically.
+Reflectively invoke an exported method from one API wrapper package. This is an ncmctl subcommand, not the system `curl` command.
 
 ```bash
-ncmctl curl -k weapi -d '{}' Ping
-ncmctl curl -k eapi -d '{"id":"123"}' SongDetail
+# Calls weapi.Api.GetUserInfo; requires an authenticated Cookie
+ncmctl curl --kind weapi --data '{}' GetUserInfo
+
+# The flag form overrides the positional method name
+ncmctl curl --kind weapi --method GetUserInfo --data '{}'
 ```
 
 | Flag | Default | Description |
-|------|---------|-------------|
-| `-m, --method` | auto | HTTP method |
-| `-d, --data` | `{}` | Request JSON body |
-| `-o, --output` | none | Output file path |
-| `-k, --kind` | `weapi` | API kind: `weapi`/`eapi`/`linux`/`api` |
-| `-t, --timeout` | 15s | Request timeout |
+| --- | --- | --- |
+| `-m, --method` | positional argument | Exported Go API method name; not an HTTP verb |
+| `-d, --data` | `{}` | JSON decoded into that method's request struct; unknown fields fail |
+| `-o, --output` | stdout | Write formatted response JSON to this file |
+| `-k, --kind` | `weapi` | Wrapper package: `weapi`, `eapi`, `linux`, or `api` |
+| `-t, --timeout` | `15s` | Context deadline for the invocation |
 
-Uses Go reflection to find and call the method on the API struct. The method name is the positional argument.
+The selected endpoint determines login requirements and side effects. Inspect the method before invoking unfamiliar names. Any `--kind` value outside the four listed values is rejected before the API client is created.
 
 ## proxy
 
-Monitor NetEase Cloud Music HTTP and HTTPS API requests and responses. No login is required by the command itself.
+Monitor HTTP and HTTPS requests from a client the user controls. The command itself does not require a NetEase login.
 
 ```bash
-# Local client: configure both HTTP and HTTPS proxy as 127.0.0.1:9000
+# Local-only listener
 ncmctl proxy
 
-# Save capture blocks to a file; startup messages and errors remain on stderr
+# Captures to a file; startup and diagnostics remain on stderr
 ncmctl proxy > capture.log
 
-# Accept connections from a trusted LAN
+# Trusted LAN only: unauthenticated listener
 ncmctl proxy --listen 0.0.0.0:9000
 
-# Reuse an existing CA certificate and matching private key
+# Existing matching CA pair
 ncmctl proxy --ca-cert ./ca.crt --ca-key ./ca.key
 
-# Relocate generated runtime files, including the proxy CA
+# Change runtime root and generated CA location
 ncmctl --home /srv/ncmctl proxy
 
-# Print more body data, including sensitive values
+# Larger display limit and no redaction: sensitive output
 ncmctl proxy --max-body 4MB --show-sensitive
 ```
 
 | Flag | Default | Description |
-|------|---------|-------------|
-| `--listen` | `127.0.0.1:9000` | Proxy listen address; host and port are both required |
-| `--ca-cert` | auto: `<home>/.ncmctl/proxy/ca.crt` | Custom CA certificate; must be paired with `--ca-key` |
-| `--ca-key` | auto: `<home>/.ncmctl/proxy/ca.key` | Custom CA private key; must be paired with `--ca-cert` |
-| `--max-body` | `1MB` | Maximum body bytes printed per request or response; forwarding is not truncated |
+| --- | --- | --- |
+| `--listen` | `127.0.0.1:9000` | Explicit proxy host and port |
+| `--ca-cert` | generated path | Existing CA certificate; requires `--ca-key` |
+| `--ca-key` | generated path | Existing CA private key; requires `--ca-cert` |
+| `--max-body` | `1MB` | Per-request/response display limit; forwarding is not truncated |
 | `--show-sensitive` | false | Disable credential and personal-data redaction |
-| global `--debug` | false | Enable internal proxy connection diagnostics |
-| global `--home` | OS user home | Base home for generated CA paths and other runtime data |
 
-When neither CA flag is supplied, the proxy creates a user-specific RSA CA at the default paths and reuses it on later runs. Here `<home>` is the global `--home` value, which defaults to the OS user home; for example, `ncmctl --home /srv/ncmctl proxy` uses `/srv/ncmctl/.ncmctl/proxy/ca.crt` and `ca.key`. Install and trust `ca.crt` on the client device to monitor HTTPS. The command prints the certificate path and SHA-256 fingerprint, but it never modifies the system trust store. Keep `ca.key` private.
+With no CA flags, ncmctl creates and reuses:
 
-The proxy records only NetEase-related target domains. Other traffic is forwarded without MITM or capture. Request and response blocks share a session ID; headers are ordered, structured bodies are formatted, and credentials are redacted by default. Binary, media, multipart, unknown-length streaming, and bodies that cannot be safely structured/redacted are summarized; oversized captured bodies are display-truncated without changing forwarded bytes.
+- `<home>/.ncmctl/proxy/ca.crt`
+- `<home>/.ncmctl/proxy/ca.key`
 
-Protocol behavior:
+Install and trust only `ca.crt` on the client device. The command prints its path and SHA-256 fingerprint but does not modify any trust store. Keep `ca.key` private.
 
-- Plain API, EAPI, and Linux API payloads are decoded when possible.
-- WEAPI requests use a random client-side AES key that a passive proxy cannot recover; encrypted fields are printed with `unsupported` status.
-- Modern XEAPI session keys cannot be recovered without active key replacement; raw `B`/`S`/`R` fields are printed with `unsupported` status.
-- Parsing or decryption failure is reported in the capture but never blocks the real request.
+Behavior and limitations:
 
-Limitations and safety:
+- Only NetEase-related target domains are captured or MITM'd; other traffic is tunneled without capture.
+- Structured content is formatted and recursively redacted by default. Binary, media, multipart, unknown-length streaming, invalid UTF-8, and unsafe unstructured bodies are summarized.
+- Display truncation, decompression, parsing, or redaction failure does not change forwarded bytes.
+- EAPI, Linux API, and plain API payloads are decoded when possible.
+- A passive proxy cannot recover WEAPI's random request key or modern XEAPI session keys; those request fields are marked `unsupported`, not presented as plaintext.
+- Certificate pinning, Android user-CA restrictions, QUIC/HTTP3, proxy bypass, WebSocket frames, and CONNECT requests addressed only by IP can prevent complete capture.
+- Capture output uses a bounded queue. If stdout blocks, `CAPTURE_DROPPED` reports omitted capture blocks rather than delaying real traffic.
+- `--listen 0.0.0.0:9000` exposes an unauthenticated proxy. Use it only temporarily on a trusted network.
 
-- `--listen 0.0.0.0:9000` opens an unauthenticated proxy. Use it only on a trusted network behind a firewall.
-- Certificate pinning, Android user-CA restrictions, QUIC/HTTP3, and clients that bypass the configured proxy may prevent capture.
-- Target filtering uses the CONNECT/Host domain. A client that sends CONNECT to an IP address may be tunneled without capture even when its TLS SNI names a NetEase host.
-- WebSocket frames are not decoded.
-- Capture formatting and stdout writes run outside the forwarding path. If a blocked terminal or pipe fills the bounded output queue, the proxy emits a `CAPTURE_DROPPED` marker instead of delaying traffic.
-- `--show-sensitive` may expose cookies, tokens, phone numbers, email addresses, device identifiers, and passwords in the terminal or redirected files.
+Press Ctrl+C or send SIGTERM for graceful shutdown.
 
-Press Ctrl+C or send SIGTERM for a graceful shutdown.
+## completion
 
-## Exit Codes
+Generate a completion script locally without logging in or contacting NetEase:
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | General error |
-| 2 | Command-line parsing error |
-| 3 | Login required but not authenticated |
-| 4 | Network/API error |
-| 5 | File I/O error |
+```bash
+ncmctl completion bash
+ncmctl completion fish
+ncmctl completion powershell
+ncmctl completion zsh
+```
 
-## Environment Variables
+The command writes the script to stdout. Follow `ncmctl completion <shell> --help` for the installed shell-specific setup instructions, and redirect to a file only after confirming the destination.
 
-Environment variables override fields from a configuration file loaded with global `--config`. Viper uppercases the `ncmctl` prefix and replaces nested-key dots with underscores.
+## Configuration
 
-| Variable | Example | Description |
-|----------|---------|-------------|
-| `NCMCTL_LOG_LEVEL` | `debug` | Log level: debug, info, warn, error |
-| `NCMCTL_LOG_STDOUT` | `true` | Also write logs to standard output |
+The intended customization flow is to copy the repository's `config/config.yaml`, edit it, and pass it explicitly:
 
-## Configuration File
+```bash
+ncmctl --config ~/.ncmctl/config.yaml COMMAND
+```
 
-Example `~/.ncmctl/config.yaml`:
+Checkout compatibility note: the source revision documented by this skill currently fails to load even `config/config.yaml` with `UnmarshalExact: '' invalid decode hook signature`. Installed binaries may differ. If that exact error occurs, omit `--config` and use embedded defaults; otherwise follow the installed binary's behavior. The schema below is the intended contract for this checkout.
+
+Current schema:
 
 ```yaml
+version: 1.0
 log:
+  app: ncm
+  format: text
   level: info
-  output: stdout
-
-# API request timeout
-timeout: 30s
-
-# Default download settings
-download:
-  level: lossless
-  parallel: 5
-  output: ./download
+  stdout: false
+  rotate:
+    filename: "${HOME}/.ncmctl/log/ncm.log"
+    maxsize: 100
+    maxage: 7
+    maxbackups: 3
+    localtime: true
+    compress: true
+network:
+  debug: false
+  timeout: 60s
+  retry: 3
+  cookie:
+    filepath: "${HOME}/.ncmctl/cookie.json"
+    interval: 3s
+database:
+  driver: badger
+  path: "${HOME}/.ncmctl/database/badger/"
 ```
+
+The intended loader rejects unknown fields. There are no top-level `download`, `timeout`, or `output` configuration keys.
+
+When the installed loader works, environment variables use the `NCMCTL_` prefix and underscores for nested keys:
+
+```bash
+NCMCTL_LOG_LEVEL=debug \
+NCMCTL_NETWORK_TIMEOUT=30s \
+ncmctl --config ~/.ncmctl/config.yaml COMMAND
+```
+
+An explicit `--home` supplies the `${HOME}` replacement used by log, Cookie, database, and proxy paths. Without the flag, ncmctl uses the OS user-home lookup, which commonly derives from the shell environment on Unix.

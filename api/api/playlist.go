@@ -18,6 +18,7 @@ type PlaylistDetailReq struct {
 
 type PlaylistDetailResp struct {
 	types.ApiRespCommon[any]
+
 	RelatedVideos any `json:"relatedVideos"`
 	Playlist      struct {
 		Id                    int64  `json:"id"`
@@ -193,14 +194,14 @@ func (a *Api) PlaylistDetail(ctx context.Context, req *PlaylistDetailReq) (*Play
 	var (
 		url   = "https://music.163.com/api/v6/playlist/detail"
 		reply PlaylistDetailResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeAPI().SetMethod(http.MethodGet)
 	)
-	opts.Method = http.MethodGet
-	opts.CryptoMode = api.CryptoModeAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

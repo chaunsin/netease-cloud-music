@@ -25,9 +25,10 @@ type songDetailReq struct {
 	C string `json:"c"`
 }
 
-// SongDetailResp .
+// SongDetailResp contains song details and their playback privileges.
 type SongDetailResp struct {
 	types.RespCommon[any]
+
 	Songs      []SongDetailRespSongs `json:"songs"`
 	Privileges []types.Privileges    `json:"privileges"`
 }
@@ -38,6 +39,9 @@ type SongDetailResp struct {
 // https://docs-neteasecloudmusicapi.vercel.app/docs/#/?id=%e8%8e%b7%e5%8f%96%e6%ad%8c%e6%9b%b2%e8%af%a6%e6%83%85
 // https://gitlab.com/Binaryify/neteasecloudmusicapi/-/commit/0dab5e55bad90fb427ae7881a9275aceade1f80b
 type SongDetailRespSongs struct {
+	// 音质信息
+	types.Qualities
+
 	// Name 歌曲标题
 	Name string `json:"name"`
 	// Id 歌曲ID
@@ -83,8 +87,6 @@ type SongDetailRespSongs struct {
 	Al types.Album `json:"al"`
 	// Dt 歌曲时长
 	Dt int64 `json:"dt"`
-	// 音质信息
-	types.Qualities
 	// A 常为None，功能未知
 	A any `json:"a"`
 	// Cd None或如"04", "1/2", "3", "null"的字符串，表示歌曲属于专辑中第几张CD，对应音频文件的Tag
@@ -148,7 +150,7 @@ type SongDetailRespSongs struct {
 
 // SongDetail 根据歌曲id获取歌曲详情
 // url: https://app.apifox.com/project/3870894 testdata/har/1.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) SongDetail(ctx context.Context, req *SongDetailReq) (*SongDetailResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/v3/song/detail"
@@ -166,6 +168,7 @@ func (a *Api) SongDetail(ctx context.Context, req *SongDetailReq) (*SongDetailRe
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -176,21 +179,23 @@ type SongMusicQualityReq struct {
 
 type SongMusicQualityResp struct {
 	types.RespCommon[SongMusicQualityRespData]
+
 	Success bool
 	Error   bool
 }
 
 type SongMusicQualityRespData struct {
+	types.Qualities
+
 	// Db 未知通常为null
 	Db any `json:"db"`
 	// SongId 歌曲id
 	SongId int64 `json:"songId"`
-	types.Qualities
 }
 
 // SongMusicQuality 根据歌曲id获取支持哪些音质.其中types.Quality部位nil得则代表支持得品质
 // har: 35.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) SongMusicQuality(ctx context.Context, req *SongMusicQualityReq) (*SongMusicQualityResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/song/music/detail/get"
@@ -202,6 +207,7 @@ func (a *Api) SongMusicQuality(ctx context.Context, req *SongMusicQualityReq) (*
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -215,6 +221,7 @@ func (a *Api) SongMusicQuality(ctx context.Context, req *SongMusicQualityReq) (*
 //	}
 type SongPlayerReq struct {
 	types.ReqCommon
+
 	Ids types.IntsString `json:"ids"` // 歌曲id
 	Br  string           `json:"br"`  // 音乐bit率 例如:128000 320000
 }
@@ -256,7 +263,7 @@ type SongPlayerRespData struct {
 // SongPlayer 音乐播放详情
 // url:
 // needLogin: 未知
-// 提示: 获取的歌曲url有时效性,失效时间目前测试为20分钟,过期访问则会出现403错误
+// 提示: 获取的歌曲url有时效性,失效时间目前测试为20分钟,过期访问则会出现403错误.
 func (a *Api) SongPlayer(ctx context.Context, req *SongPlayerReq) (*SongPlayerResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/song/enhance/player/url"
@@ -272,12 +279,14 @@ func (a *Api) SongPlayer(ctx context.Context, req *SongPlayerReq) (*SongPlayerRe
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type SongPlayerV1Req struct {
 	types.ReqCommon
+
 	Ids         types.IntsString `json:"ids"`         // 歌曲id eg: 2016588459_1289504343 下滑线前位歌曲id, todo: 后位目前未知,不过不传下划线后面的内容也是可以正常返回得
 	Level       types.Level      `json:"level"`       // 音乐质量
 	EncodeType  string           `json:"encodeType"`  // 音乐格式 eg: mp3、aac、flac(可能还有其他类型) 作用未知
@@ -326,7 +335,7 @@ type SongPlayerRespV1Data struct {
 // 提示:
 // 1.获取的歌曲url有时效性,失效时间目前测试为20分钟,过期访问则会出现403错误
 // 2.杜比全景声音质需要设备支持，不同的设备可能会返回不同码率的url。cookie需要传入os=pc保证返回正常码率的url。
-// todo: 当试听时(测试得场景来自私人漫游)则参数传递为: {"ids":"["1955097630"]","level":"exhigh","encodeType":"aac","immerseType":"c51","trialMode":"36"}
+// Pending: 当试听时(测试得场景来自私人漫游)则参数传递为: {"ids":"["1955097630"]","level":"exhigh","encodeType":"aac","immerseType":"c51","trialMode":"36"}.
 func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerV1Req) (*SongPlayerV1Resp, error) {
 	var (
 		url   = "https://music.163.com/weapi/song/enhance/player/url/v1"
@@ -340,6 +349,7 @@ func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerV1Req) (*SongPlay
 		csrf, _ := a.client.GetCSRF(url)
 		req.CSRFToken = csrf
 	}
+
 	if req.Level == types.LevelSky {
 		req.ImmerseType = "c51"
 	}
@@ -348,6 +358,7 @@ func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerV1Req) (*SongPlay
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -409,12 +420,14 @@ func (a *Api) SongDownloadUrl(ctx context.Context, req *SongDownloadUrlReq) (*So
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type SongDownloadUrlV1Req struct {
 	types.ReqCommon
+
 	Ids         string      `json:"id"`          // 歌曲id
 	Level       types.Level `json:"level"`       // 音乐质量
 	ImmerseType string      `json:"immerseType"` // 只有Level为sky时生效(可能还有其他类型)
@@ -475,6 +488,7 @@ func (a *Api) SongDownloadUrlV1(ctx context.Context, req *SongDownloadUrlV1Req) 
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -498,6 +512,7 @@ func (a *Api) SongDynamicCover(ctx context.Context, req *SongDynamicCoverReq) (*
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

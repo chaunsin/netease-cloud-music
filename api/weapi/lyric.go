@@ -22,15 +22,16 @@ type LyricReq struct {
 
 type LyricResp struct {
 	types.RespCommon[any]
+
 	Sgc       bool      `json:"sgc"`
 	Sfy       bool      `json:"sfy"`
 	Qfy       bool      `json:"qfy"`
-	TransUser TransUser `json:"transUser,omitempty"` // 翻译贡献者
-	LyricUser TransUser `json:"lyricUser,omitempty"` // 歌词贡献者
-	Lrc       Lyric     `json:"lrc"`                 // 歌词
-	KLyric    Lyric     `json:"klyric"`              // ?
-	TLyric    Lyric     `json:"tlyric"`              // 翻译歌词版本
-	RomaLrc   Lyric     `json:"romalrc"`             // 音译歌词 例如: 今天我寒夜里看雪飘过 -> gam tin o hon yei lei hon sv piu guo
+	TransUser TransUser `json:"transUser,omitzero"` // 翻译贡献者
+	LyricUser TransUser `json:"lyricUser,omitzero"` // 歌词贡献者
+	Lrc       Lyric     `json:"lrc"`                // 歌词
+	KLyric    Lyric     `json:"klyric"`             // ?
+	TLyric    Lyric     `json:"tlyric"`             // 翻译歌词版本
+	RomaLrc   Lyric     `json:"romalrc"`            // 音译歌词 例如: 今天我寒夜里看雪飘过 -> gam tin o hon yei lei hon sv piu guo
 }
 
 type TransUser struct {
@@ -49,25 +50,30 @@ type Lyric struct {
 
 // Lyric 根据歌曲id获取歌曲歌词
 // url:
-// needLogin: 否
+// needLogin: 否.
 func (a *Api) Lyric(ctx context.Context, req *LyricReq) (*LyricResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/song/lyric"
 		reply LyricResp
 		opts  = api.NewOptions()
 	)
+
 	if req.TV == 0 {
 		req.TV = -1
 	}
+
 	if req.LV == 0 {
 		req.LV = -1
 	}
+
 	if req.RV == 0 {
 		req.RV = -1
 	}
+
 	if req.KV == 0 {
 		req.KV = -1
 	}
+
 	if req.NMCLFL == 0 {
 		req.NMCLFL = 1
 	}
@@ -76,6 +82,7 @@ func (a *Api) Lyric(ctx context.Context, req *LyricReq) (*LyricResp, error) {
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -94,20 +101,21 @@ type LyricV1Req struct {
 
 type LyricV1Resp struct {
 	types.RespCommon[any]
+
 	Sgc       bool      `json:"sgc"`
 	Sfy       bool      `json:"sfy"`
 	Qfy       bool      `json:"qfy"`
 	NeedDesc  bool      `json:"needDesc"`
 	PureMusic bool      `json:"pureMusic"`
 	BriefDesc any       `json:"briefDesc,omitempty"`
-	TransUser TransUser `json:"transUser,omitempty"` // 翻译贡献者
-	LyricUser TransUser `json:"lyricUser,omitempty"` // 歌词贡献者
-	Lrc       Lyric     `json:"lrc"`                 // 歌词
-	KLyric    Lyric     `json:"klyric"`              //
-	TLyric    Lyric     `json:"tlyric"`              // 翻译版本
-	RomaLrc   Lyric     `json:"romalrc"`             // 音译歌词
-	Yrc       Lyric     `json:"yrc,omitempty"`       // 逐字歌词
-	YRomaLrc  Lyric     `json:"yromalrc,omitempty"`  //
+	TransUser TransUser `json:"transUser,omitzero"` // 翻译贡献者
+	LyricUser TransUser `json:"lyricUser,omitzero"` // 歌词贡献者
+	Lrc       Lyric     `json:"lrc"`                // 歌词
+	KLyric    Lyric     `json:"klyric"`             //
+	TLyric    Lyric     `json:"tlyric"`             // 翻译版本
+	RomaLrc   Lyric     `json:"romalrc"`            // 音译歌词
+	Yrc       Lyric     `json:"yrc,omitzero"`       // 逐字歌词
+	YRomaLrc  Lyric     `json:"yromalrc,omitzero"`  //
 }
 
 // LyricV1 获取歌曲歌词,支持逐字歌词。
@@ -127,6 +135,7 @@ func (a *Api) LyricV1(ctx context.Context, req *LyricV1Req) (*LyricV1Resp, error
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -152,6 +161,7 @@ func (a *Api) SongLyricsMark(ctx context.Context, req *SongLyricsMarkReq) (*Song
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

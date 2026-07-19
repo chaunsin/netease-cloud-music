@@ -5,14 +5,14 @@ package ncmctl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	qrcode2 "github.com/skip2/go-qrcode"
+	"github.com/spf13/cobra"
 
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
@@ -54,14 +54,15 @@ func (c *loginQrcodeCmd) addFlags() {
 
 func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 	if c.level < 0 || c.level > 3 {
-		return fmt.Errorf("qrcode level must be 0-3")
+		return errors.New("qrcode level must be 0-3")
 	}
 
 	cli, err := api.NewClient(c.root.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer cli.Close(ctx)
+	defer closeAPIClient(ctx, cli)
+
 	request := weapi.New(cli)
 
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
@@ -72,6 +73,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("QrcodeCreateKey: %w", err)
 	}
+
 	if key.UniKey == "" {
 		return fmt.Errorf("QrcodeCreateKey resp: %+v", key)
 	}
@@ -84,24 +86,28 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 		DeviceId: "",
 	})
 	if err != nil {
-		return fmt.Errorf("QrcodeGenerate: %s", err)
+		return fmt.Errorf("QrcodeGenerate: %w", err)
 	}
 
 	// 3. 手机扫码
 	if c.dir == "" {
-		dir, err := os.Getwd()
-		if err != nil {
-			return err
+		dir, getwdErr := os.Getwd()
+		if getwdErr != nil {
+			return getwdErr
 		}
+
 		c.dir = dir
 	}
-	if err := os.MkdirAll(c.dir, os.ModePerm); err != nil {
-		return fmt.Errorf("MkdirAll: %w", err)
+
+	if mkdirErr := os.MkdirAll(c.dir, 0o700); mkdirErr != nil {
+		return fmt.Errorf("MkdirAll: %w", mkdirErr)
 	}
+
 	file := filepath.Join(c.dir, "qrcode.png")
-	if err := os.WriteFile(file, qr.Qrcode, os.ModePerm); err != nil {
-		return err
+	if writeErr := os.WriteFile(file, qr.Qrcode, 0o600); writeErr != nil {
+		return writeErr
 	}
+
 	c.cmd.Println(">>>>> please scan qrcode in your phone <<<<<")
 	c.cmd.Printf("qrcode content: https://music.163.com/login?codekey=%s\n", key.UniKey)
 	c.cmd.Printf("qrcode file: %s\n", file)
@@ -116,11 +122,14 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 		}
 
 		time.Sleep(time.Second * 3)
-		resp, err := request.QrcodeCheck(ctx, &weapi.QrcodeCheckReq{Type: 1, Key: key.UniKey})
-		if err != nil {
-			return fmt.Errorf("QrcodeCheck: %w", err)
+
+		resp, checkErr := request.QrcodeCheck(ctx, &weapi.QrcodeCheckReq{Type: 1, Key: key.UniKey})
+		if checkErr != nil {
+			return fmt.Errorf("QrcodeCheck: %w", checkErr)
 		}
-		log.Debug("QrcodeCheck resp: %v\n", resp)
+
+		log.Debugf("QrcodeCheck resp: %v\n", resp)
+
 		switch resp.Code {
 		case 800: // 二维码不存在、已过期、用户取消授权
 			return fmt.Errorf("current QrcodeCheck resp: %v", resp)
@@ -134,19 +143,21 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 			return fmt.Errorf("登录失败 QrcodeCheck resp: %v", resp)
 		}
 	}
+
 ok:
 
-	if err := os.Remove(file); err != nil {
-		if !os.IsNotExist(err) {
-			log.Info("remove qrcode file: %s", err)
+	if removeErr := os.Remove(file); removeErr != nil {
+		if !os.IsNotExist(removeErr) {
+			log.Infof("remove qrcode file: %s", removeErr)
 		}
 	}
 
 	// 5. 查询登录信息是否成功
 	user, err := request.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
 	if err != nil {
-		return fmt.Errorf("GetUserInfo: %s", err)
+		return fmt.Errorf("GetUserInfo: %w", err)
 	}
+
 	c.cmd.Printf("login success: %+v\n", user)
 	return nil
 }

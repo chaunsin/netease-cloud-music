@@ -5,6 +5,7 @@ package ncmctl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -60,22 +61,26 @@ func (c *loginCookieCloudCmd) addFlags() {
 func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
 	headers := make(map[string]string)
 	if c.headers != "" {
-		for _, header := range strings.Split(c.headers, ",") {
+		for header := range strings.SplitSeq(c.headers, ",") {
 			kv := strings.Split(header, "=")
 			if len(kv) != 2 {
 				return fmt.Errorf("invalid header format: %s", header)
 			}
+
 			headers[kv[0]] = kv[1]
 		}
 	}
+
 	if c.server == "" {
-		return fmt.Errorf("server is required")
+		return errors.New("server is required")
 	}
+
 	if c.uuid == "" {
-		return fmt.Errorf("uuid is required")
+		return errors.New("uuid is required")
 	}
+
 	if c.password == "" {
-		return fmt.Errorf("password is required")
+		return errors.New("password is required")
 	}
 
 	ctx, cancel := context.WithTimeout(_ctx, c.timeout)
@@ -85,7 +90,7 @@ func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer cli.Close(ctx)
+	defer closeAPIClient(ctx, cli)
 
 	cfg := cookiecloud.Config{
 		ApiUrl:  c.server,
@@ -93,35 +98,43 @@ func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
 		Retry:   3,
 		Debug:   c.root.root.Opts.Debug,
 	}
+
 	cc, err := cookiecloud.NewClient(&cfg)
 	if err != nil {
 		return fmt.Errorf("cookiecloud.NewClient: %w", err)
 	}
+
 	if len(headers) > 0 {
 		cc.SetHeaders(headers)
 	}
+
 	resp, err := cc.Get(ctx, &cookiecloud.GetReq{Uuid: c.uuid, Password: c.password})
 	if err != nil {
 		return fmt.Errorf("cookiecloud.Get: %w", err)
 	}
+
 	c.cmd.Printf("cookie最后更新时间为: %s\n", resp.UpdateTime)
+
 	var cnt int
+
 	for domain, cookies := range resp.CookieData {
 		if !strings.HasSuffix(domain, "music.163.com") {
 			continue
 		}
 		// Parse the domain into a URL (adjust a scheme if needed)
-		u, err := url.Parse("https://music.163.com")
-		if err != nil {
-			return fmt.Errorf("failed to parse domain URL: %v", err)
+		u, parseErr := url.Parse("https://music.163.com")
+		if parseErr != nil {
+			return fmt.Errorf("failed to parse domain URL: %w", parseErr)
 		}
 
 		// Convert a custom cookie type to http.Cookie
 		var httpCookies []*http.Cookie
+
 		for _, v := range cookies {
 			if v.Name == "MUSIC_U" {
 				cnt++
 			}
+
 			httpCookies = append(httpCookies, &http.Cookie{
 				Domain:   domain, // Use original domain value
 				Expires:  v.GetExpired(),
@@ -134,21 +147,24 @@ func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
 				// Quoted:   false,
 			})
 		}
+
 		if len(httpCookies) > 0 {
 			cli.SetCookies(u, httpCookies)
 		}
 	}
 
 	if cnt == 0 {
-		return fmt.Errorf("请确认已登录网页版网易云音乐，并且cookie已经同步到cookiecloud")
+		return errors.New("请确认已登录网页版网易云音乐，并且cookie已经同步到cookiecloud")
 	}
 
 	// 查询登录信息是否成功
 	request := weapi.New(cli)
+
 	user, err := request.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
 	if err != nil {
-		return fmt.Errorf("GetUserInfo: %s", err)
+		return fmt.Errorf("GetUserInfo: %w", err)
 	}
+
 	c.cmd.Printf("login success: %+v\n", user)
 	return nil
 }

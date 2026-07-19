@@ -19,7 +19,7 @@ type CDNListResp struct {
 
 // CDNList 获取CDN列表
 // url: testdata/har/5.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) CDNList(ctx context.Context, req *CDNListReq) (*CDNListResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/cdns"
@@ -31,6 +31,7 @@ func (a *Api) CDNList(ctx context.Context, req *CDNListReq) (*CDNListResp, error
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

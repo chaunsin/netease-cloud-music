@@ -48,12 +48,14 @@ func New() *Root {
 		)
 		if c.Opts.Config != "" {
 			var err error
+
 			if !utils.FileExists(c.Opts.Config) {
 				return fmt.Errorf("config file not exists: %s", c.Opts.Config)
 			}
+
 			c.Cfg, err = config.New(c.Opts.Config)
 			if err != nil {
-				return fmt.Errorf("init config error: %s", err)
+				return fmt.Errorf("init config error: %w", err)
 			}
 		} else {
 			cfgPath = "default"
@@ -61,11 +63,12 @@ func New() *Root {
 		}
 
 		c.Cfg.ReplaceMagicVariables("HOME", home)
+
 		if err := c.Cfg.Validate(); err != nil {
-			return fmt.Errorf("config validate error: %s", err)
+			return fmt.Errorf("config validate error: %w", err)
 		}
 
-		// todo: 暂时关闭debug模式,api中得resty日志需要统一输出本库中得logger里
+		// Pending: 暂时关闭debug模式,api中得resty日志需要统一输出本库中得logger里
 		c.Cfg.Network.Debug = false
 		// 命令行开启了debug模式优先级大于配置文件中得优先级
 		if c.Opts.Debug {
@@ -77,7 +80,7 @@ func New() *Root {
 		// init logger
 		c.l = log.New(c.Cfg.Log)
 		log.Default = c.l
-		log.Debug("[config] init home=%s path=%s log=%+v network=%+v", home, cfgPath, c.Cfg.Log, c.Cfg.Network)
+		log.Debugf("[config] init home=%s path=%s log=%+v network=%+v", home, cfgPath, c.Cfg.Log, c.Cfg.Network)
 		return nil
 	}
 	c.cmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
@@ -102,12 +105,6 @@ func New() *Root {
 	return c
 }
 
-func (c *Root) addFlags() {
-	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "run in debug mode")
-	c.cmd.PersistentFlags().StringVarP(&c.Opts.Config, "config", "c", "", "configuration file path")
-	c.cmd.PersistentFlags().StringVar(&c.Opts.Home, "home", config.HomeDir, "configuration home path. the home path is used to store running information")
-}
-
 func (c *Root) Version(version, buildTime, commitHash string) {
 	c.cmd.Version = fmt.Sprintf("%s\n Version: \t%s\n Go version: \t%s\n Git commit: \t%s\n OS/Arch: \t%s\n Build time: \t%s",
 		title, version, runtime.Version(), commitHash, runtime.GOOS+"/"+runtime.GOARCH, buildTime)
@@ -122,4 +119,10 @@ func (c *Root) Execute() {
 		c.cmd.PrintErrln(err)
 		os.Exit(1)
 	}
+}
+
+func (c *Root) addFlags() {
+	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "run in debug mode")
+	c.cmd.PersistentFlags().StringVarP(&c.Opts.Config, "config", "c", "", "configuration file path")
+	c.cmd.PersistentFlags().StringVar(&c.Opts.Home, "home", config.HomeDir, "configuration home path. the home path is used to store running information")
 }

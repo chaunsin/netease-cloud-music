@@ -20,6 +20,7 @@ type PlaylistReq struct {
 
 type PlaylistResp struct {
 	types.RespCommon[any]
+
 	Version  string             `json:"version"` // 时间戳1703557080686
 	More     bool               `json:"more"`
 	Playlist []PlaylistRespList `json:"playlist"`
@@ -110,13 +111,14 @@ type PlaylistRespList struct {
 
 // Playlist 歌单列表.其中包含用户创建得歌单+我喜欢得歌单
 // url: https://app.apifox.com/project/3870894 testdata/har/4.har
-// NeedLogin: 未知
+// NeedLogin: 未知.
 func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/user/playlist/"
 		reply PlaylistResp
 		opts  = api.NewOptions()
 	)
+
 	if req.Limit == "" {
 		req.Limit = "1000"
 	}
@@ -125,6 +127,7 @@ func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, er
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -137,6 +140,7 @@ type PlaylistDetailReq struct {
 
 type PlaylistDetailResp struct {
 	types.ApiRespCommon[any]
+
 	RelatedVideos any `json:"relatedVideos"`
 	Playlist      struct {
 		Id                    int64  `json:"id"`
@@ -307,37 +311,40 @@ type PlaylistDetailResp struct {
 
 // PlaylistDetail 歌单列表
 // url: testdata/har/7.har
-// needLogin: 不需要认证
+// needLogin: 不需要认证.
 func (a *Api) PlaylistDetail(ctx context.Context, req *PlaylistDetailReq) (*PlaylistDetailResp, error) {
 	var (
 		url   = "https://music.163.com/api/v6/playlist/detail?id=" + req.Id
 		reply PlaylistDetailResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeAPI()
 	)
 
 	if req.N == "" {
 		req.N = "100000"
 	}
+
 	if req.S == "" {
 		req.S = "8"
 	}
 
-	opts.CryptoMode = api.CryptoModeAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type RadioReq struct {
 	types.ReqCommon
+
 	ImageFm string `json:"imageFm"` // 0: 1: 待分析
 }
 
 type RadioResp struct {
 	types.RespCommon[[]RadioRespData]
+
 	PopAdjust bool `json:"popAdjust"`
 	Tag       any  `json:"tag"`
 }
@@ -473,7 +480,7 @@ type RadioRespData struct {
 
 // Radio 私人漫游歌单
 // har: 32.har
-// todo: 目前貌似今日首次进入为1,然后之后都为0，另外接口没有发现分页参数，另外貌似每次调用返回结果都不一样
+// Pending: 目前貌似今日首次进入为1,然后之后都为0，另外接口没有发现分页参数，另外貌似每次调用返回结果都不一样.
 func (a *Api) Radio(ctx context.Context, req *RadioReq) (*RadioResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/v1/radio/get"
@@ -485,6 +492,7 @@ func (a *Api) Radio(ctx context.Context, req *RadioReq) (*RadioResp, error) {
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -537,6 +545,7 @@ func (a *Api) PCRecentListenList(ctx context.Context, req *PCRecentListenListReq
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -550,23 +559,26 @@ type PlaylistAddOrDelReq struct {
 
 type PlaylistAddOrDelResp struct {
 	types.RespCommon[any]
+
 	TrackIds   string `json:"trackIds"`   // 成功添加的歌曲id(返回为string类型数组如"[349823,423521]")
 	Count      int64  `json:"count"`      // 该歌单歌曲数量(添加后)
 	CloudCount int64  `json:"cloudCount"` // 该歌单内云盘歌曲数量(添加后)
 }
 
 // PlaylistAddOrDel 对歌单添加或删除歌曲
-// code message:502 歌单歌曲重复, 404 歌单不存在(包含没有权限添加的歌单), 400 当前歌曲已下架，无法收藏哦(包含不存在的歌曲id)
+// code message:502 歌单歌曲重复, 404 歌单不存在(包含没有权限添加的歌单), 400 当前歌曲已下架，无法收藏哦(包含不存在的歌曲id).
 func (a *Api) PlaylistAddOrDel(ctx context.Context, req *PlaylistAddOrDelReq) (*PlaylistAddOrDelResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/playlist/manipulate/tracks"
 		reply PlaylistAddOrDelResp
 		opts  = api.NewOptions()
 	)
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -590,6 +602,7 @@ func (a *Api) PlaylistUpdatePlayCount(ctx context.Context, req *PlaylistUpdatePl
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

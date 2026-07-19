@@ -1,237 +1,248 @@
 ---
-title: ncmctl Installation & Login Guide
-description: Installation methods and login procedures for ncmctl CLI.
-version: "0.1.0"
+title: ncmctl Installation and Login Guide
+description: Install, upgrade, authenticate, log out, and troubleshoot ncmctl safely.
+version: "0.3.0"
 ---
 
-# Installation & Login Guide
+# Installation and Login Guide
 
-## Table of Contents
+## Contents
 
-- [Installation](#installation)
-- [Login Guide](#login-guide)
+- [Install](#install)
+- [Upgrade](#upgrade)
+- [Runtime home](#runtime-home)
+- [Login methods](#login-methods)
+- [Log out](#log-out)
 - [Troubleshooting](#troubleshooting)
 
-## Installation
+## Install
 
-### Method 1: Download Pre-built Binary
+### Prebuilt binary
 
-Download from [GitHub Releases](https://github.com/chaunsin/netease-cloud-music/releases) for your platform.
-
-### Method 2: Install from Source
+Download the archive for the user's OS and architecture from the project's [GitHub Releases](https://github.com/chaunsin/netease-cloud-music/releases), extract `ncmctl`, place it on `PATH`, and verify it:
 
 ```bash
-# Check Go version (requires Go >= 1.25.0)
-go version
-
-# Direct install
-go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
-
-# Clone and build
-git clone https://github.com/chaunsin/netease-cloud-music.git
-cd netease-cloud-music && make install
+ncmctl --version
+ncmctl --help
 ```
 
-Default install path: `$GOPATH/bin`
+### Go install
 
-### Method 3: Docker
+Go 1.25.0 or newer is required:
 
 ```bash
-# Docker Hub
-docker pull chaunsin/ncmctl:latest
+go version
+go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
+```
 
-# GitHub Container Registry
+The binary is normally installed in `$(go env GOPATH)/bin`. Add that directory to `PATH` if the shell cannot find `ncmctl`.
+
+### Clone and install
+
+```bash
+git clone https://github.com/chaunsin/netease-cloud-music.git
+cd netease-cloud-music
+make install
+```
+
+### Docker
+
+Published images:
+
+```bash
+docker pull chaunsin/ncmctl:latest
 docker pull ghcr.io/chaunsin/ncmctl:latest
 ```
 
-Docker login (first time):
+Persist `/root/.ncmctl` by mounting a host directory at `/root`:
 
 ```bash
-docker run --rm -it -v ./data:/root chaunsin/ncmctl:latest /app/ncmctl login cookie -f /root/cookie.txt
+mkdir -p ./data
+chmod 700 ./data
+
+# cookie.txt must exist at ./data/cookie.txt on the host
+docker run --rm -it \
+  -v "$PWD/data:/root" \
+  chaunsin/ncmctl:latest \
+  /app/ncmctl login cookie -f /root/cookie.txt
+
+docker run -d \
+  --name ncmctl-daily \
+  --restart unless-stopped \
+  -v "$PWD/data:/root" \
+  chaunsin/ncmctl:latest \
+  /app/ncmctl task --sign --scrobble
 ```
 
-Docker run tasks:
+The mounted directory contains authentication and database data. Do not use a shared or world-readable host path.
+
+Build the image locally with:
 
 ```bash
-docker run -it -d -v ./data:/root chaunsin/ncmctl:latest /app/ncmctl task --sign --scrobble
+make build-image
 ```
 
-Build image locally:
+### Qinglong
+
+Use the repository's [Qinglong guide](https://github.com/chaunsin/netease-cloud-music/blob/master/docs/qinglong.md). Its `NCMCTL_QINGLONG_*` variables belong to the Qinglong wrapper scripts; they are not general credential variables implemented by the ncmctl binary.
+
+## Upgrade
+
+Re-run the installation mechanism and verify the resulting version:
 
 ```bash
-git clone https://github.com/chaunsin/netease-cloud-music.git
-cd netease-cloud-music && make build-image
-```
-
-### Method 4: Qinglong Panel
-
-See [Qinglong Guide](https://github.com/chaunsin/netease-cloud-music/blob/master/docs/qinglong.md).
-
-### Upgrading
-
-```bash
-# Go install (re-run to update)
+# Go installation
 go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
 
-# Docker (pull latest image)
+# Docker installation
 docker pull chaunsin/ncmctl:latest
+
+ncmctl --version
 ```
 
-## Login Guide
+For a cloned checkout, fetch the desired revision and run `make install`. Preserve `<home>/.ncmctl/`; replacing the binary should not require deleting cookies or the Badger database.
 
-ncmctl supports 5 login methods. Cookie login is the most reliable.
+## Runtime home
 
-### 1. Cookie Login (Recommended)
-
-When other login methods fail, use cookie login as fallback.
-
-Get cookies via browser extension like [Cookie Editor](https://chromewebstore.google.com/detail/cookie-editor/ookdjilphngeeeghgngjabigmpepanpl).
+The global `--home` flag controls the default runtime root:
 
 ```bash
-# Import cookie string directly
-ncmctl login cookie 'cookie_string_content'
+ncmctl --home /srv/ncmctl COMMAND
+```
 
-# Import from file (auto-detect format)
+Default authentication data is stored at `<home>/.ncmctl/cookie.json`. The Cookie directory and file are created with restrictive POSIX permissions, but copied/exported files and Docker volumes remain the user's responsibility.
+
+The optional `--config` flag selects an exact YAML path; ncmctl does not auto-load `<home>/.ncmctl/config.yaml`. Loader compatibility varies by build, so use the configuration section in `commands.md` for the single current limitation and schema description.
+
+## Login methods
+
+ncmctl exposes four login subcommands and five user flows because `login phone` supports either SMS or password. Login contacts live NetEase services and persists cookies after success.
+
+Prefer Cookie-file login when it is available: it avoids placing a full Cookie string or password directly in shell history. All authentication material is sensitive.
+
+### Cookie file or string
+
+The imported cookies must include `MUSIC_U`.
+
+```bash
+# Prefer a protected file
+chmod 600 cookie.txt
 ncmctl login cookie -f cookie.txt
 
-# Specify format
-ncmctl login cookie --format json -f cookie.json
-ncmctl login cookie --format netscape -f cookie.txt
-ncmctl login cookie --format header -f cookie.txt
+# Direct string; convenient but stored in shell history on many shells
+ncmctl login cookie 'MUSIC_U=...; __csrf=...'
+
+# Explicit formats when auto-detection is unsuitable
+ncmctl login cookie --format json -f cookies.json
+ncmctl login cookie --format netscape -f cookies.txt
+ncmctl login cookie --format header 'MUSIC_U=...; __csrf=...'
 ```
 
-**Supported file formats:**
+| Format | Input |
+| --- | --- |
+| `header` | Semicolon-separated `name=value` pairs |
+| `json` | Cookie Editor-style JSON array |
+| `netscape` | Netscape/cookies.txt format |
+| empty | Auto-detect Netscape, JSON, then header |
 
-| Format       | Description                                   |
-| ------------ | --------------------------------------------- |
-| `header`   | `key1=value1; key2=value2` style            |
-| `json`     | Cookie Editor JSON export                     |
-| `netscape` | Netscape cookies.txt format                   |
-| (default)    | Auto-detect: tries netscape → json → header |
+Each explicit format accepts either `-f <file>` or a positional string. Auto-detection creates a fresh reader for every candidate format, so JSON strings and header files follow the same order as other inputs.
 
-**Cookie must contain `MUSIC_U` field**, otherwise login will fail.
+Use the spelling `netscape` for `--format`, even though older help examples contained the typo `netscaple`.
 
-After login, immediately secure your cookie file:
+Do not post exported cookies in issues, logs, screenshots, or chat. Logging out of the browser can invalidate a previously exported Cookie.
+
+### CookieCloud
+
+CookieCloud syncs browser cookies through a configured server. First log in to the NetEase web player and perform a manual CookieCloud sync, then run:
 
 ```bash
-chmod 600 ~/.ncmctl/cookie.json
+ncmctl login cookiecloud \
+  --uuid '<uuid>' \
+  --password '<end-to-end-password>' \
+  --server 'http://127.0.0.1:8088'
 ```
 
-### 2. CookieCloud Login
+| Flag | Default | Description |
+| --- | --- | --- |
+| `-u, --uuid` | required | CookieCloud account UUID |
+| `-p, --password` | required | CookieCloud password |
+| `-s, --server` | `http://127.0.0.1:8088` | CookieCloud server URL |
+| `-t, --timeout` | `30s` | Request timeout |
+| `-H, --headers` | none | Comma-separated `key=value` request headers |
 
-[CookieCloud](https://github.com/easychen/CookieCloud) is a browser extension that syncs encrypted cookies to cloud.
+The current command requires UUID and password flags. It does not prompt for them and does not read dedicated `COOKIECLOUD_*` variables. These values can be visible in shell history and process listings, so run only on a trusted machine and prefer Cookie-file login if that exposure is unacceptable. Treat third-party CookieCloud servers as credential-bearing services.
 
-Steps:
-
-1. Install CookieCloud browser extension
-2. Configure the extension
-3. Login to NetEase Cloud Music web player
-4. Click "Manual Sync" in the extension
-5. Run login command:
-
-```bash
-# Use interactive prompt (recommended, avoids exposing credentials in shell history)
-ncmctl login cookiecloud -s http://127.0.0.1:8088
-# You will be prompted for UUID and password
-
-# Or use environment variables
-export COOKIECLOUD_UUID="your-uuid"
-export COOKIECLOUD_PASSWORD="your-password"
-ncmctl login cookiecloud -s http://127.0.0.1:8088
-```
-
-| Flag               | Default                   | Description                                  |
-| ------------------ | ------------------------- | -------------------------------------------- |
-| `-s, --server`   | `http://127.0.0.1:8088` | CookieCloud server address                   |
-| `-u, --uuid`     | (required)                | Account UUID                                 |
-| `-p, --password` | (required)                | Account password                             |
-| `-t, --timeout`  | 30s                       | Request timeout                              |
-| `-H, --headers`  | none                      | Custom headers, e.g.,`key1=val1,key2=val2` |
-
-> **Security note**: Avoid passing UUID and password as command-line arguments. They will be visible in shell history and process listings. Use interactive prompts or environment variables instead.
-
-### 3. Phone SMS Login
+### Phone SMS
 
 ```bash
 ncmctl login phone 188xxx8888
 ```
 
-After sending SMS, enter the captcha when prompted. SMS has daily limits; avoid frequent logins.
+The command sends an SMS, prompts for the captcha, verifies it, then completes login.
 
-| Flag              | Default | Description   |
-| ----------------- | ------- | ------------- |
-| `--countrycode` | 86      | Country code  |
-| `-t, --timeout` | 10m     | Login timeout |
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--countrycode` | 86 | Telephone country code |
+| `-t, --timeout` | `10m` | Overall login timeout |
 
-### 4. Phone Password Login
+SMS sending has service limits and can trigger risk control. Avoid repeated attempts.
 
-> **Security warning**: Password login may trigger risk control. Use only as fallback. Prefer SMS or Cookie login.
+### Phone password
 
 ```bash
-# Use interactive prompt (recommended)
-ncmctl login phone 188xxx8888
-# Enter password when prompted
-
-# Or use environment variable
-export NCMCTL_PHONE_PASSWORD="your_password"
-ncmctl login phone 188xxx8888
+ncmctl login phone 188xxx8888 --password '<password>'
 ```
 
-| Flag               | Default | Description    |
-| ------------------ | ------- | -------------- |
-| `-p, --password` | none    | Login password |
-| `--countrycode`  | 86      | Country code   |
-| `-t, --timeout`  | 10m     | Login timeout  |
+The current command has no hidden password prompt or dedicated password environment variable. Omitting `--password` selects SMS login; it does not prompt for a password. The flag can be visible in shell history and process listings, and the request may fail with code 8821 or another behavior-verification response. Prefer Cookie or SMS login when possible.
 
-May trigger `8821 behavior verification` error due to risk control. Use as fallback only.
-
-### 5. QR Code Login
-
-Scan QR code with NetEase Cloud Music mobile app to login.
+### QR code
 
 ```bash
 ncmctl login qrcode
+ncmctl login qrcode --timeout 5m --dir ./private-qr
 ```
 
-After running the command:
-1. A QR code image (`qrcode.png`) is generated in the current directory
-2. The QR code is also printed to the terminal
-3. Open NetEase Cloud Music app on your phone and scan the QR code
-4. Confirm the login on your phone
-5. Login completes automatically after scanning
-
 | Flag | Default | Description |
-|------|---------|-------------|
-| `-t, --timeout` | 5m | Login timeout |
-| `-d, --dir` | `./` | QR code image output directory |
-| `-l, --level` | 1 | QR code recovery level: 0→7%, 1→15%, 2→25%, 3→30% |
+| --- | --- | --- |
+| `-t, --timeout` | `5m` | Login timeout |
+| `-d, --dir` | current directory | QR image directory |
+| `-l, --level` | 1 | Recovery level: 0=7%, 1=15%, 2=25%, 3=30% |
 
-**QR code check status codes:**
+The command writes `qrcode.png` with restrictive permissions and prints the QR content in the terminal. Scan it with the NetEase Cloud Music mobile app and confirm the login. The image is removed after a successful login; it may remain after failure, cancellation, or timeout and should then be deleted securely.
+
+Status codes reported by the remote login flow:
 
 | Code | Meaning |
-|------|---------|
-| 800 | QR code expired or cancelled |
+| --- | --- |
+| 800 | Expired, missing, or cancelled |
 | 801 | Waiting for scan |
 | 802 | Scanned, waiting for confirmation |
-| 803 | Login successful |
+| 803 | Authorized successfully |
 
-If the QR code expires (code 800), re-run the command to generate a new one.
+Re-run the command if the code expires. Repeated login attempts can trigger risk control.
 
-### Logout
+## Log out
 
 ```bash
 ncmctl logout
 ```
 
-Clears stored credentials and removes `~/.ncmctl/cookie.json`.
+The command calls the remote logout endpoint, flushes the updated Cookie jar, and then removes `<home>/.ncmctl/cookie.json` so the final flush cannot recreate it. With `--home`, it removes the corresponding path under that home. A custom Cookie filepath loaded through `--config` is not the path removed by the current logout implementation; remove that file separately if necessary.
 
 ## Troubleshooting
 
-| Problem | Solution |
-|---------|----------|
-| Login fails with "MUSIC_U not found" | Ensure cookie string contains `MUSIC_U` field |
-| `8821 behavior verification` error | Use SMS or QR code login instead of password |
-| Cookie login fails after browser logout | Re-export fresh cookies from browser |
-| Docker volume permission denied | Run `chmod 700 ./data` on host directory |
-| Command not found after install | Ensure `$GOPATH/bin` is in your `$PATH` |
-| "Go version too old" error | Upgrade to Go >= 1.25.0 |
+| Problem | Check |
+| --- | --- |
+| `ncmctl: command not found` | Add `$(go env GOPATH)/bin` or the extracted binary directory to `PATH` |
+| Go version error | Install Go 1.25.0 or newer |
+| `cookie not found MUSIC_U value` | Export a fresh authenticated Cookie containing `MUSIC_U` |
+| Cookie login fails after browser logout | Re-authenticate in the browser and export again |
+| CookieCloud says no matching Cookie | Confirm web login, manual sync, UUID/password/server, and a `music.163.com` Cookie containing `MUSIC_U` |
+| Code 8821 / behavior verification | Stop repeated attempts and use a different supported login flow later |
+| QR expires | Re-run `login qrcode`; confirm within the timeout |
+| Docker login is not persisted | Mount the same host directory at `/root` for login and later commands |
+| Permission denied in Docker | Verify ownership and restrictive permissions of the host-mounted directory |
+| Custom config is not discovered automatically | Automatic discovery is unsupported; explicit loading also has the current limitation in the next row |
+| `invalid decode hook signature` with `--config` | Follow the build-sensitive compatibility note in the configuration section of `commands.md` |
+
+For exact flags on the installed version, run `ncmctl login <method> --help`.

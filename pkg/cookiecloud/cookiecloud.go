@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -38,7 +39,7 @@ type CookieData struct {
 	Value          string  `json:"value"`
 }
 
-func (c CookieData) GetExpired() time.Time {
+func (c *CookieData) GetExpired() time.Time {
 	sec := int64(c.ExpirationDate)                         // 提取整数秒部分
 	nsec := int64((c.ExpirationDate - float64(sec)) * 1e9) // 将小数秒转换为纳秒
 	return time.Unix(sec, nsec)
@@ -56,9 +57,10 @@ type GetResp struct {
 }
 
 type PushReq struct {
+	Cookie
+
 	Uuid     string `json:"uuid"`
 	Password string `json:"password"`
-	Cookie
 }
 
 type PushResp struct {
@@ -102,10 +104,11 @@ func (c *Client) SetHeaders(headers map[string]string) {
 // see: https://github.com/easychen/CookieCloud/blob/master/api/app.js#L46
 func (c *Client) Get(ctx context.Context, req *GetReq) (*GetResp, error) {
 	if req.Uuid == "" {
-		return nil, fmt.Errorf("uuid is required")
+		return nil, errors.New("uuid is required")
 	}
+
 	if req.Password == "" {
-		return nil, fmt.Errorf("password is required")
+		return nil, errors.New("password is required")
 	}
 
 	var (
@@ -124,28 +127,34 @@ func (c *Client) Get(ctx context.Context, req *GetReq) (*GetResp, error) {
 
 	res, err := cli.SetResult(&resp).Execute(method, "/get/"+req.Uuid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to request server: %v", err)
+		return nil, fmt.Errorf("failed to request server: %w", err)
 	}
+
 	if res.StatusCode() == 404 {
 		return nil, fmt.Errorf("uuid %s not found", req.Uuid)
 	}
+
 	if res.StatusCode() != 200 {
 		return nil, fmt.Errorf("server return status %d body %+v", res.StatusCode(), resp)
 	}
+
 	if req.CloudDecryption {
 		return &resp, nil
 	}
 
 	// 本地解密逻辑
 	keyPassword := Md5String(req.Uuid, "-", req.Password)[:16]
+
 	decrypted, err := Decrypt(keyPassword, resp.Encrypted)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt: %v", err)
+		return nil, fmt.Errorf("failed to decrypt: %w", err)
 	}
+
 	var cookie Cookie
 	if err := json.Unmarshal(decrypted, &cookie); err != nil {
-		return nil, fmt.Errorf("failed to parse decrypted data as json: %v", err)
+		return nil, fmt.Errorf("failed to parse decrypted data as json: %w", err)
 	}
+
 	resp.Cookie = cookie
 	return &resp, nil
 }
@@ -154,17 +163,20 @@ func (c *Client) Get(ctx context.Context, req *GetReq) (*GetResp, error) {
 // see: https://github.com/easychen/CookieCloud/blob/master/api/app.js#L28
 func (c *Client) Push(ctx context.Context, req *PushReq) (*PushResp, error) {
 	if req.Uuid == "" {
-		return nil, fmt.Errorf("uuid is required")
+		return nil, errors.New("uuid is required")
 	}
+
 	if req.Password == "" {
-		return nil, fmt.Errorf("password is required")
+		return nil, errors.New("password is required")
 	}
 
 	data, err := json.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %v", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
+
 	keyPassword := Md5String(req.Uuid, "-", req.Password)[:16]
+
 	encrypted, err := Encrypt(keyPassword, string(data))
 	if err != nil {
 		return nil, fmt.Errorf("Encrypt: %w", err)
@@ -177,10 +189,12 @@ func (c *Client) Push(ctx context.Context, req *PushReq) (*PushResp, error) {
 		}
 		body PushResp
 	)
+
 	res, err := c.cli.R().SetContext(ctx).SetBody(&request).SetResult(&body).Post("/update")
 	if err != nil {
-		return nil, fmt.Errorf("failed to request server: %v", err)
+		return nil, fmt.Errorf("failed to request server: %w", err)
 	}
+
 	if res.StatusCode() != 200 {
 		return nil, fmt.Errorf("server return status %d body %+v", res.StatusCode(), body)
 	}

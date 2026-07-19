@@ -36,7 +36,7 @@ type CommentInfoListRespData struct {
 
 // CommentInfoList 获取歌曲评论梗概信息
 // har: 36.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) CommentInfoList(ctx context.Context, req *CommentInfoListReq) (*CommentInfoListResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/resource/commentInfo/list"
@@ -53,12 +53,14 @@ func (a *Api) CommentInfoList(ctx context.Context, req *CommentInfoListReq) (*Co
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type CommentsReq struct {
 	types.ReqCommon
+
 	ComposeConcert      string `json:"composeConcert"`      // eg: bool
 	CommentId           string `json:"commentId"`           // eg: 0
 	MarkReplied         bool   `json:"markReplied"`         // eg: bool
@@ -199,10 +201,10 @@ type CommentsResp struct {
 
 // Comments 获取歌曲评论列表
 // har: 37.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) Comments(ctx context.Context, req *CommentsReq) (*CommentsResp, error) {
 	var (
-		url   = fmt.Sprintf("https://interface.music.163.com/weapi/v1/resource/comments/%s", req.ThreadId)
+		url   = "https://interface.music.163.com/weapi/v1/resource/comments/" + req.ThreadId
 		reply CommentsResp
 		opts  = api.NewOptions()
 	)
@@ -216,12 +218,14 @@ func (a *Api) Comments(ctx context.Context, req *CommentsReq) (*CommentsResp, er
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type CommentLikeReq struct {
 	types.ReqCommon
+
 	ThreadId  string `json:"threadId"`  // 线程id，eg: R_SO_4_2128846655 see CommentInfoListRespData.ThreadId
 	CommentId string `json:"commentId"` // 评论id
 }
@@ -231,7 +235,7 @@ type CommentLikeResp struct {
 }
 
 // CommentLike 点赞歌曲/动态的评论
-// needLogin: 是
+// needLogin: 是.
 func (a *Api) CommentLike(ctx context.Context, req *CommentLikeReq) (*CommentLikeResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/v1/comment/like"
@@ -243,12 +247,13 @@ func (a *Api) CommentLike(ctx context.Context, req *CommentLikeReq) (*CommentLik
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 // CommentUnlike 取消点赞歌曲/动态的评论
-// needLogin: 是
+// needLogin: 是.
 func (a *Api) CommentUnlike(ctx context.Context, req *CommentLikeReq) (*CommentLikeResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/v1/comment/unlike"
@@ -260,6 +265,7 @@ func (a *Api) CommentUnlike(ctx context.Context, req *CommentLikeReq) (*CommentL
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

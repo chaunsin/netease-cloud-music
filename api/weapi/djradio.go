@@ -114,6 +114,7 @@ func (a *Api) DjRadioSub(ctx context.Context, req *DjRadioSub) (*DjRadioSubResp,
 		reply DjRadioSubResp
 		opts  = api.NewOptions()
 	)
+
 	if req.Limit == "" {
 		req.Limit = "1000"
 	}
@@ -122,6 +123,7 @@ func (a *Api) DjRadioSub(ctx context.Context, req *DjRadioSub) (*DjRadioSubResp,
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

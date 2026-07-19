@@ -6,7 +6,6 @@ package cookiecloud
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -65,6 +64,8 @@ var (
 
 // fakeServer https://github.com/easychen/CookieCloud/blob/master/api/app.js
 func fakeServer(t *testing.T, now time.Time) *httptest.Server {
+	t.Helper()
+
 	mux := http.NewServeMux()
 
 	// 模拟/push接口
@@ -90,6 +91,7 @@ func fakeServer(t *testing.T, now time.Time) *httptest.Server {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
+
 		if err := json.NewEncoder(w).Encode(PushResp{Action: "done"}); err != nil {
 			t.Errorf("json.NewEncoder() error = %v", err)
 		}
@@ -103,27 +105,30 @@ func fakeServer(t *testing.T, now time.Time) *httptest.Server {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+
 		if r.Method != http.MethodPost && r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+
 		var req struct {
 			Password string `json:"password"`
 		}
+
 		if err := r.ParseForm(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		defer r.Body.Close()
+
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+
 		if len(data) > 0 {
 			if err := json.Unmarshal(data, &req); err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprintf(w, "%s", "Decode:"+err.Error())
+				http.Error(w, "Decode: "+err.Error(), http.StatusBadRequest)
 				return
 			}
 		}
@@ -140,21 +145,21 @@ func fakeServer(t *testing.T, now time.Time) *httptest.Server {
 		if req.Password == "" {
 			data, err := json.Marshal(cookie)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(w, "%s", "Marshal: "+err.Error())
+				http.Error(w, "Marshal: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 
 			keyPassword := Md5String(uuid, "-", password)[:16]
+
 			encrypt, err = Encrypt(keyPassword, string(data))
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(w, "%s", "Encrypt: "+err.Error())
+				http.Error(w, "Encrypt: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
+
 			if err := json.NewEncoder(w).Encode(Body{
 				Uuid:      uuid,
 				Encrypted: encrypt,
@@ -174,9 +179,10 @@ func fakeServer(t *testing.T, now time.Time) *httptest.Server {
 	return httptest.NewServer(mux)
 }
 
-// GODEBUG=httpmuxgo121=0 go test -v -run TestClient_Get
+// GODEBUG=httpmuxgo121=0 go test -v -run TestClient_Get.
 func TestClient_Get(t *testing.T) {
 	now := time.Now().UTC()
+
 	server := fakeServer(t, now)
 	defer server.Close()
 
@@ -190,9 +196,9 @@ func TestClient_Get(t *testing.T) {
 	}
 
 	type args struct {
-		ctx context.Context
 		req *GetReq
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -201,19 +207,19 @@ func TestClient_Get(t *testing.T) {
 	}{
 		{
 			name:    "not found uid",
-			args:    args{ctx: context.Background(), req: &GetReq{Uuid: "notfound_id", Password: password}},
+			args:    args{req: &GetReq{Uuid: "notfound_id", Password: password}},
 			want:    nil,
 			wantErr: true,
 		},
 		{
 			name:    "required password params",
-			args:    args{ctx: context.Background(), req: &GetReq{Uuid: "notfound_id"}},
+			args:    args{req: &GetReq{Uuid: "notfound_id"}},
 			want:    nil,
 			wantErr: true,
 		},
 		{
 			name: "local decrypt",
-			args: args{ctx: context.Background(), req: &GetReq{Uuid: "uuid-01", Password: password, CloudDecryption: false}},
+			args: args{req: &GetReq{Uuid: "uuid-01", Password: password, CloudDecryption: false}},
 			want: &GetResp{
 				Body: Body{Uuid: "uuid-01"},
 				Cookie: func() Cookie {
@@ -226,7 +232,7 @@ func TestClient_Get(t *testing.T) {
 		},
 		{
 			name: "server decrypt",
-			args: args{ctx: context.Background(), req: &GetReq{Uuid: "uuid-01", Password: password, CloudDecryption: true}},
+			args: args{req: &GetReq{Uuid: "uuid-01", Password: password, CloudDecryption: true}},
 			want: &GetResp{
 				Body: Body{Uuid: "", Encrypted: ""},
 				Cookie: func() Cookie {
@@ -240,7 +246,7 @@ func TestClient_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := cli.Get(tt.args.ctx, tt.args.req)
+			got, err := cli.Get(context.Background(), tt.args.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -251,6 +257,7 @@ func TestClient_Get(t *testing.T) {
 					t.Errorf("Cookie not equal Get() got = %v, want = %v", got.Cookie, tt.want.Cookie)
 					return
 				}
+
 				if !assert.Equal(t, tt.want.Uuid, got.Uuid) {
 					t.Errorf("uuid not equal Get() got = %v, want = %v", got.Uuid, tt.want.Uuid)
 					return
@@ -262,6 +269,7 @@ func TestClient_Get(t *testing.T) {
 
 func TestClient_Push(t *testing.T) {
 	now := time.Now().UTC()
+
 	server := fakeServer(t, now)
 	defer server.Close()
 
@@ -273,10 +281,11 @@ func TestClient_Push(t *testing.T) {
 		t.Errorf("NewClient() error = %v", err)
 		return
 	}
+
 	type args struct {
-		ctx context.Context
 		req *PushReq
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -286,7 +295,6 @@ func TestClient_Push(t *testing.T) {
 		{
 			name: "ok",
 			args: args{
-				ctx: context.Background(),
 				req: &PushReq{
 					Password: password,
 					Uuid:     "uuid-01",
@@ -301,7 +309,6 @@ func TestClient_Push(t *testing.T) {
 		{
 			name: "required uid",
 			args: args{
-				ctx: context.Background(),
 				req: &PushReq{
 					Password: password,
 					Cookie:   database["uuid-01"],
@@ -313,7 +320,6 @@ func TestClient_Push(t *testing.T) {
 		{
 			name: "required password",
 			args: args{
-				ctx: context.Background(),
 				req: &PushReq{
 					Uuid:   "uuid-01",
 					Cookie: database["uuid-01"],
@@ -325,11 +331,12 @@ func TestClient_Push(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := cli.Push(tt.args.ctx, tt.args.req)
+			got, err := cli.Push(context.Background(), tt.args.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Push() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Push() got = %v, want %v", got, tt.want)
 			}

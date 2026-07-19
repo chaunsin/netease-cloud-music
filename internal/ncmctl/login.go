@@ -34,8 +34,6 @@ func NewLogin(root *Root, l *log.Logger) *Login {
 	return c
 }
 
-func (c *Login) addFlags() {}
-
 func (c *Login) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
 }
@@ -43,3 +41,5 @@ func (c *Login) Add(command ...*cobra.Command) {
 func (c *Login) Command() *cobra.Command {
 	return c.cmd
 }
+
+func (c *Login) addFlags() {}

@@ -5,6 +5,7 @@ package ncmctl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -48,23 +49,23 @@ func NewScrobble(root *Root, l *log.Logger) *Scrobble {
 	return c
 }
 
-func (c *Scrobble) addFlags() {
-	c.cmd.PersistentFlags().Int64VarP(&c.opts.Num, "num", "n", 300, "num of songs")
-}
-
-func (c *Scrobble) validate() error {
-	if c.opts.Num <= 0 || c.opts.Num > 300 {
-		return fmt.Errorf("num <= 0 or > 300")
-	}
-	return nil
-}
-
 func (c *Scrobble) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
 }
 
 func (c *Scrobble) Command() *cobra.Command {
 	return c.cmd
+}
+
+func (c *Scrobble) addFlags() {
+	c.cmd.PersistentFlags().Int64VarP(&c.opts.Num, "num", "n", 300, "num of songs")
+}
+
+func (c *Scrobble) validate() error {
+	if c.opts.Num <= 0 || c.opts.Num > 300 {
+		return errors.New("num <= 0 or > 300")
+	}
+	return nil
 }
 
 func (c *Scrobble) execute(ctx context.Context) error {
@@ -76,7 +77,8 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer cli.Close(ctx)
+	defer closeAPIClient(ctx, cli)
+
 	request := weapi.New(cli)
 
 	// 获取用户id
@@ -84,19 +86,23 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("UserInfo: %w", err)
 	}
+
 	if user.Code != 200 || user.Profile == nil || user.Account == nil {
-		return fmt.Errorf("need login")
+		return errors.New("need login")
 	}
-	uid := fmt.Sprintf("%v", user.Account.Id)
+
+	uid := strconv.FormatInt(user.Account.Id, 10)
 
 	// 判断是否满级，满级则不再执行。
 	detail, err := request.GetUserInfoDetail(ctx, &weapi.GetUserInfoDetailReq{UserId: user.Account.Id})
 	if err != nil {
 		return fmt.Errorf("GetUserInfoDetail: %w", err)
 	}
+
 	if detail.Code != 200 {
 		return fmt.Errorf("GetUserInfoDetail: %w", err)
 	}
+
 	if detail.Level >= 10 {
 		c.cmd.Println("账号已满级")
 		return nil
@@ -104,9 +110,9 @@ func (c *Scrobble) execute(ctx context.Context) error {
 
 	// 刷新token过期时间
 	defer func() {
-		refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
-		if err != nil || refresh.Code != 200 {
-			log.Warn("TokenRefresh resp:%+v err: %s", refresh, err)
+		refresh, refreshErr := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
+		if refreshErr != nil || refresh.Code != 200 {
+			log.Warnf("TokenRefresh resp:%+v err: %s", refresh, refreshErr)
 		}
 	}()
 
@@ -115,7 +121,11 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("database: %w", err)
 	}
-	defer db.Close(ctx)
+	defer func() {
+		if closeErr := db.Close(ctx); closeErr != nil {
+			log.Errorf("close database: %v", closeErr)
+		}
+	}()
 
 	// return db.Del(ctx, scrobbleTodayNumKey(uid))
 	// 判断今日刷歌数量
@@ -127,10 +137,12 @@ func (c *Scrobble) execute(ctx context.Context) error {
 			return fmt.Errorf("get scrobble today num: %w", err)
 		}
 	}
+
 	finish, err := strconv.ParseInt(record, 10, 64)
 	if err != nil {
 		return fmt.Errorf("ParseInt(%v): %w", record, err)
 	}
+
 	if finish >= 300 {
 		c.cmd.Println("today scrobble 300 completed")
 		return nil
@@ -147,11 +159,12 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("neverHeardSongs: %w", err)
 	}
-	log.Debug("ready execute num(%d)", len(list))
+
+	log.Debugf("ready execute num(%d)", len(list))
 
 	var total int
 	defer func() {
-		log.Debug("scrobble success: %d", total)
+		log.Debugf("scrobble success: %d", total)
 		bar.Finish()
 	}()
 
@@ -182,23 +195,28 @@ func (c *Scrobble) execute(ctx context.Context) error {
 
 		resp, err := request.WebLog(ctx, req)
 		if err != nil {
-			log.Error("[scrobble] WebLog: %s", err)
+			log.Errorf("[scrobble] WebLog: %s", err)
 			continue
 		}
+
 		if resp.Code != 200 {
-			log.Error("[scrobble] WebLog err: %+v\n", resp)
+			log.Errorf("[scrobble] WebLog err: %+v\n", resp)
 			time.Sleep(time.Second)
 			continue
 		}
+
 		if resp.Code == 200 {
-			if err := db.Set(ctx, scrobbleRecordKey(uid, v.SongsId), fmt.Sprintf("%v", time.Now().UnixMilli())); err != nil {
-				log.Warn("[scrobble] set %v record err: %s", v.SongsId, err)
+			if err := db.Set(ctx, scrobbleRecordKey(uid, v.SongsId), strconv.FormatInt(time.Now().UnixMilli(), 10)); err != nil {
+				log.Warnf("[scrobble] set %v record err: %s", v.SongsId, err)
 			}
+
 			_, err := db.Increment(ctx, scrobbleTodayNumKey(uid), 1, expire)
 			if err != nil {
-				log.Warn("[scrobble] set %v record err: %s", v.SongsId, err)
+				log.Warnf("[scrobble] set %v record err: %s", v.SongsId, err)
 			}
+
 			total++
+
 			bar.Increment()
 			time.Sleep(time.Millisecond * 100)
 		}
@@ -219,11 +237,13 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api, db d
 	if err != nil {
 		return nil, fmt.Errorf("TopList: %w", err)
 	}
+
 	if tops.Code != 200 {
 		return nil, fmt.Errorf("TopList err: %+v", tops)
 	}
-	if len(tops.List) <= 0 {
-		return nil, fmt.Errorf("TopList is empty")
+
+	if len(tops.List) == 0 {
+		return nil, errors.New("TopList is empty")
 	}
 
 	// 根据歌单返回顺序顺次刷歌直到300首歌曲
@@ -231,55 +251,66 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api, db d
 		req = make([]weapi.SongDetailReqList, 0, num)
 		set = make(map[int64]string) // k:歌曲id v:歌单id
 	)
-	for _, list := range tops.List {
+
+	for i := range tops.List {
+		list := &tops.List[i]
 		// 获取一个歌单
-		info, err := request.PlaylistDetail(ctx, &weapi.PlaylistDetailReq{Id: fmt.Sprintf("%v", list.Id)})
-		if err != nil {
-			return nil, fmt.Errorf("PlaylistDetail(%v): %w", list.Id, err)
+		info, playlistErr := request.PlaylistDetail(ctx, &weapi.PlaylistDetailReq{Id: strconv.FormatInt(list.Id, 10)})
+		if playlistErr != nil {
+			return nil, fmt.Errorf("PlaylistDetail(%v): %w", list.Id, playlistErr)
 		}
+
 		if info.Code != 200 {
 			return nil, fmt.Errorf("PlaylistDetail(%v) err: %+v", list.Id, info)
 		}
-		if len(info.Playlist.TrackIds) <= 0 {
-			log.Warn("PlaylistDetail(%v) is empty", list.Id)
+
+		if len(info.Playlist.TrackIds) == 0 {
+			log.Warnf("PlaylistDetail(%v) is empty", list.Id)
 			continue
 		}
 
 		sourceId := list.Id
-		for _, v := range info.Playlist.TrackIds {
+
+		for i := range info.Playlist.TrackIds {
+			v := &info.Playlist.TrackIds[i]
+
 			if int64(len(req)) >= num {
 				break
 			}
 
 			// 判断是否执行过
-			exist, err := db.Exists(ctx, scrobbleRecordKey(uid, fmt.Sprintf("%d", v.Id)))
-			if err != nil || exist {
+			exist, existsErr := db.Exists(ctx, scrobbleRecordKey(uid, strconv.FormatInt(v.Id, 10)))
+			if existsErr != nil || exist {
 				continue
 			}
 
 			// 由于同一首歌可能会在不同得歌单中存在因此需要去重
 			if _, ok := set[v.Id]; !ok {
-				set[v.Id] = fmt.Sprintf("%d", sourceId)
-				req = append(req, weapi.SongDetailReqList{Id: fmt.Sprintf("%d", v.Id), V: 0})
+				set[v.Id] = strconv.FormatInt(sourceId, 10)
+				req = append(req, weapi.SongDetailReqList{Id: strconv.FormatInt(v.Id, 10), V: 0})
 			}
 		}
+
 		if int64(len(req)) >= num {
-			log.Debug("SongDetailReqList num(%d)", len(req))
+			log.Debugf("SongDetailReqList num(%d)", len(req))
 			break
 		}
 	}
 
 	// 根据歌单trickIds.Id查询歌曲详情信息
 	resp := make([]NeverHeardSongsList, 0, num)
+
 	details, err := request.SongDetail(ctx, &weapi.SongDetailReq{C: req})
 	if err != nil {
 		return nil, fmt.Errorf("SongDetail: %w", err)
 	}
-	for _, v := range details.Songs {
+
+	for i := range details.Songs {
+		v := &details.Songs[i]
 		resp = append(resp, NeverHeardSongsList{
 			Source:    "toplist",
 			SourceId:  set[v.Id],
-			SongsId:   fmt.Sprintf("%v", v.Id),
+			SongsId:   strconv.FormatInt(v.Id, 10),
 			SongsTime: v.Dt / 1000, // 换成秒
 		})
 	}

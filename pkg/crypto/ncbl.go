@@ -6,7 +6,9 @@ package crypto
 import (
 	"bytes"
 	"compress/gzip"
+	cryptorand "crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -14,8 +16,6 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"golang.org/x/crypto/chacha20"
-
-	cryptorand "crypto/rand"
 )
 
 const (
@@ -70,6 +70,7 @@ func WithNCBLKey(key []byte) NCBLOption {
 			return fmt.Errorf("ncbl: key must be %d bytes, got %d", ncblKeySize, length)
 		}
 	}
+
 	var value [ncblKeySize]byte
 	copy(value[:], key)
 	return func(config *ncblConfig) error {
@@ -88,6 +89,7 @@ func WithNCBLUUID(uuid []byte) NCBLOption {
 			return fmt.Errorf("ncbl: UUID must be %d bytes, got %d", ncblUUIDSize, length)
 		}
 	}
+
 	var value [ncblUUIDSize]byte
 	copy(value[:], uuid)
 	return func(config *ncblConfig) error {
@@ -115,6 +117,7 @@ func WithNCBLMaxFrameSize(size int) NCBLOption {
 		if size < 1 || size > math.MaxUint16 {
 			return fmt.Errorf("ncbl: max frame size must be between 1 and %d, got %d", math.MaxUint16, size)
 		}
+
 		config.maxFrameSize = size
 		return nil
 	}
@@ -127,6 +130,7 @@ func WithNCBLCompression(compression NCBLCompression) NCBLOption {
 		if err != nil {
 			return err
 		}
+
 		config.compress = compress
 		return nil
 	}
@@ -148,12 +152,14 @@ func EncryptNCBL(meta, body []byte, options ...NCBLOption) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	keyB := ncblRSAWrap(keyA)
 
 	uuid, err := config.identifier()
 	if err != nil {
 		return nil, err
 	}
+
 	baseSequence, err := config.firstSequence()
 	if err != nil {
 		return nil, err
@@ -161,21 +167,26 @@ func EncryptNCBL(meta, body []byte, options ...NCBLOption) ([]byte, error) {
 
 	nonce := uuid[:ncblNonceSize]
 	counter := binary.LittleEndian.Uint32(uuid[ncblNonceSize:]) >> 2
+
 	metaCipher, err := ncblChaCha20(keyB, counter, nonce, meta)
 	if err != nil {
 		return nil, fmt.Errorf("ncbl: encrypt metadata: %w", err)
 	}
+
 	headerLen := NCBLHeaderFixedLen + ncblMetaHeaderLen + len(metaCipher)
 
 	compressed, err := config.compress(body)
 	if err != nil {
 		return nil, fmt.Errorf("ncbl: compress body: %w", err)
 	}
+
 	frameCount := ncblFrameCount(len(compressed), config.maxFrameSize)
+
 	trailingLen := uint64(len(compressed)) + uint64(frameCount)*6
 	if trailingLen > math.MaxUint32 {
 		return nil, fmt.Errorf("ncbl: trailing region is too large: %d bytes", trailingLen)
 	}
+
 	payloadLen := uint64(headerLen) + trailingLen
 	if payloadLen > uint64(int(^uint(0)>>1)) {
 		return nil, fmt.Errorf("ncbl: payload is too large: %d bytes", payloadLen)
@@ -197,9 +208,11 @@ func EncryptNCBL(meta, body []byte, options ...NCBLOption) ([]byte, error) {
 	copy(metaBlock[4:], metaCipher)
 
 	position := headerLen
-	for frame := 0; frame < frameCount; frame++ {
+
+	for frame := range frameCount {
 		start := frame * config.maxFrameSize
 		end := min(start+config.maxFrameSize, len(compressed))
+
 		ciphertext, err := ncblChaCha20(keyA, counter, nonce, compressed[start:end])
 		if err != nil {
 			return nil, fmt.Errorf("ncbl: encrypt frame %d: %w", frame, err)
@@ -219,15 +232,18 @@ func newNCBLConfig(options []NCBLOption) (*ncblConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	config := &ncblConfig{
 		maxFrameSize: NCBLDefaultMaxFrame,
 		random:       cryptorand.Reader,
 		compress:     compress,
 	}
+
 	for index, option := range options {
 		if option == nil {
 			return nil, fmt.Errorf("ncbl: option %d is nil", index)
 		}
+
 		if err := option(config); err != nil {
 			return nil, fmt.Errorf("ncbl: apply option %d: %w", index, err)
 		}
@@ -244,6 +260,7 @@ func (config *ncblConfig) recordKey() ([]byte, error) {
 			return nil, fmt.Errorf("ncbl: generate key: %w", err)
 		}
 	}
+
 	if key[0] >= 0xa3 {
 		key[0] = 0xa2
 	}
@@ -260,6 +277,7 @@ func (config *ncblConfig) identifier() ([]byte, error) {
 	if _, err := io.ReadFull(config.random, uuid); err != nil {
 		return nil, fmt.Errorf("ncbl: generate UUID: %w", err)
 	}
+
 	uuid[6] = uuid[6]&0x0f | 0x40
 	uuid[8] = uuid[8]&0x3f | 0x80
 	return uuid, nil
@@ -289,6 +307,7 @@ func ncblChaCha20(key []byte, counter uint32, nonce, plaintext []byte) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
+
 	stream.SetCounter(counter)
 
 	ciphertext := make([]byte, len(plaintext))
@@ -316,16 +335,22 @@ func ncblCompressor(compression NCBLCompression) (func([]byte) ([]byte, error), 
 			if err != nil {
 				return nil, err
 			}
-			defer writer.Close()
-			return writer.EncodeAll(body, nil), nil
+
+			encoded := writer.EncodeAll(body, nil)
+			if err := writer.Close(); err != nil {
+				return nil, fmt.Errorf("close zstd encoder: %w", err)
+			}
+			return encoded, nil
 		}, nil
 	case NCBLCompressionGzip:
 		return func(body []byte) ([]byte, error) {
 			var buffer bytes.Buffer
+
 			writer := gzip.NewWriter(&buffer)
 			if _, err := writer.Write(body); err != nil {
 				return nil, err
 			}
+
 			if err := writer.Close(); err != nil {
 				return nil, err
 			}
@@ -339,8 +364,9 @@ func ncblCompressor(compression NCBLCompression) (func([]byte) ([]byte, error), 
 func withNCBLRandomSource(random io.Reader) NCBLOption {
 	return func(config *ncblConfig) error {
 		if random == nil {
-			return fmt.Errorf("ncbl: random source is nil")
+			return errors.New("ncbl: random source is nil")
 		}
+
 		config.random = random
 		return nil
 	}
@@ -349,8 +375,9 @@ func withNCBLRandomSource(random io.Reader) NCBLOption {
 func withNCBLCompressor(compress func([]byte) ([]byte, error)) NCBLOption {
 	return func(config *ncblConfig) error {
 		if compress == nil {
-			return fmt.Errorf("ncbl: compressor is nil")
+			return errors.New("ncbl: compressor is nil")
 		}
+
 		config.compress = compress
 		return nil
 	}

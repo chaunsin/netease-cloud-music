@@ -50,7 +50,7 @@ func TestDownload(t *testing.T) {
 	// if playResp.Code != 200 {
 	// 	t.Fatalf("SongPlayerV1(%v) err: %+v", songId, playResp)
 	// }
-	// if len(playResp.Data) <= 0 {
+	// if len(playResp.Data) == 0 {
 	// 	t.Fatalf("SongPlayerV1(%v) data is empty", songId)
 	// }
 	// var songDetail = playResp.Data[0]
@@ -71,7 +71,7 @@ func TestDownload(t *testing.T) {
 	if detail.Code != 200 {
 		t.Fatalf("SongDetail(%v) err: %+v", songId, detail)
 	}
-	if len(detail.Songs) <= 0 {
+	if len(detail.Songs) == 0 {
 		t.Fatalf("SongDetail(%v) data is empty", songId)
 	}
 	songDetail := detail.Songs[0]
@@ -132,7 +132,7 @@ func TestDownload(t *testing.T) {
 	defer file.Close()
 
 	// 下载
-	resp, err := cli.Download(ctx, drd.Url, nil, nil, file, nil)
+	resp, err := cli.Download(ctx, drd.Url, nil, nil, file, nil) //nolint:bodyclose // Download owns and closes the response body.
 	if err != nil {
 		t.Fatalf("download: %s", err)
 	}

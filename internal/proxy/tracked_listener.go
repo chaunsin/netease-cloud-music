@@ -20,6 +20,7 @@ const (
 
 type trackedListener struct {
 	net.Listener
+
 	mu               sync.Mutex
 	conns            map[*trackedConn]struct{}
 	handshakeTimeout time.Duration
@@ -27,6 +28,7 @@ type trackedListener struct {
 
 type trackedConn struct {
 	net.Conn
+
 	once    sync.Once
 	onClose func()
 
@@ -50,12 +52,14 @@ func (l *trackedListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	tracked := &trackedConn{Conn: conn}
 	tracked.onClose = func() {
 		l.mu.Lock()
 		delete(l.conns, tracked)
 		l.mu.Unlock()
 	}
+
 	l.mu.Lock()
 	l.conns[tracked] = struct{}{}
 	l.mu.Unlock()
@@ -64,6 +68,7 @@ func (l *trackedListener) Accept() (net.Conn, error) {
 
 func (l *trackedListener) closeAll() error {
 	l.mu.Lock()
+
 	connections := make([]*trackedConn, 0, len(l.conns))
 	for conn := range l.conns {
 		connections = append(connections, conn)
@@ -71,6 +76,7 @@ func (l *trackedListener) closeAll() error {
 	l.mu.Unlock()
 
 	var errs []error
+
 	for _, conn := range connections {
 		if err := conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 			errs = append(errs, err)
@@ -97,6 +103,7 @@ func (l *trackedListener) clearHandshakeDeadline(remoteAddr string) {
 func (l *trackedListener) connectionsForRemote(remoteAddr string) []*trackedConn {
 	l.mu.Lock()
 	connections := make([]*trackedConn, 0, 1)
+
 	for conn := range l.conns {
 		if conn.RemoteAddr().String() == remoteAddr {
 			connections = append(connections, conn)
@@ -112,59 +119,6 @@ func (c *trackedConn) Read(p []byte) (int, error) {
 		c.observeRead(p[:n])
 	}
 	return n, err
-}
-
-func (c *trackedConn) observeRead(data []byte) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.awaitingConnectPayload && len(data) > 0 {
-		c.awaitingConnectPayload = false
-		if data[0] != tlsHandshakeRecordType {
-			c.plaintextPending = true
-		}
-	}
-	if c.plaintextPending {
-		remaining := maxPlaintextConnectHeaderBytes - len(c.plaintextHeader)
-		if remaining > 0 {
-			searchFrom := max(0, len(c.plaintextHeader)-len(plaintextHeaderEnd)+1)
-			if len(data) > remaining {
-				data = data[:remaining]
-			}
-			c.plaintextHeader = append(c.plaintextHeader, data...)
-			if bytes.Contains(c.plaintextHeader[searchFrom:], []byte(plaintextHeaderEnd)) {
-				c.plaintextPending = false
-				c.handshakeDeadlineActive = false
-				c.plaintextHeader = nil
-				_ = c.SetDeadline(time.Time{})
-			}
-		}
-	}
-}
-
-func (c *trackedConn) armHandshakeDeadline(timeout time.Duration) {
-	if timeout <= 0 {
-		return
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.awaitingConnectPayload = true
-	c.handshakeDeadlineActive = true
-	c.plaintextHeader = nil
-	c.plaintextPending = false
-	_ = c.SetDeadline(time.Now().Add(timeout))
-}
-
-func (c *trackedConn) clearHandshakeDeadline() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if !c.handshakeDeadlineActive {
-		return
-	}
-	c.awaitingConnectPayload = false
-	c.handshakeDeadlineActive = false
-	c.plaintextHeader = nil
-	c.plaintextPending = false
-	_ = c.SetDeadline(time.Time{})
 }
 
 // CloseWrite and CloseRead preserve the half-close capability of accepted TCP
@@ -187,4 +141,64 @@ func (c *trackedConn) Close() error {
 	err := c.Conn.Close()
 	c.once.Do(c.onClose)
 	return err
+}
+
+func (c *trackedConn) observeRead(data []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.awaitingConnectPayload && len(data) > 0 {
+		c.awaitingConnectPayload = false
+		if data[0] != tlsHandshakeRecordType {
+			c.plaintextPending = true
+		}
+	}
+
+	if c.plaintextPending {
+		remaining := maxPlaintextConnectHeaderBytes - len(c.plaintextHeader)
+		if remaining > 0 {
+			searchFrom := max(0, len(c.plaintextHeader)-len(plaintextHeaderEnd)+1)
+			if len(data) > remaining {
+				data = data[:remaining]
+			}
+
+			c.plaintextHeader = append(c.plaintextHeader, data...)
+			if bytes.Contains(c.plaintextHeader[searchFrom:], []byte(plaintextHeaderEnd)) {
+				c.plaintextPending = false
+				c.handshakeDeadlineActive = false
+				c.plaintextHeader = nil
+				_ = c.SetDeadline(time.Time{})
+			}
+		}
+	}
+}
+
+func (c *trackedConn) armHandshakeDeadline(timeout time.Duration) {
+	if timeout <= 0 {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.awaitingConnectPayload = true
+	c.handshakeDeadlineActive = true
+	c.plaintextHeader = nil
+	c.plaintextPending = false
+	_ = c.SetDeadline(time.Now().Add(timeout))
+}
+
+func (c *trackedConn) clearHandshakeDeadline() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.handshakeDeadlineActive {
+		return
+	}
+
+	c.awaitingConnectPayload = false
+	c.handshakeDeadlineActive = false
+	c.plaintextHeader = nil
+	c.plaintextPending = false
+	_ = c.SetDeadline(time.Time{})
 }

@@ -71,15 +71,27 @@
 - [ ] VIP 日常任务完成（待考虑）
 - [ ] "音乐人"任务自动完成（待考虑）
 
-### 📦 API 接口
+### 📦 API 接口覆盖
 
-|   类型   | 适用场景               |
-| :-------: | :--------------------- |
-| `weapi` | 网页端、小程序（推荐） |
-| `eapi` | PC 端、移动端          |
+| 接口包 | 当前覆盖 |
+| :--- | :--- |
+| `api/weapi/` | 接口最完整，优先使用 |
+| `api/eapi/` | 包含 PC/移动端接口，覆盖范围小于 WEAPI |
+| `api/api/` | 仅有少量试验性 wrapper；通用 `CryptoModeAPI` 请求层尚不会序列化 `req` |
+| `api/linux/` | 目前只有构造器，没有具体 endpoint wrapper |
 
-> 💡 **提示：** 目前主要实现了 `weapi`
-> ，接口相对较全，推荐使用。如需其他接口可提 [Issue](https://github.com/chaunsin/netease-cloud-music/issues)。
+### 请求加密模式
+
+| 模式 | 当前边界 |
+| :--- | :--- |
+| `weapi` | 默认模式，请求加密、响应明文 JSON |
+| `eapi` | 请求加密；通用客户端目前只直接处理明文 JSON 响应，不会透明解密 `e_r=true` 响应 |
+| `api` | 不加密；通用请求参数序列化尚未完成 |
+| `linux` | Linux API 的请求/响应加解密，暂无高级 endpoint wrapper |
+| `xeapi` | 底层 Aegis/XEAPI 封装，暂无独立 endpoint wrapper，CLI `curl -k` 也不支持；默认 POST 路径只有本地测试验证 |
+
+> 💡 **提示：** XEAPI 的研究背景见 [docs/xeapi.md](docs/xeapi.md)，实际行为以源码和外部协议证据一起验证。如需新增接口可提
+> [Issue](https://github.com/chaunsin/netease-cloud-music/issues)。
 
 ---
 
@@ -140,33 +152,41 @@ cd netease-cloud-music && make build-image
 
 ---
 
-## 🤖 AI 助手技能 (ncmctl Skill)
+## 🤖 AI 助手技能
 
-本项目在 `skills/ncmctl/` 目录下提供了 ncmctl 的 AI 助手技能，支持 Claude Code、Codex、cursor 等 AI 助手通过技能系统快速了解和使用 ncmctl。
+仓库提供两类职责不同的 skill：`skills/ncmctl/` 是可分发的 ncmctl 使用指南，面向安装、登录、命令参数和安全边界；`.claude/skills/ncmctl-dev/` 是仓库本地开发指南，面向 Go 源码、测试、API/加密和代理实现。仓库级规则由 `AGENTS.md` 提供，它链接到唯一事实来源 `CLAUDE.md`。
 
 ### 技能内容
 
-| 文件                                              | 说明                                                     |
-| ------------------------------------------------- | -------------------------------------------------------- |
-| `skills/ncmctl/SKILL.md`                        | 技能主文件，包含命令速查表、全局参数、配置路径、重要警告 |
-| `skills/ncmctl/references/install-and-login.md` | 安装方式与登录引导（5 种登录方式）                       |
-| `skills/ncmctl/references/commands.md`          | 全部命令的详细参数、使用示例与执行流程                   |
+| 文件 | 说明 |
+| ---- | ---- |
+| `skills/ncmctl/SKILL.md` | 用户 skill 入口、任务路由、命令速查和安全边界 |
+| `skills/ncmctl/references/install-and-login.md` | 安装、升级、5 种登录流程、退出和故障排查 |
+| `skills/ncmctl/references/commands.md` | 当前命令参数、配置结构、示例和能力限制 |
+| `.claude/skills/ncmctl-dev/SKILL.md` | 仓库开发 skill 入口和渐进式参考路由 |
+| `CLAUDE.md` / `AGENTS.md` | 仓库架构、开发规则、测试副作用和完成检查 |
 
 ### 安装技能
 
-使用skills命令进行交互安装
+使用 `skills` 命令安装可分发的用户 skill：
 
 ```bash
-npx skills add chaunsin/netease-cloud-music -g
+npx skills add chaunsin/netease-cloud-music --skill ncmctl -g
 ```
 
-或 `skills/ncmctl/` 目录复制到 AI 助手的技能目录即可使用。例如对于 Claude Code：
+也可将 `skills/ncmctl/` 复制到 AI 助手的技能目录：
 
 ```bash
+# Claude Code
+mkdir -p ~/.claude/skills
 cp -r skills/ncmctl ~/.claude/skills/
+
+# Codex
+mkdir -p ~/.codex/skills
+cp -r skills/ncmctl ~/.codex/skills/
 ```
 
-安装后，向 AI 助手询问 ncmctl 相关问题时会自动触发该技能，获得准确的命令参考和使用指导。
+安装后，向 AI 助手询问 ncmctl 的安装和使用问题时会触发用户 skill。参与本仓库开发时无需安装该副本，应使用仓库自带的 `AGENTS.md` 和 `ncmctl-dev` skill。
 
 ---
 
@@ -211,7 +231,7 @@ ncmctl login phone 188xxx8888 -p 123456
 
 > ⚠️ 此方式可能触发 `8821 需要行为验证码验证` 错误，仅作备选方案。
 >
-> 🔒 **请勿泄露密码！**
+> 🔒 当前命令通过 `-p` 参数接收密码，没有隐藏式密码输入；参数可能出现在 shell 历史和进程列表中。请勿在不可信环境使用或泄露密码。
 
 ---
 
@@ -229,6 +249,8 @@ ncmctl login cookie 'cookie字符串内容'
 # 方式二：从文件导入
 ncmctl login cookie -f cookie.txt
 ```
+
+> 🔒 Cookie 字符串可能进入 shell 历史和进程参数。优先使用权限为 `0600` 的文件并通过 `-f` 导入。
 
 **支持的文件格式：**
 
@@ -254,7 +276,7 @@ Cookie 到云端并加密存储。
 5. 🖥️ 执行登录命令
 
 ```shell
-ncmctl login cookiecloud -u <用户名> -p <密码> -s http://0.0.0.0:8088
+ncmctl login cookiecloud -u <UUID> -p <密码> -s http://127.0.0.1:8088
 ```
 
 > ⚠️ **注意事项：**
@@ -262,6 +284,7 @@ ncmctl login cookiecloud -u <用户名> -p <密码> -s http://0.0.0.0:8088
 > 1. 请确保服务端地址、账号、密码正确
 > 2. 若出现 Cookie 找不到错误，请在插件中手动同步或重新登录后重试
 > 3. 使用第三方服务器请自行评估安全风险
+> 4. 当前命令要求通过 `-u`、`-p` 传入凭据，没有内置交互式密码提示或专用凭据环境变量；参数可能出现在 shell 历史和进程列表中
 
 ---
 
@@ -304,7 +327,7 @@ ncmctl login qrcode
 
 ### 📋 二、每日任务
 
-**一键执行所有每日任务：**
+**注册所有每日任务并持续运行调度服务：**
 
 ```shell
 ncmctl task
@@ -377,6 +400,7 @@ ncmctl download 'https://music.163.com/playlist?id=593617579'
 >
 > - 默认下载到 `./download` 目录，音质为无损 (SQ)
 > - `--strict` 严格模式下，无指定品质则跳过；否则会降级下载
+> - 历史 `download --tag` 参数仅为兼容保留，当前不写入音频标签
 
 ---
 
@@ -412,7 +436,7 @@ ncmctl ncm '/path/to/ncm/files' -o ./output
 ncmctl ncm '/path/to/ncm/files' -o ./output -p 10
 ```
 
-> ⚠️ 目录深度不能超过 3 层。
+> ⚠️ 目录深度不能超过 3 层。音频标签默认写入；历史参数 `--tag` 的语义是关闭标签写入，而不是开启。
 
 ---
 
@@ -469,6 +493,9 @@ ncmctl --home /srv/ncmctl proxy
 ```shell
 # 查看帮助
 ncmctl -h
+
+# 生成 shell 补全（以 zsh 为例）
+ncmctl completion zsh -h
 ```
 
 ---
@@ -480,6 +507,12 @@ ncmctl -h
 |   登录   | [example_login_test.go](example/example_login_test.go)               | -      |
 | 云盘上传 | [example_cloud_upload_test.go](example/example_cloud_upload_test.go) | 需登录 |
 | 音乐下载 | [example_download_test.go](example/example_download_test.go)         | 需登录 |
+
+这些示例都带有 `integration` build tag，会访问真实网易服务，并可能登录、上传、下载或写入本地文件。确认相应副作用后再运行，例如：
+
+```bash
+go test -tags=integration -v -run TestWeapiLoginByQrcode ./example/
+```
 
 ---
 

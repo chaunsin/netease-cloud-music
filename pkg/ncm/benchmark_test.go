@@ -7,20 +7,26 @@ import (
 	"io"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Benchmark_Open(b *testing.B) {
 	b.ReportAllocs()
+
 	ncmName := "./testdata/BOE - 822.ncm"
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		func() {
 			file, err := Open(ncmName)
-			defer file.Close()
-			assert.NoError(b, err)
-			assert.NoError(b, file.DecodeCover(io.Discard))
-			assert.NoError(b, file.DecodeMusic(io.Discard))
-			assert.NoError(b, file.DecodeCover(io.Discard))
+
+			require.NoError(b, err)
+			defer func() {
+				require.NoError(b, file.Close())
+			}()
+
+			require.NoError(b, file.DecodeCover(io.Discard))
+			require.NoError(b, file.DecodeMusic(io.Discard))
+			require.NoError(b, file.DecodeCover(io.Discard))
 		}()
 	}
 }

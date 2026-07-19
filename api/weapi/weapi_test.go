@@ -36,5 +36,6 @@ func TestMain(t *testing.M) {
 	}
 	client := api.New(&cfg)
 	cli = New(client)
+
 	os.Exit(t.Run())
 }

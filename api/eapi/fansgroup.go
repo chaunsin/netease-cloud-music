@@ -12,7 +12,7 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api"
 )
 
-// FansGroupDetailGetReq 获取乐迷团详情请求
+// FansGroupDetailGetReq 获取乐迷团详情请求.
 type FansGroupDetailGetReq struct {
 	GroupId string `json:"groupId"` // 乐迷团ID
 	Scene   string `json:"scene"`   // 场景, 可留空
@@ -20,7 +20,7 @@ type FansGroupDetailGetReq struct {
 	ER      bool   `json:"e_r"`     // 固定 true
 }
 
-// FansGroupDetailGetResp 获取乐迷团详情响应
+// FansGroupDetailGetResp 获取乐迷团详情响应.
 type FansGroupDetailGetResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -39,41 +39,42 @@ type FansGroupDetailGetResp struct {
 	} `json:"data"`
 }
 
-// FansGroupDetailGet 获取乐迷团详情 (含 boardId 等关键信息)
+// FansGroupDetailGet 获取乐迷团详情 (含 boardId 等关键信息).
 func (a *Api) FansGroupDetailGet(ctx context.Context, req *FansGroupDetailGetReq) (*FansGroupDetailGetResp, error) {
 	if req.Header == "" {
 		req.Header = "{}"
 	}
+
 	req.ER = true
 
-	queryParams := fmt.Sprintf("groupId=%s", req.GroupId)
+	queryParams := "groupId=" + req.GroupId
 	if req.Scene != "" {
-		queryParams += fmt.Sprintf("&scene=%s", req.Scene)
+		queryParams += "&scene=" + req.Scene
 	}
 
 	var (
-		url   = fmt.Sprintf("https://interface3.music.163.com/eapi/social/fansgroup/bff/detail/get?%s", queryParams)
+		url   = "https://interface3.music.163.com/eapi/social/fansgroup/bff/detail/get?" + queryParams
 		reply FansGroupDetailGetResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
-// FansGroupMissionAllReq 获取乐迷团全部任务列表请求
+// FansGroupMissionAllReq 获取乐迷团全部任务列表请求.
 type FansGroupMissionAllReq struct {
 	FansGroupId string `json:"fansGroupId"` // 乐迷团ID
 	Header      string `json:"header"`      // 固定 "{}"
 	ER          bool   `json:"e_r"`         // 固定 true
 }
 
-// FansGroupMissionItem 单个乐迷团任务
+// FansGroupMissionItem 单个乐迷团任务.
 type FansGroupMissionItem struct {
 	MissionId       int64  `json:"missionId"`
 	MissionType     string `json:"missionType"`     // "normal" / "userSurprise"
@@ -94,7 +95,7 @@ type FansGroupMissionItem struct {
 	} `json:"button"`
 }
 
-// FansGroupMissionOriginality 今日加速任务 (随机任务)
+// FansGroupMissionOriginality 今日加速任务 (随机任务).
 type FansGroupMissionOriginality struct {
 	MissionId       int64  `json:"missionId"`
 	MissionType     string `json:"missionType"` // "userSurprise"
@@ -112,7 +113,7 @@ type FansGroupMissionOriginality struct {
 	} `json:"button"`
 }
 
-// FansGroupMissionAllResp 获取乐迷团全部任务列表响应
+// FansGroupMissionAllResp 获取乐迷团全部任务列表响应.
 type FansGroupMissionAllResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -130,29 +131,30 @@ type FansGroupMissionAllResp struct {
 	} `json:"data"`
 }
 
-// FansGroupMissionAll 获取乐迷团全部任务列表
+// FansGroupMissionAll 获取乐迷团全部任务列表.
 func (a *Api) FansGroupMissionAll(ctx context.Context, req *FansGroupMissionAllReq) (*FansGroupMissionAllResp, error) {
 	if req.Header == "" {
 		req.Header = "{}"
 	}
+
 	req.ER = true
 
 	var (
-		url   = fmt.Sprintf("https://interface3.music.163.com/eapi/fans/group/mission/all?fansGroupId=%s", req.FansGroupId)
+		url   = "https://interface3.music.163.com/eapi/fans/group/mission/all?fansGroupId=" + req.FansGroupId
 		reply FansGroupMissionAllResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
-// FansGroupFeedRecommendReq 获取乐迷团推荐Feed请求
+// FansGroupFeedRecommendReq 获取乐迷团推荐Feed请求.
 type FansGroupFeedRecommendReq struct {
 	ArtistSelf  string `json:"artistSelf"`  // 固定 "0"
 	Cursor      string `json:"cursor"`      // 游标, 首次 "0"
@@ -162,51 +164,52 @@ type FansGroupFeedRecommendReq struct {
 	ER          bool   `json:"e_r"`         // 固定 true
 }
 
-// FansGroupFeedRecommendResp 获取乐迷团推荐Feed响应
+// FansGroupFeedRecommendResp 获取乐迷团推荐Feed响应.
 type FansGroupFeedRecommendResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    any    `json:"data"` // 复杂结构, 按需解析
 }
 
-// FansGroupFeedRecommend 获取乐迷团推荐Feed
+// FansGroupFeedRecommend 获取乐迷团推荐Feed.
 func (a *Api) FansGroupFeedRecommend(ctx context.Context, req *FansGroupFeedRecommendReq) (*FansGroupFeedRecommendResp, error) {
 	if req.ArtistSelf == "" {
 		req.ArtistSelf = "0"
 	}
+
 	if req.Cursor == "" {
 		req.Cursor = "0"
 	}
+
 	if req.Size == "" {
 		req.Size = "10"
 	}
+
 	if req.Header == "" {
 		req.Header = "{}"
 	}
+
 	req.ER = true
 
 	var (
-		url = fmt.Sprintf(
+		reply      FansGroupFeedRecommendResp
+		opts       = api.NewOptions().SetCryptoModeEAPI()
+		requestURL = fmt.Sprintf(
 			"https://interface3.music.163.com/eapi/fans/group/feed/recommend/get?artistSelf=%s&cursor=%s&fansGroupId=%s&size=%s",
 			req.ArtistSelf,
 			req.Cursor,
 			req.FansGroupId,
 			req.Size,
 		)
-		reply FansGroupFeedRecommendResp
-		opts  = api.NewOptions()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
-	resp, err := a.client.Request(ctx, url, req, &reply, opts)
-	if err != nil {
+	if _, err := a.client.Request(ctx, requestURL, req, &reply, opts); err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
-	_ = resp
 	return &reply, nil
 }
 
-// FansGroupMissionForwardProgressReq 分享进度上报请求
+// FansGroupMissionForwardProgressReq 分享进度上报请求.
 type FansGroupMissionForwardProgressReq struct {
 	ResourceId   string `json:"resourceId"`   // 歌曲ID (从任务列表的 button.url 中解析)
 	Action       string `json:"action"`       // 固定 "share"
@@ -216,51 +219,52 @@ type FansGroupMissionForwardProgressReq struct {
 	ER           bool   `json:"e_r"`          // 固定 true
 }
 
-// FansGroupMissionForwardProgressResp 分享进度上报响应
+// FansGroupMissionForwardProgressResp 分享进度上报响应.
 type FansGroupMissionForwardProgressResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    any    `json:"data"`
 }
 
-// FansGroupMissionForwardProgress 分享进度上报
+// FansGroupMissionForwardProgress 分享进度上报.
 func (a *Api) FansGroupMissionForwardProgress(ctx context.Context, req *FansGroupMissionForwardProgressReq) (*FansGroupMissionForwardProgressResp, error) {
 	if req.Action == "" {
 		req.Action = "share"
 	}
+
 	if req.FansGroupId == "" {
 		req.FansGroupId = "null"
 	}
+
 	if req.ResourceType == "" {
 		req.ResourceType = "4"
 	}
+
 	if req.Header == "" {
 		req.Header = "{}"
 	}
+
 	req.ER = true
 
 	var (
-		url = fmt.Sprintf(
+		reply      FansGroupMissionForwardProgressResp
+		opts       = api.NewOptions().SetCryptoModeEAPI()
+		requestURL = fmt.Sprintf(
 			"https://interface3.music.163.com/eapi/fans/group/mission/forward/progress?resourceId=%s&action=%s&fansGroupId=%s&resourceType=%s",
 			req.ResourceId,
 			req.Action,
 			req.FansGroupId,
 			req.ResourceType,
 		)
-		reply FansGroupMissionForwardProgressResp
-		opts  = api.NewOptions()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
-	resp, err := a.client.Request(ctx, url, req, &reply, opts)
-	if err != nil {
+	if _, err := a.client.Request(ctx, requestURL, req, &reply, opts); err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
-	_ = resp
 	return &reply, nil
 }
 
-// ResourceLikeReq 点赞资源请求
+// ResourceLikeReq 点赞资源请求.
 type ResourceLikeReq struct {
 	ThreadId  string `json:"threadId"`  // 动态的ThreadId, 格式如: A_EV_2_{eventId}_{userId}
 	AppLogExt string `json:"appLogExt"` // 日志扩展字段, 包含乐迷团归属信息
@@ -268,42 +272,43 @@ type ResourceLikeReq struct {
 	ER        bool   `json:"e_r"`       // 固定 true
 }
 
-// ResourceLikeResp 点赞资源响应
+// ResourceLikeResp 点赞资源响应.
 type ResourceLikeResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
 
-// ResourceLike 点赞资源 (用于点赞乐迷团笔记)
+// ResourceLike 点赞资源 (用于点赞乐迷团笔记).
 func (a *Api) ResourceLike(ctx context.Context, req *ResourceLikeReq) (*ResourceLikeResp, error) {
 	if req.Header == "" {
 		req.Header = "{}"
 	}
+
 	req.ER = true
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/resource/like"
 		reply ResourceLikeResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
-// FansGroupUserGroupDetailGetReq 获取用户在乐迷团的详情请求
+// FansGroupUserGroupDetailGetReq 获取用户在乐迷团的详情请求.
 type FansGroupUserGroupDetailGetReq struct {
 	GroupId string `json:"groupId"` // 乐迷团ID
 	Header  string `json:"header"`  // 固定 "{}"
 	ER      bool   `json:"e_r"`     // 固定 true
 }
 
-// FansGroupUserGroupDetailGetResp 获取用户在乐迷团的详情响应
+// FansGroupUserGroupDetailGetResp 获取用户在乐迷团的详情响应.
 type FansGroupUserGroupDetailGetResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -323,24 +328,25 @@ type FansGroupUserGroupDetailGetResp struct {
 	} `json:"data"`
 }
 
-// FansGroupUserGroupDetailGet 获取用户在乐迷团的详情
+// FansGroupUserGroupDetailGet 获取用户在乐迷团的详情.
 func (a *Api) FansGroupUserGroupDetailGet(ctx context.Context, req *FansGroupUserGroupDetailGetReq) (*FansGroupUserGroupDetailGetResp, error) {
 	if req.Header == "" {
 		req.Header = "{}"
 	}
+
 	req.ER = true
 
 	var (
-		url   = fmt.Sprintf("https://interface3.music.163.com/eapi/social/fansgroup/bff/user/group/detail/get?groupId=%s", req.GroupId)
+		url   = "https://interface3.music.163.com/eapi/social/fansgroup/bff/user/group/detail/get?groupId=" + req.GroupId
 		reply FansGroupUserGroupDetailGetResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

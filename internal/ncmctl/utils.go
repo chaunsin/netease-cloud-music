@@ -4,6 +4,7 @@
 package ncmctl
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,10 +17,26 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/pkg/cookiecloud"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
+
+func closeAPIClient(ctx context.Context, client *api.Client) {
+	if err := client.Close(ctx); err != nil {
+		log.Errorf("close API client: %v", err)
+	}
+}
+
+func relativePathDepth(path string) int {
+	cleaned := filepath.Clean(path)
+	if cleaned == "." {
+		return 0
+	}
+	return len(strings.Split(filepath.ToSlash(cleaned), "/"))
+}
 
 func writeFile(cmd *cobra.Command, out string, data []byte) error {
 	if out == "" {
@@ -27,23 +44,25 @@ func writeFile(cmd *cobra.Command, out string, data []byte) error {
 		return nil
 	}
 
-	// 写入文件
-	var file string
+	file := out
+
 	if !filepath.IsAbs(out) {
 		wd, err := os.Getwd()
 		if err != nil {
 			return err
 		}
+
 		file = filepath.Join(wd, out)
-		if !utils.DirExists(file) {
-			if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
-				return fmt.Errorf("MkdirAll: %w", err)
-			}
-		}
 	}
-	if err := os.WriteFile(file, data, os.ModePerm); err != nil {
+
+	if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+		return fmt.Errorf("MkdirAll: %w", err)
+	}
+
+	if err := os.WriteFile(file, data, 0o600); err != nil {
 		return fmt.Errorf("WriteFile: %w", err)
 	}
+
 	cmd.Printf("generate file path: %s\n", file)
 	return nil
 }
@@ -76,10 +95,10 @@ func Parse(source string) (string, int64, error) {
 	return matched[1], id, nil
 }
 
-// IsPrint returns whether s is ASCII and printable according to
+// isPrint returns whether s is ASCII and printable according to
 // https://tools.ietf.org/html/rfc20#section-4.2.
 func isPrint(s string) bool {
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if s[i] < ' ' || s[i] > '~' {
 			return false
 		}
@@ -87,8 +106,8 @@ func isPrint(s string) bool {
 	return true
 }
 
-// ToLower returns the lowercase version of s if s is ASCII and printable.
-func toLower(s string) (lower string, ok bool) {
+// toLower returns the lowercase version of s if s is ASCII and printable.
+func toLower(s string) (string, bool) {
 	if !isPrint(s) {
 		return "", false
 	}
@@ -100,6 +119,7 @@ func sameSite(val string) http.SameSite {
 	if !ascii {
 		return http.SameSiteDefaultMode
 	}
+
 	switch lowerVal {
 	case "strict":
 		return http.SameSiteStrictMode
@@ -114,15 +134,16 @@ func sameSite(val string) http.SameSite {
 	}
 }
 
-// ParseCookeJson 解析cookie.json文件
+// ParseCookeJson 解析cookie.json文件.
 func ParseCookeJson(r io.Reader) ([]*http.Cookie, error) {
 	var (
 		temp    []cookiecloud.CookieData
 		cookies []*http.Cookie
 	)
 	if err := json.NewDecoder(r).Decode(&temp); err != nil {
-		return nil, fmt.Errorf("could not read cookies: %+v", err)
+		return nil, fmt.Errorf("could not read cookies: %w", err)
 	}
+
 	for _, v := range temp {
 		cookies = append(cookies, &http.Cookie{
 			Domain:   v.Domain,
@@ -148,15 +169,16 @@ type Music struct {
 	Time    int64
 }
 
-// NameString 返回去除特殊符号的歌曲名
-func (m Music) NameString() string {
+// NameString 返回去除特殊符号的歌曲名.
+func (m *Music) NameString() string {
 	return utils.Filename(m.Name, "_")
 }
 
-func (m Music) ArtistString() string {
-	if len(m.Artist) <= 0 {
+func (m *Music) ArtistString() string {
+	if len(m.Artist) == 0 {
 		return ""
 	}
+
 	artistList := make([]string, 0, len(m.Artist))
 	for _, ar := range m.Artist {
 		artistList = append(artistList, utils.Filename(ar.Name, "_")) // #11 避免文件名中包含特殊字符
@@ -164,7 +186,7 @@ func (m Music) ArtistString() string {
 	return strings.Join(artistList, ",")
 }
 
-func (m Music) String() string {
+func (m *Music) String() string {
 	var (
 		seconds = m.Time / 1000 // 毫秒换成秒
 		hours   = seconds / 3600

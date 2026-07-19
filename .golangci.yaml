@@ -23,6 +23,7 @@ linters:
     - gocognit # 代码认知复杂度
     - goconst # 常量枚举检测，存在很多冲突误报情况
     - gocyclo # 圈复杂度
+    - godox # 代码TODO、FIXME等注释，有些情况下需要滞后处理，为了保证issues问题为0开启后AI会绕过把关键字修改成别的比如pending等，因此需要关闭
     - gochecknoglobals # 禁止定义全局变量（global variables）。
     - goheader # 限制文件头Lisense目前存在覆盖其它协议问题暂时注释，可配置忽略指定文件
     - gomodguard # 弃用使用gomodguard_v2版本
@@ -571,10 +572,10 @@ linters:
           # 是否将检查器限制为仅参数。
           # 默认值：true
           paramsOnly: true
-        commentedOutCode:
-          # 触发警告的注释最小长度。
-          # 默认值：15
-          minLength: 15
+        # commentedOutCode:
+        #   # 触发警告的注释最小长度。
+        #   # 默认值：15
+        #   minLength: 15
         elseif:
           # 是否跳过平衡的 if-else 对。
           # 默认值：true
@@ -626,7 +627,7 @@ linters:
           # - 'import'：ruleguard 规则导入了无法找到的包。
           # - 'dsl'：    gorule 文件不符合 ruleguard DSL。
           # 默认值：""
-          failOn: dsl,import
+          failOn: all
           # 包含 ruleguard 规则的文件路径的逗号分隔列表。
           # 默认情况下，如果路径是相对路径，则相对于执行 golangci-lint 命令的目录。
           # 占位符 '${base-path}' 被替换为相对于 `run.relative-path-mode` 所定义模式的路径。
@@ -654,10 +655,10 @@ linters:
           # 是否跳过 (*x).method() 调用（其中 x 是指针接收者）。
           # 默认值：true
           skipRecvDeref: true
-        unnamedResult:
-          # 是否检查导出函数。
-          # 默认值：false
-          checkExported: false
+        # unnamedResult:
+        #   # 是否检查导出函数。
+        #   # 默认值：false
+        #   checkExported: false
 
     # 检查 圈复杂度（Cyclomatic Complexity）gocyclo 是早期版本的圈复杂度检查器，cyclop 是它的增强替代品。
     gocyclo:
@@ -716,8 +717,9 @@ linters:
       period: true
       # 检查每个句子是否以大写字母开头。
       # 默认值：false
-      capital: true
+      capital: false
 
+    # 检测代码中TODO、BUG、FIXME等关键注释
     godox:
       # 报告以关键字开头的注释，这对于可能被意外留在代码中、
       # 应在合并前解决的 TODO 或 FIXME 注释很有用。
@@ -818,6 +820,7 @@ linters:
         - G124 # 检测 cookie 缺安全属性
         - G304 # 使用变量作为文件路径打开文件，可能导致任意文件读取
         - G402 # InsecureSkipVerify
+        - G404 # 使用了若安全随机数生成器 (math/rand or math/rand/v2 instead of crypto/rand)
 
       # 过滤掉严重程度低于给定值的问题。
       # 有效选项为：low、medium、high。
@@ -2189,11 +2192,11 @@ formatters:
   # 默认值：[] (uses standard Go formatting)
   enable:
     - gci
-    - gofmt
-    - gofumpt
+    - gofumpt # gofumpt兼容覆盖gofmt
     - goimports
     - golines
     - swaggo
+    # - gofmt
 
   # 格式化工具设置。
   settings:
@@ -2291,16 +2294,17 @@ formatters:
     # 默认值：[]
     paths:
 
+# 控制 lint 结果如何过滤、统计、去重、增量检查以及自动修复。
 issues:
-  # 每个 linter 的最大问题数。
+  # 每个 linter 最多输出多少条 Issue。
   # 设为 0 以禁用。
   # 默认值：50
-  max-issues-per-linter: 50
+  max-issues-per-linter: 0
 
   # 相同文本问题的最大数量。
   # 设为 0 以禁用。
   # 默认值：3
-  max-same-issues: 3
+  max-same-issues: 0
 
   # 按行使问题输出唯一。
   # 默认值：true
@@ -2333,7 +2337,7 @@ issues:
 
   # 应用 linter 和格式化工具检测到的修复（如果 linter 支持）。
   # 默认值：false
-  fix: true
+  fix: false
 
 # 输出配置选项。
 output:
@@ -2485,7 +2489,7 @@ run:
   # 允许并行运行多个 golangci-lint 实例。
   # 如果为 false，golangci-lint 在启动时获取文件锁。
   # 默认值：false
-  allow-parallel-runners: false
+  allow-parallel-runners: true
 
   # 允许运行多个 golangci-lint 实例，但通过锁串行化。
   # 如果为 false，golangci-lint 在启动时获取文件锁失败则以错误退出。
@@ -2527,6 +2531,3 @@ severity:
   #
   # 默认值：[]
   rules:
-    - linters:
-        - dupl
-      severity: info

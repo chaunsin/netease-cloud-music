@@ -1,167 +1,73 @@
 ---
 name: ncmctl-dev
-description: >
-  NetEase Cloud Music CLI tool (ncmctl) development guide. Use this skill when working with
-  the netease-cloud-music codebase, including ncmctl commands, API integration, crypto,
-  NCM file decryption, daily tasks, music download, cloud upload, HTTP(S) proxy monitoring, or any Go code in this
-  repository. Trigger on mentions of ncmctl, 网易云音乐 CLI, NetEase Cloud Music API,
-  weapi/eapi encryption, .ncm file format, cloud music daily tasks (sign/partner/scrobble),
-  or when modifying, debugging, or extending any part of this project.
+description: >-
+  Repository development guide for github.com/chaunsin/netease-cloud-music and the ncmctl Go CLI.
+  Use this skill for any code, test, documentation, review, refactor, or debugging work in this
+  repository, including Cobra commands, WEAPI/EAPI/Linux/API endpoint packages, XEAPI transport,
+  crypto and NCBL,
+  cookies, CookieCloud, Badger, NCM decoding, downloads, cloud uploads, scheduled account tasks,
+  and the HTTP(S) monitoring proxy. Trigger even when the user names only a repository path or Go
+  package rather than ncmctl. Do not use it for general NetEase music questions unrelated to this codebase.
 ---
+
 # ncmctl Development Guide
 
-ncmctl is a Go CLI tool for NetEase Cloud Music providing login, daily tasks, music download, cloud upload, NCM file decryption, and HTTP(S) API monitoring.
+Use this skill to navigate the repository safely and load only the task-specific details needed for the current change.
 
-## Project Structure
+## Start here
 
-```
-cmd/ncmctl/main.go       # CLI entry point
-internal/ncmctl/          # CLI command implementations (cobra commands)
-internal/proxy/           # goproxy MITM, capture, protocol parsing, redaction
-api/                      # API client layer
-  ├── api.go              # Core Client: HTTP, encryption, cookie persistence
-  ├── weapi/              # Web/Mini-program API (recommended, most complete)
-  ├── eapi/               # PC/Mobile API
-  ├── linux/              # Linux client API
-  └── types/              # Shared request/response types
-pkg/
-  ├── crypto/             # AES-CBC/ECB, RSA, weapi/eapi encryption
-  ├── cookie/             # Cookie persistence and sync
-  ├── cookiecloud/        # CookieCloud browser extension support
-  ├── ncm/                # NCM file decryption + audio tag handling
-  ├── database/           # Badger key-value store wrapper
-  ├── log/                # Structured logging (lumberjack rotation)
-  └── utils/              # General utilities
-config/                   # Config structs + default config.yaml
-```
+1. Read the repository-root `AGENTS.md` completely. It is a symlink to the canonical `CLAUDE.md` and defines test side effects, architecture, protocol invariants, and documentation ownership.
+2. Run `git status --short`. Preserve unrelated staged, unstaged, and untracked work.
+3. Inspect the nearest implementation, callers, and tests before editing. Protocol behavior must come from source, captures, history, or fixed vectors rather than UI symptoms or guesses.
+4. Select the smallest relevant reference below; do not load both reference files by default.
 
-## Build & Test
+## Reference routing
+
+| Task | Read |
+| --- | --- |
+| Add or change a Cobra command, command lifecycle, scheduled task, or CLI test | `references/commands.md` |
+| Look up user-facing flags and examples | Repository-root `skills/ncmctl/references/commands.md` |
+| Add or change an API endpoint, client option, cookie/config/database path, or crypto mode | `references/api-guide.md` |
+| Change XEAPI wire behavior | The XEAPI section of `references/api-guide.md`, then the current-status table and relevant research sections in repository-root `docs/xeapi.md` |
+| Change NCBL wire behavior | The NCBL section of `references/api-guide.md`, `pkg/crypto/ncbl.go`, and `pkg/crypto/ncbl_test.go`; NCBL is not part of `docs/xeapi.md` |
+| Change the proxy | Root `AGENTS.md`, `internal/proxy/`, and focused proxy tests; use the user command reference only for public flags |
+| Change NCM decoding or tags | `pkg/ncm/`, `pkg/ncm/tag/`, and their tests |
+| Update only installation or login guidance | Repository-root `skills/ncmctl/references/install-and-login.md` |
+
+## Evidence by task
+
+- **Current CLI behavior:** inspect the implementation, focused tests, and help from a freshly built binary. Cobra source and generated help should agree.
+- **Protocol compatibility:** combine captures or independently sourced fixed vectors with implementation and tests. A self-consistent implementation test does not outrank wire evidence.
+- **Build and configuration:** use `Makefile`, `go.mod`, `config/config.yaml`, and the active loader code.
+- **Documentation:** use root guidance for repository policy and references for task-specific detail; README prose is not executable evidence.
+
+Update only documentation directly affected by the requested behavior change. Report unrelated drift instead of expanding the task.
+
+## Validation selection
+
+Start narrow and expand only when safe:
 
 ```bash
-make build                # Build binary → ./ncmctl
-make install              # Install to $GOPATH/bin
-go test -v ./...          # Run the default test suite
-go test -tags=integration -v -run TestName ./example/  # Run a live example integration test
-make build-image          # Build Docker image
+# Examples of offline-focused checks
+go test ./api ./pkg/crypto
+go test ./internal/ncmctl
+go test ./internal/proxy
+go test -race ./internal/proxy
+
+# Repository checks
+make fmt
+make lint
+git diff --check
 ```
 
-Requires Go >= 1.25.0. Example integration tests require the `integration` tag, use the real NetEase network, and can log in, upload, or download with an account. Tests needing login require a cookie file or should be skipped.
+Do not run `go test ./...` or `make test` automatically. Untagged tests under `api/weapi` and `api/eapi` call live NetEase services and may act on an account when a valid cookie exists. Tests under `example/` require `-tags=integration` and can log in, upload, or download. Run those only with explicit authorization for their network and account effects.
 
-## CLI Commands
+`make lintfix` is a broad mutating operation. Inspect its diff and do not change `.golangci.yaml` merely to silence source findings unless lint policy is the task.
 
-| Command      | Login | Description                            |
-| ------------ | ----- | -------------------------------------- |
-| `login`    | No    | Phone/Cookie/CookieCloud/QR code login |
-| `logout`   | No    | Clear stored credentials               |
-| `task`     | Yes   | Run all daily tasks on cron schedule   |
-| `sign`     | Yes   | YunBei + VIP daily check-in            |
-| `partner`  | Yes   | Music partner auto-evaluation          |
-| `scrobble` | Yes   | Scrobble 300 songs daily               |
-| `download` | Yes   | Download songs/albums/playlists        |
-| `cloud`    | Yes   | Upload music to cloud disk             |
-| `ncm`      | No    | Decrypt .ncm → .mp3/.flac             |
-| `crypto`   | No    | Encrypt/decrypt API parameters         |
-| `curl`     | No    | Invoke API methods directly            |
-| `proxy`    | No    | Monitor NetEase HTTP(S) API traffic    |
+## Finish
 
-## Adding a New CLI Command
+- Follow root `AGENTS.md` for documentation ownership and synchronization triggers.
+- Validate each skill changed by the task; do not validate an untouched skill merely because it exists in the repository.
+- Check relative links only in changed documentation and confirm a canonical symlink only when the task touched its source or link.
 
-1. Create `internal/ncmctl/<command>.go` implementing a struct with `root`, `cmd`, `opts`, `l` fields
-2. Implement `New<Command>(root *Root, l *log.Logger)` constructor
-3. Define cobra command with `Use`, `Short`, `Example`
-4. Add flags via `addFlags()` method
-5. Implement `validate()` and `execute(ctx, args)` methods
-6. For login-required commands: create API client, check `request.NeedLogin(ctx)`, defer `request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})`
-7. Register in `internal/ncmctl/ncmctl.go`: `c.Add(New<Command>(c, c.l).Command())`
-
-Pattern for login-required commands:
-
-```go
-cli, err := api.NewClient(c.root.Cfg.Network, c.l)
-if err != nil { return fmt.Errorf("NewClient: %w", err) }
-defer cli.Close(ctx)
-request := weapi.New(cli)
-if request.NeedLogin(ctx) { return fmt.Errorf("need login") }
-defer func() {
-    refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
-    if err != nil || refresh.Code != 200 {
-        log.Warn("TokenRefresh resp:%+v err: %s", refresh, err)
-    }
-}()
-```
-
-## Adding a New API Endpoint
-
-1. Create file in `api/weapi/` or `api/eapi/`
-2. Define request/response structs (request fields use json tags)
-3. Implement method on API struct calling `a.client.Request(ctx, url, req, resp, opts...)`
-4. Set correct `CryptoMode` via option: `api.WithCryptoMode(api.CryptoModeWEAPI)`
-5. Default crypto mode is weapi; eapi uses `CryptoModeEAPI`
-
-API call flow:
-
-```go
-cli := api.New(cfg)
-weapiClient := weapi.New(cli)
-resp, err := weapiClient.SomeMethod(ctx, &weapi.SomeMethodReq{...})
-cli.Close(ctx)
-```
-
-## Encryption Modes
-
-| Mode                | Algorithm                    | Use Case         |
-| ------------------- | ---------------------------- | ---------------- |
-| `CryptoModeWEAPI` | AES-CBC double encrypt + RSA | Web/Mini-program |
-| `CryptoModeEAPI`  | AES-ECB                      | PC/Mobile        |
-| `CryptoModeLinux` | AES-ECB                      | Linux client     |
-| `CryptoModeAPI`   | None                         | Basic API        |
-
-Core functions in `pkg/crypto/crypto.go`: `WeApiEncrypt()`, `EApiEncrypt()`, `LinuxApiEncrypt()`, `EApiDecrypt()`.
-
-## Configuration
-
-- Config file: `~/.ncmctl/config.yaml` (optional, uses defaults if absent)
-- Cookie storage: `~/.ncmctl/cookie.json` (auto-persisted, 3s interval)
-- Database: `~/.ncmctl/database/badger/` (scrobble dedup records)
-- Logs: `~/.ncmctl/log/ncm.log`
-- Proxy CA: `~/.ncmctl/proxy/ca.crt` and `ca.key`
-- Env var prefix: `NCMCTL_` (e.g., `NCMCTL_NETWORK_DEBUG=true`)
-- Magic variable: `${HOME}` replaced at runtime
-
-## Download Quality Levels
-
-| Level    | Aliases | Format  |
-| -------- | ------- | ------- |
-| standard | 128     | 128kbps |
-| higher   | 192     | 192kbps |
-| exhigh   | HQ, 320 | 320kbps |
-| lossless | SQ      | FLAC    |
-| hires    | HR      | Hi-Res  |
-
-## Key Dependencies
-
-| Package                 | Purpose           |
-| ----------------------- | ----------------- |
-| `spf13/cobra`         | CLI framework     |
-| `elazarl/goproxy`     | HTTP(S) MITM proxy |
-| `go-resty/resty/v2`   | HTTP client       |
-| `dgraph-io/badger/v4` | Local KV database |
-| `robfig/cron/v3`      | Cron scheduling   |
-| `spf13/viper`         | Config management |
-
-## Important Notes
-
-- Cookie persistence is interval-based (3s); unclean shutdown may lose recent cookies
-- Scrobble dedup data in `~/.ncmctl/database/` should not be deleted
-- Directory depth limit is 3 for cloud upload and NCM decryption
-- Cloud upload max file size: 500MB
-- Download parallelism max: 20; Cloud upload parallelism max: 10
-- The `task` command runs as a long-lived service; use Ctrl+C to stop
-- The `proxy` command runs until SIGINT/SIGTERM; capture blocks go to stdout and startup/errors go to stderr
-- Proxy CA private keys must remain mode `0600` on POSIX and use a current-user protected ACL on Windows; never use goproxy's public built-in CA key
-- Proxy observation failures must not alter forwarded requests or responses; unstructured/non-UTF-8 bodies fail closed unless sensitive output is explicitly enabled, and a full output queue must report `CAPTURE_DROPPED` instead of blocking traffic
-- Passive WEAPI/XEAPI requests may be marked unsupported because their client-side/session keys are unavailable
-- Sign-in reward auto-claim (`--sign.automatic`) has ban risk, disabled by default
-- Scrobble (刷歌) currently has high risk of account ban due to strict risk control
-
-For detailed command usage and API reference, read `references/commands.md` and `references/api-guide.md`.
+Use an available skill validator for changed skills, then run the relevant focused tests and diff checks.

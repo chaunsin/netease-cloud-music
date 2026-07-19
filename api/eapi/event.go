@@ -22,7 +22,7 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
 
-// EventPublishReq 发送动态请求
+// EventPublishReq 发送动态请求.
 type EventPublishReq struct {
 	// Title 动态标题 (新版图文笔记支持标题)
 	Title string `json:"title,omitempty"`
@@ -45,9 +45,10 @@ type EventPublishReq struct {
 	ActivityInfoList string `json:"activityInfoList,omitempty"`
 }
 
-// EventPublishResp 发送动态响应
+// EventPublishResp 发送动态响应.
 type EventPublishResp struct {
 	types.RespCommon[any]
+
 	UserId int   `json:"userId"`
 	Id     int64 `json:"id"`
 	Event  struct {
@@ -60,7 +61,7 @@ type EventPublishResp struct {
 }
 
 // EventPublish 发送动态 (支持图片)
-// needLogin: 是
+// needLogin: 是.
 func (a *Api) EventPublish(ctx context.Context, req *EventPublishReq) (*EventPublishResp, error) {
 	// 自动生成 UUID
 	if req.Uuid == "" {
@@ -68,14 +69,18 @@ func (a *Api) EventPublish(ctx context.Context, req *EventPublishReq) (*EventPub
 		if _, err := rand.Read(b); err != nil {
 			return nil, fmt.Errorf("generate uuid: %w", err)
 		}
+
 		req.Uuid = hex.EncodeToString(b)
 	}
+
 	if req.Type == "" {
 		req.Type = "noresource"
 	}
+
 	if req.PrivacySetting == "" {
 		req.PrivacySetting = "0"
 	}
+
 	if req.SocialSpaceVisible == 0 {
 		req.SocialSpaceVisible = 1
 	}
@@ -83,48 +88,48 @@ func (a *Api) EventPublish(ctx context.Context, req *EventPublishReq) (*EventPub
 	var (
 		url   = "https://interface3.music.163.com/eapi/note/share/friends/resource"
 		reply EventPublishResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
-// EventDeleteReq 删除动态请求
+// EventDeleteReq 删除动态请求.
 type EventDeleteReq struct {
 	// Id 动态ID
 	Id int64 `json:"id"`
 }
 
-// EventDeleteResp 删除动态响应
+// EventDeleteResp 删除动态响应.
 type EventDeleteResp struct {
 	types.RespCommon[any]
 }
 
 // EventDelete 删除动态
-// needLogin: 是
+// needLogin: 是.
 func (a *Api) EventDelete(ctx context.Context, req *EventDeleteReq) (*EventDeleteResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/eapi/event/delete"
 		reply EventDeleteResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
-// eventImgPicInfo 事件图片信息 (用于动态图片参数)
+// eventImgPicInfo 事件图片信息 (用于动态图片参数).
 type eventImgPicInfo struct {
 	OriginId      string `json:"originId"`
 	SquareId      string `json:"squareId"`
@@ -137,9 +142,10 @@ type eventImgPicInfo struct {
 	Index         int    `json:"index"`
 }
 
-// eventNosTokenResp Nos Token 分配响应
+// eventNosTokenResp Nos Token 分配响应.
 type eventNosTokenResp struct {
 	types.RespCommon[any]
+
 	Result struct {
 		Bucket    string `json:"bucket"`
 		DocId     string `json:"docId"`
@@ -148,9 +154,10 @@ type eventNosTokenResp struct {
 	} `json:"result"`
 }
 
-// eventUploadImgResp 上传事件图片信息响应
+// eventUploadImgResp 上传事件图片信息响应.
 type eventUploadImgResp struct {
 	types.RespCommon[any]
+
 	PicSubtype string `json:"picSubtype"`
 	PicInfo    struct {
 		OriginId    int64  `json:"originId"`
@@ -162,7 +169,7 @@ type eventUploadImgResp struct {
 	} `json:"picInfo"`
 }
 
-// eventNosTokenReq 获取 Nos Token 请求
+// eventNosTokenReq 获取 Nos Token 请求.
 type eventNosTokenReq struct {
 	Filename   string `json:"filename"`
 	Local      string `json:"local"`
@@ -173,7 +180,7 @@ type eventNosTokenReq struct {
 	Type       string `json:"type"`
 }
 
-// eventUploadImgReq 获取事件图片信息请求
+// eventUploadImgReq 获取事件图片信息请求.
 type eventUploadImgReq struct {
 	ImgId  string `json:"imgid"`
 	Format string `json:"format"`
@@ -206,13 +213,13 @@ func (a *Api) uploadEventImage(ctx context.Context, filePath, uploadNode string,
 			Type:       "image",
 		}
 		tokenReply eventNosTokenResp
-		tokenOpts  = api.NewOptions()
+		tokenOpts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	tokenOpts.CryptoMode = api.CryptoModeEAPI
 
 	if _, err := a.client.Request(ctx, tokenURL, tokenReq, &tokenReply, tokenOpts); err != nil {
 		return nil, fmt.Errorf("get nos token: %w", err)
 	}
+
 	if tokenReply.Code != 200 {
 		return nil, fmt.Errorf("get nos token failed: code=%d, msg=%s", tokenReply.Code, tokenReply.Message)
 	}
@@ -238,13 +245,13 @@ func (a *Api) uploadEventImage(ctx context.Context, filePath, uploadNode string,
 			Format: ext,
 		}
 		imgReply eventUploadImgResp
-		imgOpts  = api.NewOptions()
+		imgOpts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	imgOpts.CryptoMode = api.CryptoModeEAPI
 
 	if _, err := a.client.Request(ctx, imgURL, imgReq, &imgReply, imgOpts); err != nil {
 		return nil, fmt.Errorf("get event img info: %w", err)
 	}
+
 	if imgReply.Code != 200 {
 		return nil, fmt.Errorf("get event img info failed: code=%d, msg=%s", imgReply.Code, imgReply.Message)
 	}
@@ -265,7 +272,7 @@ func (a *Api) uploadEventImage(ctx context.Context, filePath, uploadNode string,
 
 // EventUploadImage 上传动态图片
 // 完成三步操作: 获取nos token → 上传文件 → 获取图片信息
-// 返回值为 EventPublishReq.Pics 所需的 JSON 字符串
+// 返回值为 EventPublishReq.Pics 所需的 JSON 字符串.
 func (a *Api) EventUploadImage(ctx context.Context, filePath string) (string, error) {
 	uploadNode, err := a.GetUploadNode(ctx, "cloudmusic")
 	if err != nil {
@@ -285,7 +292,7 @@ func (a *Api) EventUploadImage(ctx context.Context, filePath string) (string, er
 }
 
 // EventUploadImages 批量上传动态图片
-// 返回值为 EventPublishReq.Pics 所需的 JSON 字符串
+// 返回值为 EventPublishReq.Pics 所需的 JSON 字符串.
 func (a *Api) EventUploadImages(ctx context.Context, filePaths []string) (string, error) {
 	// 上传节点只依赖 bucket, 循环前取一次即可
 	uploadNode, err := a.GetUploadNode(ctx, "cloudmusic")
@@ -295,10 +302,11 @@ func (a *Api) EventUploadImages(ctx context.Context, filePaths []string) (string
 
 	pics := make([]eventImgPicInfo, 0, len(filePaths))
 	for i, fp := range filePaths {
-		picInfo, err := a.uploadEventImage(ctx, fp, uploadNode, i)
-		if err != nil {
-			return "", fmt.Errorf("upload %s: %w", fp, err)
+		picInfo, uploadErr := a.uploadEventImage(ctx, fp, uploadNode, i)
+		if uploadErr != nil {
+			return "", fmt.Errorf("uploadEventImage %s: %w", fp, uploadErr)
 		}
+
 		pics = append(pics, *picInfo)
 	}
 

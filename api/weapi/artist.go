@@ -22,6 +22,7 @@ type ArtistSongsReq struct {
 
 type ArtistSongsResp struct {
 	types.RespCommon[any]
+
 	More  bool                   `json:"more"`
 	Total int64                  `json:"total"`
 	Songs []ArtistSongsRespSongs `json:"songs"`
@@ -65,6 +66,7 @@ type ArtistSongsRespSongs struct {
 	Tns             []string       `json:"tns,omitempty"`
 	Privilege       struct {
 		types.Privileges
+
 		Code    int64 `json:"code"`
 		Message any   `json:"message"`
 	} `json:"privilege"`
@@ -72,16 +74,18 @@ type ArtistSongsRespSongs struct {
 
 // ArtistSongs 歌手所有歌曲
 // url:
-// needLogin:
+// needLogin:.
 func (a *Api) ArtistSongs(ctx context.Context, req *ArtistSongsReq) (*ArtistSongsResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/v1/artist/songs"
 		reply ArtistSongsResp
 		opts  = api.NewOptions()
 	)
+
 	if req.Order == "" {
 		req.Order = "hot"
 	}
+
 	if req.Limit == 0 {
 		req.Limit = 100
 	}
@@ -90,6 +94,7 @@ func (a *Api) ArtistSongs(ctx context.Context, req *ArtistSongsReq) (*ArtistSong
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

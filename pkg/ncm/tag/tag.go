@@ -5,6 +5,7 @@ package tag
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -38,6 +39,7 @@ func New(filename, format string) (Tagger, error) {
 		tagger Tagger
 		err    error
 	)
+
 	switch strings.ToLower(format) {
 	case audioFormatMp3:
 		tagger, err = NewMp3(filename)
@@ -45,7 +47,7 @@ func New(filename, format string) (Tagger, error) {
 		tagger, err = NewFlac(filename)
 	case audioFormatWav:
 		// tagger, err = NewWAV(filename)
-		fallthrough
+		err = fmt.Errorf("format: %s is not supportted", format)
 	default:
 		err = fmt.Errorf("format: %s is not supportted", format)
 	}
@@ -55,9 +57,11 @@ func New(filename, format string) (Tagger, error) {
 func NewFromNCM(n *ncm.NCM, filename string) error {
 	mata := n.Metadata()
 	if mata == nil {
-		return fmt.Errorf("ncm.Metadata() is nil")
+		return errors.New("ncm.Metadata() is nil")
 	}
+
 	var data *ncm.MetadataMusic
+
 	switch mata.GetType() {
 	case ncm.MetadataTypeMusic:
 		data = mata.GetMusic()
@@ -128,6 +132,7 @@ func SetMetadata(tag Tagger, imgData []byte, meta *ncm.MetadataMusic) error {
 	for _, artist := range meta.Artists {
 		artists = append(artists, artist.Name)
 	}
+
 	if len(artists) > 0 {
 		if err := tag.SetArtist(artists); err != nil {
 			return fmt.Errorf("SetArtist: %w", err)
@@ -137,20 +142,36 @@ func SetMetadata(tag Tagger, imgData []byte, meta *ncm.MetadataMusic) error {
 }
 
 func fetchUrl(url string) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
+
 	client := http.Client{
 		Timeout: 30 * time.Second,
 	}
+
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+
 	if res.StatusCode != http.StatusOK {
+		if err := res.Body.Close(); err != nil {
+			return nil, fmt.Errorf("close album pic response: %w", err)
+		}
 		return nil, fmt.Errorf("failed to download album pic: remote returned %d", res.StatusCode)
 	}
-	return io.ReadAll(res.Body)
+
+	data, readErr := io.ReadAll(res.Body)
+	closeErr := res.Body.Close()
+
+	if readErr != nil {
+		return nil, readErr
+	}
+
+	if closeErr != nil {
+		return nil, fmt.Errorf("close album pic response: %w", closeErr)
+	}
+	return data, nil
 }

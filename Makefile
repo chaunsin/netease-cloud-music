@@ -23,19 +23,19 @@ lint:
 test:
 	go test -v ./...
 	
-.PHONY: info	
-info:
+.PHONY: install
+install:
+	cd cmd/ncmctl && go install .
+
+.PHONY: buildinfo
+buildinfo:
 	@echo "Current Branch: $(CURRENT_BRANCH)"
 	@echo "Current Commit Hash: $(COMMIT_HASH)"
 	@echo "Current Build Time: $(BUILD_TIME)"
 
 .PHONY: build
-build: info
+build: buildinfo
 	go build -ldflags "-X 'main.Version=$(CURRENT_BRANCH)' -X 'main.Commit=${COMMIT_HASH}' -X 'main.BuildTime=${BUILD_TIME}' -s -w" -o ncmctl cmd/ncmctl/main.go
-
-.PHONY: install
-install:
-	cd cmd/ncmctl && go install .
 
 # 构建镜像
 build-image:
@@ -47,9 +47,9 @@ push-image:
 
 # 当使用docker部署时,如果没有登录账号则需要先登录
 login:
-	docker run --rm -it -v ./data:/root chaunsin/ncmctl:$(VERSION) /app/ncmctl login qrcode
+	docker run --rm -it -v ./data:/root chaunsin/ncmctl:$(IMAGE_VERSION) /app/ncmctl login qrcode
 
 # 运行服务，注意挂载的目录和登录挂载的目录要一致
 task:
-	docker run -it -d -v ./data:/root chaunsin/ncmctl:$(VERSION) /app/ncmctl task --sign --scrobble
+	docker run -it -d -v ./data:/root chaunsin/ncmctl:$(IMAGE_VERSION) /app/ncmctl task --sign --scrobble
 	#docker-compose up -d

@@ -6,7 +6,6 @@ package ncm
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"io"
 )
@@ -39,7 +38,7 @@ func (c CoverType) MIME() string {
 	case CoverTypeGif:
 		return "image/gif"
 	case CoverTypeUnknown:
-		fallthrough
+		return "unknown"
 	default:
 		return "unknown"
 	}
@@ -57,22 +56,27 @@ func DetectCoverType(data []byte) CoverType {
 	if len(data) < 2 {
 		return CoverTypeUnknown
 	}
+
 	if bytes.HasPrefix(data, jpegPrefix) {
 		return CoverTypeJpeg
 	}
+
 	if bytes.HasPrefix(data, pngPrefix) {
 		return CoverTypePng
 	}
+
 	if bytes.HasPrefix(data, bmpPrefix) {
 		return CoverTypeBmp
 	}
+
 	if bytes.HasPrefix(data, webpPrefix) {
 		return CoverTypeWebp
 	}
+
 	if bytes.HasPrefix(data, gifPrefix) {
 		return CoverTypeGif
 	}
-	fmt.Printf("ncm: unknown magic type string=%s byte=%v", string(data), hex.EncodeToString(data))
+
 	return CoverTypeUnknown
 }
 

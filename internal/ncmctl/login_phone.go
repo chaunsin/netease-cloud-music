@@ -5,6 +5,7 @@ package ncmctl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -50,13 +51,15 @@ func (c *loginPhoneCmd) addFlags() {
 }
 
 func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
-	if len(args) <= 0 {
-		return fmt.Errorf("requrid phone number")
+	if len(args) == 0 {
+		return errors.New("requrid phone number")
 	}
+
 	cellphone := args[0]
 	if len(cellphone) < 5 {
-		return fmt.Errorf("phone number is too short")
+		return errors.New("phone number is too short")
 	}
+
 	if _, err := strconv.ParseInt(cellphone, 10, 64); err != nil {
 		return fmt.Errorf("invalid phone number: %s", cellphone)
 	}
@@ -65,7 +68,8 @@ func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer cli.Close(ctx)
+	defer closeAPIClient(ctx, cli)
+
 	request := weapi.New(cli)
 
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
@@ -73,14 +77,16 @@ func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
 
 	// 如果密码为空则走短信验证登录逻辑
 	var captcha string
+
 	if c.password == "" {
-		sms, err := request.SendSMS(ctx, &weapi.SendSMSReq{
+		sms, smsErr := request.SendSMS(ctx, &weapi.SendSMSReq{
 			Cellphone: cellphone,
 			CtCode:    c.countrycode,
 		})
-		if err != nil {
-			return fmt.Errorf("SendSMS: %s", err)
+		if smsErr != nil {
+			return fmt.Errorf("SendSMS: %w", smsErr)
 		}
+
 		if sms.Code == 200 && sms.Data {
 			c.cmd.Println("send sms success")
 		} else {
@@ -89,31 +95,37 @@ func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
 
 		// 等待用户在终端输入验证码
 		var fail int
+
 	retry:
 		if fail > 5 {
-			return fmt.Errorf("too many failed attempts")
+			return errors.New("too many failed attempts")
 		}
+
 		c.cmd.Printf("please input sms captcha: ")
-		if _, err := fmt.Scanln(&captcha); err != nil {
-			return fmt.Errorf("input sms captcha: %s", err)
+
+		if _, scanErr := fmt.Scanln(&captcha); scanErr != nil {
+			return fmt.Errorf("input sms captcha: %w", scanErr)
 		}
+
 		if captcha == "" || len(captcha) < 4 {
 			c.cmd.Println("invalid captcha, please retry")
 			goto retry
 		}
 
-		verify, err := request.SMSVerify(ctx, &weapi.SMSVerifyReq{
+		verify, verifyErr := request.SMSVerify(ctx, &weapi.SMSVerifyReq{
 			Cellphone: cellphone,
 			Captcha:   captcha,
 			CtCode:    c.countrycode,
 		})
-		if err != nil {
-			return fmt.Errorf("SMSVerify: %s", err)
+		if verifyErr != nil {
+			return fmt.Errorf("SMSVerify: %w", verifyErr)
 		}
+
 		if verify.Code == 200 && verify.Data {
 			c.cmd.Println("verify sms success")
 		} else {
 			fail++
+
 			c.cmd.Printf("verify sms failed, code: %d, msg: %s\n", verify.Code, verify.Msg)
 			goto retry
 		}
@@ -127,8 +139,9 @@ func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
 		Captcha:     captcha,
 	})
 	if err != nil {
-		return fmt.Errorf("LoginCellphone: %s", err)
+		return fmt.Errorf("LoginCellphone: %w", err)
 	}
+
 	if login.Code != 200 {
 		return fmt.Errorf("login failed, code: %d, msg: %s, message: %s", login.Code, login.Msg, login.Message)
 	}
@@ -136,8 +149,9 @@ func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
 	// 查询登录信息是否成功
 	user, err := request.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
 	if err != nil {
-		return fmt.Errorf("GetUserInfo: %s", err)
+		return fmt.Errorf("GetUserInfo: %w", err)
 	}
+
 	c.cmd.Printf("login success: %+v\n", user)
 	return nil
 }

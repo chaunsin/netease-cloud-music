@@ -22,22 +22,28 @@ func (f CloseHook) Close(ctx context.Context) error {
 	return f(ctx)
 }
 
-func Daemon(close ...Close) {
+func Daemon(closers ...Close) {
 	path, err := os.Executable()
 	if err != nil {
 		panic(err)
 	}
+
 	log.Printf("ncmctl run directory: %s", path)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
+
 	for s := range c {
 		log.Printf("[nohup] get a signal %s\n", s.String())
+
 		switch s {
 		case syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
-			for _, v := range close {
-				_ = v.Close(context.Background())
+			for _, closer := range closers {
+				if err := closer.Close(context.Background()); err != nil {
+					log.Printf("[nohup] close hook: %v", err)
+				}
 			}
+
 			time.Sleep(time.Second * 1)
 			log.Printf("[nohup] EXIT...")
 			return

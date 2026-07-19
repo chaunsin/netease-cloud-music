@@ -37,15 +37,15 @@ func NewCrypto(root *Root, l *log.Logger) *Crypto {
 	return c
 }
 
-func (c *Crypto) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate decrypt file directory location")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "encryption and decryption mode, weapi|eapi|linux")
-}
-
 func (c *Crypto) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
 }
 
 func (c *Crypto) Command() *cobra.Command {
 	return c.cmd
+}
+
+func (c *Crypto) addFlags() {
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate decrypt file directory location")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "encryption and decryption mode, weapi|eapi|linux")
 }

@@ -4,6 +4,7 @@
 package proxy
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -38,48 +39,64 @@ type Config struct {
 	ShutdownTimeout      time.Duration
 }
 
-func normalizeConfig(cfg Config) (Config, error) {
+func normalizeConfig(input *Config) (Config, error) {
+	if input == nil {
+		return Config{}, errors.New("proxy config is nil")
+	}
+
+	cfg := *input
 	if cfg.ListenAddr == "" {
 		cfg.ListenAddr = defaultListenAddr
 	}
+
 	if cfg.MaxBodyBytes == 0 {
 		cfg.MaxBodyBytes = defaultMaxBodyBytes
 	}
+
 	if cfg.ShutdownTimeout == 0 {
 		cfg.ShutdownTimeout = defaultShutdownTimeout
 	}
+
 	if len(cfg.Domains) == 0 {
 		cfg.Domains = DefaultDomains()
 	}
+
 	if cfg.Out == nil {
 		cfg.Out = os.Stdout
 	}
+
 	if cfg.ErrOut == nil {
 		cfg.ErrOut = os.Stderr
 	}
 
 	if cfg.CACertPath == "" && cfg.CAKeyPath == "" {
 		cfg.RequirePrivateCAPath = true
+
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return Config{}, fmt.Errorf("resolve home directory: %w", err)
 		}
+
 		cfg.CACertPath = filepath.Join(home, ".ncmctl", "proxy", "ca.crt")
 		cfg.CAKeyPath = filepath.Join(home, ".ncmctl", "proxy", "ca.key")
 	}
+
 	if (cfg.CACertPath == "") != (cfg.CAKeyPath == "") {
-		return Config{}, fmt.Errorf("ca-cert and ca-key must be provided together")
+		return Config{}, errors.New("ca-cert and ca-key must be provided together")
 	}
+
 	if cfg.MaxBodyBytes <= 0 {
-		return Config{}, fmt.Errorf("max body bytes must be greater than zero")
+		return Config{}, errors.New("max body bytes must be greater than zero")
 	}
 	// Treat MaxInt64 as an unbounded capture request rather than a usable limit.
 	if cfg.MaxBodyBytes == math.MaxInt64 {
 		return Config{}, fmt.Errorf("max body bytes must be less than %d", math.MaxInt64)
 	}
+
 	if cfg.ShutdownTimeout <= 0 {
-		return Config{}, fmt.Errorf("shutdown timeout must be greater than zero")
+		return Config{}, errors.New("shutdown timeout must be greater than zero")
 	}
+
 	if err := validateListenAddress(cfg.ListenAddr, true); err != nil {
 		return Config{}, err
 	}
@@ -94,12 +111,14 @@ func validateListenAddress(address string, allowPortZero bool) error {
 	if err != nil {
 		return fmt.Errorf("invalid listen address %q: %w", address, err)
 	}
+
 	if strings.TrimSpace(host) == "" {
-		return fmt.Errorf("listen address must include an explicit host")
+		return errors.New("listen address must include an explicit host")
 	}
+
 	port, err := strconv.Atoi(portText)
 	if err != nil || port < 0 || port > 65535 || (!allowPortZero && port == 0) {
-		return fmt.Errorf("listen port must be between 1 and 65535")
+		return errors.New("listen port must be between 1 and 65535")
 	}
 	return nil
 }
@@ -109,10 +128,12 @@ func isLoopbackListenAddress(address string) bool {
 	if err != nil {
 		return false
 	}
+
 	host = strings.TrimSuffix(strings.ToLower(host), ".")
 	if host == "localhost" {
 		return true
 	}
+
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
 }

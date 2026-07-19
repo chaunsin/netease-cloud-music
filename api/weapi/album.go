@@ -17,6 +17,7 @@ type AlbumReq struct {
 
 type AlbumResp struct {
 	types.RespCommon[any]
+
 	ResourceState bool             `json:"resourceState"`
 	Songs         []AlbumRespSongs `json:"songs"`
 	Album         AlbumRespAlbum   `json:"album"`
@@ -59,6 +60,7 @@ type AlbumRespSongs struct {
 	V               int64          `json:"v"`
 	Privilege       struct {
 		types.Privileges
+
 		Code    int64 `json:"code"`
 		Message any   `json:"message"`
 	} `json:"privilege"`
@@ -147,7 +149,7 @@ type AlbumRespAlbum struct {
 
 // Album 专辑内容
 // url:
-// needLogin:
+// needLogin:.
 func (a *Api) Album(ctx context.Context, req *AlbumReq) (*AlbumResp, error) {
 	var (
 		url   = fmt.Sprintf("https://music.163.com/weapi/v1/album/%v", req.Id)
@@ -159,6 +161,7 @@ func (a *Api) Album(ctx context.Context, req *AlbumReq) (*AlbumResp, error) {
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

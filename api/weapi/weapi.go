@@ -25,17 +25,21 @@ func (a *Api) NeedLogin(ctx context.Context) bool {
 	u, _ := url.Parse("https://music.163.com")
 	for _, ck := range a.client.GetClient().Jar.Cookies(u) {
 		// 判断用户是否有登录信息,如果有登录信息,还需要调用接口进行判断,单纯的判断cookie过期时间是不行的
-		if ck.Name == "MUSIC_U" && ck.Expires.Before(time.Now()) {
-			reply, err := a.GetUserInfo(ctx, &GetUserInfoReq{})
-			if err != nil {
-				return true
-			}
-			log.Debug("NeedLogin: %+v", reply)
-			if reply.Code != 200 || reply.Account == nil || reply.Profile == nil {
-				return true
-			}
-			return false
+		if ck.Name != "MUSIC_U" || !ck.Expires.Before(time.Now()) {
+			continue
 		}
+
+		reply, err := a.GetUserInfo(ctx, &GetUserInfoReq{})
+		if err != nil {
+			return true
+		}
+
+		log.Debugf("NeedLogin: %+v", reply)
+
+		if reply.Code != 200 || reply.Account == nil || reply.Profile == nil {
+			return true
+		}
+		return false
 	}
 	return true
 }

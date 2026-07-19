@@ -6,12 +6,12 @@ package weapi
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestYunBeiSign(t *testing.T) {
 	req := YunBeiSignInReq{}
 	got, err := cli.YunBeiSignIn(ctx, &req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Logf("YunBeiSignIn: %+v\n", got)
 }

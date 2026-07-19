@@ -25,39 +25,41 @@ type LoginPhoneResp struct {
 	types.RespCommon[any]
 }
 
-// LoginPhone 手机号登录
+// LoginPhone 手机号登录.
 func (a *Api) LoginPhone(ctx context.Context, req *LoginPhoneReq) (*LoginPhoneResp, error) {
 	var reply LoginPhoneResp
-	// todo: 由于云盾关系绕不过暂时搁置
+	// Pending: 由于云盾关系绕不过暂时搁置
 	return &reply, nil
 }
 
 type QrcodeCreateKeyReq struct {
 	types.ReqCommon
+
 	Type int64 `json:"type"`
 }
 
 type QrcodeCreateKeyResp struct {
 	types.RespCommon[any]
+
 	UniKey string `json:"unikey"`
 }
 
 // QrcodeCreateKey 生成二维码需要得key
 // 常见问题
 // 1. 请求成功了,但是body为空值什么也没有,原因还是参数加密出现了问题。
-// 2. crsftoken 可传可不传个人猜测前端写得通用框架传了
+// 2. crsftoken 可传可不传个人猜测前端写得通用框架传了.
 func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*QrcodeCreateKeyResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/login/qrcode/unikey"
 		reply QrcodeCreateKeyResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -68,6 +70,7 @@ type QrcodeGenerateReq struct {
 
 type QrcodeGenerateResp struct {
 	types.RespCommon[any]
+
 	Qrcode      []byte //
 	QrcodePrint string
 }
@@ -75,7 +78,7 @@ type QrcodeGenerateResp struct {
 // QrcodeGenerate 根据 QrcodeCreateKey 接口生成得key生成生成二维码,注意此处不是调用服务接口。
 func (a *Api) QrcodeGenerate(ctx context.Context, req *QrcodeGenerateReq) (*QrcodeGenerateResp, error) {
 	var (
-		content = fmt.Sprintf("https://music.163.com/login?codekey=%s", req.CodeKey)
+		content = "https://music.163.com/login?codekey=" + req.CodeKey
 		reply   QrcodeGenerateResp
 	)
 
@@ -83,10 +86,12 @@ func (a *Api) QrcodeGenerate(ctx context.Context, req *QrcodeGenerateReq) (*Qrco
 	if err != nil {
 		return nil, err
 	}
+
 	reply.Qrcode, err = qr.PNG(256)
 	if err != nil {
 		return nil, fmt.Errorf("PNG: %w", err)
 	}
+
 	reply.QrcodePrint = qr.ToSmallString(false)
 	// if err := qr.WriteFile(256, "./qrcode.png"); err != nil {
 	// 	return nil, fmt.Errorf("WriteFile: %w", err)
@@ -112,19 +117,19 @@ type QrcodeCheckResp struct {
 // 800-二维码不存在或已过期
 // 801-等待扫码
 // 802-正在扫码授权中
-// 803-授权登录成功
+// 803-授权登录成功.
 func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeCheckResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/login/qrcode/client/login"
 		reply QrcodeCheckResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -135,6 +140,7 @@ type GetUserInfoReq struct {
 
 type GetUserInfoResp struct {
 	types.RespCommon[any]
+
 	Account GetUserInfoRespAccount `json:"account"`
 	Profile GetUserInfoRespProfile `json:"profile"`
 }
@@ -195,19 +201,19 @@ type GetUserInfoRespProfile struct {
 	Anchor              bool   `json:"anchor"`
 }
 
-// GetUserInfo 获取用户信息
+// GetUserInfo 获取用户信息.
 func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInfoResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/w/nuser/account/get"
 		reply GetUserInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -220,19 +226,19 @@ type TokenRefreshResp struct {
 
 // TokenRefresh token刷新
 // har:
-// todo:400错误
+// Pending:400错误.
 func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRefreshResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/login/token/refresh"
 		reply TokenRefreshResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

@@ -36,12 +36,14 @@ func (a *Api) PartnerHotPopup(ctx context.Context, req *PartnerHotPopupReq) (*Pa
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type PartnerWeekReq struct {
 	types.ReqCommon
+
 	Period string `json:"period"` // 格式:MMD-1617552000000-37-1
 }
 
@@ -151,7 +153,7 @@ type PartnerWeekData struct {
 	Eliminated        bool   `json:"eliminated"`
 }
 
-// PartnerWeek 查询当前周期周一数据报告情况
+// PartnerWeek 查询当前周期周一数据报告情况.
 func (a *Api) PartnerWeek(ctx context.Context, req *PartnerWeekReq) (*PartnerWeekResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/week/result/get"
@@ -167,6 +169,7 @@ func (a *Api) PartnerWeek(ctx context.Context, req *PartnerWeekReq) (*PartnerWee
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -279,7 +282,7 @@ type PartnerPeriodRespData struct {
 	Eliminated bool `json:"eliminated"`
 }
 
-// PartnerPeriod 查询当前周期数据报告情况
+// PartnerPeriod 查询当前周期数据报告情况.
 func (a *Api) PartnerPeriod(ctx context.Context, req *PartnerPeriodReq) (*PartnerPeriodResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/period/result/get"
@@ -295,6 +298,7 @@ func (a *Api) PartnerPeriod(ctx context.Context, req *PartnerPeriodReq) (*Partne
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -303,7 +307,7 @@ type PartnerUserinfoReq struct {
 	types.ReqCommon
 }
 
-// PartnerUserinfoResp code:703 非音乐合伙人
+// PartnerUserinfoResp code:703 非音乐合伙人.
 type PartnerUserinfoResp struct {
 	types.RespCommon[PartnerUserinfoRespData]
 }
@@ -357,6 +361,7 @@ func (a *Api) PartnerUserinfo(ctx context.Context, req *PartnerUserinfoReq) (*Pa
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -392,6 +397,7 @@ func (a *Api) PartnerLatest(ctx context.Context, req *PartnerLatestReq) (*Partne
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -445,6 +451,7 @@ func (a *Api) PartnerHome(ctx context.Context, req *PartnerHomeReq) (*PartnerHom
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -546,6 +553,7 @@ func (a *Api) PartnerDailyTask(ctx context.Context, req *PartnerTaskReq) (*Partn
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -558,7 +566,7 @@ type PartnerPickRightResp struct {
 	types.RespCommon[[]PartnerPickRightRespData]
 }
 
-// PartnerPickRightRespData TODO:待补充参数
+// PartnerPickRightRespData TODO:待补充参数.
 type PartnerPickRightRespData struct{}
 
 // PartnerPickRight todo:正确数量？
@@ -578,6 +586,7 @@ func (a *Api) PartnerPickRight(ctx context.Context, req *PartnerPickRightReq) (*
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -607,11 +616,12 @@ func (a *Api) PartnerNotice(ctx context.Context, req *PartnerNoticeReq) (*Partne
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
-// PartnerTags 音乐合伙人测评默认标签
+// PartnerTags 音乐合伙人测评默认标签.
 type PartnerTags string
 
 const (
@@ -734,9 +744,10 @@ var PartnerTagsGroup = map[int64][]PartnerTags{
 }
 
 // PartnerEvaluateReq
-// "{"taskId":118761451,"workId":787080,"score":4,"tags":"4-A-1,4-A-2,4-B-1,4-C-1,4-D-1,4-D-2,4-E-1,4-E-2","customTags":"[\"特别\"]","comment":"","syncYunCircle":false,"syncComment":true,"source":"mp-music-partner","csrf_token":"77bf3a5074699038504234d63d68d917"}"
+// "{"taskId":118761451,"workId":787080,"score":4,"tags":"4-A-1,4-A-2,4-B-1,4-C-1,4-D-1,4-D-2,4-E-1,4-E-2","customTags":"[\"特别\"]","comment":"","syncYunCircle":false,"syncComment":true,"source":"mp-music-partner","csrf_token":"77bf3a5074699038504234d63d68d917"}".
 type PartnerEvaluateReq struct {
 	types.ReqCommon
+
 	TaskId        string      `json:"taskId"`        // 任务id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
 	WorkId        string      `json:"workId"`        // 哪首歌曲id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
 	Score         string      `json:"score"`         // 分值1~5
@@ -782,6 +793,7 @@ func (a *Api) PartnerEvaluate(ctx context.Context, req *PartnerEvaluateReq) (*Pa
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -826,12 +838,14 @@ func (a *Api) PartnerExtraTask(ctx context.Context, req *PartnerExtraTaskReq) (*
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type PartnerExtraReportReq struct {
 	types.ReqCommon
+
 	WorkId        string `json:"workId"`        //
 	ResourceId    string `json:"resourceId"`    //
 	BizResourceId string `json:"bizResourceId"` //
@@ -864,14 +878,16 @@ func (a *Api) PartnerExtraReport(ctx context.Context, req *PartnerExtraReportReq
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 // PartnerContentAntispamReq
-// eapi请求示例参数 {"type":"comment","content":"过去是一段时光的记忆，回不去忘不了","taskId":"185640294","workId":"1561351","header":"{}","e_r":true}
+// eapi请求示例参数 {"type":"comment","content":"过去是一段时光的记忆，回不去忘不了","taskId":"185640294","workId":"1561351","header":"{}","e_r":true}.
 type PartnerContentAntispamReq struct {
 	types.ReqCommon
+
 	Type    string `json:"type"`    // 类型 comment:评论
 	Content string `json:"content"` // 内容
 	TaskId  string `json:"taskId"`
@@ -879,7 +895,7 @@ type PartnerContentAntispamReq struct {
 }
 
 // PartnerContentAntispamResp
-// 成功响应: {"code":200,"data":{},"message":""}
+// 成功响应: {"code":200,"data":{},"message":""}.
 type PartnerContentAntispamResp struct {
 	types.RespCommon[any]
 }
@@ -901,6 +917,7 @@ func (a *Api) PartnerContentAntispam(ctx context.Context, req *PartnerContentAnt
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

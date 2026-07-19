@@ -13,6 +13,7 @@ import (
 
 type GetUserInfoDetailReq struct {
 	types.ReqCommon
+
 	UserId int64 `json:"userId"`
 }
 
@@ -125,6 +126,7 @@ func (a *Api) GetUserInfoDetail(ctx context.Context, req *GetUserInfoDetailReq) 
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -161,6 +163,7 @@ func (a *Api) GetUserBindings(ctx context.Context, req *GetUserBindingsReq) (*Ge
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

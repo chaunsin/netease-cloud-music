@@ -1,5 +1,24 @@
 # xeapi算法
 
+> [!IMPORTANT]
+> 本文是 XEAPI/AegisSDK 的研究档案，混合了外部 issue、抓包观察、逆向笔记、实验代码和 AI 整理内容，不是稳定的公共 API 规范。带有“推测”“可能”或尚未由固定向量覆盖的内容只能作为调查线索。
+>
+> 当前仓库客户端行为以 `api/api.go`、`api/options.go`、`api/xeapi.go`、`pkg/crypto/crypto.go` 及其 XEAPI 测试为准。协议修改应使用真实抓包或兼容实现的固定输入/输出向量验证；仅做本实现内部的加密/解密往返不能证明线上兼容性。NCBL 是另一种日志正文 wire format，不属于本文的 XEAPI 会话状态机。
+>
+> 分享或新增抓包材料前必须移除 Cookie、Token、手机号、设备标识、会话密钥和其他账号信息。
+
+## 当前实现与研究记录的边界
+
+| 环节 | 本文研究记录 | 当前 Go 实现 | 验证状态 |
+| --- | --- | --- | --- |
+| 公钥刷新 | 传统 EAPI 包装的 `/eapi/gorilla/anti/crawler/security/key/get` | `api/xeapi.go` 直接向 `/api/gorilla/anti/crawler/security/key/get` POST 普通 form | 仅由当前源码体现；尚无线上兼容或固定传输向量证据 |
+| 业务请求 | 传输层使用 POST form 携带 `B`/`S`/`R` | 默认 POST 路径会发送 `B`/`S`/`R` | `httptest` 覆盖 URL、header 和 form，不代表线上兼容 |
+| XEAPI + GET | 研究记录仍要求将原始 method 放入加密 envelope，传输为 POST | 当前 `api.Client.Request` 会发出 GET，且不携带已生成的 `B`/`S`/`R` | 已知缺口；不应将 XEAPI GET 标记为已支持 |
+| URL 改写 | envelope 保留 `/api/`，传输改为 `/xeapi/`，query 进入 envelope | `rewriteXeapiURL` 按该边界实现 | 有本地单元测试 |
+| 响应与会话 | 传统 EAPI 响应解密，保存 `X-Encr-Ssid` / `X-Encr-Sskey` | `XeapiDecryptResponse` 及 `updateXeapiSession` | 解密向量与本地会话测试已覆盖；线上交互仍未验证 |
+
+上表是实现状态说明，不是将当前代码反向视为协议正确性证据。修复仅有源码依据或已知缺口的项目前，应先获得抓包或兼容实现的固定向量。
+
 - 来自: https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced/issues/174#issuecomment-4565170281
 - 作者: 1254qwer
 
@@ -19,7 +38,7 @@
 在开始实现之前，需要在代码中固化以下全局常量。这些常量用于基础的签名和静态解密。
 
 * **静态 AES 密钥 (Static Key)**: `ab1d5a430f6bb04a3f01e81ddd72bd916d5ce591248ac128714806d7f8fb1b84` (Hex 格式，32 字节)
-* **请求签名密钥 (Sign Key)**: `mUHCwVNWJbunMqAHf5MImuirT6plvs6VSFW62MGHstFQxhBGdEoIhLItH3djc4+FB/OKty3+lL2rGeoFBpVe5g==` (Base64 格式)
+* **请求签名密钥 (Sign Key)**: `mUHCwVNWJbunMqAHf5MImuirT6plvs6VSFW62MGHstFQxhBGdEoIhLItH3djc4+FB/OKty3+lL2rGeoFBpVe5g==`（外观类似 Base64，但 HMAC key 是该文本的原始 ASCII 字节，不做 Base64 解码）
 * **百分号编码规则**: 仅保留字母、数字和 `-._~`，其余字节均编码为大写的 `%XX`。
 
 ## 2. 公钥获取与更新 (Key Refresh)
@@ -532,7 +551,7 @@ AegisEncryptConfig.publicKeyUpdateIntervalSecond = 120
 
 ## Reproduction helper
 
-`tools/xeapi_crypto.py` implements the confirmed pieces:
+The original research environment used `tools/xeapi_crypto.py`; that file is not present in this repository. The inline Python reference later in this document covers these pieces:
 
 - static key decode
 - approximate Java xeapi plaintext JSON envelope builder
@@ -977,7 +996,7 @@ x-encr-sskey: 028defea4461d3e42070fafecd5cb9d1
   session had been seen in another capture. It then received a new session pair
   in its own response headers.
 
-The local helper `tools/xeapi_crypto.py` implements the above pieces. Run:
+The following command came from the original research environment; this repository does not contain `tools/xeapi_crypto.py`. The equivalent reference implementation is embedded later in this document, but it is not maintained as an executable repository tool:
 
 ```text
 venv/bin/python tools/xeapi_crypto.py --demo-capture
@@ -990,7 +1009,7 @@ captured_R_plaintext 1000000000000|01c3a3532a884dd2a583228d6f335211
 captured_response_plaintext {"code":200}
 ```
 
-For runtime confirmation on device, use:
+The following Frida command is also a historical research note. This repository does not contain `tools/frida/hook_aegis_runtime.js`; do not present it as a runnable checkout command:
 
 ```text
 frida -U -f com.netease.cloudmusic -l tools/frida/hook_aegis_runtime.js

@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"slices"
 	"strconv"
 	"time"
@@ -46,64 +46,10 @@ func NewPartner(root *Root, l *log.Logger) *Partner {
 		},
 	}
 	c.addFlags()
-	c.cmd.Run = func(cmd *cobra.Command, args []string) {
-		if err := c.execute(cmd.Context()); err != nil {
-			cmd.Println(err)
-		}
+	c.cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return c.execute(cmd.Context())
 	}
 	return c
-}
-
-func (c *Partner) addFlags() {
-	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.Star, "star", "s", []int64{3, 4}, "set the base song evaluation score level random range 1-5")
-	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.ExtStar, "extra", "e", []int64{2, 3, 4}, "set the extra song evaluation score level random range 1-5")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.ExtNum, "num", "n", "random", "extra evaluation number of songs,'random' means 2 to 7")
-}
-
-func (c *Partner) validate() error {
-	if len(c.opts.Star) == 0 || len(c.opts.Star) > 5 {
-		return fmt.Errorf("star level must be range 1-5")
-	}
-	if slices.ContainsFunc(c.opts.Star, func(i int64) bool {
-		if i < 1 || i > 5 {
-			return true
-		}
-		return false
-	}) {
-		return fmt.Errorf("star level must be range 1-5")
-	}
-	if !utils.IsUnique(c.opts.Star) {
-		return fmt.Errorf("star level must be unique")
-	}
-
-	if len(c.opts.ExtStar) == 0 || len(c.opts.ExtStar) > 5 {
-		return fmt.Errorf("extra star level must be range 1-5")
-	}
-	if slices.ContainsFunc(c.opts.ExtStar, func(i int64) bool {
-		if i < 1 || i > 5 {
-			return true
-		}
-		return false
-	}) {
-		return fmt.Errorf("extra star level must be range 1-5")
-	}
-	if !utils.IsUnique(c.opts.ExtStar) {
-		return fmt.Errorf("extra star level must be unique")
-	}
-
-	if c.opts.ExtNum == "" {
-		return fmt.Errorf("num is empty")
-	}
-	if c.opts.ExtNum != "random" {
-		num, err := strconv.ParseInt(c.opts.ExtNum, 10, 64)
-		if err != nil {
-			return fmt.Errorf("num must be int or 'random'")
-		}
-		if num < 0 || num > 15 {
-			return fmt.Errorf("num must be >= 0 and <= 15")
-		}
-	}
-	return nil
 }
 
 func (c *Partner) Add(command ...*cobra.Command) {
@@ -114,6 +60,64 @@ func (c *Partner) Command() *cobra.Command {
 	return c.cmd
 }
 
+func (c *Partner) addFlags() {
+	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.Star, "star", "s", []int64{3, 4}, "set the base song evaluation score level random range 1-5")
+	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.ExtStar, "extra", "e", []int64{2, 3, 4}, "set the extra song evaluation score level random range 1-5")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.ExtNum, "num", "n", "random", "extra evaluation number of songs,'random' means 2 to 7")
+}
+
+func (c *Partner) validate() error {
+	if len(c.opts.Star) == 0 || len(c.opts.Star) > 5 {
+		return errors.New("star level must be range 1-5")
+	}
+
+	if slices.ContainsFunc(c.opts.Star, func(i int64) bool {
+		if i < 1 || i > 5 {
+			return true
+		}
+		return false
+	}) {
+		return errors.New("star level must be range 1-5")
+	}
+
+	if !utils.IsUnique(c.opts.Star) {
+		return errors.New("star level must be unique")
+	}
+
+	if len(c.opts.ExtStar) == 0 || len(c.opts.ExtStar) > 5 {
+		return errors.New("extra star level must be range 1-5")
+	}
+
+	if slices.ContainsFunc(c.opts.ExtStar, func(i int64) bool {
+		if i < 1 || i > 5 {
+			return true
+		}
+		return false
+	}) {
+		return errors.New("extra star level must be range 1-5")
+	}
+
+	if !utils.IsUnique(c.opts.ExtStar) {
+		return errors.New("extra star level must be unique")
+	}
+
+	if c.opts.ExtNum == "" {
+		return errors.New("num is empty")
+	}
+
+	if c.opts.ExtNum != "random" {
+		num, err := strconv.Atoi(c.opts.ExtNum)
+		if err != nil {
+			return errors.New("num must be int or 'random'")
+		}
+
+		if num < 0 || num > 15 {
+			return errors.New("num must be >= 0 and <= 15")
+		}
+	}
+	return nil
+}
+
 func (c *Partner) execute(ctx context.Context) error {
 	if err := c.validate(); err != nil {
 		return fmt.Errorf("validate: %w", err)
@@ -122,6 +126,7 @@ func (c *Partner) execute(ctx context.Context) error {
 	if err := c.do(ctx); err != nil {
 		return err
 	}
+
 	c.cmd.Printf("%s execute success\n", time.Now())
 	return nil
 }
@@ -131,12 +136,12 @@ func (c *Partner) do(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer cli.Close(ctx)
+	defer closeAPIClient(ctx, cli)
 
 	// 判断是否需要登录
 	request := weapi.New(cli)
 	if request.NeedLogin(ctx) {
-		return fmt.Errorf("need login")
+		return errors.New("need login")
 	}
 
 	// 判断是否有音乐合伙人资格
@@ -144,12 +149,15 @@ func (c *Partner) do(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("PartnerUserinfo: %w", err)
 	}
+
 	if info.Code == 703 {
 		return fmt.Errorf("您不是音乐合伙人不能进行测评 detail: %+v", info)
 	}
+
 	if info.Code != 200 {
 		return fmt.Errorf("PartnerUserinfo err: %+v", info)
 	}
+
 	switch status := info.Data.Status; status {
 	case "NORMAL":
 	case "ELIMINATED":
@@ -159,9 +167,9 @@ func (c *Partner) do(ctx context.Context) error {
 	}
 
 	var (
-		baseNum   int64
-		extNum    int64 // 扩展歌曲实际成功执行次数
-		randomNum int32 // 扩展歌曲总共要执行的次数
+		baseNum   int
+		extNum    int // 扩展歌曲实际成功执行次数
+		randomNum int // 扩展歌曲总共要执行的次数
 	)
 	defer func() {
 		c.cmd.Printf("report: 基础歌曲完成数量(%v) 扩展歌曲完成数量(%v/%v)\n", baseNum, extNum, randomNum)
@@ -172,39 +180,44 @@ func (c *Partner) do(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("PartnerDailyTask: %w", err)
 	}
-	for _, work := range task.Data.Works {
+
+	for i := range task.Data.Works {
+		work := &task.Data.Works[i]
 		// 判断任务是否执行过
 		if work.Completed {
 			baseNum++
-			log.Warn("task completed: %+v\n", work)
+
+			log.Warnf("task completed: %+v\n", work)
 			continue
 		}
 
-		// 模拟听歌消耗得时间,随机15-25秒
-		time.Sleep(time.Second * time.Duration(15+int(rand.Int31n(10))))
+		// 模拟听歌消耗得时间,随机15-24秒
+		time.Sleep(time.Second * time.Duration(15+rand.IntN(10)))
 
 		// 随机一个分数,然后从对应分数组中取一个tag
-		star := c.opts.Star[rand.Int31n(int32(len(c.opts.Star)))]
+		star := c.opts.Star[rand.IntN(len(c.opts.Star))]
 		group := weapi.PartnerTagsGroup[star]
-		tags := group[rand.Int31n(int32(len(group)))]
+		tags := group[rand.IntN(len(group))]
 
 		// 上报
 		reportReq := &weapi.PartnerExtraReportReq{
 			ReqCommon:     types.ReqCommon{},
-			WorkId:        fmt.Sprintf("%v", work.Work.Id),
-			ResourceId:    fmt.Sprintf("%v", work.Work.ResourceId),
+			WorkId:        strconv.FormatInt(work.Work.Id, 10),
+			ResourceId:    strconv.FormatInt(work.Work.ResourceId, 10),
 			BizResourceId: "",
 			InteractType:  "PLAY_END",
 		}
-		resp, err := request.PartnerExtraReport(ctx, reportReq)
-		if err != nil {
-			return fmt.Errorf("PartnerExtraReport: %w", err)
+
+		resp, reportErr := request.PartnerExtraReport(ctx, reportReq)
+		if reportErr != nil {
+			return fmt.Errorf("PartnerExtraReport: %w", reportErr)
 		}
+
 		switch resp.Code {
 		case 200:
 			// ok
 		default:
-			log.Error("PartnerExtraReport(%+v) err: %+v\n", reportReq, resp)
+			log.Errorf("PartnerExtraReport(%+v) err: %+v\n", reportReq, resp)
 			continue
 		}
 
@@ -215,17 +228,19 @@ func (c *Partner) do(ctx context.Context) error {
 		// 执行测评
 		extScore := make(map[string]int64, 3)
 		for _, t := range work.SupportExtraEvaTypes {
-			extScore[fmt.Sprintf("%v", t)] = c.opts.ExtStar[rand.Int31n(int32(len(c.opts.Star)))]
+			extScore[strconv.FormatInt(t, 10)] = c.opts.ExtStar[rand.IntN(len(c.opts.ExtStar))]
 		}
-		extraScore, err := json.Marshal(extScore)
-		if err != nil {
-			return fmt.Errorf("json.Marshal(%+v) err: %+v", extScore, err)
+
+		extraScore, marshalErr := json.Marshal(extScore)
+		if marshalErr != nil {
+			return fmt.Errorf("json.Marshal(%+v) err: %w", extScore, marshalErr)
 		}
+
 		req := &weapi.PartnerEvaluateReq{
 			ReqCommon:     types.ReqCommon{},
-			TaskId:        fmt.Sprintf("%v", task.Data.Id),
-			WorkId:        fmt.Sprintf("%v", work.Work.Id),
-			Score:         fmt.Sprintf("%v", star),
+			TaskId:        strconv.FormatInt(task.Data.Id, 10),
+			WorkId:        strconv.FormatInt(work.Work.Id, 10),
+			Score:         strconv.FormatInt(star, 10),
 			Tags:          tags,
 			CustomTags:    "[]",
 			Comment:       "",
@@ -235,10 +250,12 @@ func (c *Partner) do(ctx context.Context) error {
 			ExtraScore:    string(extraScore), //
 			ExtraResource: false,
 		}
-		evalResp, err := request.PartnerEvaluate(ctx, req)
-		if err != nil {
-			return fmt.Errorf("PartnerEvaluate: %w", err)
+
+		evalResp, evaluateErr := request.PartnerEvaluate(ctx, req)
+		if evaluateErr != nil {
+			return fmt.Errorf("PartnerEvaluate: %w", evaluateErr)
 		}
+
 		switch evalResp.Code {
 		case 200:
 			baseNum++
@@ -247,7 +264,7 @@ func (c *Partner) do(ctx context.Context) error {
 			baseNum++
 			// 当前任务歌曲已完成评
 		default:
-			log.Error("PartnerEvaluate(%+v) err: %+v\n", req, resp)
+			log.Errorf("PartnerEvaluate(%+v) err: %+v\n", req, resp)
 			// return fmt.Errorf("PartnerEvaluate: %v", resp.Message)
 		}
 	}
@@ -255,35 +272,43 @@ func (c *Partner) do(ctx context.Context) error {
 	// 获取扩展任务列表并执行扩展任务测评 2024年10月21日推出的新功能测评
 	var (
 		taskId     = task.Data.Id
-		executeNum int32
+		executeNum int
 	)
 	if c.opts.ExtNum == "random" {
-		executeNum = 2 + rand.Int31n(6) // 2~7
+		executeNum = 2 + rand.IntN(6) // 2~7
 	} else {
-		num, _ := strconv.ParseInt(c.opts.ExtNum, 10, 64)
-		executeNum = int32(num)
+		num, parseErr := strconv.Atoi(c.opts.ExtNum)
+		if parseErr != nil {
+			return fmt.Errorf("strconv.Atoi(%q): %w", c.opts.ExtNum, parseErr)
+		}
+
+		executeNum = num
 	}
+
 	randomNum = executeNum
 	if executeNum > 0 {
-		extraTask, err := request.PartnerExtraTask(ctx, &weapi.PartnerExtraTaskReq{ReqCommon: types.ReqCommon{}})
-		if err != nil {
-			return fmt.Errorf("PartnerExtraTask: %w", err)
+		extraTask, extraTaskErr := request.PartnerExtraTask(ctx, &weapi.PartnerExtraTaskReq{ReqCommon: types.ReqCommon{}})
+		if extraTaskErr != nil {
+			return fmt.Errorf("PartnerExtraTask: %w", extraTaskErr)
 		}
-		for _, work := range extraTask.Data {
+
+		for i := range extraTask.Data {
+			work := &extraTask.Data[i]
 			// 判断任务是否执行过
 			if work.Completed {
 				extNum++
-				log.Warn("extra task completed: %+v\n", work)
+
+				log.Warnf("extra task completed: %+v\n", work)
 				continue
 			}
 
-			// 模拟听歌消耗得时间,随机15-25秒
-			time.Sleep(time.Second * time.Duration(15+int(rand.Int31n(10))))
+			// 模拟听歌消耗得时间,随机15-24秒
+			time.Sleep(time.Second * time.Duration(15+rand.IntN(10)))
 
 			// 随机一个分数,然后从对应分数组中取一个tag
-			star := c.opts.Star[rand.Int31n(int32(len(c.opts.Star)))]
+			star := c.opts.Star[rand.IntN(len(c.opts.Star))]
 			group := weapi.PartnerTagsGroup[star]
-			tags := group[rand.Int31n(int32(len(group)))]
+			tags := group[rand.IntN(len(group))]
 
 			// 上报听歌事件
 
@@ -292,37 +317,41 @@ func (c *Partner) do(ctx context.Context) error {
 			// 上报
 			req := &weapi.PartnerExtraReportReq{
 				ReqCommon:     types.ReqCommon{},
-				WorkId:        fmt.Sprintf("%v", work.Work.Id),
-				ResourceId:    fmt.Sprintf("%v", work.Work.ResourceId),
+				WorkId:        strconv.FormatInt(work.Work.Id, 10),
+				ResourceId:    strconv.FormatInt(work.Work.ResourceId, 10),
 				BizResourceId: "",
 				InteractType:  "PLAY_END",
 			}
-			resp, err := request.PartnerExtraReport(ctx, req)
-			if err != nil {
-				return fmt.Errorf("PartnerExtraReport: %w", err)
+
+			resp, reportErr := request.PartnerExtraReport(ctx, req)
+			if reportErr != nil {
+				return fmt.Errorf("PartnerExtraReport: %w", reportErr)
 			}
+
 			switch resp.Code {
 			case 200:
 				// ok
 			default:
-				log.Error("PartnerExtraReport(%+v) err: %+v\n", req, resp)
+				log.Errorf("PartnerExtraReport(%+v) err: %+v\n", req, resp)
 				continue
 			}
 
 			// 执行测评
 			extScore := make(map[string]int64, 3)
 			for _, t := range work.SupportExtraEvaTypes {
-				extScore[fmt.Sprintf("%v", t)] = c.opts.ExtStar[rand.Int31n(int32(len(c.opts.Star)))]
+				extScore[strconv.FormatInt(t, 10)] = c.opts.ExtStar[rand.IntN(len(c.opts.ExtStar))]
 			}
-			extraScore, err := json.Marshal(extScore)
-			if err != nil {
-				return fmt.Errorf("json.Marshal(%+v) err: %+v", extScore, err)
+
+			extraScore, marshalErr := json.Marshal(extScore)
+			if marshalErr != nil {
+				return fmt.Errorf("json.Marshal(%+v) err: %w", extScore, marshalErr)
 			}
+
 			evaluateReq := &weapi.PartnerEvaluateReq{
 				ReqCommon:     types.ReqCommon{},
-				TaskId:        fmt.Sprintf("%v", taskId),
-				WorkId:        fmt.Sprintf("%v", work.Work.Id),
-				Score:         fmt.Sprintf("%v", star),
+				TaskId:        strconv.FormatInt(taskId, 10),
+				WorkId:        strconv.FormatInt(work.Work.Id, 10),
+				Score:         strconv.FormatInt(star, 10),
 				Tags:          tags,
 				CustomTags:    "[]",
 				Comment:       "",
@@ -332,13 +361,16 @@ func (c *Partner) do(ctx context.Context) error {
 				ExtraScore:    string(extraScore), // todo
 				ExtraResource: true,
 			}
-			evaluateResp, err := request.PartnerEvaluate(ctx, evaluateReq)
-			if err != nil {
-				return fmt.Errorf("PartnerEvaluate: %w", err)
+
+			evaluateResp, evaluateErr := request.PartnerEvaluate(ctx, evaluateReq)
+			if evaluateErr != nil {
+				return fmt.Errorf("PartnerEvaluate: %w", evaluateErr)
 			}
+
 			switch evaluateResp.Code {
 			case 200:
 				extNum++
+
 				executeNum--
 				if executeNum <= 0 {
 					goto end
@@ -347,17 +379,19 @@ func (c *Partner) do(ctx context.Context) error {
 				extNum++
 				// 当前任务歌曲已完成评
 			default:
-				log.Error("PartnerEvaluate(%+v) err: %+v\n", req, resp)
+				log.Errorf("PartnerEvaluate(%+v) err: %+v\n", req, resp)
 				// return fmt.Errorf("PartnerEvaluate: %v", resp.Message)
 			}
 		}
 	}
+
 end:
 
 	// 刷新token过期时间
 	refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
+
 	if err != nil || refresh.Code != 200 {
-		log.Warn("TokenRefresh resp:%+v err: %s", refresh, err)
+		log.Warnf("TokenRefresh resp:%+v err: %s", refresh, err)
 	}
 	return nil
 }

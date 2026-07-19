@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	// aesCoreKey 用于解密音乐部分数据使用
+	// aesCoreKey 用于解密音乐部分数据使用.
 	aesCoreKey = []byte{0x68, 0x7A, 0x48, 0x52, 0x41, 0x6D, 0x73, 0x6F, 0x35, 0x6B, 0x49, 0x6E, 0x62, 0x61, 0x78, 0x57}
-	// aesModifyKey 用于解密metadata使用 string = #14ljk_!\]&0U<'(
+	// aesModifyKey 用于解密metadata使用 string = "#14ljk_!\]&0U<'(" .
 	aesModifyKey = []byte{0x23, 0x31, 0x34, 0x6C, 0x6A, 0x6B, 0x5F, 0x21, 0x5C, 0x5D, 0x26, 0x30, 0x55, 0x3C, 0x27, 0x28}
 )
 
@@ -23,16 +23,18 @@ func buildKeyBox(key []byte) []byte {
 		keyLen                 = byte(len(key))
 		c, lastByte, keyOffset byte
 	)
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		box[i] = byte(i)
 	}
 
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		c = (box[i] + lastByte + key[keyOffset]) & 0xff
+
 		keyOffset++
 		if keyOffset >= keyLen {
 			keyOffset = 0
 		}
+
 		box[i], box[c] = box[c], box[i]
 		lastByte = c
 	}
@@ -51,10 +53,12 @@ func pkcs7UnPadding(src []byte) ([]byte, error) {
 	if length == 0 {
 		return nil, errors.New("pkcs7: invalid length")
 	}
+
 	if unPadding > length || unPadding == 0 {
 		return nil, errors.New("pkcs7: invalid unPadding")
 	}
-	for i := 0; i < unPadding; i++ {
+
+	for i := range unPadding {
 		if src[length-1-i] != byte(unPadding) {
 			return nil, errors.New("pkcs7: invalid padding full")
 		}
@@ -67,6 +71,7 @@ func decryptAes128Ecb(key, data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var (
 		dataLen   = len(data)
 		decrypted = make([]byte, dataLen)
@@ -115,34 +120,37 @@ func decryptAes128Ecb(key, data []byte) ([]byte, error) {
 // 	return nil
 // }
 
-func decryptMusic(box []byte, rs io.ReadSeeker, w io.Writer) ([]byte, error) {
+func decryptMusic(box []byte, rs io.ReadSeeker, w io.Writer) error {
 	var (
-		size   = 4096
-		isRead = false
-		header = make([]byte, 11)
-		data   = make([]byte, size)
-		bw     = bufio.NewWriter(w)
+		data      = make([]byte, 4096)
+		bw        = bufio.NewWriter(w)
+		keyOffset int
 	)
 
 	for {
-		if _, err := rs.Read(data); err != nil {
-			if err == io.EOF {
-				break
+		n, readErr := rs.Read(data)
+		if n > 0 {
+			chunk := data[:n]
+			for i := range chunk {
+				j := byte((keyOffset + i + 1) & 0xff)
+				bj := box[j]
+				chunk[i] ^= box[(bj+box[(bj+j)&0xff])&0xff]
 			}
-			return nil, err
+
+			if _, err := bw.Write(chunk); err != nil {
+				return err
+			}
+
+			keyOffset = (keyOffset + n) & 0xff
 		}
-		for i := 0; i < size; i++ {
-			j := byte((i + 1) & 0xff)
-			bj := box[j]
-			data[i] ^= box[(bj+box[(bj+j)&0xff])&0xff]
+
+		if errors.Is(readErr, io.EOF) {
+			break
 		}
-		if !isRead {
-			copy(header, data[:11])
-			isRead = true
-		}
-		if _, err := bw.Write(data); err != nil {
-			return nil, err
+
+		if readErr != nil {
+			return readErr
 		}
 	}
-	return header, bw.Flush()
+	return bw.Flush()
 }

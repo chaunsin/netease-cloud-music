@@ -5,6 +5,7 @@ package ncmctl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -67,6 +68,10 @@ func NewProxy(root *Root, l *log.Logger) *Proxy {
 	return c
 }
 
+func (c *Proxy) Command() *cobra.Command {
+	return c.cmd
+}
+
 func (c *Proxy) addFlags() {
 	c.cmd.Flags().StringVar(&c.opts.ListenAddr, "listen", "127.0.0.1:9000", "proxy listen address")
 	c.cmd.Flags().StringVar(&c.opts.CACertPath, "ca-cert", "", "existing CA certificate path (requires --ca-key)")
@@ -75,32 +80,32 @@ func (c *Proxy) addFlags() {
 	c.cmd.Flags().BoolVar(&c.opts.ShowSensitive, "show-sensitive", false, "print credentials and other sensitive values without redaction")
 }
 
-func (c *Proxy) Command() *cobra.Command {
-	return c.cmd
-}
-
 func (c *Proxy) validate() error {
 	host, port, err := net.SplitHostPort(c.opts.ListenAddr)
 	if err != nil {
 		return fmt.Errorf("listen address must be in host:port form: %w", err)
 	}
+
 	if strings.TrimSpace(host) == "" {
-		return fmt.Errorf("listen host is required")
+		return errors.New("listen host is required")
 	}
+
 	portNumber, err := strconv.Atoi(port)
 	if err != nil || portNumber < 1 || portNumber > 65535 {
-		return fmt.Errorf("listen port must be between 1 and 65535")
+		return errors.New("listen port must be between 1 and 65535")
 	}
 
 	if (c.opts.CACertPath == "") != (c.opts.CAKeyPath == "") {
-		return fmt.Errorf("ca-cert and ca-key must be provided together")
+		return errors.New("ca-cert and ca-key must be provided together")
 	}
+
 	if c.opts.CACertPath != "" {
-		if err := validateProxyCAFile("ca-cert", c.opts.CACertPath); err != nil {
-			return err
+		if validateErr := validateProxyCAFile("ca-cert", c.opts.CACertPath); validateErr != nil {
+			return validateErr
 		}
-		if err := validateProxyCAFile("ca-key", c.opts.CAKeyPath); err != nil {
-			return err
+
+		if validateErr := validateProxyCAFile("ca-key", c.opts.CAKeyPath); validateErr != nil {
+			return validateErr
 		}
 	}
 
@@ -108,8 +113,9 @@ func (c *Proxy) validate() error {
 	if err != nil {
 		return fmt.Errorf("parse max-body: %w", err)
 	}
+
 	if c.opts.MaxBodyBytes <= 0 {
-		return fmt.Errorf("max-body must be greater than zero")
+		return errors.New("max-body must be greater than zero")
 	}
 	// Capture helpers reserve one extra byte to distinguish truncation.
 	if c.opts.MaxBodyBytes == math.MaxInt64 {
@@ -123,6 +129,7 @@ func validateProxyCAFile(name, path string) error {
 	if err != nil {
 		return fmt.Errorf("%s %q: %w", name, path, err)
 	}
+
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("%s %q must be a regular file", name, path)
 	}
@@ -133,10 +140,12 @@ func (c *Proxy) caPaths() (string, string) {
 	if c.opts.CACertPath != "" {
 		return c.opts.CACertPath, c.opts.CAKeyPath
 	}
+
 	home := c.root.Opts.Home
 	if home == "" {
 		home = config.HomeDir
 	}
+
 	caDir := filepath.Join(filepath.Clean(home), ".ncmctl", "proxy")
 	return filepath.Join(caDir, "ca.crt"), filepath.Join(caDir, "ca.key")
 }
@@ -147,6 +156,7 @@ func (c *Proxy) execute(ctx context.Context) error {
 	}
 
 	caCertPath, caKeyPath := c.caPaths()
+
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -163,7 +173,7 @@ func (c *Proxy) execute(ctx context.Context) error {
 		ErrOut:               c.cmd.ErrOrStderr(),
 		ShutdownTimeout:      proxyShutdownTimeout,
 	}
-	if err := proxyserver.Run(ctx, cfg); err != nil {
+	if err := proxyserver.Run(ctx, &cfg); err != nil {
 		return fmt.Errorf("run proxy: %w", err)
 	}
 	return nil

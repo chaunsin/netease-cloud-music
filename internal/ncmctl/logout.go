@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -39,8 +40,6 @@ func NewLogout(root *Root, l *log.Logger) *Logout {
 	return c
 }
 
-func (c *Logout) addFlags() {}
-
 func (c *Logout) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
 }
@@ -49,26 +48,43 @@ func (c *Logout) Command() *cobra.Command {
 	return c.cmd
 }
 
+func (c *Logout) addFlags() {}
+
+func closeAndRemoveDefaultCookie(ctx context.Context, cli *api.Client, home string) error {
+	if err := cli.Close(ctx); err != nil {
+		return fmt.Errorf("close API client: %w", err)
+	}
+
+	cookiePath := filepath.Join(home, ".ncmctl", "cookie.json")
+	if err := os.Remove(cookiePath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove cookie file: %w", err)
+	}
+	return nil
+}
+
 func (c *Logout) execute(ctx context.Context, _ []string) error {
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer cli.Close(ctx)
+	defer closeAPIClient(ctx, cli)
 
 	request := weapi.New(cli)
+
 	resp, err := request.Layout(ctx, &weapi.LayoutReq{})
 	if err != nil {
 		return fmt.Errorf("layout: %w", err)
 	}
+
 	if resp.Code != 200 {
 		return fmt.Errorf("layout: %+v", resp)
 	}
 
-	// 只清理默认目录下得文件
-	if err := os.Remove(c.root.Opts.Home + "/.ncmctl/cookie.json"); err != nil {
-		log.Debug("remove cookie.json: %s", err)
+	// Flush the logged-out jar before deleting the default credential file.
+	if err := closeAndRemoveDefaultCookie(ctx, cli, c.root.Opts.Home); err != nil {
+		return err
 	}
+
 	c.cmd.Println("Logout success")
 	return nil
 }

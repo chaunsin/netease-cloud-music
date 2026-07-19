@@ -38,29 +38,35 @@ type captureState struct {
 	responseOnce     sync.Once
 }
 
-// Run starts the proxy and blocks until the context is cancelled or the server fails.
-func Run(ctx context.Context, rawConfig Config) error {
+// Run starts the proxy and blocks until the context is canceled or the server fails.
+func Run(ctx context.Context, rawConfig *Config) error {
 	cfg, err := normalizeConfig(rawConfig)
 	if err != nil {
 		return fmt.Errorf("validate proxy config: %w", err)
 	}
+
 	matcher, err := newHostMatcher(cfg.Domains)
 	if err != nil {
 		return fmt.Errorf("create host matcher: %w", err)
 	}
+
 	listener, err := net.Listen("tcp", cfg.ListenAddr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", cfg.ListenAddr, err)
 	}
+
 	ca, generated, err := loadOrCreateCA(cfg.CACertPath, cfg.CAKeyPath, cfg.RequirePrivateCAPath)
 	if err != nil {
 		_ = listener.Close()
 		return fmt.Errorf("load proxy CA: %w", err)
 	}
+
 	tracked := newTrackedListener(listener, defaultConnectHandshakeTimeout)
+
 	recorder := newRecorder(cfg.Out, cfg.MaxBodyBytes, cfg.ShowSensitive)
 	defer recorder.Close()
-	proxyServer, transport := newProxyServer(cfg, matcher, ca, recorder, tracked)
+
+	proxyServer, transport := newProxyServer(&cfg, matcher, ca, recorder, tracked)
 	httpServer := &http.Server{
 		Handler:           proxyServer,
 		ReadHeaderTimeout: 10 * time.Second,
@@ -69,7 +75,10 @@ func Run(ctx context.Context, rawConfig Config) error {
 		ErrorLog:          log.New(cfg.ErrOut, "proxy server: ", log.LstdFlags),
 	}
 
-	printStartup(cfg, tracked.Addr(), ca, generated)
+	if err := printStartup(&cfg, tracked.Addr(), ca, generated); err != nil {
+		return errors.Join(fmt.Errorf("print proxy startup: %w", err), tracked.Close())
+	}
+
 	serveErr := make(chan error, 1)
 	go func() {
 		serveErr <- httpServer.Serve(tracked)
@@ -79,15 +88,20 @@ func Run(ctx context.Context, rawConfig Config) error {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 		defer cancel()
+
 		shutdownErr := httpServer.Shutdown(shutdownCtx)
 		if shutdownErr != nil {
 			_ = httpServer.Close()
 		}
+
 		closeErr := tracked.closeAll()
+
 		transport.CloseIdleConnections()
+
 		if shutdownErr != nil {
 			return fmt.Errorf("shutdown proxy: %w", shutdownErr)
 		}
+
 		if closeErr != nil {
 			return fmt.Errorf("close proxy connections: %w", closeErr)
 		}
@@ -95,7 +109,9 @@ func Run(ctx context.Context, rawConfig Config) error {
 	case err := <-serveErr:
 		_ = httpServer.Close()
 		_ = tracked.closeAll()
+
 		transport.CloseIdleConnections()
+
 		if err == nil || errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
 			return nil
 		}
@@ -103,8 +119,14 @@ func Run(ctx context.Context, rawConfig Config) error {
 	}
 }
 
-func newProxyServer(cfg Config, matcher *hostMatcher, ca *tls.Certificate, recorder *recorder, tracked *trackedListener) (*goproxy.ProxyHttpServer, *http.Transport) {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, recorder *recorder, tracked *trackedListener) (*goproxy.ProxyHttpServer, *http.Transport) {
+	transport, ok := http.DefaultTransport.(*http.Transport)
+	if ok {
+		transport = transport.Clone()
+	} else {
+		transport = &http.Transport{}
+	}
+
 	transport.Proxy = nil
 	transport.TLSClientConfig = nil
 	transport.DisableCompression = true
@@ -145,6 +167,7 @@ func newProxyServer(cfg Config, matcher *hostMatcher, ca *tls.Certificate, recor
 				TLSConfig: tlsConfig,
 			}, host
 		}
+
 		if tracked != nil && proxyCtx != nil && proxyCtx.Req != nil {
 			tracked.clearHandshakeDeadline(proxyCtx.Req.RemoteAddr)
 		}
@@ -168,9 +191,11 @@ func newProxyServer(cfg Config, matcher *hostMatcher, ca *tls.Certificate, recor
 				if response != nil && response.Body != nil {
 					_ = response.Body.Close()
 				}
+
 				state.responseOnce.Do(func() {
 					recorder.recordResponseError(state, roundTripErr)
 				})
+
 				if outbound.URL != nil && strings.EqualFold(outbound.URL.Scheme, "https") {
 					return badGatewayResponse(outbound), nil
 				}
@@ -181,6 +206,7 @@ func newProxyServer(cfg Config, matcher *hostMatcher, ca *tls.Certificate, recor
 				state.responseBody = newBodySnapshot(response.Header, response.ContentLength)
 				state.responseCaptured = true
 				hasBody := response.Body != nil && response.Body != http.NoBody
+
 				omittedReason := bodyOmissionReason(state.responseBody.contentType, state.requestURL.Path)
 				switch {
 				case isUpgradeResponse(response):
@@ -190,7 +216,7 @@ func newProxyServer(cfg Config, matcher *hostMatcher, ca *tls.Certificate, recor
 				case hasBody:
 					state.responseDeferred = true
 					responseMetadata := cloneResponseMetadata(response)
-					response.Body = newCaptureReadCloser(response.Body, state.responseBody, cfg.MaxBodyBytes, func(snapshot bodySnapshot) {
+					response.Body = newCaptureReadCloser(response.Body, &state.responseBody, cfg.MaxBodyBytes, func(snapshot bodySnapshot) {
 						state.responseBody = snapshot
 						state.responseOnce.Do(func() {
 							recorder.recordResponse(state, responseMetadata)
@@ -208,14 +234,17 @@ func newProxyServer(cfg Config, matcher *hostMatcher, ca *tls.Certificate, recor
 		if !ok || state == nil {
 			return response
 		}
+
 		if state.responseDeferred {
 			return response
 		}
+
 		state.responseOnce.Do(func() {
 			if response == nil {
 				recorder.recordResponseError(state, proxyCtx.Error)
 				return
 			}
+
 			if !state.responseCaptured {
 				state.responseBody = bodySnapshot{
 					contentType:   response.Header.Get("Content-Type"),
@@ -224,6 +253,7 @@ func newProxyServer(cfg Config, matcher *hostMatcher, ca *tls.Certificate, recor
 					omittedReason: "response body unavailable",
 				}
 			}
+
 			recorder.recordResponse(state, response)
 		})
 		return response
@@ -245,11 +275,13 @@ func prepareRequestCapture(state *captureState, request *http.Request, limit int
 		finish(state.requestBody)
 		return
 	}
+
 	if reason := bodyOmissionReason(state.requestBody.contentType, state.requestURL.Path); reason != "" {
 		state.requestBody.omittedReason = reason
 		finish(state.requestBody)
 		return
 	}
+
 	if request.ContentLength < 0 {
 		state.requestBody.omittedReason = "unknown-length request body omitted to avoid delaying streaming traffic"
 		finish(state.requestBody)
@@ -257,13 +289,14 @@ func prepareRequestCapture(state *captureState, request *http.Request, limit int
 	}
 
 	// Capture while the transport forwards the body; never pre-read client data.
-	request.Body = newCaptureReadCloser(request.Body, state.requestBody, limit, finish)
+	request.Body = newCaptureReadCloser(request.Body, &state.requestBody, limit, finish)
 }
 
 func withMITMHandshakeTimeout(config *tls.Config, timeout time.Duration) *tls.Config {
 	if config == nil || timeout <= 0 {
 		return config
 	}
+
 	base := config.Clone()
 	getConfigForClient := config.GetConfigForClient
 	base.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
@@ -272,16 +305,20 @@ func withMITMHandshakeTimeout(config *tls.Config, timeout time.Duration) *tls.Co
 		_ = hello.Conn.SetDeadline(time.Now().Add(timeout))
 
 		selected := config
+
 		if getConfigForClient != nil {
 			var err error
+
 			selected, err = getConfigForClient(hello)
 			if err != nil {
 				return nil, err
 			}
+
 			if selected == nil {
 				selected = config
 			}
 		}
+
 		selected = selected.Clone()
 		selected.GetConfigForClient = nil
 		verifyConnection := selected.VerifyConnection
@@ -291,6 +328,7 @@ func withMITMHandshakeTimeout(config *tls.Config, timeout time.Duration) *tls.Co
 					return err
 				}
 			}
+
 			_ = hello.Conn.SetDeadline(time.Time{})
 			return nil
 		}
@@ -318,17 +356,19 @@ func isUpgradeResponse(response *http.Response) bool {
 	if response == nil {
 		return false
 	}
+
 	if response.StatusCode == http.StatusSwitchingProtocols ||
 		headerHasToken(response.Header, "Connection", "upgrade") {
 		return true
 	}
+
 	_, readWriter := response.Body.(io.ReadWriter)
 	return readWriter
 }
 
 func headerHasToken(header http.Header, name, token string) bool {
 	for _, value := range header.Values(name) {
-		for _, part := range strings.Split(value, ",") {
+		for part := range strings.SplitSeq(value, ",") {
 			if strings.EqualFold(strings.TrimSpace(part), token) {
 				return true
 			}
@@ -354,10 +394,12 @@ func requestHost(req *http.Request) string {
 	if req == nil {
 		return ""
 	}
+
 	if req.URL != nil {
 		if req.URL.Host != "" {
 			return req.URL.Host
 		}
+
 		if req.URL.Opaque != "" {
 			return req.URL.Opaque
 		}
@@ -365,22 +407,31 @@ func requestHost(req *http.Request) string {
 	return req.Host
 }
 
-func printStartup(cfg Config, address net.Addr, ca *tls.Certificate, generated bool) {
+func printStartup(cfg *Config, address net.Addr, ca *tls.Certificate, generated bool) error {
 	state := "loaded"
 	if generated {
 		state = "generated"
 	}
 
-	fmt.Fprintf(cfg.ErrOut, "ncmctl proxy listening on http://%s\n", address.String())
-	fmt.Fprintf(cfg.ErrOut, "CA certificate (%s): %s\n", state, cfg.CACertPath)
-	fmt.Fprintf(cfg.ErrOut, "CA SHA-256: %s\n", formatFingerprint(sha256.Sum256(ca.Leaf.Raw)))
-	fmt.Fprintln(cfg.ErrOut, "Trust this CA on the client before capturing HTTPS. Press Ctrl+C to stop.")
+	lines := []string{
+		fmt.Sprintf("ncmctl proxy listening on http://%s\n", address.String()),
+		fmt.Sprintf("CA certificate (%s): %s\n", state, cfg.CACertPath),
+		fmt.Sprintf("CA SHA-256: %s\n", formatFingerprint(sha256.Sum256(ca.Leaf.Raw))),
+		"Trust this CA on the client before capturing HTTPS. Press Ctrl+C to stop.\n",
+	}
+
 	if !isLoopbackListenAddress(cfg.ListenAddr) {
-		fmt.Fprintln(cfg.ErrOut, "WARNING: this unauthenticated open proxy is reachable beyond this machine; use only on a trusted network behind a firewall.")
+		lines = append(lines, "WARNING: this unauthenticated open proxy is reachable beyond this machine; use only on a trusted network behind a firewall.\n")
 	}
+
 	if cfg.ShowSensitive {
-		fmt.Fprintln(cfg.ErrOut, "WARNING: sensitive output is enabled; credentials may appear in the terminal or redirected files.")
+		lines = append(lines, "WARNING: sensitive output is enabled; credentials may appear in the terminal or redirected files.\n")
 	}
+
+	if _, err := io.WriteString(cfg.ErrOut, strings.Join(lines, "")); err != nil {
+		return fmt.Errorf("write startup diagnostics: %w", err)
+	}
+	return nil
 }
 
 func formatFingerprint(raw [sha256.Size]byte) string {
@@ -398,10 +449,12 @@ type diagnosticWriter struct {
 
 func (w *diagnosticWriter) Write(p []byte) (int, error) {
 	output := redactDiagnostic(p, w.showSensitive)
+
 	n, err := w.out.Write(output)
 	if err != nil {
 		return 0, err
 	}
+
 	if n != len(output) {
 		return 0, io.ErrShortWrite
 	}

@@ -6,7 +6,6 @@ package cookie
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -18,7 +17,8 @@ import (
 )
 
 type Config struct {
-	*Options
+	*Options `json:"-" yaml:"-"`
+
 	Filepath string        `json:"filepath" yaml:"filepath"`
 	Interval time.Duration `json:"interval" yaml:"interval"`
 	// crypto
@@ -46,6 +46,7 @@ func NewCookie(opts ...Option) (*Cookie, error) {
 	for _, opt := range opts {
 		opt.apply(&cfg)
 	}
+
 	if err := cfg.Valid(); err != nil {
 		return nil, fmt.Errorf("valid: %w", err)
 	}
@@ -64,9 +65,11 @@ func NewCookie(opts ...Option) (*Cookie, error) {
 	if cfg.Interval <= 0 {
 		p.async = false
 	}
+
 	if err := p.init(); err != nil {
 		return nil, fmt.Errorf("init: %w", err)
 	}
+
 	if p.async {
 		go p.sync()
 	}
@@ -75,6 +78,7 @@ func NewCookie(opts ...Option) (*Cookie, error) {
 
 func (c *Cookie) SetCookies(u *url.URL, cookies []*http.Cookie) {
 	c.jar.SetCookies(u, cookies)
+
 	if !c.async {
 		if err := c.export(); err != nil {
 			log.Printf("cookie warnning set cookies err: %s", err)
@@ -89,6 +93,7 @@ func (c *Cookie) Cookies(u *url.URL) []*http.Cookie {
 func (c *Cookie) Close(ctx context.Context) error {
 	c.closeOnce.Do(func() {
 		close(c.done)
+
 		if err := c.export(); err != nil {
 			log.Printf("cookie export err: %s", err)
 		}
@@ -99,6 +104,7 @@ func (c *Cookie) Close(ctx context.Context) error {
 func (c *Cookie) sync() {
 	tick := time.NewTicker(c.cfg.Interval)
 	defer tick.Stop()
+
 	for {
 		select {
 		case <-tick.C:
@@ -116,7 +122,7 @@ func (c *Cookie) init() error {
 	// 如果文件存在则读取配置文件
 	if !fileExists(c.cfg.Filepath) {
 		log.Printf("cookie: warnning %s file not found", c.cfg.Filepath)
-		return os.MkdirAll(filepath.Dir(c.cfg.Filepath), os.ModePerm)
+		return os.MkdirAll(filepath.Dir(c.cfg.Filepath), 0o700)
 	}
 
 	data, err := os.ReadFile(c.cfg.Filepath)
@@ -132,9 +138,13 @@ func (c *Cookie) init() error {
 	if err := json.Unmarshal(data, &content); err != nil {
 		return err
 	}
+
 	for domain, cookies := range content {
 		imported[domain] = make(map[string]entry)
-		for name, cookie := range cookies {
+
+		for name := range cookies {
+			cookie := cookies[name]
+
 			imported[domain][name] = entry{
 				Name:       cookie.Name,
 				Value:      cookie.Value,
@@ -155,6 +165,7 @@ func (c *Cookie) init() error {
 			}
 		}
 	}
+
 	c.mu.Lock()
 	c.jar.nextSeqNum = nextSeqNum
 	c.jar.entries = imported
@@ -169,7 +180,9 @@ func (c *Cookie) export() error {
 	exported := make(map[string]map[string]Entry)
 	for domain, cookies := range c.jar.entries {
 		exported[domain] = make(map[string]Entry)
-		for name, cookie := range cookies {
+
+		for name := range cookies {
+			cookie := cookies[name]
 			exported[domain][name] = Entry{
 				Name:       cookie.Name,
 				Value:      cookie.Value,
@@ -187,36 +200,36 @@ func (c *Cookie) export() error {
 			}
 		}
 	}
+
 	data, err := json.Marshal(exported)
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(c.cfg.Filepath, data, os.ModePerm); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			if err := os.MkdirAll(filepath.Dir(c.cfg.Filepath), os.ModePerm); err != nil {
-				return err
-			}
-			return nil
-		}
+
+	if err := os.MkdirAll(filepath.Dir(c.cfg.Filepath), 0o700); err != nil {
+		return fmt.Errorf("MkdirAll: %w", err)
+	}
+
+	if err := os.WriteFile(c.cfg.Filepath, data, 0o600); err != nil {
 		return fmt.Errorf("WriteFile: %w", err)
 	}
 	return nil
 }
 
 type Entry struct {
-	Name       string
-	Value      string
-	Domain     string
-	Path       string
-	SameSite   string
-	Secure     bool
-	HttpOnly   bool
-	Persistent bool
-	HostOnly   bool
-	Expires    time.Time
-	Creation   time.Time
-	LastAccess time.Time
-	SeqNum     uint64
+	Name       string    `json:"Name"`
+	Value      string    `json:"Value"`
+	Domain     string    `json:"Domain"`
+	Path       string    `json:"Path"`
+	SameSite   string    `json:"SameSite"`
+	Secure     bool      `json:"Secure"`
+	HttpOnly   bool      `json:"HttpOnly"`
+	Persistent bool      `json:"Persistent"`
+	HostOnly   bool      `json:"HostOnly"`
+	Expires    time.Time `json:"Expires"`
+	Creation   time.Time `json:"Creation"`
+	LastAccess time.Time `json:"LastAccess"`
+	SeqNum     uint64    `json:"SeqNum"`
 }
 
 func fileExists(file string) bool {
@@ -235,7 +248,7 @@ func (f optionFunc) apply(p *Config) {
 	f(p)
 }
 
-// WithSyncInterval sets sync time interval
+// WithSyncInterval sets sync time interval.
 func WithSyncInterval(interval time.Duration) Option {
 	return optionFunc(func(p *Config) {
 		p.Interval = interval

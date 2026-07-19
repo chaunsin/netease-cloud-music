@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"sync"
 	"time"
 
@@ -20,8 +21,6 @@ import (
 	"github.com/cheggaaa/pb/v3"
 	"github.com/go-resty/resty/v2"
 	"golang.org/x/sync/singleflight"
-
-	neturl "net/url"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
@@ -40,6 +39,7 @@ func (c *Config) Validate() error {
 	if c.Retry < 0 {
 		return errors.New("retry is < 0")
 	}
+
 	if c.Timeout < 0 {
 		return errors.New("timeout is < 0")
 	}
@@ -77,9 +77,11 @@ func NewClient(cfg *Config, l *log.Logger) (*Client, error) {
 	if cfg.Cookie.Filepath != "" {
 		opts = append(opts, cookie.WithFilePath(cfg.Cookie.Filepath))
 	}
+
 	if opt := cfg.Cookie.Options; opt != nil && opt.PublicSuffixList != nil {
 		opts = append(opts, cookie.WithPublicSuffixList(cfg.Cookie.PublicSuffixList))
 	}
+
 	jar, err := cookie.NewCookie(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("NewCookie: %w", err)
@@ -131,9 +133,10 @@ func (c *Client) GetClient() *http.Client {
 func (c *Client) Cookie(url, name string) (http.Cookie, bool) {
 	uri, err := neturl.Parse(url)
 	if err != nil {
-		log.Warn("cookie parse(%v) err: %s", url, err)
+		log.Warnf("cookie parse(%v) err: %s", url, err)
 		return http.Cookie{}, false
 	}
+
 	for _, c := range c.cookie.Cookies(uri) {
 		if c.Name == name {
 			return *c, true
@@ -156,13 +159,15 @@ func (c *Client) SetCookies(url *neturl.URL, cookies []*http.Cookie) {
 func (c *Client) GetCSRF(url string) (string, bool) {
 	uri, err := neturl.Parse(url)
 	if err != nil {
-		log.Warn("GetCSRF parse(%v) err: %s", url, err)
+		log.Warnf("GetCSRF parse(%v) err: %s", url, err)
 		return "", false
 	}
+
 	for _, c := range c.cookie.Cookies(uri) {
 		if c.Name == "__csrf_token" && c.Value != "" {
 			return c.Value, true
 		}
+
 		if c.Name == "__csrf" && c.Value != "" {
 			return c.Value, true
 		}
@@ -191,11 +196,13 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	if url == "" || req == nil || resp == nil {
 		return nil, errors.New("request args invalid")
 	}
+
 	if opts == nil {
 		opts = NewOptions()
 	}
+
 	if opts.Method == "" {
-		opts.Method = http.MethodPost
+		opts.SetMethod(http.MethodPost)
 	}
 
 	var (
@@ -210,7 +217,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		return nil, err
 	}
 
-	// todo: set User-Agent config
+	// Pending: set User-Agent config
 
 	request := c.cli.R().
 		SetContext(ctx).
@@ -227,7 +234,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 
 	switch opts.CryptoMode {
 	case CryptoModeEAPI:
-		// todo: set common params
+		// Pending: set common params
 		// var dataHeader = http.Header{}
 		// dataHeader.Add("osver", getCookie(options.cookies, "osver"))
 		// dataHeader.Add("deviceId", getCookie(options.cookies, "deviceId"))
@@ -254,21 +261,20 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		// 	})
 		// }
 		// data["header"] = dataHeader
-
 		encryptData, err = crypto.EApiEncrypt(uri.Path, req)
 		if err != nil {
 			return nil, fmt.Errorf("EApiEncrypt: %w", err)
 		}
 	case CryptoModeWEAPI:
-		// todo: 需要替换？因为有些 https://interface.music.163.com/api 得接口也会走这个逻辑
+		// Pending: 需要替换？因为有些 https://interface.music.163.com/api 得接口也会走这个逻辑
 		// reg, _ := regexp.Compile(`\w*api`)
 		// url = reg.ReplaceAllString(url, "weapi")
 		// url = strings.ReplaceAll(url, "api", "weapi")
-
 		csrf, has := c.GetCSRF(url)
 		if !has {
-			log.Debug("get csrf token not found")
+			log.Debugf("get csrf token not found")
 		}
+
 		request.SetQueryParam("csrf_token", csrf)
 
 		// // request.SetCookie(&http.Cookie{Name: "appver", Value: "2.3.17"})
@@ -296,14 +302,16 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		if err != nil {
 			return nil, fmt.Errorf("xeapiEncrypt: %w", err)
 		}
+
 		request.SetHeader("User-Agent", xeapiUserAgent(opts))
 		request.SetHeader("X-Client-Enc-State", "ENCRYPTED")
-		if xeapiURI, err := neturl.Parse(requestURL); err == nil && xeapiURI.Host != "" {
+
+		if xeapiURI, parseErr := neturl.Parse(requestURL); parseErr == nil && xeapiURI.Host != "" {
 			request.SetHeader("Host", xeapiURI.Host)
 		}
 	case CryptoModeAPI:
 		// 不需要加密处理请求
-		// todo: 待处理,在/api/xx/接口请求时则不需要参数加密处理,此处需要对结构体转换成map[string]string类型
+		// Pending: 待处理,在/api/xx/接口请求时则不需要参数加密处理,此处需要对结构体转换成map[string]string类型
 		// b, err := json.Marshal(req)
 		// if err != nil {
 		// 	return nil, fmt.Errorf("json.Marshal: %w", err)
@@ -319,12 +327,14 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	default:
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
-	log.Debug("[request]: %+v encrypt: %+v", req, encryptData)
+
+	log.Debugf("[request]: %+v encrypt: %+v", req, encryptData)
 
 	// append user options config
 	if len(opts.Headers) > 0 {
 		request = request.SetHeaders(opts.Headers)
 	}
+
 	if len(opts.Cookies) > 0 {
 		request = request.SetCookies(opts.Cookies)
 	}
@@ -335,27 +345,30 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	case http.MethodGet:
 		response, err = request.Get(requestURL)
 	default:
-		return nil, fmt.Errorf("%s not surpport http method", opts.Method) // TODO: 需要适配PUT等方法
+		return nil, fmt.Errorf("%s not surpport http method", opts.Method) // Pending: 需要适配PUT等方法
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
 	}
-	log.Debug("[response.raw]: %s", string(response.Body()))
+
+	log.Debugf("[response.raw]: %s", string(response.Body()))
 
 	var decryptData []byte
+
 	switch opts.CryptoMode {
 	case CryptoModeAPI:
 		// tips: api接口返回数据是明文
 		decryptData = response.Body()
 	case CryptoModeEAPI:
-		// TODO: 貌似eapi接口返回数据是否是是明文,跟传入参数e_r: true有关,true为加密，false为明文。此处考虑采用反射req中得字段处理。
+		// Pending: 貌似eapi接口返回数据是否是是明文,跟传入参数e_r: true有关,true为加密，false为明文。此处考虑采用反射req中得字段处理。
 		// see: https://gitlab.com/Binaryify/neteasecloudmusicapi/-/commit/58e9865b70e41197c2ab75c46a775fc45d6efa6e
 		// decryptData, err = crypto.EApiDecrypt(string(response.Body()), "")
 		// if err != nil {
 		// 	return nil, fmt.Errorf("EApiDecrypt: %w", err)
 		// }
 		decryptData = response.Body()
-		log.Debug("[response.decrypt]: %s", string(decryptData))
+		log.Debugf("[response.decrypt]: %s", string(decryptData))
 	case CryptoModeWEAPI:
 		// tips: weapi接口返回数据是明文
 		decryptData = response.Body()
@@ -364,7 +377,8 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		if err != nil {
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
-		log.Debug("[response.decrypt]: %s", string(decryptData))
+
+		log.Debugf("[response.decrypt]: %s", string(decryptData))
 	case CryptoModeXEAPI:
 		c.updateXeapiSession(response)
 
@@ -372,7 +386,8 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		if err != nil {
 			return nil, fmt.Errorf("XeapiDecryptResponse: %w", err)
 		}
-		log.Debug("[response.decrypt]: %s", string(decryptData))
+
+		log.Debugf("[response.decrypt]: %s", string(decryptData))
 	default:
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
@@ -382,6 +397,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	if err := decode.Decode(&resp); err != nil {
 		return nil, fmt.Errorf("json.NewDecoder: %w", err)
 	}
+
 	if response.StatusCode() != http.StatusOK {
 		return nil, fmt.Errorf("http status code: %d detail: %s", response.StatusCode(), string(decryptData))
 	}
@@ -406,21 +422,27 @@ func (c *Client) Upload(ctx context.Context, url string, headers map[string]stri
 	if err != nil {
 		return nil, err
 	}
-	log.Debug("response: %+v", string(response.Body()))
+
+	log.Debugf("response: %+v", string(response.Body()))
+
 	if err := json.Unmarshal(response.Body(), &resp); err != nil {
 		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
+
 	if response.StatusCode() != http.StatusOK {
 		return nil, fmt.Errorf("http status code: %d detail: %s", response.StatusCode(), string(response.Body()))
 	}
 	return response, nil
 }
 
+// Download streams the response body into resp and closes it before returning.
+// The returned response is metadata-only; callers must not read response.Body.
 func (c *Client) Download(ctx context.Context, url string, headers map[string]string, reqBody io.Reader, resp io.Writer, bar *pb.ProgressBar) (*http.Response, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("NewRequestWithContext: %w", err)
 	}
+
 	request.Header.Set("Connection", "keep-alive")
 	request.Header.Set("Accept", "*/*")
 	request.Header.Set("Referer", "https://music.163.com")
@@ -428,6 +450,7 @@ func (c *Client) Download(ctx context.Context, url string, headers map[string]st
 	request.Header.Set("Accept-Language", "zh-CN,zh-Hans;q=0.9")
 	request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034")
 	request.Header.Set("Range", "bytes=0-")
+
 	for k, v := range headers {
 		request.Header.Set(k, v)
 	}
@@ -436,7 +459,11 @@ func (c *Client) Download(ctx context.Context, url string, headers map[string]st
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			log.Errorf("close download response body: %v", closeErr)
+		}
+	}()
 
 	if response.StatusCode/100 != 2 {
 		return nil, fmt.Errorf("http status code: %d", response.StatusCode)
@@ -446,10 +473,12 @@ func (c *Client) Download(ctx context.Context, url string, headers map[string]st
 	if bar != nil {
 		body = bar.NewProxyReader(response.Body)
 	}
+
 	n, err := io.Copy(resp, body)
 	if err != nil {
 		return nil, err
 	}
+
 	if n != response.ContentLength {
 		return nil, errors.New("file transfer interrupted")
 	}
@@ -458,7 +487,7 @@ func (c *Client) Download(ctx context.Context, url string, headers map[string]st
 
 func contentEncoding(c *resty.Client, resp *resty.Response) error {
 	kind := resp.Header().Get("Content-Encoding")
-	// log.Debug("Content-Encoding: %s Uncompressed: %v", kind, resp.RawResponse.Uncompressed)
+	// log.Debugf("Content-Encoding: %s Uncompressed: %v", kind, resp.RawResponse.Uncompressed)
 	switch kind {
 	case "deflate":
 		// 为何使用zlib库: https://zlib.net/zlib_faq.html#faq39
@@ -466,18 +495,24 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 		if err != nil {
 			return fmt.Errorf("zlib.NewReader: %w", err)
 		}
-		defer data.Close()
-		bodyBytes, err := io.ReadAll(data)
-		if err != nil {
-			return fmt.Errorf("deflate.ReadAll: %w", err)
+		defer func() {
+			if closeErr := data.Close(); closeErr != nil {
+				log.Errorf("deflate.Close: %s", closeErr)
+			}
+		}()
+
+		bodyBytes, readErr := io.ReadAll(data)
+		if readErr != nil {
+			return fmt.Errorf("deflate.ReadAll: %w", readErr)
 		}
+
 		resp.SetBody(bodyBytes)
 	case "br":
-		r := brotli.NewReader(bytes.NewReader(resp.Body()))
-		bodyBytes, err := io.ReadAll(r)
+		bodyBytes, err := io.ReadAll(brotli.NewReader(bytes.NewReader(resp.Body())))
 		if err != nil {
 			return fmt.Errorf("cbrotli.Decode: %w", err)
 		}
+
 		resp.SetBody(bodyBytes)
 	case "gzip":
 		// tips: restry 自身已经实现gzip解压缩
@@ -496,21 +531,21 @@ func contentEncoding(c *resty.Client, resp *resty.Response) error {
 // 	// if err != nil {
 // 	// 	return fmt.Errorf("ReadAll: %w", err)
 // 	// }
-// 	// log.Debug("rawbody:%s", string(d))
+// 	// log.Debugf("rawbody:%s", string(d))
 
 // 	resp.RawResponse.Body = io.NopCloser(bytes.NewReader(resp.Body()))
-// 	log.Debug("############### http dump ################")
+// 	log.Debugf("############### http dump ################")
 
 // 	dumpReq, err := httputil.DumpRequest(resp.Request.RawRequest, true)
 // 	if err != nil {
 // 		return fmt.Errorf("DumpRequest: %w", err)
 // 	}
-// 	log.Debug("---------------- request ----------------\n%s", string(dumpReq))
+// 	log.Debugf("---------------- request ----------------\n%s", string(dumpReq))
 
 // 	dumpResp, err := httputil.DumpResponse(resp.RawResponse, true)
 // 	if err != nil {
 // 		return fmt.Errorf("DumpResponse: %w", err)
 // 	}
-// 	log.Debug("---------------- response ----------------\n%s\n", string(dumpResp))
+// 	log.Debugf("---------------- response ----------------\n%s\n", string(dumpResp))
 // 	return nil
 // }

@@ -19,6 +19,7 @@ func secureCAPrivateDir(path string) error {
 	if err != nil {
 		return fmt.Errorf("inspect CA directory %q: %w", path, err)
 	}
+
 	if info.Mode().Perm()&0o077 != 0 {
 		return fmt.Errorf("CA directory %q permissions are too broad: %04o", path, info.Mode().Perm())
 	}

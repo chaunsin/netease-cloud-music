@@ -4,12 +4,13 @@
 package ncmctl
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 
 	"codeberg.org/sbinet/mozcookie"
 	"github.com/spf13/cobra"
@@ -31,7 +32,7 @@ Content Examples:
 
 uid=123456; PHPSESSID=28f2d88ee9322cfd2e4f1e; csrftoken=abcdef123456; logged_in=true
 
-* netscaple
+* netscape
 
 Content Examples:
 
@@ -83,7 +84,7 @@ Content Examples:
 
 * default:
 
-Automatically attempt json, header, and netscape.
+Automatically attempt netscape, json, and header.
 `
 
 type loginCookieCmd struct {
@@ -104,7 +105,7 @@ func cookie(root *Login, l *log.Logger) *cobra.Command {
 		Use:     "cookie",
 		Short:   "use cookie login",
 		Long:    cookieLongUse,
-		Example: "  ncmctl login cookie -f cookie.txt\n  ncmctl login cookie --format netscaple -f cookie.json\n  ncmctl login cookie 'value'\n  ncmctl login cookie --format json 'value'",
+		Example: "  ncmctl login cookie -f cookie.txt\n  ncmctl login cookie --format netscape -f cookies.txt\n  ncmctl login cookie 'value'\n  ncmctl login cookie --format json 'value'",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
 		},
@@ -115,7 +116,48 @@ func cookie(root *Login, l *log.Logger) *cobra.Command {
 
 func (c *loginCookieCmd) addFlags() {
 	c.cmd.Flags().StringVarP(&c.File, "file", "f", "", "import cookie file")
-	c.cmd.Flags().StringVar(&c.format, "format", "", "import cookie file format. eg: ''、json、netscaple、header")
+	c.cmd.Flags().StringVar(&c.format, "format", "", "import cookie format. supported: json, netscape, header")
+}
+
+func parseCookieData(data []byte, format string) ([]*http.Cookie, error) {
+	parse := func(candidate string) ([]*http.Cookie, error) {
+		switch candidate {
+		case "json":
+			return ParseCookeJson(bytes.NewReader(data))
+		case "netscape":
+			return mozcookie.Decode(bytes.NewReader(data))
+		case "header":
+			return http.ParseCookie(string(data))
+		default:
+			return nil, fmt.Errorf("unsupported cookie format %q", candidate)
+		}
+	}
+
+	if format != "" {
+		cookies, err := parse(format)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s cookies: %w", format, err)
+		}
+		return cookies, nil
+	}
+
+	var parseErrors []error
+
+	for _, candidate := range []string{"netscape", "json", "header"} {
+		cookies, err := parse(candidate)
+		if err == nil && len(cookies) > 0 {
+			return cookies, nil
+		}
+
+		if err != nil {
+			parseErrors = append(parseErrors, fmt.Errorf("%s: %w", candidate, err))
+		}
+	}
+
+	if len(parseErrors) == 0 {
+		return nil, errors.New("cookie is empty")
+	}
+	return nil, fmt.Errorf("detect cookie format: %w", errors.Join(parseErrors...))
 }
 
 func (c *loginCookieCmd) execute(ctx context.Context, args []string) error {
@@ -123,9 +165,11 @@ func (c *loginCookieCmd) execute(ctx context.Context, args []string) error {
 	if len(args) > 0 {
 		content = args[0]
 	}
+
 	if c.File == "" && content == "" {
-		return fmt.Errorf("file is required or imput cookie string")
+		return errors.New("file is required or imput cookie string")
 	}
+
 	if c.format != "" &&
 		c.format != "json" &&
 		c.format != "netscape" &&
@@ -133,148 +177,68 @@ func (c *loginCookieCmd) execute(ctx context.Context, args []string) error {
 		return fmt.Errorf("format is not support: %v", c.format)
 	}
 
-	log.Debug("args: format=%v, file=%v, content=%v", c.format, c.File, content)
+	log.Debugf("args: format=%v, file=%v, content=%v", c.format, c.File, content)
 
-	var cookies []*http.Cookie
+	data := []byte(content)
+
 	if c.File != "" {
 		file, err := utils.ExpandTilde(c.File)
 		if err != nil {
 			return fmt.Errorf("ExpandTilde: %w", err)
 		}
+
 		c.File = file
 
-		switch c.format {
-		case "json":
-			f, err := os.Open(c.File)
-			if err != nil {
-				return fmt.Errorf("open: %w", err)
-			}
-			defer f.Close()
-
-			cookies, err = ParseCookeJson(f)
-			if err != nil {
-				return fmt.Errorf("ParseCookeJson: %w", err)
-			}
-		case "netscape":
-			ck, err := mozcookie.Read(c.File)
-			if err != nil {
-				return fmt.Errorf("mozcookie.Read: %w", err)
-			}
-			cookies = ck
-		case "header":
-			ck, err := http.ParseCookie(content)
-			if err != nil {
-				return fmt.Errorf("ParseCookie: %ww", err)
-			}
-			cookies = ck
-		default:
-			// 走探测逻辑
-			ck, err := mozcookie.Read(c.File)
-			if err != nil {
-				log.Debug("retry read netscape err: %s", err)
-			}
-			cookies = ck
-			if len(cookies) <= 0 {
-				f, err := os.Open(c.File)
-				if err != nil {
-					return fmt.Errorf("open: %w", err)
-				}
-				defer f.Close()
-
-				cookies, err = ParseCookeJson(f)
-				if err != nil {
-					log.Debug("retry parse json err: %s", err)
-				}
-			}
-			if len(cookies) <= 0 {
-				data, err := os.ReadFile(c.File)
-				if err != nil {
-					return fmt.Errorf("open: %w", err)
-				}
-
-				cookies, err = http.ParseCookie(string(data))
-				if err != nil {
-					return fmt.Errorf("ParseCookie: %w", err)
-				}
-			}
-		}
-	} else {
-		binary := strings.NewReader(content)
-		switch c.format {
-		case "json":
-			ck, err := ParseCookeJson(binary)
-			if err != nil {
-				return fmt.Errorf("ParseCookeJson: %w", err)
-			}
-			cookies = ck
-		case "netscape":
-			ck, err := mozcookie.Decode(binary)
-			if err != nil {
-				return fmt.Errorf("mozcookie.Decode: %w", err)
-			}
-			cookies = ck
-		case "header":
-			ck, err := http.ParseCookie(content)
-			if err != nil {
-				return fmt.Errorf("ParseCookie: %w", err)
-			}
-			cookies = ck
-		default:
-			// 走探测逻辑
-			ck, err := mozcookie.Decode(binary)
-			if err != nil {
-				log.Debug("retry decode netscape err: %s", err)
-			}
-			cookies = ck
-			if len(cookies) <= 0 {
-				cookies, err = ParseCookeJson(binary)
-				if err != nil {
-					log.Debug("retry parse json ere: %s", err)
-				}
-			}
-			if len(cookies) <= 0 {
-				cookies, err = http.ParseCookie(content)
-				if err != nil {
-					return fmt.Errorf("ParseCookie: %w", err)
-				}
-			}
+		data, err = os.ReadFile(c.File)
+		if err != nil {
+			return fmt.Errorf("read cookie file: %w", err)
 		}
 	}
 
-	if len(cookies) <= 0 {
-		return fmt.Errorf("cookie is empty")
+	cookies, err := parseCookieData(data, c.format)
+	if err != nil {
+		return err
 	}
+
+	if len(cookies) == 0 {
+		return errors.New("cookie is empty")
+	}
+
 	var hasToken bool
+
 	for _, v := range cookies {
 		if v.Name == "MUSIC_U" {
 			hasToken = true
 			break
 		}
 	}
+
 	if !hasToken {
-		return fmt.Errorf("cookie not found MUSIC_U value")
+		return errors.New("cookie not found MUSIC_U value")
 	}
 
 	// Parse the domain into a URL (adjust a scheme if needed)
 	u, err := url.Parse("https://music.163.com")
 	if err != nil {
-		return fmt.Errorf("failed to parse domain URL: %v", err)
+		return fmt.Errorf("failed to parse domain URL: %w", err)
 	}
 
 	cli, err := api.NewClient(c.root.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer cli.Close(ctx)
+	defer closeAPIClient(ctx, cli)
 
 	cli.SetCookies(u, cookies)
 
 	// 查询登录信息是否成功
 	request := weapi.New(cli)
+
 	user, err := request.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
 	if err != nil {
-		return fmt.Errorf("GetUserInfo: %s", err)
+		return fmt.Errorf("GetUserInfo: %w", err)
 	}
+
 	c.cmd.Printf("login success: %+v\n", user)
 	return nil
 }

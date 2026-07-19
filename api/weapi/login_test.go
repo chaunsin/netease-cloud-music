@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/skip2/go-qrcode"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
@@ -18,7 +18,7 @@ func TestQrcodeCreateKey(t *testing.T) {
 		Type:      1,
 	}
 	got, err := cli.QrcodeCreateKey(ctx, &req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Logf("QrcodeCreateKey: %+v\n", got)
 }
 
@@ -29,7 +29,7 @@ func TestQrcodeGetReq(t *testing.T) {
 		Platform: "web",
 	}
 	got, err := cli.QrcodeGenerate(ctx, &req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Logf("QrcodeGenerate: %+v\n", got)
 }
 
@@ -39,6 +39,6 @@ func TestQrcodeCheck(t *testing.T) {
 		Type: 1,
 	}
 	got, err := cli.QrcodeCheck(ctx, &req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Logf("QrcodeCheck: %+v\n", got)
 }

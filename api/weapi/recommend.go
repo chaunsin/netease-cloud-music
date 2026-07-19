@@ -136,7 +136,7 @@ type RecommendSongsRespData struct {
 
 // RecommendSongs 每日推荐歌曲列表
 // url:
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) RecommendSongs(ctx context.Context, req *RecommendSongsReq) (*RecommendSongsResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/v3/discovery/recommend/songs"
@@ -148,6 +148,7 @@ func (a *Api) RecommendSongs(ctx context.Context, req *RecommendSongsReq) (*Reco
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -158,6 +159,7 @@ type PCDailyRecommendBlockReq struct {
 
 type PCDailyRecommendBlockResp struct {
 	types.RespCommon[PCDailyRecommendBlockRespData]
+
 	// 应改是页面配置
 	Trp struct {
 		Rules []string `json:"rules"` // eg: COMMON_INTERVENE_POSITION::WEEKLY_NEW_HOT_TREND_OP_CHANNEL_13::linkPlatform$cc$WEEKLY_NEW_HOT_TREND_OP_CHANNEL$bpo$default$bc$traffic$rt$playlist$pc$COMMON_INTERVENE_POSITION$fgid$495003$pgid$0$pid$1938255$rid$5395389058$cid$1897560
@@ -328,7 +330,7 @@ func (a *Api) PCDailyRecommendBlock(ctx context.Context, req *PCDailyRecommendBl
 		reply PCDailyRecommendBlockResp
 		opts  = api.NewOptions()
 	)
-	// opts.CryptoMode = api.CryptoModeEAPI
+	// opts = api.NewOptions().SetCryptoModeEAPI()
 	// opts.SetCookies(&http.Cookie{Name: "os", Value: "osx"})
 	// opts.SetCookies(&http.Cookie{Name: "mode", Value: "MacBookPro16,1"})
 	// opts.SetCookies(&http.Cookie{Name: "osver", Value: "15.3.2"})
@@ -338,6 +340,7 @@ func (a *Api) PCDailyRecommendBlock(ctx context.Context, req *PCDailyRecommendBl
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

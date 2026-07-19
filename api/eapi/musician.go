@@ -8,18 +8,19 @@ package eapi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
-// MusicianVipTasksReq 获取音乐人黑胶会员任务请求
+// MusicianVipTasksReq 获取音乐人黑胶会员任务请求.
 type MusicianVipTasksReq struct {
 	ER bool `json:"e_r"` // false=明文响应, true=加密响应
 }
 
-// MusicianVipTasksData 获取音乐人黑胶会员任务响应 (data 字段内容)
+// MusicianVipTasksData 获取音乐人黑胶会员任务响应 (data 字段内容).
 type MusicianVipTasksData struct {
 	HasOpen              bool                    `json:"hasOpen"`
 	IsMusician           bool                    `json:"isMusician"`
@@ -38,7 +39,7 @@ type MusicianVipTasksData struct {
 	FurtherTask          *MusicianVipFurtherTask `json:"furtherTask"`
 }
 
-// MusicianVipTasksResp 获取音乐人黑胶会员任务响应
+// MusicianVipTasksResp 获取音乐人黑胶会员任务响应.
 type MusicianVipTasksResp struct {
 	types.RespCommon[MusicianVipTasksData]
 }
@@ -52,7 +53,7 @@ type MusicianEAPIReq struct {
 	ER       bool   `json:"e_r"`
 }
 
-// MusicianVipFurtherTask 进阶任务
+// MusicianVipFurtherTask 进阶任务.
 type MusicianVipFurtherTask struct {
 	Name             string               `json:"name"`
 	TotalCompleteNum int                  `json:"totalCompleteNum"`
@@ -70,7 +71,7 @@ type MusicianVipFurtherTask struct {
 	Children         []MusicianVipSubTask `json:"children"`
 }
 
-// MusicianVipSubTask 子任务
+// MusicianVipSubTask 子任务.
 type MusicianVipSubTask struct {
 	Name             string               `json:"name"`
 	TotalCompleteNum int                  `json:"totalCompleteNum"`
@@ -89,19 +90,19 @@ type MusicianVipSubTask struct {
 }
 
 // MusicianVipTasks 获取音乐人黑胶会员任务
-// needLogin: 是
+// needLogin: 是.
 func (a *Api) MusicianVipTasks(ctx context.Context, req *MusicianVipTasksReq) (*MusicianVipTasksResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/nmusician/workbench/special/right/vip/info"
 		reply MusicianVipTasksResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -131,19 +132,20 @@ func (a *Api) MusicianRoleGet(ctx context.Context, req *MusicianRoleGetReq) (*Mu
 	if req == nil {
 		req = &MusicianRoleGetReq{}
 	}
+
 	a.fillMusicianEAPIReq(&req.MusicianEAPIReq)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/musician/role/get"
 		reply MusicianRoleGetResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -159,24 +161,25 @@ type MusicianSignResp struct {
 }
 
 // MusicianSign 执行音乐人中心签到/访问打点。
-// 抓包接口: /api/creator/user/access
+// 抓包接口: /api/creator/user/access.
 func (a *Api) MusicianSign(ctx context.Context, req *MusicianSignReq) (*MusicianSignResp, error) {
 	if req == nil {
 		req = &MusicianSignReq{}
 	}
+
 	a.fillMusicianEAPIReq(&req.MusicianEAPIReq)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/creator/user/access"
 		reply MusicianSignResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -184,6 +187,7 @@ func (a *Api) MusicianSign(ctx context.Context, req *MusicianSignReq) (*Musician
 // MusicianMissionListReq 获取音乐人任务列表请求。
 type MusicianMissionListReq struct {
 	MusicianEAPIReq
+
 	Platform   int `json:"platform,omitempty"`
 	Tag        int `json:"tag,omitempty"`
 	ActionType int `json:"actionType,omitempty"`
@@ -236,19 +240,20 @@ func (a *Api) MusicianMissionCycleList(ctx context.Context, req *MusicianMission
 	if req == nil {
 		req = &MusicianMissionListReq{}
 	}
+
 	a.fillMusicianEAPIReq(&req.MusicianEAPIReq)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/mission/cycle/list"
 		reply MusicianMissionListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -258,19 +263,20 @@ func (a *Api) MusicianMissionStageList(ctx context.Context, req *MusicianMission
 	if req == nil {
 		req = &MusicianMissionListReq{}
 	}
+
 	a.fillMusicianEAPIReq(&req.MusicianEAPIReq)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/mission/stage/list"
 		reply MusicianMissionListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -278,6 +284,7 @@ func (a *Api) MusicianMissionStageList(ctx context.Context, req *MusicianMission
 // MusicianRewardObtainReq 音乐人云豆领奖请求。
 type MusicianRewardObtainReq struct {
 	MusicianEAPIReq
+
 	UserMissionId int64 `json:"userMissionId"`
 	Period        int64 `json:"period"`
 }
@@ -290,24 +297,26 @@ type MusicianRewardObtainResp struct {
 // MusicianRewardObtain 领取音乐人云豆奖励。
 func (a *Api) MusicianRewardObtain(ctx context.Context, req *MusicianRewardObtainReq) (*MusicianRewardObtainResp, error) {
 	if req == nil {
-		return nil, fmt.Errorf("request is nil")
+		return nil, errors.New("request is nil")
 	}
+
 	if req.UserMissionId <= 0 {
-		return nil, fmt.Errorf("userMissionId is required")
+		return nil, errors.New("userMissionId is required")
 	}
+
 	a.fillMusicianEAPIReq(&req.MusicianEAPIReq)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/mission/reward/obtain/new"
 		reply MusicianRewardObtainResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

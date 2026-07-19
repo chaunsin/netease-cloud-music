@@ -8,8 +8,10 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"compress/zlib"
+	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/andybalholm/brotli"
@@ -18,17 +20,23 @@ import (
 func decodeHTTPContent(raw []byte, contentEncoding string, limit int64) ([]byte, bool, error) {
 	encodings := strings.Split(strings.ToLower(contentEncoding), ",")
 	data := raw
-	for i := len(encodings) - 1; i >= 0; i-- {
-		encoding := strings.TrimSpace(encodings[i])
+
+	for _, v := range slices.Backward(encodings) {
+		encoding := strings.TrimSpace(v)
 		if encoding == "" || encoding == "identity" {
 			continue
 		}
-		var err error
-		var truncated bool
+
+		var (
+			err       error
+			truncated bool
+		)
+
 		data, truncated, err = decodeOneContentEncoding(data, encoding, limit)
 		if err != nil {
 			return raw, false, err
 		}
+
 		if truncated {
 			return data, true, nil
 		}
@@ -41,12 +49,14 @@ func decodeOneContentEncoding(raw []byte, encoding string, limit int64) ([]byte,
 		reader io.Reader
 		closer io.Closer
 	)
+
 	switch encoding {
 	case "gzip", "x-gzip":
 		gzipReader, err := gzip.NewReader(bytes.NewReader(raw))
 		if err != nil {
 			return nil, false, fmt.Errorf("gzip reader: %w", err)
 		}
+
 		reader, closer = gzipReader, gzipReader
 	case "deflate":
 		zlibReader, err := zlib.NewReader(bytes.NewReader(raw))
@@ -61,13 +71,20 @@ func decodeOneContentEncoding(raw []byte, encoding string, limit int64) ([]byte,
 	default:
 		return nil, false, fmt.Errorf("unsupported content encoding %q", encoding)
 	}
+
+	decoded, truncated, readErr := readLimited(reader, limit)
+
+	var closeErr error
 	if closer != nil {
-		defer closer.Close()
+		closeErr = closer.Close()
 	}
 
-	decoded, truncated, err := readLimited(reader, limit)
-	if err != nil {
-		return nil, false, fmt.Errorf("decode %s: %w", encoding, err)
+	if readErr != nil {
+		return nil, false, fmt.Errorf("decode %s: %w", encoding, readErr)
+	}
+
+	if closeErr != nil {
+		return nil, false, fmt.Errorf("close %s decoder: %w", encoding, closeErr)
 	}
 	return decoded, truncated, nil
 }
@@ -77,13 +94,16 @@ func decodeOneContentEncoding(raw []byte, encoding string, limit int64) ([]byte,
 // limit, even when callers pass math.MaxInt64.
 func readLimited(reader io.Reader, limit int64) ([]byte, bool, error) {
 	if limit <= 0 {
-		return nil, false, fmt.Errorf("decoded body limit must be greater than zero")
+		return nil, false, errors.New("decoded body limit must be greater than zero")
 	}
+
 	limited := &io.LimitedReader{R: reader, N: limit}
+
 	data, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, false, err
 	}
+
 	if int64(len(data)) < limit {
 		return data, false, nil
 	}
@@ -94,9 +114,11 @@ func readLimited(reader io.Reader, limit int64) ([]byte, bool, error) {
 		if n > 0 {
 			return data, true, nil
 		}
+
 		if readErr == io.EOF {
 			return data, false, nil
 		}
+
 		if readErr != nil {
 			return nil, false, readErr
 		}

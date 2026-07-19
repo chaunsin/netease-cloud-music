@@ -5,6 +5,7 @@ package eapi
 
 import (
 	"context"
+	"errors"
 
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
@@ -18,10 +19,9 @@ type CaptchaSendResp struct {
 	types.RespCommon[any]
 }
 
-// CaptchaSend 发送验证码 PC客户端
+// CaptchaSend 发送验证码 PC客户端.
 func (a *Api) CaptchaSend(ctx context.Context, req *CaptchaSendReq) (*CaptchaSendResp, error) {
-	// TODO
-	return nil, nil
+	return nil, errors.New("CaptchaSend is not implemented")
 }
 
 type CaptchaVerifyReq struct {
@@ -34,8 +34,7 @@ type CaptchaVerifyResp struct {
 	types.RespCommon[any]
 }
 
-// CaptchaVerify 验证验证码
+// CaptchaVerify 验证验证码.
 func (a *Api) CaptchaVerify(ctx context.Context, req *CaptchaVerifyReq) (*CaptchaVerifyResp, error) {
-	// TODO
-	return nil, nil
+	return nil, errors.New("CaptchaVerify is not implemented")
 }

@@ -53,11 +53,11 @@ type captureReadCloser struct {
 	closeErr    error
 }
 
-func newCaptureReadCloser(body io.ReadCloser, snapshot bodySnapshot, limit int64, onDone func(bodySnapshot)) *captureReadCloser {
+func newCaptureReadCloser(body io.ReadCloser, snapshot *bodySnapshot, limit int64, onDone func(bodySnapshot)) *captureReadCloser {
 	reader := &captureReadCloser{
 		body:     body,
 		limit:    limit,
-		snapshot: snapshot,
+		snapshot: *snapshot,
 		onDone:   onDone,
 	}
 	reader.cond = sync.NewCond(&reader.mu)
@@ -70,6 +70,7 @@ func (r *captureReadCloser) Read(p []byte) (int, error) {
 		r.mu.Unlock()
 		return 0, net.ErrClosed
 	}
+
 	r.activeReads++
 	r.mu.Unlock()
 
@@ -78,21 +79,25 @@ func (r *captureReadCloser) Read(p []byte) (int, error) {
 	r.mu.Lock()
 	if n > 0 {
 		r.readBytes += int64(n)
+
 		remaining := r.limit - int64(len(r.captured))
 		if remaining > 0 {
 			captureLen := min(int64(n), remaining)
 			r.captured = append(r.captured, p[:captureLen]...)
 		}
+
 		if int64(n) > remaining {
 			r.truncated = true
 		}
 	}
+
 	if err != nil {
 		r.completed = true
 		if !errors.Is(err, io.EOF) && r.terminalErr == nil {
 			r.terminalErr = err
 		}
 	}
+
 	r.activeReads--
 	if r.activeReads == 0 {
 		r.cond.Broadcast()
@@ -113,10 +118,12 @@ func (r *captureReadCloser) Close() error {
 		for r.activeReads > 0 {
 			r.cond.Wait()
 		}
+
 		snapshot := r.snapshot
 		snapshot.raw = append([]byte(nil), r.captured...)
 		snapshot.truncated = r.truncated
 		snapshot.captureErr = r.terminalErr
+
 		bodyComplete := r.completed || (snapshot.contentLength >= 0 && r.readBytes >= snapshot.contentLength)
 		if r.closeErr != nil {
 			snapshot.captureErr = r.closeErr
@@ -124,6 +131,7 @@ func (r *captureReadCloser) Close() error {
 			snapshot.captureErr = errBodyClosedBeforeEOF
 		}
 		r.mu.Unlock()
+
 		if r.onDone != nil {
 			r.onDone(snapshot)
 		}
@@ -133,6 +141,7 @@ func (r *captureReadCloser) Close() error {
 
 func bodyOmissionReason(contentType, path string) string {
 	mediaType, _, _ := strings.Cut(contentType, ";")
+
 	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
 	switch {
 	case strings.HasPrefix(mediaType, "audio/"):
@@ -163,7 +172,7 @@ func isAPIPath(path string) bool {
 		path == "/batch"
 }
 
-func snapshotDetail(snapshot bodySnapshot) string {
+func snapshotDetail(snapshot *bodySnapshot) string {
 	switch {
 	case snapshot.omittedReason != "":
 		return snapshot.omittedReason
@@ -180,6 +189,7 @@ func cloneURL(input *url.URL) *url.URL {
 	if input == nil {
 		return &url.URL{}
 	}
+
 	cloned := *input
 	return &cloned
 }

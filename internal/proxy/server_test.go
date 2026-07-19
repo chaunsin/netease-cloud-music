@@ -39,9 +39,18 @@ func TestHTTPProxyCapturesAndRedactsWithoutChangingTraffic(t *testing.T) {
 	received := make(chan []byte, 1)
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		body, err := io.ReadAll(req.Body)
-		require.NoError(t, err)
+		if err != nil {
+			t.Errorf("read origin request body: %v", err)
+			return
+		}
+
 		received <- body
-		require.Equal(t, "Bearer auth-secret", req.Header.Get("Authorization"))
+
+		if got := req.Header.Get("Authorization"); got != "Bearer auth-secret" {
+			t.Errorf("Authorization = %q, want %q", got, "Bearer auth-secret")
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Set-Cookie", "MUSIC_U=cookie-secret")
 		w.WriteHeader(http.StatusCreated)
@@ -49,7 +58,7 @@ func TestHTTPProxyCapturesAndRedactsWithoutChangingTraffic(t *testing.T) {
 	}))
 	t.Cleanup(origin.Close)
 
-	proxyURL, _, output, _, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	proxyURL, _, output, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
 	client := newProxyClient(t, proxyURL, nil, false)
 	req, err := http.NewRequest(http.MethodPost, origin.URL+"/api/test?csrf_token=query-secret", bytes.NewReader(requestBody))
 	require.NoError(t, err)
@@ -71,6 +80,7 @@ func TestHTTPProxyCapturesAndRedactsWithoutChangingTraffic(t *testing.T) {
 	require.Contains(t, logOutput, "REQUEST protocol=api")
 	require.Contains(t, logOutput, "RESPONSE status=201")
 	require.Contains(t, logOutput, redactedValue)
+
 	for _, secret := range []string{"request-secret", "response-secret", "query-secret", "auth-secret", "cookie-secret"} {
 		require.NotContains(t, logOutput, secret)
 	}
@@ -85,13 +95,18 @@ func TestHTTPSMITMRequiresAndUsesGeneratedCA(t *testing.T) {
 	}))
 	t.Cleanup(origin.Close)
 
-	proxyURL, ca, output, _, upstreamTransport := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	proxyURL, ca, output, upstreamTransport := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
 	originRoots := x509.NewCertPool()
 	originRoots.AddCert(origin.Certificate())
 	upstreamTransport.TLSClientConfig = &tls.Config{RootCAs: originRoots, MinVersion: tls.VersionTLS12}
 
 	untrusted := newProxyClient(t, proxyURL, nil, false)
-	_, err := untrusted.Get(origin.URL + "/api/test")
+
+	untrustedResponse, err := untrusted.Get(origin.URL + "/api/test") //nolint:bodyclose // A response is optional on the expected TLS failure and closed below when present.
+	if untrustedResponse != nil {
+		closeTestResource(t, untrustedResponse.Body)
+	}
+
 	require.Error(t, err)
 
 	proxyRoots := x509.NewCertPool()
@@ -115,7 +130,7 @@ func TestNonTargetHTTPSIsTunneledWithoutCapture(t *testing.T) {
 	}))
 	t.Cleanup(origin.Close)
 
-	proxyURL, _, output, _, _ := newTestProxy(t, []string{"music.163.com"}, 1<<20)
+	proxyURL, _, output, _ := newTestProxy(t, []string{"music.163.com"}, 1<<20)
 	originRoots := x509.NewCertPool()
 	originRoots.AddCert(origin.Certificate())
 	client := newProxyClient(t, proxyURL, originRoots, false)
@@ -137,15 +152,20 @@ func TestCaptureLimitDoesNotTruncateForwardedBodies(t *testing.T) {
 	received := make(chan []byte, 1)
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		body, err := io.ReadAll(req.Body)
-		require.NoError(t, err)
+		if err != nil {
+			t.Errorf("read origin request body: %v", err)
+			return
+		}
+
 		received <- body
+
 		w.Header().Set("Content-Type", "text/plain")
 		w.Header().Set("Content-Length", stringInt(len(responseBody)))
 		_, _ = w.Write(responseBody)
 	}))
 	t.Cleanup(origin.Close)
 
-	proxyURL, _, output, _, _ := newTestProxy(t, []string{"127.0.0.1"}, 1024)
+	proxyURL, _, output, _ := newTestProxy(t, []string{"127.0.0.1"}, 1024)
 	client := newProxyClient(t, proxyURL, nil, true)
 	req, err := http.NewRequest(http.MethodPost, origin.URL+"/api/large", bytes.NewReader(requestBody))
 	require.NoError(t, err)
@@ -165,7 +185,10 @@ func TestCaptureLimitDoesNotTruncateForwardedBodies(t *testing.T) {
 }
 
 func TestCompressedResponseIsDecodedOnlyForDisplay(t *testing.T) {
+	t.Parallel()
+
 	original := []byte(`{"code":200,"name":"song"}`)
+
 	tests := []struct {
 		name     string
 		encoding string
@@ -188,9 +211,9 @@ func TestCompressedResponseIsDecodedOnlyForDisplay(t *testing.T) {
 			}))
 			t.Cleanup(origin.Close)
 
-			proxyURL, _, output, _, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+			proxyURL, _, output, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
 			client := newProxyClient(t, proxyURL, nil, true)
-			req, err := http.NewRequest(http.MethodGet, origin.URL+"/api/compressed", nil)
+			req, err := http.NewRequest(http.MethodGet, origin.URL+"/api/compressed", http.NoBody)
 			require.NoError(t, err)
 			req.Header.Set("Accept-Encoding", test.encoding)
 			resp, err := client.Do(req)
@@ -212,12 +235,13 @@ func TestProxyDoesNotAddAcceptEncoding(t *testing.T) {
 	acceptEncoding := make(chan string, 1)
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		acceptEncoding <- req.Header.Get("Accept-Encoding")
+
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"code":200}`)
 	}))
 	t.Cleanup(origin.Close)
 
-	proxyURL, _, _, _, upstreamTransport := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	proxyURL, _, _, upstreamTransport := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
 	require.True(t, upstreamTransport.DisableCompression)
 	client := newProxyClient(t, proxyURL, nil, true)
 	resp, err := client.Get(origin.URL + "/api/plain")
@@ -234,29 +258,39 @@ func TestRecorderSerializesConcurrentSubmissions(t *testing.T) {
 	output := &lockedBuffer{}
 	recorder := newRecorder(output, 1<<20, false)
 	t.Cleanup(recorder.Close)
+
 	const blocks = 32
+
 	expected := make([]string, blocks)
 	accepted := make(chan bool, blocks)
+
 	var group sync.WaitGroup
-	for i := 0; i < blocks; i++ {
+
+	for i := range blocks {
 		block := fmt.Sprintf("BEGIN-%02d\n%s\nEND-%02d\n", i, strings.Repeat(strconv.Itoa(i%10), 4096), i)
 		expected[i] = block + "\n"
+
 		group.Add(1)
 		go func(block string) {
 			defer group.Done()
+
 			accepted <- recorder.submit(func() { recorder.writeBlock([]byte(block)) })
 		}(block)
 	}
+
 	group.Wait()
+
 	for range blocks {
 		require.True(t, <-accepted)
 	}
+
 	require.Eventually(t, func() bool { return flushRecorder(recorder, 100*time.Millisecond) }, time.Second, 10*time.Millisecond)
 
 	text := output.String()
 	for _, block := range expected {
 		require.Contains(t, text, block)
 	}
+
 	require.Equal(t, blocks, strings.Count(text, "BEGIN-"))
 	require.Equal(t, blocks, strings.Count(text, "END-"))
 }
@@ -274,31 +308,41 @@ func TestUnknownLengthRequestIsForwardedWithoutPreRead(t *testing.T) {
 			firstReceived <- nil
 			return
 		}
+
 		firstReceived <- prefix
+
 		rest, err := io.ReadAll(req.Body)
 		if err != nil {
 			completeRequest <- nil
 			return
 		}
-		completeRequest <- append(prefix, rest...)
+
+		complete := make([]byte, len(prefix)+len(rest))
+		copy(complete, prefix)
+		copy(complete[len(prefix):], rest)
+
+		completeRequest <- complete
+
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"code":200}`)
 	}))
 	t.Cleanup(origin.Close)
 
-	proxyURL, _, output, _, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	proxyURL, _, output, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
 	client := newProxyClient(t, proxyURL, nil, true)
 	reader, writer := io.Pipe()
 	req, err := http.NewRequest(http.MethodPost, origin.URL+"/api/stream", reader)
 	require.NoError(t, err)
+
 	req.ContentLength = -1
 	req.Header.Set("Content-Type", "application/json")
+
 	response := make(chan struct {
 		resp *http.Response
 		err  error
 	}, 1)
 	go func() {
-		resp, requestErr := client.Do(req)
+		resp, requestErr := client.Do(req) //nolint:bodyclose // The receiver owns and closes the response body.
 		response <- struct {
 			resp *http.Response
 			err  error
@@ -307,12 +351,14 @@ func TestUnknownLengthRequestIsForwardedWithoutPreRead(t *testing.T) {
 
 	_, err = writer.Write(firstChunk)
 	require.NoError(t, err)
+
 	select {
 	case got := <-firstReceived:
 		require.Equal(t, firstChunk, got)
 	case <-time.After(2 * time.Second):
 		t.Fatal("origin did not receive the first request chunk before EOF")
 	}
+
 	_, err = writer.Write(lastChunk)
 	require.NoError(t, err)
 	require.NoError(t, writer.Close())
@@ -335,23 +381,29 @@ func TestKnownLengthExpectContinueIsForwardedBeforeBodyCapture(t *testing.T) {
 	received := make(chan []byte, 1)
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		close(headersReceived)
+
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			received <- nil
 			return
 		}
+
 		received <- body
+
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"code":200}`)
 	}))
 	t.Cleanup(origin.Close)
 
-	proxyURL, _, output, _, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	proxyURL, _, output, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
 	client := newProxyClient(t, proxyURL, nil, true)
 	reader, writer := io.Pipe()
+
 	t.Cleanup(func() { _ = writer.Close() })
+
 	req, err := http.NewRequest(http.MethodPost, origin.URL+"/api/known-length", reader)
 	require.NoError(t, err)
+
 	req.ContentLength = int64(len(firstChunk) + len(lastChunk))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Expect", "100-continue")
@@ -361,7 +413,7 @@ func TestKnownLengthExpectContinueIsForwardedBeforeBodyCapture(t *testing.T) {
 		err      error
 	}, 1)
 	go func() {
-		response, requestErr := client.Do(req)
+		response, requestErr := client.Do(req) //nolint:bodyclose // The receiver owns and closes the response body.
 		result <- struct {
 			response *http.Response
 			err      error
@@ -373,6 +425,7 @@ func TestKnownLengthExpectContinueIsForwardedBeforeBodyCapture(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("origin did not receive known-length request headers before the body was available")
 	}
+
 	_, err = writer.Write(firstChunk)
 	require.NoError(t, err)
 	_, err = writer.Write(lastChunk)
@@ -397,15 +450,19 @@ func TestChunkedResponseIsCapturedWhileStreaming(t *testing.T) {
 	releaseTail := make(chan struct{}, 1)
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
 		flusher, ok := w.(http.Flusher)
 		if !ok {
 			t.Error("origin response writer does not support flushing")
 			return
 		}
+
 		_, _ = io.WriteString(w, firstChunk)
+
 		flusher.Flush()
 		close(firstSent)
 		<-releaseTail
+
 		_, _ = io.WriteString(w, lastChunk)
 	}))
 	t.Cleanup(origin.Close)
@@ -416,14 +473,15 @@ func TestChunkedResponseIsCapturedWhileStreaming(t *testing.T) {
 		}
 	})
 
-	proxyURL, _, output, _, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	proxyURL, _, output, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
 	client := newProxyClient(t, proxyURL, nil, true)
+
 	response := make(chan struct {
 		resp *http.Response
 		err  error
 	}, 1)
 	go func() {
-		resp, err := client.Get(origin.URL + "/api/chunked")
+		resp, err := client.Get(origin.URL + "/api/chunked") //nolint:bodyclose // The receiver owns and closes the response body.
 		response <- struct {
 			resp *http.Response
 			err  error
@@ -435,6 +493,7 @@ func TestChunkedResponseIsCapturedWhileStreaming(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("origin did not send the first response chunk")
 	}
+
 	var result struct {
 		resp *http.Response
 		err  error
@@ -445,12 +504,15 @@ func TestChunkedResponseIsCapturedWhileStreaming(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("proxy did not forward response headers while the body was still streaming")
 	}
+
 	prefix := make([]byte, len(firstChunk))
 	_, err := io.ReadFull(result.resp.Body, prefix)
 	require.NoError(t, err)
 	require.Equal(t, firstChunk, string(prefix))
 	require.NotContains(t, output.String(), "RESPONSE status=200")
+
 	releaseTail <- struct{}{}
+
 	rest, err := io.ReadAll(result.resp.Body)
 	require.NoError(t, err)
 	require.NoError(t, result.resp.Body.Close())
@@ -466,39 +528,48 @@ func TestWebSocketUpgradeIsForwardedWithoutWrappingBody(t *testing.T) {
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hijacker, ok := w.(http.Hijacker)
 		if !ok {
-			originErrors <- fmt.Errorf("origin response writer does not support hijacking")
+			originErrors <- errors.New("origin response writer does not support hijacking")
 			return
 		}
+
 		conn, readWriter, err := hijacker.Hijack()
 		if err != nil {
 			originErrors <- err
 			return
 		}
-		defer conn.Close()
+		defer closeTestResource(t, conn)
+
 		_, err = fmt.Fprint(readWriter, "HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Accept: test\r\n\r\n")
 		if err == nil {
 			err = readWriter.Flush()
 		}
+
 		if err != nil {
 			originErrors <- err
 			return
 		}
+
 		payload := make([]byte, 4)
 		if _, err = io.ReadFull(readWriter, payload); err == nil {
 			_, err = readWriter.Write(payload)
 		}
+
 		if err == nil {
 			err = readWriter.Flush()
 		}
+
 		originErrors <- err
 	}))
 	t.Cleanup(origin.Close)
 
-	proxyURL, _, output, _, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	proxyURL, _, output, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
 	proxyConn, err := net.Dial("tcp", proxyURL.Host)
 	require.NoError(t, err)
-	defer proxyConn.Close()
+
+	t.Cleanup(func() { closeTestResource(t, proxyConn) })
+
 	require.NoError(t, proxyConn.SetDeadline(time.Now().Add(5*time.Second)))
+
 	originURL, err := url.Parse(origin.URL)
 	require.NoError(t, err)
 	_, err = fmt.Fprintf(proxyConn,
@@ -507,19 +578,24 @@ func TestWebSocketUpgradeIsForwardedWithoutWrappingBody(t *testing.T) {
 		originURL.Host,
 	)
 	require.NoError(t, err)
+
 	reader := bufio.NewReader(proxyConn)
 	statusLine, err := reader.ReadString('\n')
 	require.NoError(t, err)
 	require.Contains(t, statusLine, "101")
+
 	for {
 		line, readErr := reader.ReadString('\n')
 		require.NoError(t, readErr)
+
 		if line == "\r\n" {
 			break
 		}
 	}
+
 	_, err = proxyConn.Write([]byte("ping"))
 	require.NoError(t, err)
+
 	echo := make([]byte, 4)
 	_, err = io.ReadFull(reader, echo)
 	require.NoError(t, err)
@@ -532,10 +608,11 @@ func TestUpstreamFailureIsReportedWithoutPanic(t *testing.T) {
 	t.Parallel()
 
 	closedAddress := reserveAddress(t)
-	proxyURL, _, output, _, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	proxyURL, _, output, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
 	client := newProxyClient(t, proxyURL, nil, true)
 	resp, err := client.Get("http://" + closedAddress + "/api/test")
 	require.NoError(t, err)
+
 	_, readErr := io.ReadAll(resp.Body)
 	require.NoError(t, readErr)
 	require.NoError(t, resp.Body.Close())
@@ -547,7 +624,7 @@ func TestHTTPSMITMUpstreamFailureReturnsBadGateway(t *testing.T) {
 	t.Parallel()
 
 	closedAddress := reserveAddress(t)
-	proxyURL, ca, output, _, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	proxyURL, ca, output, _ := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
 	roots := x509.NewCertPool()
 	roots.AddCert(ca.Leaf)
 	client := newProxyClient(t, proxyURL, roots, true)
@@ -568,6 +645,7 @@ func TestRecorderRedactsResponseErrorDetails(t *testing.T) {
 	output := &lockedBuffer{}
 	recorder := newRecorder(output, 1<<20, false)
 	t.Cleanup(recorder.Close)
+
 	requestURL, err := url.Parse("https://music.163.com/api/test?name=song")
 	require.NoError(t, err)
 	recorder.recordResponseError(&captureState{
@@ -575,12 +653,14 @@ func TestRecorderRedactsResponseErrorDetails(t *testing.T) {
 		started:       time.Now(),
 		requestMethod: http.MethodGet,
 		requestURL:    requestURL,
-	}, fmt.Errorf("fetch https://user:password@music.163.com/api?token=error-secret failed"))
+	}, errors.New("fetch https://user:password@music.163.com/api?token=error-secret failed"))
 
 	require.True(t, flushRecorder(recorder, time.Second))
+
 	text := output.String()
 	require.Contains(t, text, "RESPONSE_ERROR")
 	require.Contains(t, text, redactedValue)
+
 	for _, secret := range []string{"user", "password", "error-secret"} {
 		require.NotContains(t, text, secret)
 	}
@@ -589,12 +669,17 @@ func TestRecorderRedactsResponseErrorDetails(t *testing.T) {
 func TestRunStartsAndStopsWithContext(t *testing.T) {
 	address := reserveAddress(t)
 	dir := t.TempDir()
-	var output bytes.Buffer
-	var diagnostics bytes.Buffer
+
+	var (
+		output      bytes.Buffer
+		diagnostics bytes.Buffer
+	)
+
 	ctx, cancel := context.WithCancel(context.Background())
+
 	done := make(chan error, 1)
 	go func() {
-		done <- Run(ctx, Config{
+		done <- Run(ctx, &Config{
 			ListenAddr:      address,
 			CACertPath:      filepath.Join(dir, "proxy", "ca.crt"),
 			CAKeyPath:       filepath.Join(dir, "proxy", "ca.key"),
@@ -611,18 +696,22 @@ func TestRunStartsAndStopsWithContext(t *testing.T) {
 		if err != nil {
 			return false
 		}
+
 		_ = conn.Close()
 		return true
 	}, 5*time.Second, 20*time.Millisecond)
 	cancel()
+
 	select {
 	case err := <-done:
 		require.NoError(t, err)
 	case <-time.After(5 * time.Second):
 		t.Fatal("proxy did not stop after context cancellation")
 	}
+
 	require.Contains(t, diagnostics.String(), "ncmctl proxy listening")
 	require.Empty(t, output.String())
+
 	_, err := os.Stat(filepath.Join(dir, "proxy", "ca.crt"))
 	require.NoError(t, err)
 }
@@ -635,7 +724,7 @@ func TestRunReportsListenConflictBeforeCreatingCA(t *testing.T) {
 	t.Cleanup(func() { _ = listener.Close() })
 	dir := filepath.Join(t.TempDir(), "proxy")
 	certPath := filepath.Join(dir, "ca.crt")
-	err = Run(context.Background(), Config{
+	err = Run(context.Background(), &Config{
 		ListenAddr:   listener.Addr().String(),
 		CACertPath:   certPath,
 		CAKeyPath:    filepath.Join(dir, "ca.key"),
@@ -645,6 +734,7 @@ func TestRunReportsListenConflictBeforeCreatingCA(t *testing.T) {
 		ErrOut:       io.Discard,
 	})
 	require.ErrorContains(t, err, "listen on")
+
 	_, statErr := os.Stat(certPath)
 	require.ErrorIs(t, statErr, os.ErrNotExist)
 }
@@ -653,13 +743,16 @@ func TestPrintStartupWarnsForLANAndSensitiveOutput(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "proxy")
 	ca, _, err := loadOrCreateCA(filepath.Join(dir, "ca.crt"), filepath.Join(dir, "ca.key"), false)
 	require.NoError(t, err)
+
 	var diagnostics bytes.Buffer
-	printStartup(Config{
+
+	err = printStartup(&Config{
 		ListenAddr:    "0.0.0.0:9000",
 		CACertPath:    filepath.Join(dir, "ca.crt"),
 		ShowSensitive: true,
 		ErrOut:        &diagnostics,
 	}, &net.TCPAddr{IP: net.IPv4zero, Port: 9000}, ca, true)
+	require.NoError(t, err)
 
 	text := diagnostics.String()
 	require.Contains(t, text, "unauthenticated open proxy")
@@ -678,7 +771,9 @@ func TestRunClosesActiveConnectTunnel(t *testing.T) {
 	origin, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = origin.Close() })
+
 	accepted := make(chan net.Conn, 1)
+
 	go func() {
 		conn, acceptErr := origin.Accept()
 		if acceptErr == nil {
@@ -689,9 +784,10 @@ func TestRunClosesActiveConnectTunnel(t *testing.T) {
 	address := reserveAddress(t)
 	dir := t.TempDir()
 	ctx, cancel := context.WithCancel(context.Background())
+
 	done := make(chan error, 1)
 	go func() {
-		done <- Run(ctx, Config{
+		done <- Run(ctx, &Config{
 			ListenAddr:      address,
 			CACertPath:      filepath.Join(dir, "proxy", "ca.crt"),
 			CAKeyPath:       filepath.Join(dir, "proxy", "ca.key"),
@@ -702,20 +798,25 @@ func TestRunClosesActiveConnectTunnel(t *testing.T) {
 			ShutdownTimeout: time.Second,
 		})
 	}()
+
 	require.Eventually(t, func() bool {
 		conn, dialErr := net.DialTimeout("tcp", address, 20*time.Millisecond)
 		if dialErr != nil {
 			return false
 		}
+
 		_ = conn.Close()
 		return true
 	}, 5*time.Second, 20*time.Millisecond)
 
 	clientConn, err := net.Dial("tcp", address)
 	require.NoError(t, err)
-	defer clientConn.Close()
+
+	defer closeTestResource(t, clientConn)
+
 	_, err = fmt.Fprintf(clientConn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", origin.Addr(), origin.Addr())
 	require.NoError(t, err)
+
 	reader := bufio.NewReader(clientConn)
 	connectResponse, err := http.ReadResponse(reader, &http.Request{Method: http.MethodConnect})
 	require.NoError(t, err)
@@ -724,19 +825,22 @@ func TestRunClosesActiveConnectTunnel(t *testing.T) {
 
 	select {
 	case originConn := <-accepted:
-		defer originConn.Close()
+		defer closeTestResource(t, originConn)
 	case <-time.After(2 * time.Second):
 		t.Fatal("proxy did not establish the CONNECT tunnel")
 	}
 
 	cancel()
+
 	select {
 	case runErr := <-done:
 		require.NoError(t, runErr)
 	case <-time.After(5 * time.Second):
 		t.Fatal("proxy did not stop with an active CONNECT tunnel")
 	}
+
 	require.NoError(t, clientConn.SetReadDeadline(time.Now().Add(time.Second)))
+
 	_, err = reader.ReadByte()
 	require.Error(t, err)
 }
@@ -749,22 +853,26 @@ func TestNonTargetConnectPreservesHalfClose(t *testing.T) {
 	requestBody := []byte("request after CONNECT")
 	responseBody := []byte("response after client half-close")
 	originResult := make(chan error, 1)
+
 	go func() {
 		conn, acceptErr := origin.Accept()
 		if acceptErr != nil {
 			originResult <- acceptErr
 			return
 		}
-		defer conn.Close()
+		defer closeTestResource(t, conn)
+
 		body, readErr := io.ReadAll(conn)
 		if readErr != nil {
 			originResult <- readErr
 			return
 		}
+
 		if !bytes.Equal(body, requestBody) {
 			originResult <- fmt.Errorf("origin received %q, want %q", body, requestBody)
 			return
 		}
+
 		_, writeErr := conn.Write(responseBody)
 		originResult <- writeErr
 	}()
@@ -773,9 +881,10 @@ func TestNonTargetConnectPreservesHalfClose(t *testing.T) {
 	dir := t.TempDir()
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
+
 	proxyDone := make(chan error, 1)
 	go func() {
-		proxyDone <- Run(ctx, Config{
+		proxyDone <- Run(ctx, &Config{
 			ListenAddr:      address,
 			CACertPath:      filepath.Join(dir, "proxy", "ca.crt"),
 			CAKeyPath:       filepath.Join(dir, "proxy", "ca.key"),
@@ -786,13 +895,16 @@ func TestNonTargetConnectPreservesHalfClose(t *testing.T) {
 			ShutdownTimeout: time.Second,
 		})
 	}()
+
 	waitForProxyListener(t, address)
 
 	clientConn, err := net.Dial("tcp", address)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = clientConn.Close() })
+
 	_, err = fmt.Fprintf(clientConn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", origin.Addr(), origin.Addr())
 	require.NoError(t, err)
+
 	reader := bufio.NewReader(clientConn)
 	connectResponse, err := http.ReadResponse(reader, &http.Request{Method: http.MethodConnect})
 	require.NoError(t, err)
@@ -801,10 +913,12 @@ func TestNonTargetConnectPreservesHalfClose(t *testing.T) {
 
 	_, err = clientConn.Write(requestBody)
 	require.NoError(t, err)
+
 	halfCloser, ok := clientConn.(interface{ CloseWrite() error })
 	require.True(t, ok)
 	require.NoError(t, halfCloser.CloseWrite())
 	require.NoError(t, clientConn.SetReadDeadline(time.Now().Add(2*time.Second)))
+
 	response, err := io.ReadAll(reader)
 	require.NoError(t, err)
 	require.Equal(t, responseBody, response)
@@ -817,6 +931,7 @@ func TestNonTargetConnectPreservesHalfClose(t *testing.T) {
 	}
 
 	cancel()
+
 	select {
 	case runErr := <-proxyDone:
 		require.NoError(t, runErr)
@@ -827,7 +942,7 @@ func TestNonTargetConnectPreservesHalfClose(t *testing.T) {
 
 func TestMITMHandshakeTimeoutClosesStalledConnect(t *testing.T) {
 	timeout := 100 * time.Millisecond
-	proxyURL, _, _, _, _ := newTrackedTestProxy(t, []string{"127.0.0.1"}, timeout)
+	proxyURL, _, _ := newTrackedTestProxy(t, []string{"127.0.0.1"}, timeout)
 
 	for _, test := range []struct {
 		name        string
@@ -840,14 +955,18 @@ func TestMITMHandshakeTimeoutClosesStalledConnect(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			clientConn, err := net.Dial("tcp", proxyURL.Host)
 			require.NoError(t, err)
-			defer clientConn.Close()
+
+			defer closeTestResource(t, clientConn)
+
 			_, err = fmt.Fprintf(clientConn, "CONNECT 127.0.0.1:443 HTTP/1.1\r\nHost: 127.0.0.1:443\r\n\r\n")
 			require.NoError(t, err)
+
 			reader := bufio.NewReader(clientConn)
 			connectResponse, err := http.ReadResponse(reader, &http.Request{Method: http.MethodConnect})
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, connectResponse.StatusCode)
 			require.NoError(t, connectResponse.Body.Close())
+
 			if len(test.clientHello) > 0 {
 				_, err = clientConn.Write(test.clientHello)
 				require.NoError(t, err)
@@ -855,6 +974,7 @@ func TestMITMHandshakeTimeoutClosesStalledConnect(t *testing.T) {
 
 			started := time.Now()
 			require.NoError(t, clientConn.SetReadDeadline(time.Now().Add(time.Second)))
+
 			_, err = reader.ReadByte()
 			require.Error(t, err)
 			require.Less(t, time.Since(started), 800*time.Millisecond)
@@ -869,14 +989,17 @@ func TestMITMHandshakeTimeoutAfterKeepAliveHTTP(t *testing.T) {
 	}))
 	t.Cleanup(origin.Close)
 
-	proxyURL, _, _, _, _ := newTrackedTestProxy(t, []string{"target.test"}, timeout)
+	proxyURL, _, _ := newTrackedTestProxy(t, []string{"target.test"}, timeout)
 	clientConn, err := net.Dial("tcp", proxyURL.Host)
 	require.NoError(t, err)
-	defer clientConn.Close()
+
+	defer closeTestResource(t, clientConn)
+
 	originURL, err := url.Parse(origin.URL)
 	require.NoError(t, err)
 	_, err = fmt.Fprintf(clientConn, "GET %s/ HTTP/1.1\r\nHost: %s\r\n\r\n", origin.URL, originURL.Host)
 	require.NoError(t, err)
+
 	reader := bufio.NewReader(clientConn)
 	response, err := http.ReadResponse(reader, &http.Request{Method: http.MethodGet})
 	require.NoError(t, err)
@@ -893,6 +1016,7 @@ func TestMITMHandshakeTimeoutAfterKeepAliveHTTP(t *testing.T) {
 
 	started := time.Now()
 	require.NoError(t, clientConn.SetReadDeadline(time.Now().Add(time.Second)))
+
 	_, err = reader.ReadByte()
 	require.Error(t, err)
 	require.Less(t, time.Since(started), 800*time.Millisecond)
@@ -907,7 +1031,7 @@ func TestMITMHandshakeDeadlineClearsForLongLivedConnection(t *testing.T) {
 	}))
 	t.Cleanup(origin.Close)
 
-	proxyURL, ca, _, _, upstreamTransport := newTrackedTestProxy(t, []string{"127.0.0.1"}, timeout)
+	proxyURL, ca, upstreamTransport := newTrackedTestProxy(t, []string{"127.0.0.1"}, timeout)
 	originRoots := x509.NewCertPool()
 	originRoots.AddCert(origin.Certificate())
 	upstreamTransport.TLSClientConfig = &tls.Config{RootCAs: originRoots, MinVersion: tls.VersionTLS12}
@@ -934,12 +1058,15 @@ func TestPlaintextTargetConnectClearsDeadlineAfterRequestHeaders(t *testing.T) {
 	originURL, err := url.Parse(origin.URL)
 	require.NoError(t, err)
 
-	proxyURL, _, _, _, _ := newTrackedTestProxy(t, []string{"127.0.0.1"}, timeout)
+	proxyURL, _, _ := newTrackedTestProxy(t, []string{"127.0.0.1"}, timeout)
 	clientConn, err := net.Dial("tcp", proxyURL.Host)
 	require.NoError(t, err)
-	defer clientConn.Close()
+
+	defer closeTestResource(t, clientConn)
+
 	_, err = fmt.Fprintf(clientConn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", originURL.Host, originURL.Host)
 	require.NoError(t, err)
+
 	reader := bufio.NewReader(clientConn)
 	connectResponse, err := http.ReadResponse(reader, &http.Request{Method: http.MethodConnect})
 	require.NoError(t, err)
@@ -959,10 +1086,12 @@ func TestPlaintextTargetConnectClearsDeadlineAfterRequestHeaders(t *testing.T) {
 
 func TestTrackedConnFindsSplitPlaintextHeaderEnd(t *testing.T) {
 	client, server := net.Pipe()
+
 	t.Cleanup(func() {
 		_ = client.Close()
 		_ = server.Close()
 	})
+
 	conn := &trackedConn{Conn: server}
 	conn.armHandshakeDeadline(time.Second)
 	conn.observeRead([]byte("GET / HTTP/1.1\r\nHost: music.163.com\r\n\r"))
@@ -970,18 +1099,20 @@ func TestTrackedConnFindsSplitPlaintextHeaderEnd(t *testing.T) {
 
 	conn.mu.Lock()
 	defer conn.mu.Unlock()
+
 	require.False(t, conn.handshakeDeadlineActive)
 	require.False(t, conn.plaintextPending)
 	require.Nil(t, conn.plaintextHeader)
 }
 
-func newTestProxy(t *testing.T, domains []string, maxBodyBytes int64) (*url.URL, *tls.Certificate, *lockedBuffer, *lockedBuffer, *http.Transport) {
+func newTestProxy(t *testing.T, domains []string, maxBodyBytes int64) (*url.URL, *tls.Certificate, *lockedBuffer, *http.Transport) {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "proxy")
 	ca, _, err := loadOrCreateCA(filepath.Join(dir, "ca.crt"), filepath.Join(dir, "ca.key"), false)
 	require.NoError(t, err)
 	matcher, err := newHostMatcher(domains)
 	require.NoError(t, err)
+
 	output := &lockedBuffer{}
 	diagnostics := &lockedBuffer{}
 	cfg := Config{
@@ -991,17 +1122,18 @@ func newTestProxy(t *testing.T, domains []string, maxBodyBytes int64) (*url.URL,
 		ErrOut:        diagnostics,
 	}
 	recorder := newRecorder(output, maxBodyBytes, false)
-	proxyServer, upstreamTransport := newProxyServer(cfg, matcher, ca, recorder, nil)
+	proxyServer, upstreamTransport := newProxyServer(&cfg, matcher, ca, recorder, nil)
 	server := httptest.NewServer(proxyServer)
 	t.Cleanup(server.Close)
 	t.Cleanup(upstreamTransport.CloseIdleConnections)
 	t.Cleanup(recorder.Close)
+
 	proxyURL, err := url.Parse(server.URL)
 	require.NoError(t, err)
-	return proxyURL, ca, output, diagnostics, upstreamTransport
+	return proxyURL, ca, output, upstreamTransport
 }
 
-func newTrackedTestProxy(t *testing.T, domains []string, handshakeTimeout time.Duration) (*url.URL, *tls.Certificate, *lockedBuffer, *lockedBuffer, *http.Transport) {
+func newTrackedTestProxy(t *testing.T, domains []string, handshakeTimeout time.Duration) (*url.URL, *tls.Certificate, *http.Transport) {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "proxy")
 	ca, _, err := loadOrCreateCA(filepath.Join(dir, "ca.crt"), filepath.Join(dir, "ca.key"), false)
@@ -1010,6 +1142,7 @@ func newTrackedTestProxy(t *testing.T, domains []string, handshakeTimeout time.D
 	require.NoError(t, err)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
+
 	tracked := newTrackedListener(listener, handshakeTimeout)
 	output := &lockedBuffer{}
 	diagnostics := &lockedBuffer{}
@@ -1020,20 +1153,24 @@ func newTrackedTestProxy(t *testing.T, domains []string, handshakeTimeout time.D
 		ErrOut:        diagnostics,
 	}
 	recorder := newRecorder(output, cfg.MaxBodyBytes, false)
-	proxyServer, upstreamTransport := newProxyServer(cfg, matcher, ca, recorder, tracked)
+	proxyServer, upstreamTransport := newProxyServer(&cfg, matcher, ca, recorder, tracked)
 	httpServer := &http.Server{
 		Handler:           proxyServer,
 		ReadHeaderTimeout: time.Second,
 		IdleTimeout:       time.Second,
 		ErrorLog:          log.New(diagnostics, "proxy server: ", log.LstdFlags),
 	}
+
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- httpServer.Serve(tracked) }()
+
 	t.Cleanup(func() {
 		_ = httpServer.Close()
 		_ = tracked.closeAll()
+
 		upstreamTransport.CloseIdleConnections()
 		recorder.Close()
+
 		select {
 		case serveErr := <-serveDone:
 			if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) && !errors.Is(serveErr, net.ErrClosed) {
@@ -1043,7 +1180,7 @@ func newTrackedTestProxy(t *testing.T, domains []string, handshakeTimeout time.D
 			t.Error("tracked test proxy did not stop")
 		}
 	})
-	return &url.URL{Scheme: "http", Host: tracked.Addr().String()}, ca, output, diagnostics, upstreamTransport
+	return &url.URL{Scheme: "http", Host: tracked.Addr().String()}, ca, upstreamTransport
 }
 
 func waitForProxyListener(t *testing.T, address string) {
@@ -1053,6 +1190,7 @@ func waitForProxyListener(t *testing.T, address string) {
 		if err != nil {
 			return false
 		}
+
 		_ = conn.Close()
 		return true
 	}, 5*time.Second, 20*time.Millisecond)
@@ -1060,6 +1198,7 @@ func waitForProxyListener(t *testing.T, address string) {
 
 func newProxyClient(t *testing.T, proxyURL *url.URL, roots *x509.CertPool, disableCompression bool) *http.Client {
 	t.Helper()
+
 	transport := &http.Transport{
 		Proxy:              http.ProxyURL(proxyURL),
 		DisableCompression: disableCompression,
@@ -1074,11 +1213,21 @@ func newProxyClient(t *testing.T, proxyURL *url.URL, roots *x509.CertPool, disab
 
 func reserveAddress(t *testing.T) string {
 	t.Helper()
+
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
+
 	address := listener.Addr().String()
 	require.NoError(t, listener.Close())
 	return address
+}
+
+func closeTestResource(t *testing.T, closer io.Closer) {
+	t.Helper()
+
+	if err := closer.Close(); err != nil {
+		t.Errorf("close test resource: %v", err)
+	}
 }
 
 func stringInt(value int) string {
@@ -1087,7 +1236,9 @@ func stringInt(value int) string {
 
 func gzipTestBody(t *testing.T, body []byte) []byte {
 	t.Helper()
+
 	var output bytes.Buffer
+
 	writer := gzip.NewWriter(&output)
 	_, err := writer.Write(body)
 	require.NoError(t, err)
@@ -1097,7 +1248,9 @@ func gzipTestBody(t *testing.T, body []byte) []byte {
 
 func deflateTestBody(t *testing.T, body []byte) []byte {
 	t.Helper()
+
 	var output bytes.Buffer
+
 	writer := zlib.NewWriter(&output)
 	_, err := writer.Write(body)
 	require.NoError(t, err)
@@ -1107,7 +1260,9 @@ func deflateTestBody(t *testing.T, body []byte) []byte {
 
 func brotliTestBody(t *testing.T, body []byte) []byte {
 	t.Helper()
+
 	var output bytes.Buffer
+
 	writer := brotli.NewWriter(&output)
 	_, err := writer.Write(body)
 	require.NoError(t, err)
@@ -1130,12 +1285,14 @@ type lockedBuffer struct {
 func (b *lockedBuffer) Write(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
 	return b.buffer.Write(p)
 }
 
 func (b *lockedBuffer) String() string {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
+
 	return b.buffer.String()
 }
 

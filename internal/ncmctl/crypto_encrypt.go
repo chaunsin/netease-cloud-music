@@ -6,6 +6,7 @@ package ncmctl
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -51,9 +52,11 @@ func (c *cryptoCmd) execute(_ context.Context, args []string) error {
 		opts  = c.root.opts
 		input string
 	)
-	if len(args) <= 0 {
-		return fmt.Errorf("nothing was entered")
+
+	if len(args) == 0 {
+		return errors.New("nothing was entered")
 	}
+
 	input = args[0]
 
 	if utils.IsFile(input) {
@@ -61,6 +64,7 @@ func (c *cryptoCmd) execute(_ context.Context, args []string) error {
 		if err != nil {
 			return fmt.Errorf("readFile: %w", err)
 		}
+
 		input = string(data)
 	}
 
@@ -70,20 +74,24 @@ func (c *cryptoCmd) execute(_ context.Context, args []string) error {
 	}
 
 	var data []byte
+
 	switch kind := opts.Kind; kind {
 	case "eapi":
 		{
 			if c.url == "" {
-				return fmt.Errorf("url params is empty")
+				return errors.New("url params is empty")
 			}
+
 			parsed, err := url.Parse(c.url)
 			if err != nil {
 				return fmt.Errorf("parse: %w", err)
 			}
+
 			ciphertext, err := crypto.EApiEncrypt(parsed.Path, payload)
 			if err != nil {
 				return fmt.Errorf("加密失败: %w", err)
 			}
+
 			data, err = json.MarshalIndent(ciphertext, "", "\t")
 			if err != nil {
 				return fmt.Errorf("MarshalIndent: %w", err)
@@ -94,6 +102,7 @@ func (c *cryptoCmd) execute(_ context.Context, args []string) error {
 		if err != nil {
 			return fmt.Errorf("加密失败: %w", err)
 		}
+
 		data, err = json.MarshalIndent(ciphertext, "", "\t")
 		if err != nil {
 			return fmt.Errorf("MarshalIndent: %w", err)
@@ -103,6 +112,7 @@ func (c *cryptoCmd) execute(_ context.Context, args []string) error {
 		if err != nil {
 			return fmt.Errorf("加密失败: %w", err)
 		}
+
 		data, err = json.MarshalIndent(ciphertext, "", "\t")
 		if err != nil {
 			return fmt.Errorf("MarshalIndent: %w", err)

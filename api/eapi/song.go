@@ -103,9 +103,10 @@ type v3SongDetailReq struct {
 // rurl: Option<String(?)>, 常为None，功能未知
 // mst: u32, 偶尔为0, 常为9，功能未知
 // cp: u64, 功能未知
-// publish_time: i64, 毫秒为单位的Unix时间戳
+// publish_time: i64, 毫秒为单位的Unix时间戳.
 type V3SongDetailResp struct {
 	types.RespCommon[any]
+
 	Songs      []V3SongDetailRespSongs      `json:"songs"`
 	Privileges []V3SongDetailRespPrivileges `json:"privileges"`
 }
@@ -214,14 +215,13 @@ type V3SongDetailRespPrivileges struct {
 
 // V3SongDetail todo: 歌单列表 应该是根据歌单ID获取
 // url: https://app.apifox.com/project/3870894 testdata/har/1.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDetailResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/v3/song/detail"
 		reply V3SongDetailResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	// "[{\"id\":\"1974334953\",\"v\":0}]
 	data, err := json.Marshal(req.C)
@@ -233,6 +233,7 @@ func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDe
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -258,18 +259,19 @@ type DiscoveryRecommendSongsResp struct {
 	} `json:"data"`
 }
 
-// DiscoveryRecommendSongs 获取每日推荐歌曲
+// DiscoveryRecommendSongs 获取每日推荐歌曲.
 func (a *Api) DiscoveryRecommendSongs(ctx context.Context, req *DiscoveryRecommendSongsReq) (*DiscoveryRecommendSongsResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/eapi/v3/discovery/recommend/songs"
 		reply DiscoveryRecommendSongsResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -285,18 +287,19 @@ type SongLikeResp struct {
 	Code int `json:"code"`
 }
 
-// SongLike 红心或取消红心歌曲
+// SongLike 红心或取消红心歌曲.
 func (a *Api) SongLike(ctx context.Context, req *SongLikeReq) (*SongLikeResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/eapi/song/like"
 		reply SongLikeResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

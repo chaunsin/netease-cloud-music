@@ -43,14 +43,17 @@ func TestProxyValidate(t *testing.T) {
 			if tt.mutate != nil {
 				tt.mutate(&proxy.opts)
 			}
+
 			err := proxy.validate()
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
 			wantBytes := tt.wantBytes
 			if wantBytes == 0 {
 				wantBytes = utils.MB
 			}
+
 			if err == nil && proxy.opts.MaxBodyBytes != wantBytes {
 				t.Fatalf("MaxBodyBytes = %d, want %d", proxy.opts.MaxBodyBytes, wantBytes)
 			}
@@ -62,15 +65,18 @@ func TestProxyValidateCustomCA(t *testing.T) {
 	dir := t.TempDir()
 	certPath := filepath.Join(dir, "ca.crt")
 	keyPath := filepath.Join(dir, "ca.key")
+
 	if err := os.WriteFile(certPath, []byte("certificate"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := os.WriteFile(keyPath, []byte("private key"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
 	proxy := NewProxy(&Root{}, nil)
 	proxy.opts.CACertPath = certPath
+
 	proxy.opts.CAKeyPath = keyPath
 	if err := proxy.validate(); err != nil {
 		t.Fatalf("validate() error = %v", err)
@@ -85,12 +91,14 @@ func TestProxyCAPaths(t *testing.T) {
 	if want := filepath.Join(home, ".ncmctl", "proxy", "ca.crt"); certPath != want {
 		t.Fatalf("certPath = %q, want %q", certPath, want)
 	}
+
 	if want := filepath.Join(home, ".ncmctl", "proxy", "ca.key"); keyPath != want {
 		t.Fatalf("keyPath = %q, want %q", keyPath, want)
 	}
 
 	proxy.opts.CACertPath = "custom.crt"
 	proxy.opts.CAKeyPath = "custom.key"
+
 	certPath, keyPath = proxy.caPaths()
 	if certPath != "custom.crt" || keyPath != "custom.key" {
 		t.Fatalf("custom CA paths = %q, %q", certPath, keyPath)
@@ -106,16 +114,20 @@ func TestProxyRejectsArguments(t *testing.T) {
 
 func TestRootRegistersProxyCommand(t *testing.T) {
 	root := New()
+
 	command, _, err := root.cmd.Find([]string{"proxy"})
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if command == nil || command.Name() != "proxy" {
 		t.Fatalf("proxy command not registered: %#v", command)
 	}
+
 	if got := command.Flag("listen").DefValue; got != "127.0.0.1:9000" {
 		t.Fatalf("listen default = %q", got)
 	}
+
 	if got := command.Flag("max-body").DefValue; got != "1MB" {
 		t.Fatalf("max-body default = %q", got)
 	}

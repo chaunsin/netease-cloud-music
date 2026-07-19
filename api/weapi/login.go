@@ -5,8 +5,10 @@ package weapi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/skip2/go-qrcode"
 
@@ -18,18 +20,20 @@ import (
 
 type QrcodeCreateKeyReq struct {
 	types.ReqCommon
+
 	Type int64 `json:"type"` // 1: 貌似是web端 3: 貌似移动端
 }
 
 type QrcodeCreateKeyResp struct {
 	types.RespCommon[any]
+
 	UniKey string `json:"unikey"`
 }
 
 // QrcodeCreateKey 生成二维码需要得key
 // 常见问题
 // 1. 请求成功了,但是body为空值什么也没有,原因还是参数加密出现了问题。
-// 2. crsftoken 可传可不传个人猜测前端写得通用框架传了.
+// 2. Crsftoken 可传可不传个人猜测前端写得通用框架传了.
 func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*QrcodeCreateKeyResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/login/qrcode/unikey"
@@ -41,6 +45,7 @@ func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*Qr
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -54,6 +59,7 @@ type QrcodeGenerateReq struct {
 
 type QrcodeGenerateResp struct {
 	types.RespCommon[any]
+
 	Qrcode      []byte
 	QrcodePrint string
 }
@@ -61,7 +67,7 @@ type QrcodeGenerateResp struct {
 // QrcodeGenerate 根据 QrcodeCreateKey 接口生成得key生成生成二维码,注意此处不是调用服务接口。
 func (a *Api) QrcodeGenerate(ctx context.Context, req *QrcodeGenerateReq) (*QrcodeGenerateResp, error) {
 	var (
-		content = fmt.Sprintf("https://music.163.com/login?codekey=%s", req.CodeKey)
+		content = "https://music.163.com/login?codekey=" + req.CodeKey
 		reply   QrcodeGenerateResp
 	)
 	if req.Platform == "web" {
@@ -73,17 +79,20 @@ func (a *Api) QrcodeGenerate(ctx context.Context, req *QrcodeGenerateReq) (*Qrco
 				did = utils.GenerateDeviceId()
 			}
 		}
-		content += fmt.Sprintf("&chainId=%s", utils.GenerateChainId(did))
+
+		content += "&chainId=" + utils.GenerateChainId(did)
 	}
 
 	qr, err := qrcode.New(content, req.Level)
 	if err != nil {
 		return nil, err
 	}
+
 	reply.Qrcode, err = qr.PNG(256)
 	if err != nil {
 		return nil, fmt.Errorf("PNG: %w", err)
 	}
+
 	reply.QrcodePrint = qr.ToSmallString(false)
 	// if err := qr.WriteFile(256, "./qrcode.png"); err != nil {
 	// 	return nil, fmt.Errorf("WriteFile: %w", err)
@@ -121,6 +130,7 @@ func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeChec
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -131,6 +141,7 @@ type GetUserInfoReq struct {
 
 type GetUserInfoResp struct {
 	types.RespCommon[any]
+
 	Account *GetUserInfoRespAccount `json:"account"`
 	Profile *GetUserInfoRespProfile `json:"profile"`
 }
@@ -203,6 +214,7 @@ func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInf
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -213,6 +225,7 @@ type TokenRefreshReq struct {
 
 type TokenRefreshResp struct {
 	types.RespCommon[any]
+
 	BizCode string `json:"bizCode"` // 201:貌似刷新成功 400:貌似刷新不成功 504:貌似token已经过期了或者无效了
 }
 
@@ -243,16 +256,19 @@ func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRef
 	// opts.SetCookies(&http.Cookie{Name: "MUSIC_R_U", Value:
 	// "00C572559E9EC4370FB21EB2CDFC28BA79632C61958228B75DA68C65488B3719DE982C68ED14E9026C527B9896FC29CF399F86469F18716A44AAC30F6FEF8A40BCD5575D6D311B95ACE21C05E94AF988B7"})
 	opts.SetCookies(&http.Cookie{Name: "os", Value: "pc"}) // 解决400问题
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type RegisterAnonymousReq struct {
 	types.ReqCommon
+
 	Username string `json:"username"` // 设备id如果为空则设备id为ncmctl
 }
 
@@ -268,19 +284,23 @@ func (a *Api) RegisterAnonymous(ctx context.Context, req *RegisterAnonymousReq) 
 		reply RegisterAnonymousResp
 		opts  = api.NewOptions()
 	)
+
 	if req.Username == "" {
 		req.Username = "ncmctl" // 默认用户名
 	}
+
 	username, err := crypto.Anonymous(req.Username)
 	if err != nil {
 		return nil, fmt.Errorf("anonymous: %w", err)
 	}
+
 	req.Username = username
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -303,9 +323,11 @@ func (a *Api) SendSMS(ctx context.Context, req *SendSMSReq) (*SendSMSResp, error
 		reply SendSMSResp
 		opts  = api.NewOptions()
 	)
+
 	if req.CtCode <= 0 {
 		req.CtCode = 86
 	}
+
 	if req.Secrete == "" {
 		req.Secrete = "music_middleuser_pclogin"
 	}
@@ -314,6 +336,7 @@ func (a *Api) SendSMS(ctx context.Context, req *SendSMSReq) (*SendSMSResp, error
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -335,6 +358,7 @@ func (a *Api) SMSVerify(ctx context.Context, req *SMSVerifyReq) (*SMSVerifyResp,
 		reply SMSVerifyResp
 		opts  = api.NewOptions()
 	)
+
 	if req.CtCode <= 0 {
 		req.CtCode = 86
 	}
@@ -343,6 +367,7 @@ func (a *Api) SMSVerify(ctx context.Context, req *SMSVerifyReq) (*SMSVerifyResp,
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -357,6 +382,7 @@ type LoginCellphoneReq struct {
 
 type LoginCellphoneResp struct {
 	types.RespCommon[any]
+
 	LoginType int64                        `json:"loginType"`
 	Token     string                       `json:"token"` // MUSIC_U
 	Account   LoginCellphoneRespAccount    `json:"account"`
@@ -436,25 +462,29 @@ func (a *Api) LoginCellphone(ctx context.Context, req *LoginCellphoneReq) (*Logi
 	var (
 		url    = "https://interface.music.163.com/eapi/w/login/cellphone" // use weapi 出现 8821需要行为验证码验证
 		reply  LoginCellphoneResp
-		opts   = api.NewOptions()
+		opts   = api.NewOptions().SetCryptoModeEAPI()
 		params = make(map[string]any)
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	if req.Countrycode <= 0 {
 		req.Countrycode = 86
 	}
+
 	if req.Password == "" && req.Captcha == "" {
-		return nil, fmt.Errorf("password or captcha is empty")
+		return nil, errors.New("password or captcha is empty")
 	}
+
 	if req.Password != "" {
 		params["password"] = crypto.HexDigest(req.Password)
 	}
+
 	if req.Captcha != "" {
 		params["captcha"] = req.Captcha
 	}
+
 	params["phone"] = req.Phone
 	params["countrycode"] = req.Countrycode
-	params["remember"] = fmt.Sprintf("%v", req.Remember)
+	params["remember"] = strconv.FormatBool(req.Remember)
 	params["type"] = "1" // 0: 貌似是邮箱登录 1: 手机号登录
 	params["https"] = "true"
 
@@ -462,6 +492,7 @@ func (a *Api) LoginCellphone(ctx context.Context, req *LoginCellphoneReq) (*Logi
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

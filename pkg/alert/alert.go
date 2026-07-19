@@ -30,14 +30,13 @@ type Alert interface {
 	Close(ctx context.Context) error
 }
 
-func New(module Module, cfg *Config) (a Alert, err error) {
+func New(module Module, cfg *Config) (Alert, error) {
 	switch module {
 	case ModuleMail:
-		a, err = mail.New(cfg.Mail)
+		return mail.New(cfg.Mail)
 	case ModuleHTTP:
-		a, err = http.New(cfg.HTTP)
+		return http.New(cfg.HTTP)
 	default:
 		return nil, errors.New("invalid module")
 	}
-	return a, err
 }

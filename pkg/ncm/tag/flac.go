@@ -35,12 +35,14 @@ func NewFlac(filename string) (*Flac, error) {
 
 	// find the vorbisComment
 	var block *flac.MetaDataBlock
+
 	for _, m := range _flac.Meta {
 		if m.Type == flac.VorbisComment {
 			block = m
 			break
 		}
 	}
+
 	var comment *flacvorbis.MetaDataBlockVorbisComment
 	if block != nil {
 		comment, err = flacvorbis.ParseFromMetaDataBlock(*block)
@@ -85,21 +87,6 @@ func (f *Flac) SetCoverUrl(coverUrl string) error {
 	return nil
 }
 
-func (f *Flac) addTag(key string, values ...string) error {
-	old, err := f.comment.Get(key)
-	if err != nil {
-		return err
-	}
-	if len(old) == 0 {
-		for _, val := range values {
-			if err = f.comment.Add(key, val); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (f *Flac) SetTitle(title string) error {
 	return f.addTag(flacvorbis.FIELD_TITLE, title)
 }
@@ -117,25 +104,10 @@ func (f *Flac) SetComment(comment string) error {
 }
 
 // SetLyrics set lyrics
-// NOTE: LYRICS is not standard tag，de facto standard。
+// Compatibility: LYRICS is not standard tag，de facto standard。
 // see: https://datatracker.ietf.org/doc/html/rfc9639.html#name-security-considerations
 func (f *Flac) SetLyrics(lyrics string) error {
 	return f.addTag("LYRICS", lyrics)
-}
-
-func (f *Flac) setVorbisCommentMeta(block *flac.MetaDataBlock) {
-	idx := -1
-	for i, m := range f.flac.Meta {
-		if m.Type == flac.VorbisComment {
-			idx = i
-			break
-		}
-	}
-	if idx == -1 {
-		f.flac.Meta = append(f.flac.Meta, block)
-	} else {
-		f.flac.Meta[idx] = block
-	}
 }
 
 func (f *Flac) Save() error {
@@ -148,6 +120,7 @@ func (f *Flac) Save() error {
 	}
 
 	tmpName := f.filename + "-tmp"
+
 	temp, err := os.OpenFile(tmpName, os.O_RDWR|os.O_CREATE, stat.Mode())
 	if err != nil {
 		return err
@@ -171,4 +144,37 @@ func (f *Flac) Save() error {
 		return fmt.Errorf("rename: %w", err)
 	}
 	return nil
+}
+
+func (f *Flac) addTag(key string, values ...string) error {
+	old, err := f.comment.Get(key)
+	if err != nil {
+		return err
+	}
+
+	if len(old) == 0 {
+		for _, val := range values {
+			if err := f.comment.Add(key, val); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (f *Flac) setVorbisCommentMeta(block *flac.MetaDataBlock) {
+	idx := -1
+
+	for i, metadata := range f.flac.Meta {
+		if metadata.Type == flac.VorbisComment {
+			idx = i
+			break
+		}
+	}
+
+	if idx == -1 {
+		f.flac.Meta = append(f.flac.Meta, block)
+	} else {
+		f.flac.Meta[idx] = block
+	}
 }

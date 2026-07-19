@@ -26,22 +26,25 @@ func (w *blockingWriter) Write(data []byte) (int, error) {
 	<-w.release
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.buffer.Write(data)
-}
 
-func (w *blockingWriter) unblock() {
-	w.once.Do(func() {})
-	select {
-	case <-w.release:
-	default:
-		close(w.release)
-	}
+	return w.buffer.Write(data)
 }
 
 func (w *blockingWriter) String() string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
 	return w.buffer.String()
+}
+
+func (w *blockingWriter) unblock() {
+	w.once.Do(func() {})
+
+	select {
+	case <-w.release:
+	default:
+		close(w.release)
+	}
 }
 
 func recordTestRequest(recorder *recorder, state *captureState) {
@@ -51,11 +54,14 @@ func recordTestRequest(recorder *recorder, state *captureState) {
 
 func flushRecorder(recorder *recorder, timeout time.Duration) bool {
 	done := make(chan struct{})
+
 	if recorder == nil || timeout <= 0 || !recorder.submit(func() { close(done) }) {
 		return false
 	}
+
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
+
 	select {
 	case <-done:
 		return true
@@ -67,6 +73,7 @@ func flushRecorder(recorder *recorder, timeout time.Duration) bool {
 func TestRecorderQueueDoesNotBlockRequestCapture(t *testing.T) {
 	writer := &blockingWriter{started: make(chan struct{}), release: make(chan struct{})}
 	recorder := newRecorder(writer, 1024, false)
+
 	t.Cleanup(func() {
 		writer.unblock()
 		recorder.CloseWithTimeout(time.Second)
@@ -76,6 +83,7 @@ func TestRecorderQueueDoesNotBlockRequestCapture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	first := &captureState{
 		requestMethod: http.MethodPost,
 		requestURL:    requestURL,
@@ -86,6 +94,7 @@ func TestRecorderQueueDoesNotBlockRequestCapture(t *testing.T) {
 		},
 	}
 	recordTestRequest(recorder, first)
+
 	select {
 	case <-writer.started:
 	case <-time.After(time.Second):
@@ -93,7 +102,8 @@ func TestRecorderQueueDoesNotBlockRequestCapture(t *testing.T) {
 	}
 
 	started := time.Now()
-	for i := 0; i < recorderQueueCapacity*3; i++ {
+
+	for range recorderQueueCapacity * 3 {
 		state := &captureState{
 			requestMethod: http.MethodPost,
 			requestURL:    requestURL,
@@ -105,14 +115,18 @@ func TestRecorderQueueDoesNotBlockRequestCapture(t *testing.T) {
 		}
 		recordTestRequest(recorder, state)
 	}
+
 	if elapsed := time.Since(started); elapsed > 100*time.Millisecond {
 		t.Fatalf("recording blocked request capture for %s", elapsed)
 	}
+
 	writer.unblock()
+
 	deadline := time.Now().Add(time.Second)
 	for !flushRecorder(recorder, 50*time.Millisecond) && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
+
 	if !strings.Contains(writer.String(), "CAPTURE_DROPPED") {
 		t.Fatalf("full queue did not produce a dropped-capture marker: %q", writer.String())
 	}
@@ -120,6 +134,7 @@ func TestRecorderQueueDoesNotBlockRequestCapture(t *testing.T) {
 
 func TestRecorderEscapesMetadataAndRawControlBodies(t *testing.T) {
 	var output bytes.Buffer
+
 	recorder := newRecorder(&output, 1024, true)
 	t.Cleanup(recorder.Close)
 
@@ -133,7 +148,8 @@ func TestRecorderEscapesMetadataAndRawControlBodies(t *testing.T) {
 		},
 	}
 	decoded := decodeResult{protocol: protocolEAPI, status: decodeStatusDecrypted, apiPath: "/api/test\r\napi-path: forged"}
-	recorder.writeRequestBlock(state, decoded, "detail\r\nforged")
+	recorder.writeRequestBlock(state, &decoded, "detail\r\nforged")
+
 	body, encoding, _ := terminalBody([]byte("body\r\n[FORGED]"), 1024)
 	if encoding != "base64" || strings.Contains(body, "[FORGED]") {
 		t.Fatalf("raw control body was not terminal-safe: body=%q encoding=%q", body, encoding)
@@ -145,6 +161,7 @@ func TestRecorderEscapesMetadataAndRawControlBodies(t *testing.T) {
 			t.Fatalf("raw control-bearing metadata leaked: %q in %q", raw, text)
 		}
 	}
+
 	for _, escaped := range []string{`POST\r\nFORGED`, `ok\r\n[FORGED]`, `api-path: /api/test\r\napi-path: forged`} {
 		if !strings.Contains(text, escaped) {
 			t.Fatalf("escaped metadata %q missing from %q", escaped, text)

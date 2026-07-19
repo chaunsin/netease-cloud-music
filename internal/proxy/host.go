@@ -4,7 +4,7 @@
 package proxy
 
 import (
-	"fmt"
+	"errors"
 	"net"
 	"strings"
 )
@@ -33,19 +33,22 @@ type hostMatcher struct {
 
 func newHostMatcher(domains []string) (*hostMatcher, error) {
 	if len(domains) == 0 {
-		return nil, fmt.Errorf("at least one proxy domain is required")
+		return nil, errors.New("at least one proxy domain is required")
 	}
 
 	normalized := make([]string, 0, len(domains))
+
 	seen := make(map[string]struct{}, len(domains))
 	for _, domain := range domains {
 		domain = canonicalHostname(domain)
 		if domain == "" {
-			return nil, fmt.Errorf("proxy domain cannot be empty")
+			return nil, errors.New("proxy domain cannot be empty")
 		}
+
 		if _, ok := seen[domain]; ok {
 			continue
 		}
+
 		seen[domain] = struct{}{}
 		normalized = append(normalized, domain)
 	}
@@ -62,6 +65,7 @@ func (m *hostMatcher) Match(host string) bool {
 	if host == "" {
 		return false
 	}
+
 	for _, domain := range m.domains {
 		if host == domain || strings.HasSuffix(host, "."+domain) {
 			return true

@@ -7,6 +7,7 @@ package cookie
 // This file implements the Punycode algorithm from RFC 3492.
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode/utf8"
@@ -35,24 +36,30 @@ const (
 // remaining != 0" in the Go code, because len(s) in Go is in bytes, not runes.
 func encode(prefix, s string) (string, error) {
 	if len(s) > (1<<31-1)/2 { // Ensure 2*len(s) does not overflow
-		return "", fmt.Errorf("input string is too large to encode")
+		return "", errors.New("input string is too large to encode")
 	}
+
 	output := make([]byte, len(prefix), len(prefix)+1+2*len(s))
 	copy(output, prefix)
+
 	delta, n, bias := int32(0), initialN, initialBias
 	b, remaining := int32(0), int32(0)
+
 	for _, r := range s {
 		if r < utf8.RuneSelf {
 			b++
+
 			output = append(output, byte(r))
 		} else {
 			remaining++
 		}
 	}
+
 	h := b
 	if b > 0 {
 		output = append(output, '-')
 	}
+
 	for remaining != 0 {
 		m := int32(0x7fffffff)
 		for _, r := range s {
@@ -60,10 +67,12 @@ func encode(prefix, s string) (string, error) {
 				m = r
 			}
 		}
+
 		delta += (m - n) * (h + 1)
 		if delta < 0 {
 			return "", fmt.Errorf("cookiejar: invalid label %q", s)
 		}
+
 		n = m
 		for _, r := range s {
 			if r < n {
@@ -73,10 +82,13 @@ func encode(prefix, s string) (string, error) {
 				}
 				continue
 			}
+
 			if r > n {
 				continue
 			}
+
 			q := delta
+
 			for k := base; ; k += base {
 				t := k - bias
 				if t < tmin {
@@ -84,18 +96,22 @@ func encode(prefix, s string) (string, error) {
 				} else if t > tmax {
 					t = tmax
 				}
+
 				if q < t {
 					break
 				}
+
 				output = append(output, encodeDigit(t+(q-t)%(base-t)))
 				q = (q - t) / (base - t)
 			}
+
 			output = append(output, encodeDigit(q))
 			bias = adapt(delta, h+1, h == b)
 			delta = 0
 			h++
 			remaining--
 		}
+
 		delta++
 		n++
 	}
@@ -109,6 +125,7 @@ func encodeDigit(digit int32) byte {
 	case 26 <= digit && digit < 36:
 		return byte(digit + ('0' - 26))
 	}
+
 	panic("cookiejar: internal error in punycode encoding")
 }
 
@@ -119,8 +136,10 @@ func adapt(delta, numPoints int32, firstTime bool) int32 {
 	} else {
 		delta /= 2
 	}
+
 	delta += delta / numPoints
 	k := int32(0)
+
 	for delta > ((base-tmin)*tmax)/2 {
 		delta /= base - tmin
 		k += base
@@ -141,6 +160,7 @@ func toASCII(s string) (string, error) {
 	if ascii.Is(s) {
 		return s, nil
 	}
+
 	labels := strings.Split(s, ".")
 	for i, label := range labels {
 		if !ascii.Is(label) {
@@ -148,6 +168,7 @@ func toASCII(s string) (string, error) {
 			if err != nil {
 				return "", err
 			}
+
 			labels[i] = a
 		}
 	}

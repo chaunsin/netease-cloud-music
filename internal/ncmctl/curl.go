@@ -6,6 +6,7 @@ package ncmctl
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -53,14 +54,6 @@ func NewCurl(root *Root, l *log.Logger) *Curl {
 	return c
 }
 
-func (c *Curl) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Method, "method", "m", "", "request method")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Data, "data", "d", `{}`, `request params. eg:'{"id":1,"name":"bob"}'`)
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate response file directory location")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "api kind, weapi|eapi|linux|api")
-	c.cmd.PersistentFlags().DurationVarP(&c.opts.Timeout, "timeout", "t", 15*time.Second, "request timeout eg:1s、1m")
-}
-
 func (c *Curl) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
 }
@@ -69,28 +62,52 @@ func (c *Curl) Command() *cobra.Command {
 	return c.cmd
 }
 
+func (c *Curl) addFlags() {
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Method, "method", "m", "", "request method")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Data, "data", "d", `{}`, `request params. eg:'{"id":1,"name":"bob"}'`)
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate response file directory location")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "api kind, weapi|eapi|linux|api")
+	c.cmd.PersistentFlags().DurationVarP(&c.opts.Timeout, "timeout", "t", 15*time.Second, "request timeout eg:1s、1m")
+}
+
+func validateCurlKind(kind string) error {
+	switch kind {
+	case "api", "eapi", "linux", "weapi":
+		return nil
+	default:
+		return fmt.Errorf("unsupported API kind %q", kind)
+	}
+}
+
 func (c *Curl) execute(ctx context.Context, args []string) error {
 	var method string
 	if len(args) > 0 {
 		method = strings.TrimSpace(args[0])
 	}
+
 	if c.opts.Method != "" {
 		method = c.opts.Method
 	}
+
 	if method == "" {
-		return fmt.Errorf("method is required")
+		return errors.New("method is required")
+	}
+
+	if err := validateCurlKind(c.opts.Kind); err != nil {
+		return err
 	}
 
 	cli, err := client.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer cli.Close(ctx)
+	defer closeAPIClient(ctx, cli)
 
 	ctx, cancel := context.WithTimeout(ctx, c.opts.Timeout)
 	defer cancel()
 
 	var request any
+
 	switch c.opts.Kind {
 	case "api":
 		request = api.New(cli)
@@ -99,8 +116,6 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 	case "linux":
 		request = linux.New(cli)
 	case "weapi":
-		fallthrough
-	default:
 		request = weapi.New(cli)
 	}
 
@@ -108,6 +123,7 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 	if !ok {
 		return fmt.Errorf("method %s not found", method)
 	}
+
 	if !methodName.IsExported() {
 		return fmt.Errorf("method %s not exported", method)
 	}
@@ -115,7 +131,8 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 	if n := methodName.Func.Type().NumIn() - 1; n != 2 {
 		return fmt.Errorf("method %s args length %d invalid", c.opts.Method, n)
 	}
-	log.Debug("method: %+v", methodName)
+
+	log.Debugf("method: %+v", methodName)
 
 	var (
 		t        = methodName.Func.Type()
@@ -125,19 +142,28 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 
 	decoder := json.NewDecoder(strings.NewReader(c.opts.Data))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(instance.Addr().Interface()); err != nil {
-		return fmt.Errorf("decode: %w", err)
+
+	if decodeErr := decoder.Decode(instance.Addr().Interface()); decodeErr != nil {
+		return fmt.Errorf("decode: %w", decodeErr)
 	}
-	log.Debug("request: %+v", instance)
+
+	log.Debugf("request: %+v", instance)
 
 	resp := methodName.Func.Call([]reflect.Value{reflect.ValueOf(request), reflect.ValueOf(ctx), instance.Addr()})
 	if len(resp) != 2 {
 		return fmt.Errorf("method %s resp length %d invalid", c.opts.Method, len(resp))
 	}
+
 	if !resp[1].IsNil() {
-		return resp[1].Interface().(error)
+		responseErr, ok := resp[1].Interface().(error)
+		if !ok {
+			return fmt.Errorf("method %s returned non-error value %T", c.opts.Method, resp[1].Interface())
+		}
+		return responseErr
 	}
+
 	data := resp[0].Interface() // 请求返回值
+
 	binary, err := json.MarshalIndent(data, "", "\t")
 	if err != nil {
 		return fmt.Errorf("MarshalIndent: %w", err)

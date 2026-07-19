@@ -9,7 +9,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdh"
-	"crypto/md5"
+	cryptorand "crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -19,12 +19,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	cryptorand "crypto/rand"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateRandomKey(t *testing.T) {
-	text := randomKey()
+	text, err := randomKey()
+	require.NoError(t, err)
 	assert.NotEmpty(t, text)
 	t.Logf("GenerateRandomKey: %s\n", text) // ONRhfKsUOHoF8iVd
 }
@@ -33,6 +33,7 @@ func TestReverseString(t *testing.T) {
 	type args struct {
 		str string
 	}
+
 	tests := []struct {
 		name string
 		args args
@@ -62,7 +63,7 @@ func TestReverseString(t *testing.T) {
 
 func TestRsaEncryptReturnsFixedWidthHex(t *testing.T) {
 	got, err := RsaEncrypt("0123456789abcdef", publicKey)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, got, 256)
 }
 
@@ -70,6 +71,7 @@ func TestWeApiEncrypt(t *testing.T) {
 	type args struct {
 		object any
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -88,7 +90,7 @@ func TestWeApiEncrypt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := WeApiEncrypt(tt.args.object)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			t.Logf("data:%+v\n", got)
 			// assert.Equalf(t, tt.want, got, "weapi(%v)", tt.args.object)
 		})
@@ -100,6 +102,7 @@ func TestEApiDecrypt(t *testing.T) {
 		encode string
 		data   string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -143,6 +146,7 @@ func TestEApiDecrypt(t *testing.T) {
 			if !tt.wantErr(t, err, fmt.Sprintf("EApiDecrypt(%v)", tt.args.data)) {
 				return
 			}
+
 			t.Logf("data: %+v\n", string(got))
 			t.Logf("abcd: %+v\n", tt.want)
 			assert.Equalf(t, tt.want, string(got), "EApiDecrypt(%v)", tt.args.data)
@@ -155,6 +159,7 @@ func TestEApiEncrypt(t *testing.T) {
 		url    string
 		object any
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -194,6 +199,7 @@ func TestEApiEncrypt(t *testing.T) {
 			if !tt.wantErr(t, err, fmt.Sprintf("EApiEncrypt(%v, %v)", tt.args.url, tt.args.object)) {
 				return
 			}
+
 			assert.Equalf(t, tt.want, got, "EApiEncrypt(%v, %v)", tt.args.url, tt.args.object)
 		})
 	}
@@ -201,15 +207,16 @@ func TestEApiEncrypt(t *testing.T) {
 
 func TestHex(t *testing.T) {
 	var (
-		url    = "/api/sms/captcha/sent"
-		data   = `{"deviceId":"4cdb39bf34a848781b89663e1e546b8b","os":"OSX","cellphone":"188********","header":"{\"os\":\"osx\",\"appver\":\"2.3.17\",\"deviceId\":\"7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62%7C5FD718A3-0602-4389-B612-EBEFAA7F108B\",\"requestId\":\"93487028\",\"clientSign\":\"\",\"osver\":\"%E7%89%88%E6%9C%AC12.6%EF%BC%88%E7%89%88%E5%8F%B721G115%EF%BC%89\",\"Nm-GCore-Status\":\"1\",\"MConfig-Info\":\"{\\\"IuRPVVmc3WWul9fT\\\":{\\\"version\\\":143360,\\\"appver\\\":\\\"2.3.17\\\"}}\",\"MG-Product-Name\":\"music\"}","ctcode":"86","verifyId":1,"e_r":true}`
-		target = `/api/sms/captcha/sent-36cd479b6b5-{"deviceId":"4cdb39bf34a848781b89663e1e546b8b","os":"OSX","cellphone":"188********","header":"{\"os\":\"osx\",\"appver\":\"2.3.17\",\"deviceId\":\"7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62%7C5FD718A3-0602-4389-B612-EBEFAA7F108B\",\"requestId\":\"93487028\",\"clientSign\":\"\",\"osver\":\"%E7%89%88%E6%9C%AC12.6%EF%BC%88%E7%89%88%E5%8F%B721G115%EF%BC%89\",\"Nm-GCore-Status\":\"1\",\"MConfig-Info\":\"{\\\"IuRPVVmc3WWul9fT\\\":{\\\"version\\\":143360,\\\"appver\\\":\\\"2.3.17\\\"}}\",\"MG-Product-Name\":\"music\"}","ctcode":"86","verifyId":1,"e_r":true}-36cd479b6b5-6712bc8cd675b8e4059289b0b56abcbe`
+		apiPath = "/api/sms/captcha/sent"
+		data    = `{"deviceId":"4cdb39bf34a848781b89663e1e546b8b","os":"OSX","cellphone":"188********","header":"{\"os\":\"osx\",\"appver\":\"2.3.17\",\"deviceId\":\"7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62%7C5FD718A3-0602-4389-B612-EBEFAA7F108B\",\"requestId\":\"93487028\",\"clientSign\":\"\",\"osver\":\"%E7%89%88%E6%9C%AC12.6%EF%BC%88%E7%89%88%E5%8F%B721G115%EF%BC%89\",\"Nm-GCore-Status\":\"1\",\"MConfig-Info\":\"{\\\"IuRPVVmc3WWul9fT\\\":{\\\"version\\\":143360,\\\"appver\\\":\\\"2.3.17\\\"}}\",\"MG-Product-Name\":\"music\"}","ctcode":"86","verifyId":1,"e_r":true}`
+		target  = `/api/sms/captcha/sent-36cd479b6b5-{"deviceId":"4cdb39bf34a848781b89663e1e546b8b","os":"OSX","cellphone":"188********","header":"{\"os\":\"osx\",\"appver\":\"2.3.17\",\"deviceId\":\"7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62%7C5FD718A3-0602-4389-B612-EBEFAA7F108B\",\"requestId\":\"93487028\",\"clientSign\":\"\",\"osver\":\"%E7%89%88%E6%9C%AC12.6%EF%BC%88%E7%89%88%E5%8F%B721G115%EF%BC%89\",\"Nm-GCore-Status\":\"1\",\"MConfig-Info\":\"{\\\"IuRPVVmc3WWul9fT\\\":{\\\"version\\\":143360,\\\"appver\\\":\\\"2.3.17\\\"}}\",\"MG-Product-Name\":\"music\"}","ctcode":"86","verifyId":1,"e_r":true}-36cd479b6b5-6712bc8cd675b8e4059289b0b56abcbe`
 	)
-	message := fmt.Sprintf("nobody%suse%smd5forencrypt", url, data)
-	digest := fmt.Sprintf("%x", md5.Sum([]byte(message)))
-	text := fmt.Sprintf("%s-36cd479b6b5-%s-36cd479b6b5-%s", url, data, digest)
-	fmt.Printf("text: %s\n", text)
-	fmt.Printf("equal: %v\n", text == target)
+
+	message := fmt.Sprintf("nobody%suse%smd5forencrypt", apiPath, data)
+	digest := fmt.Sprintf("%x", legacyMD5([]byte(message)))
+	text := fmt.Sprintf("%s-36cd479b6b5-%s-36cd479b6b5-%s", apiPath, data, digest)
+	t.Logf("text: %s", text)
+	t.Logf("equal: %v", text == target)
 }
 
 // func Test_digest(t *testing.T) {
@@ -274,6 +281,7 @@ func TestGetCacheKey(t *testing.T) {
 			if !tt.wantErr(t, err, fmt.Sprintf("CacheKeyEncrypt(%v)", tt.args)) {
 				return
 			}
+
 			t.Logf("data: %+v\n", got)
 			assert.Equalf(t, tt.want, got, "CacheKeyEncrypt(%v)", tt.args)
 		})
@@ -318,6 +326,7 @@ func TestCacheKeyDecrypt(t *testing.T) {
 			if !tt.wantErr(t, err, fmt.Sprintf("CacheKeyDecrypt(%v)", tt.args)) {
 				return
 			}
+
 			t.Logf("got: %+v\n", got)
 			assert.Equalf(t, tt.want, got, "CacheKeyDecrypt(%v)", tt.args)
 		})
@@ -350,6 +359,7 @@ func TestDLLEncodeID(t *testing.T) {
 			if !tt.wantErr(t, err, fmt.Sprintf("DLLEncodeID(%v)", tt.args)) {
 				return
 			}
+
 			assert.Equalf(t, tt.want, got, "DLLEncodeID(%v)", tt.args)
 		})
 	}
@@ -381,6 +391,7 @@ func TestAnonymous(t *testing.T) {
 			if !tt.wantErr(t, err, fmt.Sprintf("Anonymous(%v)", tt.args)) {
 				return
 			}
+
 			assert.Equalf(t, tt.want, got, "Anonymous(%v)", tt.args)
 		})
 	}
@@ -407,7 +418,7 @@ func TestHexDigest(t *testing.T) {
 
 func TestBuildPlaintextEnvelope(t *testing.T) {
 	t.Run("default request omits method and content type", func(t *testing.T) {
-		envelope := decodeXeapiEnvelope(t, EncryptRequest{
+		envelope := decodeXeapiEnvelope(t, &EncryptRequest{
 			URI: "/api/song/detail?id=101",
 		})
 
@@ -419,7 +430,7 @@ func TestBuildPlaintextEnvelope(t *testing.T) {
 	})
 
 	t.Run("non default request keeps method and content type", func(t *testing.T) {
-		envelope := decodeXeapiEnvelope(t, EncryptRequest{
+		envelope := decodeXeapiEnvelope(t, &EncryptRequest{
 			URI:         "https://interface.music.163.com/api/song/detail?ids=1",
 			Method:      http.MethodPut,
 			ContentType: "application/json",
@@ -435,12 +446,12 @@ func TestBuildPlaintextEnvelope(t *testing.T) {
 		assert.Equal(t, "application/json", envelope["contentType"])
 
 		body, err := base64.StdEncoding.DecodeString(envelope["body"])
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.JSONEq(t, `{"id":123,"name":"hello world","e_r":true}`, string(body))
 	})
 
 	t.Run("form data removes e_r", func(t *testing.T) {
-		envelope := decodeXeapiEnvelope(t, EncryptRequest{
+		envelope := decodeXeapiEnvelope(t, &EncryptRequest{
 			URI: "/api/test",
 			Data: url.Values{
 				"id":  []string{"1"},
@@ -450,15 +461,15 @@ func TestBuildPlaintextEnvelope(t *testing.T) {
 
 		assert.Equal(t, "e_r=true", envelope["queryString"])
 		body, err := base64.StdEncoding.DecodeString(envelope["body"])
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		values, err := url.ParseQuery(string(body))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "1", values.Get("id"))
 		assert.False(t, values.Has("e_r"))
 	})
 
 	t.Run("existing query e_r still appends encrypted response flag", func(t *testing.T) {
-		envelope := decodeXeapiEnvelope(t, EncryptRequest{
+		envelope := decodeXeapiEnvelope(t, &EncryptRequest{
 			URI: "/api/test?e_r=false&id=1",
 		})
 
@@ -466,7 +477,7 @@ func TestBuildPlaintextEnvelope(t *testing.T) {
 	})
 
 	t.Run("raw body preserves exact bytes", func(t *testing.T) {
-		envelope := decodeXeapiEnvelope(t, EncryptRequest{
+		envelope := decodeXeapiEnvelope(t, &EncryptRequest{
 			URI:         "/api/test",
 			ContentType: "application/json",
 			Body:        []byte(`{"id":1,"e_r":false}`),
@@ -474,17 +485,17 @@ func TestBuildPlaintextEnvelope(t *testing.T) {
 
 		assert.Equal(t, "e_r=true", envelope["queryString"])
 		body, err := base64.StdEncoding.DecodeString(envelope["body"])
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, `{"id":1,"e_r":false}`, string(body))
 	})
 
 	t.Run("empty raw body is still present", func(t *testing.T) {
-		plaintext, err := buildPlaintextEnvelope(EncryptRequest{
+		plaintext, err := buildPlaintextEnvelope(&EncryptRequest{
 			URI:  "/api/test",
 			Body: []byte{},
 		})
-		assert.NoError(t, err)
-		assert.Equal(t, `{"body":"","queryString":"e_r=true"}`, string(plaintext))
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"body":"","queryString":"e_r=true"}`, string(plaintext))
 	})
 
 	t.Run("struct data follows json tags", func(t *testing.T) {
@@ -496,7 +507,7 @@ func TestBuildPlaintextEnvelope(t *testing.T) {
 			Options map[string]int `json:"options"`
 		}
 
-		envelope := decodeXeapiEnvelope(t, EncryptRequest{
+		envelope := decodeXeapiEnvelope(t, &EncryptRequest{
 			URI: "/api/test",
 			Data: request{
 				ID:      123,
@@ -507,9 +518,9 @@ func TestBuildPlaintextEnvelope(t *testing.T) {
 		})
 
 		body, err := base64.StdEncoding.DecodeString(envelope["body"])
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		values, err := url.ParseQuery(string(body))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "123", values.Get("id"))
 		assert.Equal(t, `{"level":1}`, values.Get("options"))
 		assert.False(t, values.Has("e_r"))
@@ -518,7 +529,7 @@ func TestBuildPlaintextEnvelope(t *testing.T) {
 	})
 
 	t.Run("default content type tolerates spaces around parameters", func(t *testing.T) {
-		envelope := decodeXeapiEnvelope(t, EncryptRequest{
+		envelope := decodeXeapiEnvelope(t, &EncryptRequest{
 			URI:         "/api/test",
 			ContentType: "application/x-www-form-urlencoded ; charset=utf-8",
 			Data:        map[string]string{"id": "1"},
@@ -526,7 +537,7 @@ func TestBuildPlaintextEnvelope(t *testing.T) {
 
 		assert.NotContains(t, envelope, "contentType")
 		body, err := base64.StdEncoding.DecodeString(envelope["body"])
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "id=1", string(body))
 	})
 }
@@ -542,24 +553,24 @@ func TestXeapiStaticKey(t *testing.T) {
 		DeviceID:       "device-id",
 	}
 	plain, err := json.Marshal(want)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	ciphertext, err := aesECBEncrypt(xeapiStaticKey, plain)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	got, err := XeapiDecryptPublicKey(base64.StdEncoding.EncodeToString(ciphertext))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, got)
 	assert.Equal(t, want, *got)
 
 	_, err = aesECBEncrypt(xeapiStaticKey, []byte(want.Version+"|session-id"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	missingPublicKey := want
 	missingPublicKey.PublicKey = ""
 	plain, err = json.Marshal(missingPublicKey)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	ciphertext, err = aesECBEncrypt(xeapiStaticKey, plain)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, err = XeapiDecryptPublicKey(base64.StdEncoding.EncodeToString(ciphertext))
 	assert.ErrorIs(t, err, ErrPublicKeyMissing)
 }
@@ -575,31 +586,32 @@ func TestXeapiSign(t *testing.T) {
 
 func TestIssue174CapturedXeapiVectors(t *testing.T) {
 	staticKeyFromIssue, err := base64.StdEncoding.DecodeString("qx1aQw9rsEo/Aegd3XK9kW1c5ZEkisEocUgG1/j7G4Q=")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, xeapiStaticKey, staticKeyFromIssue)
 
 	capturedR, err := base64.StdEncoding.DecodeString("6uMm/2V2SqT96D2FtoKGgFHzKX+TP+dChrWGTsVtcjBpuNxqLTfwHTEO8RThwA7e")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	capturedRPlaintext, err := aesECBDecrypt(xeapiStaticKey, capturedR)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "1000000000000|01c3a3532a884dd2a583228d6f335211", string(capturedRPlaintext))
 
 	noSessionR, err := base64.StdEncoding.DecodeString("3LCoCTuHo/mDfZ1x3PtHsQ==")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	noSessionRPlaintext, err := aesECBDecrypt(xeapiStaticKey, noSessionR)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "1000000000000|", string(noSessionRPlaintext))
 
 	responseBody, err := hex.DecodeString("BCC6C3A838364F78C6613EF403862326D0CB333FB97328516FB0C72CD7DB1B8E6AA3B102FBE7296AB0DB9EA5C46AD12B")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	plaintext, err := XeapiDecryptResponse(responseBody)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, `{"code":200}`, string(plaintext))
 }
 
 func TestXeapiEncryptIssue174GoldenBody(t *testing.T) {
 	dynamicKey, err := hex.DecodeString("00112233445566778899aabbccddeeff")
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	transformRandom := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 	gcmIV := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
 	privateKey := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}
@@ -610,17 +622,17 @@ func TestXeapiEncryptIssue174GoldenBody(t *testing.T) {
 		Body: []byte{},
 		OS:   "android",
 	}
-	plaintext, err := buildPlaintextEnvelope(req)
-	assert.NoError(t, err)
-	assert.Equal(t, `{"body":"","queryString":"e_r=true"}`, string(plaintext))
+	plaintext, err := buildPlaintextEnvelope(&req)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"body":"","queryString":"e_r=true"}`, string(plaintext))
 
-	got, err := XeapiEncrypt(req, PublicKeyState{
+	got, err := XeapiEncrypt(&req, PublicKeyState{
 		PublicKey:      "3m5wN9om11qRESjEV+5EoFf9qLEylO6gyThMbl1XxEk=",
 		Version:        "1000000000000",
 		NextUpdateTime: 1803882269000,
 		SK:             "8PZfbIFA1779944463972",
 	}, Session{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, map[string]string{
 		"B": "J5+3SnVyE16Pm4720e7gA3mgIZ1L4axkB6jte8X079wgjs3SU+IK7AANKKdewVLtBIJw5y5LtyhCcJ3FZm4u2LOfXnKdOC0VKIfVgX/lWloAZX6hQGVaRHgnR3BdQi+t",
 		"S": "B6N8vBQgk8i3VdwbEOhstCY3StFqqFPtC9/AsrhtHHwAAQIDBAUGBwgJCguNFV1OAc3Z5noM7bYwvLwNFBK0H8NY/JVdIRN2dRDdG1JrMTLDI/ArlqMSIXdq9rfulgMKqRO7imtYLn8PrI4cIbwOdSkz",
@@ -631,38 +643,43 @@ func TestXeapiEncryptIssue174GoldenBody(t *testing.T) {
 func TestXeapiEncrypt(t *testing.T) {
 	curve := ecdh.X25519()
 	peer, err := curve.GenerateKey(cryptorand.Reader)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	publicKey := PublicKeyState{
 		PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey().Bytes()),
 		Version:   "v1",
 		SK:        "server-key",
 	}
+	_, err = XeapiEncrypt(nil, publicKey, Session{})
+	require.ErrorIs(t, err, ErrEncryptRequestMissing)
+
 	req := EncryptRequest{
 		URI:  "/api/song/detail?id=1",
 		Data: map[string]any{"id": 1, "e_r": true},
 	}
 
-	withSession, err := XeapiEncrypt(req, publicKey, Session{ID: "session-id", Key: "0123456789abcdef"})
-	assert.NoError(t, err)
-	withoutSession, err := XeapiEncrypt(req, publicKey, Session{})
-	assert.NoError(t, err)
+	withSession, err := XeapiEncrypt(&req, publicKey, Session{ID: "session-id", Key: "0123456789abcdef"})
+	require.NoError(t, err)
+	withoutSession, err := XeapiEncrypt(&req, publicKey, Session{})
+	require.NoError(t, err)
 
 	for _, item := range []map[string]string{withSession, withoutSession} {
 		for _, key := range []string{"B", "S", "R"} {
 			assert.NotEmpty(t, item[key])
-			_, err := base64.StdEncoding.DecodeString(item[key])
-			assert.NoError(t, err)
+			_, decodeErr := base64.StdEncoding.DecodeString(item[key])
+			require.NoError(t, decodeErr)
 		}
 	}
+
 	assert.NotEqual(t, withSession["R"], withoutSession["R"])
 
 	plaintext := decryptXeapiB(t, withSession["B"], []byte("0123456789abcdef"))
+
 	var envelope map[string]string
-	assert.NoError(t, json.Unmarshal(plaintext, &envelope))
+	require.NoError(t, json.Unmarshal(plaintext, &envelope))
 	assert.Equal(t, "id=1&e_r=true", envelope["queryString"])
 	body, err := base64.StdEncoding.DecodeString(envelope["body"])
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "id=1", string(body))
 
 	rPlaintext := decryptXeapiR(t, withSession["R"])
@@ -671,7 +688,7 @@ func TestXeapiEncrypt(t *testing.T) {
 	sPlaintext := decryptXeapiS(t, withSession["S"], peer)
 	assert.Equal(t, base64.StdEncoding.EncodeToString([]byte("0123456789abcdef"))+"|android|server-key", string(sPlaintext))
 
-	_, err = XeapiEncrypt(req, PublicKeyState{
+	_, err = XeapiEncrypt(&req, PublicKeyState{
 		PublicKey: publicKey.PublicKey,
 		Version:   "v1",
 	}, Session{})
@@ -681,37 +698,38 @@ func TestXeapiEncrypt(t *testing.T) {
 func TestXeapiDecryptResponse(t *testing.T) {
 	t.Run("plain json", func(t *testing.T) {
 		ciphertext, err := aesECBEncrypt([]byte(eApiKey), []byte(`{"code":200}`))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		got, err := XeapiDecryptResponse(ciphertext)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, `{"code":200}`, string(got))
 	})
 
 	t.Run("gzip json", func(t *testing.T) {
 		var buf bytes.Buffer
+
 		zw := gzip.NewWriter(&buf)
 		_, err := zw.Write([]byte(`{"code":201}`))
-		assert.NoError(t, err)
-		assert.NoError(t, zw.Close())
+		require.NoError(t, err)
+		require.NoError(t, zw.Close())
 
 		ciphertext, err := aesECBEncrypt([]byte(eApiKey), buf.Bytes())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		got, err := XeapiDecryptResponse(ciphertext)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, `{"code":201}`, string(got))
 	})
 }
 
-func decodeXeapiEnvelope(t *testing.T, req EncryptRequest) map[string]string {
+func decodeXeapiEnvelope(t *testing.T, req *EncryptRequest) map[string]string {
 	t.Helper()
 
 	plain, err := buildPlaintextEnvelope(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	var envelope map[string]string
-	assert.NoError(t, json.Unmarshal(plain, &envelope))
+	require.NoError(t, json.Unmarshal(plain, &envelope))
 	return envelope
 }
 
@@ -719,32 +737,36 @@ func decryptXeapiB(t *testing.T, encryptedB string, dynamicKey []byte) []byte {
 	t.Helper()
 
 	ciphertext, err := base64.StdEncoding.DecodeString(encryptedB)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mid, err := aesECBDecrypt(dynamicKey, ciphertext)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	if len(mid) < 16 {
 		t.Fatalf("midTransform payload too short: %d", len(mid))
 	}
 
 	random := mid[:16]
 	rotated := mid[16:]
+
 	rot := 0
 	if len(rotated) > 0 {
 		rot = int(random[0]&0x0f) % len(rotated)
 	}
+
 	b64 := make([]byte, 0, len(rotated))
 	b64 = append(b64, rotated[len(rotated)-rot:]...)
 	b64 = append(b64, rotated[:len(rotated)-rot]...)
 
 	xored, err := base64.StdEncoding.DecodeString(string(b64))
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	inner := make([]byte, len(xored))
 	for i := range xored {
 		inner[i] = xored[i] ^ random[i&0x0f]
 	}
 
 	plaintext, err := aesECBDecrypt(xeapiStaticKey, inner)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	return plaintext
 }
 
@@ -752,9 +774,9 @@ func decryptXeapiR(t *testing.T, encryptedR string) []byte {
 	t.Helper()
 
 	ciphertext, err := base64.StdEncoding.DecodeString(encryptedR)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	plaintext, err := aesECBDecrypt(xeapiStaticKey, ciphertext)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	return plaintext
 }
 
@@ -762,7 +784,8 @@ func decryptXeapiS(t *testing.T, encryptedS string, peer *ecdh.PrivateKey) []byt
 	t.Helper()
 
 	payload, err := base64.StdEncoding.DecodeString(encryptedS)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	if len(payload) < 32+12 {
 		t.Fatalf("S payload too short: %d", len(payload))
 	}
@@ -773,17 +796,18 @@ func decryptXeapiS(t *testing.T, encryptedS string, peer *ecdh.PrivateKey) []byt
 
 	curve := ecdh.X25519()
 	ephemeral, err := curve.NewPublicKey(ephemeralRaw)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	sharedSecret, err := peer.ECDH(ephemeral)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	key := deriveX25519AESKey(sharedSecret, ephemeralRaw)
 
 	block, err := aes.NewCipher(key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	gcm, err := cipher.NewGCM(block)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	plaintext, err := gcm.Open(nil, iv, ciphertext, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	return plaintext
 }
 
@@ -792,13 +816,17 @@ func stubXeapiRandomness(t *testing.T, randoms [][]byte, privateKey []byte) {
 
 	oldRandomBytes := xeapiRandomBytes
 	oldGenerateKey := xeapiGenerateX25519Key
+
 	var nextRandom int
+
 	xeapiRandomBytes = func(length int) ([]byte, error) {
 		if nextRandom >= len(randoms) {
 			return nil, fmt.Errorf("unexpected xeapi random request for %d bytes", length)
 		}
+
 		data := randoms[nextRandom]
 		nextRandom++
+
 		if len(data) != length {
 			return nil, fmt.Errorf("xeapi random length: got %d want %d", len(data), length)
 		}
@@ -807,9 +835,11 @@ func stubXeapiRandomness(t *testing.T, randoms [][]byte, privateKey []byte) {
 	xeapiGenerateX25519Key = func(curve ecdh.Curve) (*ecdh.PrivateKey, error) {
 		return curve.NewPrivateKey(privateKey)
 	}
+
 	t.Cleanup(func() {
 		xeapiRandomBytes = oldRandomBytes
 		xeapiGenerateX25519Key = oldGenerateKey
+
 		assert.Equal(t, len(randoms), nextRandom)
 	})
 }

@@ -41,19 +41,19 @@ type SearchDefaultRespData struct {
 
 // SearchDefault 首页搜索输入框默认搜索关键词
 // url: testdata/har/11.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) SearchDefault(ctx context.Context, req *SearchDefaultReq) (*SearchDefaultResp, error) {
 	var (
 		url   = "https://interface.music.163.com/eapi/search/default/keyword/get"
 		reply SearchDefaultResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
 
-	opts.CryptoMode = api.CryptoModeEAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

@@ -19,20 +19,21 @@ import (
 )
 
 type TaskOpts struct {
+	PartnerOpts
+	ScrobbleOpts
+	SignInOpts
+
 	Location string
 	RunAll   bool
 
 	Partner            bool
 	PartnerOptsCrontab string
-	PartnerOpts
 
 	Scrobble            bool
 	ScrobbleOptsCrontab string
-	ScrobbleOpts
 
 	SignIn            bool
 	SignInOptsCrontab string
-	SignInOpts
 }
 
 type Task struct {
@@ -40,6 +41,11 @@ type Task struct {
 	cmd  *cobra.Command
 	opts TaskOpts
 	l    *log.Logger
+}
+
+type scheduledCommand interface {
+	Command() *cobra.Command
+	validate() error
 }
 
 func NewTask(root *Root, l *log.Logger) *Task {
@@ -57,6 +63,14 @@ func NewTask(root *Root, l *log.Logger) *Task {
 		return c.execute(cmd.Context(), args)
 	}
 	return c
+}
+
+func (c *Task) Add(command ...*cobra.Command) {
+	c.cmd.AddCommand(command...)
+}
+
+func (c *Task) Command() *cobra.Command {
+	return c.cmd
 }
 
 func (c *Task) addFlags() {
@@ -82,8 +96,9 @@ func (c *Task) validate() error {
 	var (
 		partner = func() error {
 			if c.opts.PartnerOptsCrontab == "" {
-				return fmt.Errorf("partner.crontab is required")
+				return errors.New("partner.crontab is required")
 			}
+
 			if _, err := cron.ParseStandard(c.opts.PartnerOptsCrontab); err != nil {
 				return fmt.Errorf("ParseStandard: %w", err)
 			}
@@ -91,8 +106,9 @@ func (c *Task) validate() error {
 		}
 		signIn = func() error {
 			if c.opts.SignInOptsCrontab == "" {
-				return fmt.Errorf("sign.crontab is required")
+				return errors.New("sign.crontab is required")
 			}
+
 			if _, err := cron.ParseStandard(c.opts.SignInOptsCrontab); err != nil {
 				return fmt.Errorf("ParseStandard: %w", err)
 			}
@@ -100,8 +116,9 @@ func (c *Task) validate() error {
 		}
 		scrobble = func() error {
 			if c.opts.ScrobbleOptsCrontab == "" {
-				return fmt.Errorf("scrobble.crontab is required")
+				return errors.New("scrobble.crontab is required")
 			}
+
 			if _, err := cron.ParseStandard(c.opts.ScrobbleOptsCrontab); err != nil {
 				return fmt.Errorf("ParseStandard: %w", err)
 			}
@@ -118,11 +135,13 @@ func (c *Task) validate() error {
 				return err
 			}
 		}
+
 		if o.Partner {
 			if err := partner(); err != nil {
 				return err
 			}
 		}
+
 		if o.Scrobble {
 			if err := scrobble(); err != nil {
 				return err
@@ -132,19 +151,40 @@ func (c *Task) validate() error {
 	return nil
 }
 
-func (c *Task) Add(command ...*cobra.Command) {
-	c.cmd.AddCommand(command...)
-}
+func (c *Task) registerScheduledCommand(ctx context.Context, job *cron.Cron, name, schedule, cronError string, command scheduledCommand) error {
+	label := "[" + name + "]"
+	c.cmd.Println(label + " task register")
+	log.Infof("%s task register", label)
 
-func (c *Task) Command() *cobra.Command {
-	return c.cmd
+	command.Command().DisableFlagParsing = true
+	if err := command.validate(); err != nil {
+		return fmt.Errorf("validate: %w", err)
+	}
+
+	id, err := job.AddFunc(schedule, func() {
+		log.Infof("%s task start", label)
+
+		if err := command.Command().ExecuteContext(ctx); err != nil {
+			log.Errorf(label+" execute err: %s", err)
+			return
+		}
+
+		log.Infof("%s execute success", label)
+	})
+	if err != nil {
+		return fmt.Errorf("%s: %w", cronError, err)
+	}
+
+	log.Infof(label+" next execute: %s", job.Entry(id).Schedule.Next(time.Now()))
+	return nil
 }
 
 func (c *Task) execute(ctx context.Context, _ []string) error {
 	if err := c.validate(); err != nil {
 		return fmt.Errorf("validate: %w", err)
 	}
-	log.Debug("task args: %+v", c.opts)
+
+	log.Debugf("task args: %+v", c.opts)
 
 	local, err := time.LoadLocation(c.opts.Location)
 	if err != nil {
@@ -155,86 +195,29 @@ func (c *Task) execute(ctx context.Context, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer cli.Close(ctx)
+	defer closeAPIClient(ctx, cli)
 
 	request := weapi.New(cli)
 	if request.NeedLogin(ctx) {
-		return fmt.Errorf("need login")
+		return errors.New("need login")
 	}
 
 	var (
 		job     = cron.New(cron.WithLocation(local))
 		partner = func() error {
-			c.cmd.Println("[partner] task register")
-			log.Info("[partner] task register")
-			partner := NewPartner(c.root, c.l)
-			partner.cmd.DisableFlagParsing = true // 关闭子命令解析比如出现unknown flag错误
-			partner.opts = c.opts.PartnerOpts
-			if err := partner.validate(); err != nil {
-				return fmt.Errorf("validate: %w", err)
-			}
-
-			id, err := job.AddFunc(c.opts.PartnerOptsCrontab, func() {
-				log.Info("[partner] task start")
-				if err := partner.Command().ExecuteContext(ctx); err != nil {
-					log.Error("[partner] execute err: %s", err)
-					return
-				}
-				log.Info("[partner] execute success")
-			})
-			if err != nil {
-				return fmt.Errorf("crontab error: %v", err)
-			}
-			log.Info("[partner] next execute: %s", job.Entry(id).Schedule.Next(time.Now()))
-			return nil
+			command := NewPartner(c.root, c.l)
+			command.opts = c.opts.PartnerOpts
+			return c.registerScheduledCommand(ctx, job, "partner", c.opts.PartnerOptsCrontab, "crontab error", command)
 		}
 		scrobble = func() error {
-			c.cmd.Println("[scrobble] task register")
-			log.Info("[scrobble] task register")
-			s := NewScrobble(c.root, c.l)
-			s.cmd.DisableFlagParsing = true
-			s.opts = c.opts.ScrobbleOpts
-			if err := s.validate(); err != nil {
-				return fmt.Errorf("validate: %w", err)
-			}
-
-			id, err := job.AddFunc(c.opts.ScrobbleOptsCrontab, func() {
-				log.Info("[scrobble] task start")
-				if err := s.Command().ExecuteContext(ctx); err != nil {
-					log.Error("[scrobble] execute err: %s", err)
-					return
-				}
-				log.Info("[scrobble] execute success")
-			})
-			if err != nil {
-				return fmt.Errorf("[scrobble] crontab error: %v", err)
-			}
-			log.Info("[scrobble] next execute: %s", job.Entry(id).Schedule.Next(time.Now()))
-			return nil
+			command := NewScrobble(c.root, c.l)
+			command.opts = c.opts.ScrobbleOpts
+			return c.registerScheduledCommand(ctx, job, "scrobble", c.opts.ScrobbleOptsCrontab, "[scrobble] crontab error", command)
 		}
 		signIn = func() error {
-			c.cmd.Println("[sign] task register")
-			log.Info("[sign] task register")
-			signIn := NewSignIn(c.root, c.l)
-			signIn.cmd.DisableFlagParsing = true
-			signIn.opts = c.opts.SignInOpts
-			if err := signIn.validate(); err != nil {
-				return fmt.Errorf("validate: %w", err)
-			}
-
-			id, err := job.AddFunc(c.opts.SignInOptsCrontab, func() {
-				log.Info("[sign] task start")
-				if err := signIn.Command().ExecuteContext(ctx); err != nil {
-					log.Error("[sign] execute err: %s", err)
-					return
-				}
-				log.Info("[sign] execute success")
-			})
-			if err != nil {
-				return fmt.Errorf("[sign] crontab error: %v", err)
-			}
-			log.Info("[sign] next execute: %s", job.Entry(id).Schedule.Next(time.Now()))
-			return nil
+			command := NewSignIn(c.root, c.l)
+			command.opts = c.opts.SignInOpts
+			return c.registerScheduledCommand(ctx, job, "sign", c.opts.SignInOptsCrontab, "[sign] crontab error", command)
 		}
 	)
 
@@ -249,11 +232,13 @@ func (c *Task) execute(ctx context.Context, _ []string) error {
 				return err
 			}
 		}
+
 		if o.Partner {
 			if err := partner(); err != nil {
 				return err
 			}
 		}
+
 		if o.Scrobble {
 			if err := scrobble(); err != nil {
 				return err

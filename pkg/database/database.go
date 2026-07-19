@@ -21,8 +21,8 @@ type Database interface {
 }
 
 type Config struct {
-	Driver string
-	Path   string
+	Driver string `json:"driver" yaml:"driver"`
+	Path   string `json:"path" yaml:"path"`
 }
 
 func New(cfg *Config) (Database, error) {
@@ -30,12 +30,14 @@ func New(cfg *Config) (Database, error) {
 		db  Database
 		err error
 	)
+
 	switch cfg.Driver {
 	case "", "badger":
 		db, err = badger.New(cfg.Path)
 	default:
 		return nil, fmt.Errorf("unsupported database driver: %s", cfg.Driver)
 	}
+
 	if err != nil {
 		return nil, err
 	}

@@ -5,11 +5,12 @@ package utils
 
 import (
 	"bytes"
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec // NetEase exposes MD5 checksums for media integrity verification.
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -75,6 +76,7 @@ func ParseBytes(input string) (int64, error) {
 	if !exists {
 		return 0, fmt.Errorf("unknown unit: %s", unit)
 	}
+
 	if value > math.MaxInt64/multiplier {
 		return 0, fmt.Errorf("byte value overflows int64: %s", input)
 	}
@@ -105,6 +107,7 @@ func IsFile(path string) bool {
 	if err != nil {
 		return false
 	}
+
 	if d.IsDir() {
 		return false
 	}
@@ -120,7 +123,7 @@ func MkdirIfNotExist(path string, perm os.FileMode) error {
 
 // ExpandTilde 扩展波浪号路径.
 func ExpandTilde(path string) (string, error) {
-	if len(path) == 0 || path[0] != '~' {
+	if path == "" || path[0] != '~' {
 		return path, nil
 	}
 
@@ -144,7 +147,7 @@ func ExpandTilde(path string) (string, error) {
 }
 
 // CheckPath 检查路径是否存在，并返回是否为目录, 支持~路径检测.
-func CheckPath(path string) (exists, isDir bool, err error) {
+func CheckPath(path string) (bool, bool, error) {
 	expandedPath, err := ExpandTilde(path)
 	if err != nil {
 		return false, false, fmt.Errorf("ExpandTilde: %w", err)
@@ -162,9 +165,8 @@ func CheckPath(path string) (exists, isDir bool, err error) {
 }
 
 func MD5Hex(data []byte) (string, error) {
-	m := md5.New()
-	_, err := m.Write(data)
-	return hex.EncodeToString(m.Sum(nil)), err
+	digest := md5.Sum(data) //nolint:gosec // This is a compatibility checksum, not a security primitive.
+	return hex.EncodeToString(digest[:]), nil
 }
 
 // Ternary is a generic function that mimics a ternary expression.
@@ -181,6 +183,7 @@ func IsUnique[T comparable](arr []T) bool {
 		if _, ok := set[v]; ok {
 			return false
 		}
+
 		set[v] = struct{}{}
 	}
 	return true
@@ -229,15 +232,14 @@ func DetectContentType(data []byte, ext string) string {
 
 func SplitSlice[T any](input []T, chunkSize int) ([][]T, error) {
 	if chunkSize <= 0 {
-		return nil, fmt.Errorf("chunkSize must be greater than 0")
+		return nil, errors.New("chunkSize must be greater than 0")
 	}
 
 	var result [][]T
+
 	for i := 0; i < len(input); i += chunkSize {
-		end := i + chunkSize
-		if end > len(input) {
-			end = len(input)
-		}
+		end := min(i+chunkSize, len(input))
+
 		result = append(result, input[i:end])
 	}
 	return result, nil
@@ -256,19 +258,20 @@ func TimeUntilMidnight(timeZone string) (time.Duration, error) {
 	} else {
 		loc, err = time.LoadLocation(timeZone)
 		if err != nil {
-			return 0, fmt.Errorf("invalid time zone: %v", err)
+			return 0, fmt.Errorf("invalid time zone: %w", err)
 		}
 	}
+
 	now := time.Now().In(loc)
 	midnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
 	return midnight.Sub(now), nil
 }
 
 // Filename 清理文件名中的非法字符.
-func Filename(path string, new ...string) string {
+func Filename(path string, replacement ...string) string {
 	path = strings.TrimSpace(path)
-	if len(new) > 0 {
-		return filenameRegexp.ReplaceAllString(path, new[0])
+	if len(replacement) > 0 {
+		return filenameRegexp.ReplaceAllString(path, replacement[0])
 	}
 	return filenameRegexp.ReplaceAllString(path, "")
 }
@@ -297,21 +300,16 @@ func IsGzipHeader(data []byte) bool {
 // 作用: 貌似是网易云音乐的抓取标识,或者用于爬虫标识等作用.
 func GenerateWNMCID() string {
 	const (
-		crawlerVersion = "01" // 默认抓取版本号
-		charset        = "abcdefghijklmnopqrstuvwxyz"
+		crawlerVersion = "01"
+		alphabet       = "abcdefghijklmnopqrstuvwxyz"
 	)
-	// 1. 生成6位随机小写字母
-	b := make([]byte, 6)
-	for i := range b {
-		// 从字符集中随机选取字符（0-25）
-		b[i] = charset[rand.Intn(len(charset))]
+
+	prefix := make([]byte, 6)
+	for i := range prefix {
+		prefix[i] = alphabet[rand.IntN(len(alphabet))]
 	}
 
-	// 2. 获取当前时间戳（毫秒）
-	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
-
-	// 3. 拼接最终字符串
-	return fmt.Sprintf("%s.%d.%s.0", string(b), timestamp, crawlerVersion)
+	return fmt.Sprintf("%s.%d.%s.0", prefix, time.Now().UnixMilli(), crawlerVersion)
 }
 
 // GenerateChainId 生成ChainId 用于web login
@@ -332,9 +330,10 @@ func GenerateDeviceId(isLong ...bool) string {
 	}
 
 	const hexChars = "0123456789ABCDEF"
+
 	b := make([]byte, 52)
 	for i := range b {
-		b[i] = hexChars[rand.Intn(len(hexChars))]
+		b[i] = hexChars[rand.IntN(len(hexChars))]
 	}
 	return string(b)
 }

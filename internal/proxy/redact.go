@@ -35,7 +35,7 @@ var (
 	sensitiveTextKey = `(?:authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|password|passwd|pwd|credential|credentials|secret|signature|music(?:[_-]?(?:r[_-]?)?[ua]|[_-]?a[_-]?t)|phone|phone[_-]?number|cellphone|mobile|email|imei|imsi|device[-_ ]?(?:id|identifier)|captcha|verification[-_ ]?code|sms[-_ ]?code|[a-z0-9_.-]*(?:token|csrf|secret|access[-_]?key|api[-_]?key|session[-_]?key|sskey)[a-z0-9_.-]*)`
 	sensitiveLine    = regexp.MustCompile(`(?im)^(\s*` + sensitiveTextKey + `\s*:\s*).*$`)
 	sensitiveInline  = regexp.MustCompile(`(?i)\b(` + sensitiveTextKey + `)\b(\s*[:=]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s&;,\r\n]+)`)
-	diagnosticURL    = regexp.MustCompile(`(?i)https?://[^\s]+`)
+	diagnosticURL    = regexp.MustCompile(`(?i)https?://\S+`)
 )
 
 type jsonDisplayMeta struct {
@@ -52,11 +52,13 @@ func newLimitedDisplayBuffer(limit int64, initialSize int) (*limitedDisplayBuffe
 	if limit <= 0 {
 		return nil, errJSONDisplayLimit
 	}
+
 	buffer := &limitedDisplayBuffer{limit: limit}
 	if initialSize > 0 {
 		if int64(initialSize) > limit {
 			initialSize = int(limit)
 		}
+
 		buffer.buffer.Grow(initialSize)
 	}
 	return buffer, nil
@@ -66,6 +68,7 @@ func (b *limitedDisplayBuffer) writeString(value string) error {
 	if int64(len(value)) > b.limit-int64(b.buffer.Len()) {
 		return errJSONDisplayLimit
 	}
+
 	b.buffer.WriteString(value)
 	return nil
 }
@@ -74,6 +77,7 @@ func (b *limitedDisplayBuffer) writeByte(value byte) error {
 	if int64(b.buffer.Len()) >= b.limit {
 		return errJSONDisplayLimit
 	}
+
 	b.buffer.WriteByte(value)
 	return nil
 }
@@ -91,6 +95,7 @@ func redactHeaders(header http.Header, showSensitive bool) http.Header {
 				copied[i] = redactJSONString(copied[i], false)
 			}
 		}
+
 		redacted[key] = copied
 	}
 	return redacted
@@ -100,11 +105,13 @@ func redactURL(u *url.URL, showSensitive bool) string {
 	if u == nil {
 		return ""
 	}
+
 	copyURL := *u
 	if !showSensitive {
 		if copyURL.User != nil {
 			copyURL.User = url.User(redactedValue)
 		}
+
 		copyURL.RawQuery = redactValues(copyURL.Query(), false).Encode()
 	}
 	return copyURL.String()
@@ -119,6 +126,7 @@ func redactValues(values url.Values, showSensitive bool) url.Values {
 				result[key][i] = redactedValue
 				continue
 			}
+
 			result[key][i] = redactJSONString(entry, showSensitive)
 		}
 	}
@@ -138,22 +146,27 @@ func formatJSON(data []byte, showSensitive bool, limit int64) ([]byte, jsonDispl
 	if !utf8.Valid(data) {
 		return nil, jsonDisplayMeta{}, errors.New("JSON input is not valid UTF-8")
 	}
+
 	if err := validateJSONDepth(data); err != nil {
 		return nil, jsonDisplayMeta{}, err
 	}
+
 	output, err := newLimitedDisplayBuffer(limit, len(data))
 	if err != nil {
 		return nil, jsonDisplayMeta{}, err
 	}
+
 	formatter := jsonDisplayFormatter{
 		decoder:       json.NewDecoder(bytes.NewReader(data)),
 		output:        output,
 		showSensitive: showSensitive,
 	}
 	formatter.decoder.UseNumber()
+
 	if err := formatter.writeValue("", 0, false); err != nil {
 		return nil, jsonDisplayMeta{}, err
 	}
+
 	if _, err := formatter.decoder.Token(); !errors.Is(err, io.EOF) {
 		if err == nil {
 			return nil, jsonDisplayMeta{}, errors.New("multiple JSON values")
@@ -167,12 +180,14 @@ func validateJSONDepth(data []byte) error {
 	depth := 0
 	inString := false
 	escaped := false
+
 	for _, value := range data {
 		if inString {
 			if escaped {
 				escaped = false
 				continue
 			}
+
 			switch value {
 			case '\\':
 				escaped = true
@@ -181,6 +196,7 @@ func validateJSONDepth(data []byte) error {
 			}
 			continue
 		}
+
 		switch value {
 		case '"':
 			inString = true
@@ -200,12 +216,15 @@ func decodeJSON(data []byte) (any, error) {
 	if err := validateJSONDepth(data); err != nil {
 		return nil, err
 	}
+
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
+
 	var value any
 	if err := decoder.Decode(&value); err != nil {
 		return nil, err
 	}
+
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		if err == nil {
@@ -221,6 +240,7 @@ func formatValuesForDisplay(values url.Values, showSensitive bool, limit int64) 
 	if err != nil {
 		return nil, jsonDisplayMeta{}, err
 	}
+
 	formatter := valuesDisplayFormatter{
 		output:        output,
 		showSensitive: showSensitive,
@@ -244,11 +264,13 @@ func (f *valuesDisplayFormatter) writeValues(values url.Values) error {
 	for key := range values {
 		keys = append(keys, key)
 	}
+
 	sort.Strings(keys)
 
 	if err := f.output.writeByte('{'); err != nil {
 		return err
 	}
+
 	for i, key := range keys {
 		if i == 0 {
 			if err := f.output.writeByte('\n'); err != nil {
@@ -257,19 +279,24 @@ func (f *valuesDisplayFormatter) writeValues(values url.Values) error {
 		} else if err := f.output.writeString(",\n"); err != nil {
 			return err
 		}
+
 		if err := f.writeIndent(1); err != nil {
 			return err
 		}
+
 		if err := writeJSONString(f.output, strings.ToValidUTF8(key, "\uFFFD")); err != nil {
 			return err
 		}
+
 		if err := f.output.writeString(": "); err != nil {
 			return err
 		}
+
 		if err := f.writeEntries(key, values[key], 1); err != nil {
 			return err
 		}
 	}
+
 	if len(keys) > 0 {
 		if err := f.output.writeByte('\n'); err != nil {
 			return err
@@ -282,6 +309,7 @@ func (f *valuesDisplayFormatter) writeEntries(key string, entries []string, dept
 	if !f.showSensitive && sensitiveKey(key) {
 		return writeJSONString(f.output, redactedValue)
 	}
+
 	switch len(entries) {
 	case 0:
 		return f.output.writeString("[]")
@@ -289,6 +317,7 @@ func (f *valuesDisplayFormatter) writeEntries(key string, entries []string, dept
 		if normalizeKey(key) == "er" && truthy(entries[0]) {
 			f.meta.requestEncrypted = true
 		}
+
 		if strings.EqualFold(key, "url") {
 			f.meta.rootURL = entries[0]
 		}
@@ -302,6 +331,7 @@ func (f *valuesDisplayFormatter) writeArray(entries []string, depth int) error {
 	if err := f.output.writeByte('['); err != nil {
 		return err
 	}
+
 	for i, entry := range entries {
 		if i == 0 {
 			if err := f.output.writeByte('\n'); err != nil {
@@ -310,16 +340,20 @@ func (f *valuesDisplayFormatter) writeArray(entries []string, depth int) error {
 		} else if err := f.output.writeString(",\n"); err != nil {
 			return err
 		}
+
 		if err := f.writeIndent(depth + 1); err != nil {
 			return err
 		}
+
 		if err := f.writeString(entry); err != nil {
 			return err
 		}
 	}
+
 	if err := f.output.writeByte('\n'); err != nil {
 		return err
 	}
+
 	if err := f.writeIndent(depth); err != nil {
 		return err
 	}
@@ -330,6 +364,7 @@ func (f *valuesDisplayFormatter) writeString(value string) error {
 	if f.showSensitive && !utf8.ValidString(value) {
 		value = strings.ToValidUTF8(value, "\uFFFD")
 	}
+
 	redacted, nestedMeta := redactJSONStringWithMeta(value, f.showSensitive)
 	f.meta.requestEncrypted = f.meta.requestEncrypted || nestedMeta.requestEncrypted
 	return writeJSONString(f.output, redacted)
@@ -350,19 +385,23 @@ func (f *jsonDisplayFormatter) writeValue(key string, depth int, rootURL bool) e
 	if depth > maxJSONDisplayDepth {
 		return errJSONDepth
 	}
+
 	token, err := f.decoder.Token()
 	if err != nil {
 		return err
 	}
+
 	if !f.showSensitive && key != "" && sensitiveKey(key) {
 		if err := f.discardValue(token, depth); err != nil {
 			return err
 		}
 		return writeJSONString(f.output, redactedValue)
 	}
+
 	if normalizeKey(key) == "er" && truthy(token) {
 		f.meta.requestEncrypted = true
 	}
+
 	if rootURL {
 		if text, ok := token.(string); ok {
 			f.meta.rootURL = text
@@ -401,16 +440,20 @@ func (f *jsonDisplayFormatter) writeObject(depth int) error {
 	if err := f.output.writeByte('{'); err != nil {
 		return err
 	}
+
 	first := true
+
 	for f.decoder.More() {
 		keyToken, err := f.decoder.Token()
 		if err != nil {
 			return err
 		}
+
 		key, ok := keyToken.(string)
 		if !ok {
 			return errors.New("JSON object key is not a string")
 		}
+
 		if !first {
 			if err := f.output.writeString(",\n"); err != nil {
 				return err
@@ -420,31 +463,40 @@ func (f *jsonDisplayFormatter) writeObject(depth int) error {
 				return err
 			}
 		}
+
 		if err := f.writeIndent(depth + 1); err != nil {
 			return err
 		}
+
 		if err := writeJSONString(f.output, key); err != nil {
 			return err
 		}
+
 		if err := f.output.writeString(": "); err != nil {
 			return err
 		}
+
 		if err := f.writeValue(key, depth+1, depth == 0 && strings.EqualFold(key, "url")); err != nil {
 			return err
 		}
+
 		first = false
 	}
+
 	end, err := f.decoder.Token()
 	if err != nil {
 		return err
 	}
+
 	if end != json.Delim('}') {
 		return errors.New("JSON object is not terminated")
 	}
+
 	if !first {
 		if err := f.output.writeByte('\n'); err != nil {
 			return err
 		}
+
 		if err := f.writeIndent(depth); err != nil {
 			return err
 		}
@@ -456,6 +508,7 @@ func (f *jsonDisplayFormatter) writeArray(depth int) error {
 	if err := f.output.writeByte('['); err != nil {
 		return err
 	}
+
 	first := true
 	for f.decoder.More() {
 		if !first {
@@ -467,25 +520,32 @@ func (f *jsonDisplayFormatter) writeArray(depth int) error {
 				return err
 			}
 		}
+
 		if err := f.writeIndent(depth + 1); err != nil {
 			return err
 		}
+
 		if err := f.writeValue("", depth+1, false); err != nil {
 			return err
 		}
+
 		first = false
 	}
+
 	end, err := f.decoder.Token()
 	if err != nil {
 		return err
 	}
+
 	if end != json.Delim(']') {
 		return errors.New("JSON array is not terminated")
 	}
+
 	if !first {
 		if err := f.output.writeByte('\n'); err != nil {
 			return err
 		}
+
 		if err := f.writeIndent(depth); err != nil {
 			return err
 		}
@@ -497,28 +557,34 @@ func (f *jsonDisplayFormatter) discardValue(token json.Token, depth int) error {
 	if depth > maxJSONDisplayDepth {
 		return errJSONDepth
 	}
+
 	delimiter, ok := token.(json.Delim)
 	if !ok {
 		return nil
 	}
+
 	switch delimiter {
 	case '{':
 		for f.decoder.More() {
 			if _, err := f.decoder.Token(); err != nil {
 				return err
 			}
+
 			child, err := f.decoder.Token()
 			if err != nil {
 				return err
 			}
+
 			if err := f.discardValue(child, depth+1); err != nil {
 				return err
 			}
 		}
+
 		end, err := f.decoder.Token()
 		if err != nil {
 			return err
 		}
+
 		if end != json.Delim('}') {
 			return errors.New("JSON object is not terminated")
 		}
@@ -528,14 +594,17 @@ func (f *jsonDisplayFormatter) discardValue(token json.Token, depth int) error {
 			if err != nil {
 				return err
 			}
+
 			if err := f.discardValue(child, depth+1); err != nil {
 				return err
 			}
 		}
+
 		end, err := f.decoder.Token()
 		if err != nil {
 			return err
 		}
+
 		if end != json.Delim(']') {
 			return errors.New("JSON array is not terminated")
 		}
@@ -553,9 +622,12 @@ func writeJSONString(output *limitedDisplayBuffer, value string) error {
 	if err := output.writeByte('"'); err != nil {
 		return err
 	}
+
 	start := 0
+
 	for index, runeValue := range value {
 		var escaped string
+
 		switch runeValue {
 		case '\\':
 			escaped = `\\`
@@ -576,17 +648,22 @@ func writeJSONString(output *limitedDisplayBuffer, value string) error {
 				escaped = fmt.Sprintf(`\u%04x`, runeValue)
 			}
 		}
+
 		if escaped == "" {
 			continue
 		}
+
 		if err := output.writeString(value[start:index]); err != nil {
 			return err
 		}
+
 		if err := output.writeString(escaped); err != nil {
 			return err
 		}
+
 		start = index + utf8.RuneLen(runeValue)
 	}
+
 	if err := output.writeString(value[start:]); err != nil {
 		return err
 	}
@@ -608,9 +685,11 @@ func redactJSONStringWithMeta(value string, showSensitive bool) (string, jsonDis
 		}
 		return value, jsonDisplayMeta{}
 	}
+
 	if !utf8.ValidString(value) {
 		return unsafeTextPlaceholder, jsonDisplayMeta{}
 	}
+
 	trimmed := strings.TrimSpace(value)
 	if len(trimmed) >= 1 && (trimmed[0] == '{' || trimmed[0] == '[') {
 		// Nested JSON strings are common in NetEase request fields. Parse only a
@@ -618,26 +697,29 @@ func redactJSONStringWithMeta(value string, showSensitive bool) (string, jsonDis
 		if len(trimmed) > maxNestedJSONDisplayBytes {
 			return unsafeTextPlaceholder, jsonDisplayMeta{}
 		}
+
 		formatted, meta, err := formatJSONLimited([]byte(trimmed), false, maxNestedJSONDisplayBytes)
 		if err != nil {
 			return unsafeTextPlaceholder, jsonDisplayMeta{}
 		}
-		start := strings.Index(value, trimmed)
-		if start < 0 {
+
+		before, after, ok := strings.Cut(value, trimmed)
+		if !ok {
 			return string(formatted), meta
 		}
-		return value[:start] + string(formatted) + value[start+len(trimmed):], meta
+		return before + string(formatted) + after, meta
 	}
 
 	if strings.ContainsAny(trimmed, "?@") {
 		parsed, err := url.Parse(trimmed)
 		if err == nil && (parsed.RawQuery != "" || parsed.User != nil) {
 			redacted := redactURL(parsed, false)
-			start := strings.Index(value, trimmed)
-			if start < 0 {
+
+			before, after, ok := strings.Cut(value, trimmed)
+			if !ok {
 				return redacted, jsonDisplayMeta{}
 			}
-			return value[:start] + redacted + value[start+len(trimmed):], jsonDisplayMeta{}
+			return before + redacted + after, jsonDisplayMeta{}
 		}
 	}
 	return string(redactText([]byte(value), false)), jsonDisplayMeta{}
@@ -647,9 +729,11 @@ func redactText(value []byte, showSensitive bool) []byte {
 	if showSensitive || len(value) == 0 {
 		return append([]byte(nil), value...)
 	}
+
 	if !utf8.Valid(value) {
 		return []byte(unsafeTextPlaceholder)
 	}
+
 	redacted := sensitiveLine.ReplaceAll(value, []byte(`${1}`+redactedValue))
 	redacted = sensitiveInline.ReplaceAll(redacted, []byte(`${1}${2}`+redactedValue))
 	return redacted
@@ -659,9 +743,11 @@ func redactDiagnostic(value []byte, showSensitive bool) []byte {
 	if showSensitive || len(value) == 0 {
 		return append([]byte(nil), value...)
 	}
+
 	if !utf8.Valid(value) {
 		return []byte(unsafeTextPlaceholder)
 	}
+
 	redacted := diagnosticURL.ReplaceAllFunc(value, func(match []byte) []byte {
 		parsed, err := url.Parse(string(match))
 		if err != nil {
@@ -676,6 +762,7 @@ func safeBodyPlaceholder(limit int64, reason string) []byte {
 	if limit <= 0 {
 		return []byte{}
 	}
+
 	value := []byte("<" + reason + ">")
 	if int64(len(value)) <= limit {
 		return value
@@ -688,14 +775,17 @@ func safeBodyPlaceholder(limit int64, reason string) []byte {
 func escapeLogField(value string) string {
 	var buffer strings.Builder
 	buffer.Grow(len(value))
-	for len(value) > 0 {
+
+	for value != "" {
 		runeValue, size := utf8.DecodeRuneInString(value)
 		if runeValue == utf8.RuneError && size == 1 {
 			fmt.Fprintf(&buffer, `\x%02x`, value[0])
 			value = value[1:]
 			continue
 		}
+
 		value = value[size:]
+
 		switch runeValue {
 		case '\n':
 			buffer.WriteString(`\n`)
@@ -721,6 +811,7 @@ func sensitiveKey(key string) bool {
 	if normalized == "" {
 		return false
 	}
+
 	switch normalized {
 	case "authorization", "proxyauthorization", "cookie", "setcookie",
 		"password", "passwd", "pwd", "credential", "credentials", "secret",
@@ -746,6 +837,7 @@ func sensitiveKey(key string) bool {
 func normalizeKey(key string) string {
 	var builder strings.Builder
 	builder.Grow(len(key))
+
 	for _, r := range key {
 		r = unicode.ToLower(r)
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
@@ -760,6 +852,7 @@ func valuesRequestEncrypted(values url.Values) bool {
 		if normalizeKey(key) != "er" {
 			continue
 		}
+
 		for _, entry := range entries {
 			if truthy(entry) {
 				return true

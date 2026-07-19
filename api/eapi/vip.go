@@ -39,18 +39,19 @@ type VipTaskListData struct {
 	ButtonText      string `json:"buttonText"`
 }
 
-// VipTaskList 获取黑胶 VIP 任务列表
+// VipTaskList 获取黑胶 VIP 任务列表.
 func (a *Api) VipTaskList(ctx context.Context, req *VipTaskListReq) (*VipTaskListResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/eapi/vip-center-bff/task/list"
 		reply VipTaskListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -81,18 +82,19 @@ type VipTaskSignResp struct {
 	Message string `json:"message"`
 }
 
-// VipTaskSign 执行尊享 VIP 签到 (EAPI)
+// VipTaskSign 执行尊享 VIP 签到 (EAPI).
 func (a *Api) VipTaskSign(ctx context.Context, req *VipTaskSignReq) (*VipTaskSignResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/eapi/vip-center-bff/task/sign"
 		reply VipTaskSignResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -123,13 +125,14 @@ func (a *Api) VipSignInfo(ctx context.Context, req *VipSignInfoReq) (*VipSignInf
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/user/sign/info"
 		reply VipSignInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -162,13 +165,14 @@ func (a *Api) VipGrowPoint(ctx context.Context, req *VipGrowPointReq) (*VipGrowP
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/level/growhpoint/basic"
 		reply VipGrowPointResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -178,13 +182,14 @@ func (a *Api) VipOldSignPrizeList(ctx context.Context, req *VipCommonReq) (*VipC
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/level/user/checkin/old/sign-prize/list"
 		reply VipCommonResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -215,13 +220,14 @@ func (a *Api) VipMonthPrizeList(ctx context.Context, req *VipCommonReq) (*VipMon
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/level/user/checkin/month-prize/list"
 		reply VipMonthPrizeListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -231,19 +237,21 @@ func (a *Api) VipFrontInfo(ctx context.Context, req *VipCommonReq) (*VipCommonRe
 	var (
 		url   = "https://interface3.music.163.com/eapi/music-vip-membership/front/vip/info"
 		reply VipCommonResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type VipCheckinHistoryDetailReq struct {
 	VipCommonReq
+
 	SignDayTime int64 `json:"-"`
 	Type        int   `json:"-"`
 }
@@ -253,6 +261,7 @@ func (a *Api) VipCheckinHistoryDetail(ctx context.Context, req *VipCheckinHistor
 	if req.Type == 0 {
 		req.Type = 1
 	}
+
 	var (
 		url = fmt.Sprintf(
 			"https://interface3.music.163.com/eapi/vipnewcenter/app/level/user/checkin/history/detail?signDayTime=%d&type=%d",
@@ -260,13 +269,14 @@ func (a *Api) VipCheckinHistoryDetail(ctx context.Context, req *VipCheckinHistor
 			req.Type,
 		)
 		reply VipCommonResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -287,18 +297,19 @@ type VipRewardGetAllResp struct {
 	Message string `json:"message"`
 }
 
-// VipRewardGetAll 一键领取所有黑胶 VIP 成长值 (EAPI)
+// VipRewardGetAll 一键领取所有黑胶 VIP 成长值 (EAPI).
 func (a *Api) VipRewardGetAll(ctx context.Context, req *VipRewardGetAllReq) (*VipRewardGetAllResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/level/task/reward/getall"
 		reply VipRewardGetAllResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -315,18 +326,19 @@ type VipWelfareListResp struct {
 	Data any `json:"data"`
 }
 
-// VipWelfareList 获取会员等级福利列表 (EAPI)
+// VipWelfareList 获取会员等级福利列表 (EAPI).
 func (a *Api) VipWelfareList(ctx context.Context, req *VipWelfareListReq) (*VipWelfareListResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/level/welfare/new/list"
 		reply VipWelfareListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -348,18 +360,19 @@ type VipBenefitCategoryData struct {
 	BenefitGet bool   `json:"benefitGet"`
 }
 
-// VipBenefitCategoryList 获取分类下免费福利券列表
+// VipBenefitCategoryList 获取分类下免费福利券列表.
 func (a *Api) VipBenefitCategoryList(ctx context.Context, req *VipBenefitCategoryListReq) (*VipBenefitCategoryListResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/benefitcenter/benefits/category/list"
 		reply VipBenefitCategoryListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -378,24 +391,26 @@ type VipBenefitGetResp struct {
 	} `json:"result"`
 }
 
-// VipBenefitGet 领取免费商家福利券
+// VipBenefitGet 领取免费商家福利券.
 func (a *Api) VipBenefitGet(ctx context.Context, req *VipBenefitGetReq) (*VipBenefitGetResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipcenter/benefits/get"
 		reply VipBenefitGetResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type TrialsongListenReq struct {
 	types.EApiReqCommon
+
 	SongId  string `json:"songId"`
 	AlbumId string `json:"albumId"`
 	Scene   int    `json:"scene"`
@@ -407,18 +422,19 @@ type TrialsongListenResp struct {
 	Data    bool   `json:"data"`
 }
 
-// TrialsongListen 上报听歌状态（黑胶/小众歌曲打卡）
+// TrialsongListen 上报听歌状态（黑胶/小众歌曲打卡）.
 func (a *Api) TrialsongListen(ctx context.Context, req *TrialsongListenReq) (*TrialsongListenResp, error) {
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipmall/interest/trialsong/listen"
 		reply TrialsongListenResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

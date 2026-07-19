@@ -30,7 +30,7 @@ type TopNewSongsResp struct {
 	types.RespCommon[[]TopNewSongsRespData]
 }
 
-// MusicQuality 和 type.Quality 类似
+// MusicQuality 和 type.Quality 类似.
 type MusicQuality struct {
 	Bitrate     int64   `json:"bitrate"`
 	DfsId       int     `json:"dfsId"`
@@ -201,7 +201,7 @@ type TopNewSongsRespData struct {
 
 // TopNewSongs 新歌榜(新歌速递)
 // url:
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) TopNewSongs(ctx context.Context, req *TopNewSongsReq) (*TopNewSongsResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/v1/discovery/new/songs"
@@ -213,6 +213,7 @@ func (a *Api) TopNewSongs(ctx context.Context, req *TopNewSongsReq) (*TopNewSong
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -221,6 +222,7 @@ type TopListReq struct{}
 
 type TopListResp struct {
 	types.RespCommon[any]
+
 	List []TopListRespList `json:"list"`
 }
 
@@ -275,19 +277,19 @@ type TopListRespList struct {
 
 // TopList 排行榜列表,里面包含 飙升榜、热歌榜、新歌榜、原创榜.等等
 // url: https://music.163.com/#/discover/toplist
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) TopList(ctx context.Context, req *TopListReq) (*TopListResp, error) {
 	var (
 		url   = "https://music.163.com/api/toplist"
 		reply TopListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeAPI()
 	)
 
-	opts.CryptoMode = api.CryptoModeAPI
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

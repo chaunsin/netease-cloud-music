@@ -57,6 +57,7 @@ func (b *Badger) Set(ctx context.Context, key, value string, ttl ...time.Duratio
 
 func (b *Badger) Get(ctx context.Context, key string) (string, error) {
 	var resp string
+
 	if err := b.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
@@ -87,28 +88,32 @@ func (b *Badger) Exists(ctx context.Context, key string) (bool, error) {
 // TODO:
 // 1.目前badger得过期时间是使用本地时区时间,因此上游设置时间同样也需要使用本地时区时间,不然会造成不符合预期结果。
 // 2.由于badger支持有限,因此在设置过期时间后,更新操作需要每次自己计算过期时间,如果不指定过期时间则相当移除了过期时间。
-// 3.是否存在并发问题有待商榷
+// 3.是否存在并发问题有待商榷.
 func (b *Badger) Increment(ctx context.Context, key string, value int64, ttl ...time.Duration) (int64, error) {
 	var oldValue int64
+
 	err := b.db.Update(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
-		if errors.Is(err, badger.ErrKeyNotFound) {
+		switch {
+		case errors.Is(err, badger.ErrKeyNotFound):
 			// continue
-		} else if err != nil {
+		case err != nil:
 			return err
-		} else {
+		default:
 			v, err := item.ValueCopy(nil)
 			if err != nil {
 				return fmt.Errorf("ValueCopy: %w", err)
 			}
+
 			oldValue, err = strconv.ParseInt(string(v), 10, 64)
 			if err != nil {
 				return fmt.Errorf("ParseInt: %w", err)
 			}
+
 			value += oldValue
 		}
 
-		entry := badger.NewEntry([]byte(key), []byte(fmt.Sprintf("%v", value)))
+		entry := badger.NewEntry([]byte(key), []byte(strconv.FormatInt(value, 10)))
 		if len(ttl) > 0 && ttl[0] > 0 {
 			entry.WithTTL(ttl[0])
 		}

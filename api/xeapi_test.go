@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	neturl "net/url"
 	"path/filepath"
 	"testing"
 	"time"
@@ -17,8 +18,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	neturl "net/url"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
 	ncmcrypto "github.com/chaunsin/netease-cloud-music/pkg/crypto"
@@ -65,7 +64,8 @@ func TestRewriteXeapiURL(t *testing.T) {
 				assert.Error(t, err)
 				return
 			}
-			assert.NoError(t, err)
+
+			require.NoError(t, err)
 			assert.Equal(t, tt.wantEnvelope, envelopeURL)
 			assert.Equal(t, tt.wantRequest, requestURL)
 		})
@@ -74,11 +74,11 @@ func TestRewriteXeapiURL(t *testing.T) {
 
 func TestRawTimestampString(t *testing.T) {
 	got, err := rawTimestampString(json.RawMessage(`1779955010033`))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "1779955010033", got)
 
 	got, err = rawTimestampString(json.RawMessage(`"1779955010033"`))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "1779955010033", got)
 
 	_, err = rawTimestampString(json.RawMessage(`{}`))
@@ -90,11 +90,11 @@ func TestGetDeviceIdReadsXeapiDomain(t *testing.T) {
 		cookie.WithSyncInterval(0),
 		cookie.WithFilePath(filepath.Join(t.TempDir(), "cookie.json")),
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	client := &Client{cookie: jar}
 	uri, err := neturl.Parse("https://interface.music.163.com")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	client.SetCookies(uri, []*http.Cookie{{Name: "deviceId", Value: "xeapi-device-id"}})
 
 	assert.Equal(t, "xeapi-device-id", client.GetDeviceId())
@@ -105,8 +105,8 @@ func TestUpdateXeapiSessionReadsIssue174Header(t *testing.T) {
 	response := &resty.Response{
 		RawResponse: &http.Response{Header: http.Header{}},
 	}
-	response.RawResponse.Header.Set("x-encr-ssid", "session-id")
-	response.RawResponse.Header.Set("x-encr-sskey", "0123456789abcdef0123456789abcdef")
+	response.RawResponse.Header.Set("X-Encr-Ssid", "session-id")
+	response.RawResponse.Header.Set("X-Encr-Sskey", "0123456789abcdef0123456789abcdef")
 
 	client.updateXeapiSession(response)
 
@@ -117,12 +117,16 @@ func TestUpdateXeapiSessionReadsIssue174Header(t *testing.T) {
 func TestXeapiRequestSetsEncryptedAppHeaders(t *testing.T) {
 	oldLogger := log.Default
 	log.Default = log.New(nil)
+
 	t.Cleanup(func() {
 		log.Default = oldLogger
 	})
 
-	var capturedHeader http.Header
-	var capturedHost string
+	var (
+		capturedHeader http.Header
+		capturedHost   string
+	)
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedHeader = r.Header.Clone()
 		capturedHost = r.Host
@@ -142,22 +146,28 @@ func TestXeapiRequestSetsEncryptedAppHeaders(t *testing.T) {
 		},
 	}, log.Default)
 	require.NoError(t, err)
-	defer client.Close(context.Background())
+
+	t.Cleanup(func() {
+		require.NoError(t, client.Close(context.Background()))
+	})
+
 	client.xeapiKey = ncmcrypto.PublicKeyState{
 		PublicKey: "3m5wN9om11qRESjEV+5EoFf9qLEylO6gyThMbl1XxEk=",
 		Version:   "1000000000000",
 		SK:        "8PZfbIFA1779944463972",
 	}
 
-	opts := NewOptions()
-	opts.CryptoMode = CryptoModeXEAPI
+	opts := NewOptions().SetCryptoModeXEAPI()
+
 	var reply map[string]any
+
 	_, err = client.Request(context.Background(), server.URL+"/eapi/song/detail?id=1", map[string]string{"id": "1"}, &reply, opts)
 	require.NoError(t, err)
 
 	assert.Equal(t, "ENCRYPTED", capturedHeader.Get("X-Client-Enc-State"))
 	assert.Equal(t, defaultXeapiUserAgent, capturedHeader.Get("User-Agent"))
 	assert.Equal(t, "application/x-www-form-urlencoded", capturedHeader.Get("Content-Type"))
+
 	serverURL, err := neturl.Parse(server.URL)
 	require.NoError(t, err)
 	assert.Equal(t, serverURL.Host, capturedHost)
@@ -168,8 +178,10 @@ func encryptLegacyEapiResponse(t *testing.T, plaintext []byte) []byte {
 
 	block, err := aes.NewCipher([]byte("e82ckenh8dichen8"))
 	require.NoError(t, err)
+
 	padding := block.BlockSize() - len(plaintext)%block.BlockSize()
 	padded := append(append([]byte(nil), plaintext...), bytes.Repeat([]byte{byte(padding)}, padding)...)
+
 	ciphertext := make([]byte, len(padded))
 	for i := 0; i < len(padded); i += block.BlockSize() {
 		block.Encrypt(ciphertext[i:i+block.BlockSize()], padded[i:i+block.BlockSize()])

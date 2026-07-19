@@ -21,12 +21,14 @@ func TestDefaultDomains(t *testing.T) {
 		"netease.com",
 		"acstatic-dun.126.net",
 	}
+
 	got := DefaultDomains()
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("DefaultDomains() = %#v, want %#v", got, want)
 	}
 
 	got[0] = "changed.example"
+
 	if DefaultDomains()[0] != want[0] {
 		t.Fatal("DefaultDomains returned mutable package state")
 	}
@@ -78,6 +80,7 @@ func TestNewHostMatcherNormalizesAndDeduplicatesDomains(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newHostMatcher() error = %v", err)
 	}
+
 	if want := []string{"music.163.com", "look.163.com"}; !reflect.DeepEqual(matcher.domains, want) {
 		t.Fatalf("domains = %#v, want %#v", matcher.domains, want)
 	}

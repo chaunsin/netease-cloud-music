@@ -10,7 +10,8 @@ import (
 	"crypto/cipher"
 	"crypto/ecdh"
 	"crypto/hmac"
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec // NetEase EAPI and cache formats require MD5 for protocol compatibility.
+	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
@@ -22,13 +23,10 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"math/rand"
 	"mime"
 	"net/http"
 	"net/url"
 	"strings"
-
-	cryptorand "crypto/rand"
 )
 
 const (
@@ -59,12 +57,21 @@ func mustDecodeHex(s string) []byte {
 	return data
 }
 
-func randomKey() string {
-	var buffer bytes.Buffer
-	for range 16 {
-		buffer.WriteByte(base62[rand.Int63n(62)])
+func randomKey() (string, error) {
+	var (
+		alphabetSize = big.NewInt(int64(len(base62)))
+		key          = make([]byte, aes.BlockSize)
+	)
+
+	for i := range key {
+		index, err := cryptorand.Int(cryptorand.Reader, alphabetSize)
+		if err != nil {
+			return "", fmt.Errorf("rand.Int: %w", err)
+		}
+
+		key[i] = base62[index.Int64()]
 	}
-	return buffer.String()
+	return string(key), nil
 }
 
 func reverseString(str string) string {
@@ -75,9 +82,13 @@ func reverseString(str string) string {
 	return string(runes)
 }
 
-func digest(url, data string) string {
-	message := fmt.Sprintf(eApiSlat, url, data)
-	return fmt.Sprintf("%x", md5.Sum([]byte(message)))
+func digest(requestURL, data string) string {
+	message := fmt.Sprintf(eApiSlat, requestURL, data)
+	return fmt.Sprintf("%x", legacyMD5([]byte(message)))
+}
+
+func legacyMD5(data []byte) [md5.Size]byte {
+	return md5.Sum(data) //nolint:gosec // This helper is used only by legacy NetEase wire formats.
 }
 
 // aesEncrypt 加密.
@@ -94,6 +105,7 @@ func aesEncrypt(text, key, iv, mode, format string) (string, error) {
 	}
 
 	var cipherText []byte
+
 	switch mode {
 	case "cbc":
 		cipherText = AesEncryptCBC(block, padding, []byte(iv))
@@ -124,6 +136,7 @@ func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 	}
 
 	var data []byte
+
 	switch format {
 	case "base64":
 		data, err = base64.StdEncoding.DecodeString(cipherText)
@@ -134,11 +147,13 @@ func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("%s unknown format", format)
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("format: %w", err)
 	}
 
 	var text []byte
+
 	switch mode {
 	case "cbc":
 		// 这里不需要Pkcs7UnPadding?
@@ -148,6 +163,7 @@ func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("%s unknown mode", mode)
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("mode: %w", err)
 	}
@@ -172,6 +188,7 @@ func AesDecryptCBC(block cipher.Block, cipherText, iv []byte) ([]byte, error) {
 	if len(iv) != block.BlockSize() {
 		return nil, fmt.Errorf("IV length must be %d bytes", block.BlockSize())
 	}
+
 	if len(cipherText)%block.BlockSize() != 0 {
 		return nil, errors.New("cipherText length is not a multiple of block size")
 	}
@@ -185,6 +202,7 @@ func AesDecryptCBC(block cipher.Block, cipherText, iv []byte) ([]byte, error) {
 // AesEncryptECB 加密.
 func AesEncryptECB(block cipher.Block, plaintext []byte) []byte {
 	ciphertext := make([]byte, len(plaintext))
+
 	blockSize := block.BlockSize()
 	for i := 0; i < len(plaintext); i += blockSize {
 		block.Encrypt(ciphertext[i:i+blockSize], plaintext[i:i+blockSize])
@@ -197,6 +215,7 @@ func AesDecryptECB(block cipher.Block, cipherBytes []byte) ([]byte, error) {
 	if len(cipherBytes)%block.BlockSize() != 0 {
 		return nil, errors.New("cipherBytes length is not a multiple of block size")
 	}
+
 	decrypted := make([]byte, len(cipherBytes))
 	for i := 0; i < len(cipherBytes); i += block.BlockSize() {
 		block.Decrypt(decrypted[i:i+block.BlockSize()], cipherBytes[i:i+block.BlockSize()])
@@ -210,10 +229,12 @@ func RsaEncrypt(ciphertext, key string) (string, error) {
 	if block == nil {
 		return "", errors.New("failed to parse PEM block containing the public key")
 	}
+
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		return "", fmt.Errorf("ParsePKIXPublicKey: %w", err)
 	}
+
 	pubKey, ok := pub.(*rsa.PublicKey)
 	if !ok {
 		return "", errors.New("failed to parse DER encoded public key")
@@ -270,15 +291,22 @@ func WeApiEncrypt(object any) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	secretKey := randomKey()
+
+	secretKey, err := randomKey()
+	if err != nil {
+		return nil, fmt.Errorf("randomKey: %w", err)
+	}
+
 	encryptText, err := aesEncrypt(string(data), presetKey, iv, "cbc", "base64")
 	if err != nil {
 		return nil, fmt.Errorf("aesEncrypt: %w", err)
 	}
+
 	params, err := aesEncrypt(encryptText, secretKey, iv, "cbc", "base64")
 	if err != nil {
 		return nil, fmt.Errorf("aesEncrypt: %w", err)
 	}
+
 	encSecKey, err := RsaEncrypt(reverseString(secretKey), publicKey)
 	if err != nil {
 		return nil, fmt.Errorf("RsaEncrypt: %w", err)
@@ -300,6 +328,7 @@ func LinuxApiEncrypt(object any) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	ciphertext, err := aesEncrypt(string(data), linuxApiKey, "", "ecb", "hex")
 	if err != nil {
 		return nil, fmt.Errorf("aesEncrypt: %w", err)
@@ -318,17 +347,18 @@ func LinuxApiDecrypt(cipherText string) ([]byte, error) {
 
 // EApiEncrypt 加密
 // 通常在MAC、windows、android、ios中使用
-// todo: 貌似当url为空时存在问题,网易接口加密返回中有不带url的情况，
+// Pending: 貌似当url为空时存在问题,网易接口加密返回中有不带url的情况，
 // 例如: DCC52B3013E9B66C038F8E027E580ECEDF84E0F44CB93FC365BED7B646A9BC08 .
-func EApiEncrypt(url string, object any) (map[string]string, error) {
+func EApiEncrypt(requestURL string, object any) (map[string]string, error) {
 	// 需要替换路由地址,不然会出现接口未找到错误
-	url = strings.Replace(url, "eapi", "api", 1)
+	requestURL = strings.Replace(requestURL, "eapi", "api", 1)
+
 	data, err := json.Marshal(object)
 	if err != nil {
 		return nil, err
 	}
 
-	text := fmt.Sprintf(eApiFormat, url, string(data), digest(url, string(data)))
+	text := fmt.Sprintf(eApiFormat, requestURL, string(data), digest(requestURL, string(data)))
 	// fmt.Println("payload:", text)
 
 	ciphertext, err := aesEncrypt(text, eApiKey, "", "ecb", "HEX")
@@ -353,10 +383,12 @@ func CacheKeyEncrypt(data string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("NewCipher: %w", err)
 	}
+
 	padding, err := Pkcs7Padding([]byte(data), block.BlockSize())
 	if err != nil {
 		return "", fmt.Errorf("Pkcs7Padding: %w", err)
 	}
+
 	encrypted := AesEncryptECB(block, padding)
 	return base64.StdEncoding.EncodeToString(encrypted), nil
 }
@@ -367,14 +399,17 @@ func CacheKeyDecrypt(data string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	block, err := aes.NewCipher([]byte(cacheKey))
 	if err != nil {
 		return "", fmt.Errorf("NewCipher: %w", err)
 	}
+
 	decrypted, err := AesDecryptECB(block, encrypted)
 	if err != nil {
 		return "", fmt.Errorf("AesDecryptECB: %w", err)
 	}
+
 	plaintext, err := Pkcs7UnPadding(decrypted)
 	if err != nil {
 		return "", fmt.Errorf("Pkcs7UnPadding: %w", err)
@@ -382,11 +417,10 @@ func CacheKeyDecrypt(data string) (string, error) {
 	return string(plaintext), nil
 }
 
-// HexDigest .
+// HexDigest returns the lowercase MD5 digest of text.
 func HexDigest(text string) string {
-	hasher := md5.New()
-	hasher.Write([]byte(text))
-	return hex.EncodeToString(hasher.Sum(nil))
+	digest := legacyMD5([]byte(text))
+	return hex.EncodeToString(digest[:])
 }
 
 // DLLEncodeID
@@ -404,9 +438,8 @@ func DLLEncodeID(someID string) (string, error) {
 	}
 
 	// 计算MD5哈希+Base64编码
-	hasher := md5.New()
-	hasher.Write(xor)
-	return base64.URLEncoding.EncodeToString(hasher.Sum(nil)), nil
+	digest := legacyMD5(xor)
+	return base64.URLEncoding.EncodeToString(digest[:]), nil
 }
 
 // Anonymous 匿名用户生成.
@@ -425,9 +458,10 @@ func Anonymous(deviceId string) (string, error) {
 // xeapi implements the algorithm documented in
 // https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced/issues/174.
 var (
-	ErrPublicKeyMissing = errors.New("xeapi public key is missing")
-	ErrServerKeyMissing = errors.New("xeapi server key is missing")
-	ErrSessionKeyLength = errors.New("xeapi session key length is invalid")
+	ErrEncryptRequestMissing = errors.New("xeapi encrypt request is missing")
+	ErrPublicKeyMissing      = errors.New("xeapi public key is missing")
+	ErrServerKeyMissing      = errors.New("xeapi server key is missing")
+	ErrSessionKeyLength      = errors.New("xeapi session key length is invalid")
 )
 
 const (
@@ -490,7 +524,7 @@ type xeapiPlaintextEnvelope struct {
 	QueryString string  `json:"queryString,omitempty"`
 }
 
-func buildPlaintextEnvelope(req EncryptRequest) ([]byte, error) {
+func buildPlaintextEnvelope(req *EncryptRequest) ([]byte, error) {
 	queryString, err := xeapiQueryString(req.URI)
 	if err != nil {
 		return nil, fmt.Errorf("xeapiQueryString: %w", err)
@@ -505,6 +539,7 @@ func buildPlaintextEnvelope(req EncryptRequest) ([]byte, error) {
 	if method == "" {
 		method = http.MethodPost
 	}
+
 	if method == http.MethodPost {
 		method = ""
 	}
@@ -519,10 +554,12 @@ func buildPlaintextEnvelope(req EncryptRequest) ([]byte, error) {
 		ContentType: contentType,
 		QueryString: queryString,
 	}
+
 	if hasBody {
 		encodedBody := base64.StdEncoding.EncodeToString(body)
 		envelope.Body = &encodedBody
 	}
+
 	data, err := json.Marshal(envelope)
 	if err != nil {
 		return nil, fmt.Errorf("json.Marshal xeapi plaintext envelope: %w", err)
@@ -534,6 +571,7 @@ func xeapiQueryString(rawURI string) (string, error) {
 	if strings.TrimSpace(rawURI) == "" {
 		return "", errors.New("xeapi uri is empty")
 	}
+
 	uri, err := url.Parse(rawURI)
 	if err != nil {
 		return "", fmt.Errorf("url.Parse xeapi uri: %w", err)
@@ -547,11 +585,12 @@ func xeapiQueryString(rawURI string) (string, error) {
 	return rawQuery + "&e_r=true", nil
 }
 
-func xeapiBody(req EncryptRequest) ([]byte, bool, error) {
+func xeapiBody(req *EncryptRequest) ([]byte, bool, error) {
 	if req.Body != nil {
 		// Body 用于已经有完整原始请求体的场景，避免重新编码导致字节序或转义方式变化。
 		return append([]byte(nil), req.Body...), true, nil
 	}
+
 	if req.Data == nil {
 		return nil, false, nil
 	}
@@ -577,11 +616,13 @@ func isDefaultXeapiContentType(contentType string) bool {
 	if contentType == "" {
 		return true
 	}
+
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil {
 		mediaType, _, _ = strings.Cut(strings.TrimSpace(contentType), ";")
 		mediaType = strings.TrimSpace(mediaType)
 	}
+
 	defaultMediaType, _, _ := mime.ParseMediaType(xeapiDefaultContentType)
 	return strings.EqualFold(mediaType, defaultMediaType)
 }
@@ -641,6 +682,7 @@ func jsonFormValues(data any) (url.Values, error) {
 	if err != nil {
 		return nil, fmt.Errorf("json.Marshal xeapi data: %w", err)
 	}
+
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(payload, &fields); err != nil {
 		return nil, fmt.Errorf("json.Unmarshal xeapi data: %w", err)
@@ -652,6 +694,7 @@ func jsonFormValues(data any) (url.Values, error) {
 		if err != nil {
 			return nil, fmt.Errorf("format xeapi form value %q: %w", key, err)
 		}
+
 		values.Set(key, text)
 	}
 	return values, nil
@@ -662,6 +705,7 @@ func rawFormValue(raw json.RawMessage) (string, error) {
 	if err := json.Unmarshal(raw, &text); err == nil {
 		return text, nil
 	}
+
 	if !json.Valid(raw) {
 		return "", errors.New("invalid json value")
 	}
@@ -669,10 +713,15 @@ func rawFormValue(raw json.RawMessage) (string, error) {
 }
 
 // XeapiEncrypt 将原始 API 请求封装为 xeapi 的 B/S/R 表单参数。
-func XeapiEncrypt(req EncryptRequest, publicKey PublicKeyState, session Session) (map[string]string, error) {
+func XeapiEncrypt(req *EncryptRequest, publicKey PublicKeyState, session Session) (map[string]string, error) {
+	if req == nil {
+		return nil, ErrEncryptRequestMissing
+	}
+
 	if strings.TrimSpace(publicKey.PublicKey) == "" {
 		return nil, ErrPublicKeyMissing
 	}
+
 	if strings.TrimSpace(publicKey.SK) == "" {
 		return nil, ErrServerKeyMissing
 	}
@@ -686,6 +735,7 @@ func XeapiEncrypt(req EncryptRequest, publicKey PublicKeyState, session Session)
 	if err != nil {
 		return nil, fmt.Errorf("encrypt plaintext envelope: %w", err)
 	}
+
 	mid, err := midTransform(inner)
 	if err != nil {
 		return nil, fmt.Errorf("midTransform: %w", err)
@@ -705,6 +755,7 @@ func XeapiEncrypt(req EncryptRequest, publicKey PublicKeyState, session Session)
 	if osName == "" {
 		osName = defaultOS
 	}
+
 	s, err := encryptS(dynamicKey, publicKey, osName)
 	if err != nil {
 		return nil, fmt.Errorf("encryptS: %w", err)
@@ -727,14 +778,17 @@ func XeapiDecryptPublicKey(encryptedData string) (*PublicKeyState, error) {
 	if err != nil {
 		return nil, fmt.Errorf("base64.DecodeString public key: %w", err)
 	}
+
 	plaintext, err := aesECBDecrypt(xeapiStaticKey, ciphertext)
 	if err != nil {
 		return nil, fmt.Errorf("decrypt public key: %w", err)
 	}
+
 	var state PublicKeyState
 	if err := json.Unmarshal(plaintext, &state); err != nil {
 		return nil, fmt.Errorf("json.Unmarshal public key: %w", err)
 	}
+
 	if strings.TrimSpace(state.PublicKey) == "" {
 		return nil, ErrPublicKeyMissing
 	}
@@ -747,16 +801,22 @@ func XeapiDecryptResponse(body []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("aesECBDecrypt: %w", err)
 	}
+
 	if len(plaintext) >= 2 && plaintext[0] == 0x1f && plaintext[1] == 0x8b {
 		r, err := gzip.NewReader(bytes.NewReader(plaintext))
 		if err != nil {
 			return nil, fmt.Errorf("gzip.NewReader: %w", err)
 		}
-		defer r.Close()
 
-		data, err := io.ReadAll(r)
-		if err != nil {
-			return nil, fmt.Errorf("gzip.ReadAll: %w", err)
+		data, readErr := io.ReadAll(r)
+
+		closeErr := r.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("gzip.ReadAll: %w", errors.Join(readErr, closeErr))
+		}
+
+		if closeErr != nil {
+			return nil, fmt.Errorf("gzip.Close: %w", closeErr)
 		}
 		return data, nil
 	}
@@ -768,6 +828,7 @@ func aesECBEncrypt(key, plaintext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("aes.NewCipher: %w", err)
 	}
+
 	padded, err := Pkcs7Padding(plaintext, block.BlockSize())
 	if err != nil {
 		return nil, fmt.Errorf("Pkcs7Padding: %w", err)
@@ -780,6 +841,7 @@ func aesECBDecrypt(key, ciphertext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("aes.NewCipher: %w", err)
 	}
+
 	decrypted, err := AesDecryptECB(block, ciphertext)
 	if err != nil {
 		return nil, err
@@ -811,6 +873,7 @@ func midTransform(ciphertext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("crypto.Read mid random: %w", err)
 	}
+
 	xored := make([]byte, len(ciphertext))
 	for i := range ciphertext {
 		xored[i] = ciphertext[i] ^ random[i&0x0f]
@@ -838,21 +901,26 @@ func encryptS(dynamicKey []byte, publicKey PublicKeyState, os string) ([]byte, e
 	}
 
 	curve := ecdh.X25519()
+
 	peer, err := curve.NewPublicKey(peerRaw)
 	if err != nil {
 		return nil, fmt.Errorf("x25519 peer public key: %w", err)
 	}
+
 	privateKey, err := xeapiGenerateX25519Key(curve)
 	if err != nil {
 		return nil, fmt.Errorf("x25519 generate key: %w", err)
 	}
+
 	ephemeralRaw := privateKey.PublicKey().Bytes()
+
 	sharedSecret, err := privateKey.ECDH(peer)
 	if err != nil {
 		return nil, fmt.Errorf("x25519 ECDH: %w", err)
 	}
 
 	plaintext := []byte(base64.StdEncoding.EncodeToString(dynamicKey) + "|" + os + "|" + publicKey.SK)
+
 	iv, err := xeapiRandomBytes(12)
 	if err != nil {
 		return nil, fmt.Errorf("cryptorand gcm iv: %w", err)
@@ -864,10 +932,12 @@ func encryptS(dynamicKey []byte, publicKey PublicKeyState, os string) ([]byte, e
 	if err != nil {
 		return nil, fmt.Errorf("aes.NewCipher S: %w", err)
 	}
+
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, fmt.Errorf("cipher.NewGCM: %w", err)
 	}
+
 	encrypted := gcm.Seal(nil, iv, plaintext, nil)
 
 	out := make([]byte, 0, len(ephemeralRaw)+len(iv)+len(encrypted))
@@ -881,6 +951,7 @@ func deriveX25519AESKey(sharedSecret, ephemeralPublicKey []byte) []byte {
 	if len(sharedSecret) == 0 {
 		sharedSecret = make([]byte, 32)
 	}
+
 	prkMAC := hmac.New(sha256.New, make([]byte, 32))
 	prkMAC.Write(sharedSecret)
 	prk := prkMAC.Sum(nil)

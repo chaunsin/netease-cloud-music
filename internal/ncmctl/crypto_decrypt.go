@@ -8,6 +8,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -16,9 +17,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	har "github.com/chaunsin/go-har"
+	"github.com/spf13/cobra"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
@@ -64,9 +64,11 @@ func (c *decryptCmd) execute(_ context.Context, args []string) error {
 	if c.encode != "string" && c.encode != "base64" && c.encode != "hex" {
 		return fmt.Errorf("%s is unknown encode", c.encode)
 	}
-	if len(args) <= 0 {
-		return fmt.Errorf("nothing was entered")
+
+	if len(args) == 0 {
+		return errors.New("nothing was entered")
 	}
+
 	input = args[0]
 
 	if utils.IsFile(input) {
@@ -74,26 +76,32 @@ func (c *decryptCmd) execute(_ context.Context, args []string) error {
 		if err != nil {
 			return fmt.Errorf("ReadFile: %w", err)
 		}
+
 		if filepath.Ext(input) == ".har" {
-			list, err := c.parseHar(data)
-			if err != nil {
-				return fmt.Errorf("parseHar: %w", err)
+			list, parseErr := c.parseHar(data)
+			if parseErr != nil {
+				return fmt.Errorf("parseHar: %w", parseErr)
 			}
-			log.Debug("parseHar data: %+v", list)
+
+			log.Debugf("parseHar data: %+v", list)
+
 			for i := range list {
-				if err := c.decryptReq(&list[i], "hex"); err != nil {
-					return fmt.Errorf("decryptReq: %w", err)
+				if decryptErr := c.decryptReq(&list[i], "hex"); decryptErr != nil {
+					return fmt.Errorf("decryptReq: %w", decryptErr)
 				}
-				if err := c.decryptRes(&list[i], ""); err != nil {
-					return fmt.Errorf("decryptRes: %w", err)
+
+				if decryptErr := c.decryptRes(&list[i], ""); decryptErr != nil {
+					return fmt.Errorf("decryptRes: %w", decryptErr)
 				}
 			}
-			content, err := json.MarshalIndent(list, "", "  ")
-			if err != nil {
-				return err
+
+			content, marshalErr := json.MarshalIndent(list, "", "  ")
+			if marshalErr != nil {
+				return marshalErr
 			}
 			return writeFile(c.cmd, opts.Output, content) // 执行结束
 		}
+
 		input = string(data)
 	}
 
@@ -122,8 +130,9 @@ func (c *decryptCmd) execute(_ context.Context, args []string) error {
 
 func (c *decryptCmd) decryptReq(p *Payload, encode string) error {
 	if p == nil || p.Request.Ciphertext == "" {
-		return fmt.Errorf("request chiphertext is nil or empty")
+		return errors.New("request chiphertext is nil or empty")
 	}
+
 	switch p.Kind {
 	case "eapi":
 		{
@@ -146,6 +155,7 @@ func (c *decryptCmd) decryptReq(p *Payload, encode string) error {
 			} else {
 				payload = str
 			}
+
 			p.Request.RawPlaintext = str
 			p.Request.Plaintext = []byte(payload)
 		}
@@ -163,9 +173,10 @@ func (c *decryptCmd) decryptReq(p *Payload, encode string) error {
 
 func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 	if p == nil || p.Response.Ciphertext == "" {
-		return fmt.Errorf("response chiphertext is nil or empty")
+		return errors.New("response chiphertext is nil or empty")
 	}
-	log.Debug("[decryptRes] response: %+v", p.Response)
+
+	log.Debugf("[decryptRes] response: %+v", p.Response)
 
 	switch p.Kind {
 	case "eapi":
@@ -181,7 +192,7 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 				// 如果根据标识分隔成3段则说明此数据是包含url和digest摘要形式拼接的数据,反之是结构体数据
 				value = strings.Split(str, "-36cd479b6b5-")
 			)
-			log.Debug("[decryptRes] EApiDecrypt: %s", string(data))
+			log.Debugf("[decryptRes] EApiDecrypt: %s", string(data))
 
 			// 当请返回的内容content-encoding: br时,返回的内容是加密后的需要gzip在次解析,简单来说就是解密流程是这样
 			// 1. br解压缩
@@ -192,12 +203,14 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 				if err != nil {
 					return fmt.Errorf("gzip.NewReader: %w", err)
 				}
+
 				gdata, err := io.ReadAll(gr)
 				if err != nil {
 					return fmt.Errorf("ReadAll: %w", err)
 				}
+
 				str = string(gdata)
-				log.Debug("[decryptRes] gzip.NewReader: %s", str)
+				log.Debugf("[decryptRes] gzip.NewReader: %s", str)
 			}
 
 			if len(value) == 3 {
@@ -205,6 +218,7 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 			} else {
 				payload = str
 			}
+
 			p.Response.Plaintext = []byte(payload)
 		}
 	case "weapi":
@@ -224,9 +238,11 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 	if err != nil {
 		return nil, fmt.Errorf("NewReader: %w", err)
 	}
+
 	if h.EntryTotal() <= 0 {
-		return nil, fmt.Errorf("request data is empty")
+		return nil, errors.New("request data is empty")
 	}
+
 	resp := make([]Payload, 0, h.EntryTotal())
 	for _, entry := range h.Export().Log.Entries {
 		var (
@@ -240,17 +256,24 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 			return nil, fmt.Errorf("Parse: %w", err)
 		}
 		// 如果地址不匹配则跳过
-		if !isMatch(c.url, _url.Path) {
+		matched, err := isMatch(c.url, _url.Path)
+		if err != nil {
+			return nil, fmt.Errorf("match URL path: %w", err)
+		}
+
+		if !matched {
 			continue
 		}
 
 		value := strings.Split(_url.Path, "/")
+
 		var kind string
 		if len(value) >= 2 {
 			// 如果地址是这样 https://music.163.com/api/eapi/nos/token/alloc 则返回eapi
 			kind = value[1]
 			for _, v := range value {
 				var found bool
+
 				switch v {
 				case "eapi":
 					kind = v
@@ -259,13 +282,15 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 					kind = v
 					found = true
 				}
+
 				if found {
 					break
 				}
 			}
+
 			item.Kind = kind
 		} else {
-			log.Warn("request url invalid: %s", _url.Path)
+			log.Warnf("request url invalid: %s", _url.Path)
 			// 如果没有匹配到kind,则使用默认的kind
 			item.Kind = c.root.opts.Kind
 		}
@@ -279,6 +304,7 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 					if param.Name != "params" {
 						return nil, fmt.Errorf("not found params fields: %s", param.Name)
 					}
+
 					item.Request.RawPlaintext = param.Value
 					break
 				}
@@ -287,6 +313,7 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 				c.cmd.Printf("weapi %s request params not support parsing\n", req.URL)
 			case "api":
 				c.cmd.Printf("api %s request params not support parsing\n", req.URL)
+
 				for _, param := range pd.Params {
 					_ = param
 					item.Request.RawPlaintext = param.Value
@@ -295,17 +322,16 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 			default:
 				return nil, fmt.Errorf("parsing not supported: %s ", req.URL)
 			}
-		} else {
-			if strings.HasPrefix(pd.MimeType, "application/x-www-form-urlencoded") {
-				values, err := url.ParseQuery(pd.Text)
-				if err != nil {
-					return nil, fmt.Errorf("ParseQuery: %w", err)
-				}
-				if values.Has("params") {
-					item.Request.Ciphertext = values.Get("params")
-				} else {
-					fmt.Printf("params is not found,detail:%+v\n", pd)
-				}
+		} else if strings.HasPrefix(pd.MimeType, "application/x-www-form-urlencoded") {
+			values, err := url.ParseQuery(pd.Text)
+			if err != nil {
+				return nil, fmt.Errorf("ParseQuery: %w", err)
+			}
+
+			if values.Has("params") {
+				item.Request.Ciphertext = values.Get("params")
+			} else {
+				c.cmd.Printf("params is not found, detail: %+v\n", pd)
 			}
 		}
 
@@ -325,23 +351,28 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 		default:
 			return nil, fmt.Errorf("parsing not supported: %s ", req.URL)
 		}
+
 		resp = append(resp, item)
 	}
 	return resp, nil
 }
 
-func isMatch(pattern, text string) bool {
-	pattern, _ = url.PathUnescape(pattern)
+func isMatch(pattern, text string) (bool, error) {
+	decodedPattern, err := url.PathUnescape(pattern)
+	if err != nil {
+		return false, fmt.Errorf("PathUnescape: %w", err)
+	}
+
+	pattern = decodedPattern
 	pattern = strings.ReplaceAll(pattern, ".", `\.`)
 	pattern = strings.ReplaceAll(pattern, "*", `.*`)
 	pattern = "^" + pattern + "$"
 
 	match, err := regexp.MatchString(pattern, text)
 	if err != nil {
-		fmt.Println("Error matching pattern:", err)
-		return false
+		return false, fmt.Errorf("MatchString: %w", err)
 	}
-	return match
+	return match, nil
 }
 
 type Payload struct {
@@ -349,8 +380,8 @@ type Payload struct {
 	Method   string   `json:"method,omitempty"`
 	Kind     string   `json:"kind,omitempty"`
 	Status   string   `json:"status,omitempty"`
-	Request  Request  `json:"request,omitempty"`
-	Response Response `json:"response,omitempty"`
+	Request  Request  `json:"request"`
+	Response Response `json:"response,omitzero"`
 }
 
 type Request struct {

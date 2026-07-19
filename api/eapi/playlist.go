@@ -103,6 +103,7 @@ type PlaylistRespList struct {
 
 type PlaylistResp struct {
 	types.RespCommon[any]
+
 	Version  string             `json:"version"` // 时间戳1703557080686
 	More     bool               `json:"more"`
 	Playlist []PlaylistRespList `json:"playlist"`
@@ -110,14 +111,14 @@ type PlaylistResp struct {
 
 // Playlist 歌单列表.其中包含用户创建得歌单+我喜欢得歌单
 // url: https://app.apifox.com/project/3870894 testdata/har/4.har
-// NeedLogin: 未知
+// NeedLogin: 未知.
 func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/user/playlist/"
 		reply PlaylistResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetCryptoModeEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	if req.Limit == "" {
 		req.Limit = "1000"
 	}
@@ -126,6 +127,7 @@ func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, er
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
