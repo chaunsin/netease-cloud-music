@@ -134,10 +134,10 @@ skills/ncmctl/                      可分发的 ncmctl 用户 skill
 ## 配置与持久化
 
 - 不传 `--config` 时，程序使用嵌入的 `config/config.yaml`；它不会自动读取 `~/.ncmctl/config.yaml`。
-- `--config <file>` 的设计契约是由 Viper 读取指定文件并应用 `NCMCTL_` 前缀的环境变量覆盖；嵌套键用下划线表示，例如 `NCMCTL_LOG_LEVEL`。但当前实现会在 `config.New` 的 `UnmarshalExact` 阶段报 `invalid decode hook signature`；修复并补回归测试前，不要把自定义配置或相应环境变量标记为已验证可用。
+- `--config <file>` 由 Viper 读取指定的完整配置文件并应用 `NCMCTL_` 前缀的环境变量覆盖；嵌套键用下划线表示，例如 `NCMCTL_LOG_LEVEL`。`viper.UnmarshalExact` 会拒绝未知字段，省略的配置段不会从嵌入式默认值自动合并。
 - 全局 `--home` 替换配置中的 `${HOME}`，默认运行数据位于 `<home>/.ncmctl/`。默认 Cookie、日志和数据库路径分别来自 `config/config.yaml`。
 - Cookie 目录和文件分别以 `0700`、`0600` 创建；`Client.Close` 会触发最终持久化。Cookie API 的 `GetCookies` 和 `SetCookies` 都需要明确的 `*url.URL`。
-- 修复配置加载后，自定义配置应从 `config/config.yaml` 复制完整结构再修改；`viper.UnmarshalExact` 应拒绝未知字段，并应增加覆盖文件加载、环境变量和 `${HOME}` 替换的测试。
+- 自定义配置应从 `config/config.yaml` 复制完整结构再修改；修改加载逻辑时应覆盖文件加载、未知字段、环境变量和 `${HOME}` 替换测试。
 
 ## 测试与代码风格
 

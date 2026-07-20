@@ -42,9 +42,15 @@ func NewNCM(root *Root, l *log.Logger) *NCM {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "ncm",
-			Short:   "Automatically parses xxx.ncm to .mp3/.flac",
-			Example: "  ncmctl /music/Hello - Adele.ncm -o ./ncm\n  ncmctl /music/dir/ -o ./ncm (Use directory)",
+			Use:   "ncm <input> [input...]",
+			Short: "Decode .ncm files to .mp3/.flac",
+			Long: "Decode one or more .ncm files or directories. Every positional argument is " +
+				"treated as an input path; set the destination directory with --output. Directory scans " +
+				"are limited to three levels. Audio tags are written by default.",
+			Example: "  ncmctl ncm \"/music/Hello - Adele.ncm\" --output ./ncm\n" +
+				"  ncmctl ncm /music/dir/ --output ./ncm\n" +
+				"  ncmctl ncm first.ncm second.ncm --output ./ncm",
+			Args: cobra.MinimumNArgs(1),
 		},
 	}
 	c.addFlags()
@@ -63,9 +69,9 @@ func (c *NCM) Command() *cobra.Command {
 }
 
 func (c *NCM) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./ncm", "output music dir")
-	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "concurrent decrypt count")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", false, "disable set a music tag info")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./ncm", "directory for decoded music files")
+	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 10, "maximum concurrent decodes (1-50)")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", false, "disable audio tag writing (tags are written by default)")
 }
 
 func (c *NCM) validate() error {
@@ -80,67 +86,11 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 		return fmt.Errorf("validate: %w", err)
 	}
 
-	if len(input) == 0 {
-		c.cmd.Println("nothing was entered")
-		return nil
+	fileList, err := c.scanInputs(input)
+	if err != nil {
+		return err
 	}
 
-	fileList := make([]string, 0, len(input))
-
-	// 处理命令行输入的内容
-	for _, fd := range slices.Compact(input) {
-		// 处理自动展开波浪号 ~/file
-		file, err := utils.ExpandTilde(fd)
-		if err != nil {
-			return fmt.Errorf("ExpandTilde: %w", err)
-		}
-
-		exist, isDir, err := utils.CheckPath(fd)
-		if err != nil {
-			return fmt.Errorf("CheckPath: %w", err)
-		}
-
-		if !exist {
-			c.cmd.Printf("%s not found\n", fd)
-			return nil
-		}
-
-		// 文件
-		if !isDir {
-			if filepath.Ext(file) != ".ncm" {
-				return fmt.Errorf("%s is not .ncm file", file)
-			}
-
-			fileList = append(fileList, file)
-			continue
-		}
-
-		// 目录处理
-		if err := fs.WalkDir(os.DirFS(file), ".", func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if d.IsDir() {
-				if depth := relativePathDepth(path); depth > 3 {
-					return fmt.Errorf("maximum supported directory depth is 3: %s", path)
-				}
-				return nil
-			}
-
-			f := filepath.Join(file, path)
-			if filepath.Ext(f) != ".ncm" {
-				return nil
-			}
-
-			fileList = append(fileList, f)
-			return nil
-		}); err != nil {
-			return fmt.Errorf("WalkDir: %w", err)
-		}
-	}
-
-	fileList = slices.Compact(fileList)
 	if len(fileList) == 0 {
 		return errors.New("no input file or the file does not meet the conditions")
 	}
@@ -187,6 +137,72 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 		return fmt.Errorf("wait: %w", err)
 	}
 	return nil
+}
+
+func (c *NCM) scanInputs(input []string) ([]string, error) {
+	if len(input) == 0 {
+		return nil, errors.New("at least one input path is required")
+	}
+
+	fileList := make([]string, 0, len(input))
+
+	// 处理命令行输入的内容
+	for _, fd := range slices.Compact(input) {
+		// 处理自动展开波浪号 ~/file
+		file, err := utils.ExpandTilde(fd)
+		if err != nil {
+			return nil, fmt.Errorf("ExpandTilde: %w", err)
+		}
+
+		exist, isDir, err := utils.CheckPath(file)
+		if err != nil {
+			return nil, fmt.Errorf("CheckPath: %w", err)
+		}
+
+		if !exist {
+			return nil, fmt.Errorf("input %q not found", fd)
+		}
+
+		// 文件
+		if !isDir {
+			if filepath.Ext(file) != ".ncm" {
+				return nil, fmt.Errorf("%s is not .ncm file", file)
+			}
+
+			fileList = append(fileList, file)
+			continue
+		}
+
+		// 目录处理
+		if err := fs.WalkDir(os.DirFS(file), ".", func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if d.IsDir() {
+				if depth := relativePathDepth(path); depth > 3 {
+					return fmt.Errorf(
+						"maximum supported input directory depth is 3 at %q; all positional arguments are input paths, so pass a destination with --output instead",
+						path,
+					)
+				}
+				return nil
+			}
+
+			f := filepath.Join(file, path)
+			if filepath.Ext(f) != ".ncm" {
+				return nil
+			}
+
+			fileList = append(fileList, f)
+			return nil
+		}); err != nil {
+			return nil, fmt.Errorf("scan input %q: %w", fd, err)
+		}
+	}
+
+	fileList = slices.Compact(fileList)
+	return fileList, nil
 }
 
 func (c *NCM) decode(filename string) error {

@@ -27,9 +27,13 @@ func NewLogout(root *Root, l *log.Logger) *Logout {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "logout",
-			Short:   "Logout netease cloud music",
-			Example: "  ncmctl logout",
+			Use:   "logout",
+			Short: "Log out and remove the persisted Cookie",
+			Long: "Call the NetEase logout endpoint and remove <home>/.ncmctl/cookie.json. " +
+				"A custom Cookie path selected through configuration is not removed automatically.",
+			Example: "  ncmctl logout\n" +
+				"  ncmctl --home /srv/ncmctl logout",
+			Args: cobra.NoArgs,
 		},
 	}
 	c.addFlags()

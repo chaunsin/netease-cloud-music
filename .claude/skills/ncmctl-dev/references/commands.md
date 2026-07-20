@@ -21,7 +21,7 @@ This reference maps ncmctl's public commands to their implementation and develop
 Execution order:
 
 1. Cobra parses persistent flags (`--debug`, `--config`, and `--home`).
-2. `PersistentPreRunE` uses the embedded default config or reads the exact `--config` path, replaces `${HOME}`, calls the currently no-op `Config.Validate`, and initializes the logger.
+2. `PersistentPreRunE` uses the embedded default config or reads the exact complete `--config` path, replaces `${HOME}`, validates required sections and nested network/log settings, and initializes the logger.
 3. The selected command validates arguments and runs its operation.
 4. On a successful command path, `PersistentPostRunE` closes the logger. Cobra skips post-run hooks when `RunE` returns an error, so critical cleanup cannot rely on this hook.
 
@@ -32,8 +32,8 @@ Without `--config`, the program does not auto-discover `~/.ncmctl/config.yaml`; 
 | Command | Implementation | External effects and important dependencies |
 | --- | --- | --- |
 | `login phone` | `login_phone.go` | Sends SMS or submits a password, validates the resulting account, persists cookies |
-| `login cookie` | `login_cookie.go` | Imports Netscape/JSON/header cookies and requires `MUSIC_U` |
-| `login cookiecloud` | `login_cookiecloud.go` | Contacts a CookieCloud server and persists matching NetEase cookies |
+| `login cookie` | `login_cookie.go` | Imports Netscape/JSON/header cookies, requires `MUSIC_U`, validates in memory, then persists |
+| `login cookiecloud` | `login_cookiecloud.go` | Contacts a CookieCloud server, validates matching NetEase cookies in memory, then persists |
 | `login qrcode` | `login_qrcode.go` | Calls live login endpoints, writes a temporary `qrcode.png`, removes it after success |
 | `logout` | `logout.go` | Calls the logout endpoint, then removes `<home>/.ncmctl/cookie.json` |
 | `task` | `task.go` | Registers `sign`, `partner`, and/or `scrobble` in a long-running cron service |

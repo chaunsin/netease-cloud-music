@@ -48,10 +48,15 @@ func NewCloud(root *Root, l *log.Logger) *Cloud {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "cloud",
-			Short:   "[need login] Used to upload music files to netease cloud disk",
-			Example: "  ncmctl cloud -h\n  ncmctl cloud ./mymusic.mp3\n  ncmctl cloud ./my/music/ (Use directory)",
-			Args:    cobra.RangeArgs(0, 1),
+			Use:   "cloud <file-or-directory>",
+			Short: "Upload local music to the account cloud disk",
+			Long: "Upload one recognized music file or recursively scan one directory. Login is " +
+				"required and uploads modify the account cloud disk. Directory scans are limited to " +
+				"three levels; each file must be no larger than 500 MB.",
+			Example: "  ncmctl cloud ./mymusic.mp3\n" +
+				"  ncmctl cloud ./my/music/\n" +
+				"  ncmctl cloud --parallel 5 --minsize 1MB --regexp '.*\\.flac$' ./my/music/",
+			Args: cobra.ExactArgs(1),
 		},
 	}
 	c.addFlags()
@@ -71,9 +76,9 @@ func (c *Cloud) Command() *cobra.Command {
 }
 
 func (c *Cloud) addFlags() {
-	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 3, "concurrent upload count")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.MinSize, "minsize", "m", "", "upload music minimum file size limit. supporting unit:b、k/kb/KB、m/mb/MB")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Regexp, "regexp", "r", "", "upload music file name filter regular expression")
+	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 3, "maximum concurrent uploads (1-10)")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.MinSize, "minsize", "m", "", "skip files smaller than this size (for example 512KB or 1MB)")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Regexp, "regexp", "r", "", "regular expression matched against candidate file paths")
 }
 
 func (c *Cloud) execute(ctx context.Context, input []string) error {
@@ -82,8 +87,7 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 	}
 
 	if len(input) == 0 {
-		c.cmd.Println("nothing was entered")
-		return nil
+		return errors.New("one file or directory input is required")
 	}
 
 	var (
@@ -121,7 +125,7 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 			return fmt.Errorf("ExpandTilde: %w", err)
 		}
 
-		exist, isDir, err := utils.CheckPath(fd)
+		exist, isDir, err := utils.CheckPath(file)
 		if err != nil {
 			return fmt.Errorf("CheckPath: %w", err)
 		}
@@ -343,7 +347,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		return fmt.Errorf("CloudUploadCheck: %w", err)
 	}
 
-	log.Debugf("CloudUploadCheck resp: %+v\n", resp)
+	log.Debugf("CloudUploadCheck code=%d need_upload=%t song_id=%s", resp.Code, resp.NeedUpload, resp.SongId)
 
 	if resp.Code != 200 {
 		return fmt.Errorf("CloudUploadCheck resp: %+v", resp)
@@ -365,10 +369,10 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		return fmt.Errorf("CloudTokenAlloc: %w", err)
 	}
 
-	log.Debugf("CloudTokenAlloc resp: %+v\n", allocResp)
+	log.Debugf("CloudTokenAlloc code=%d resource_id=%d", allocResp.Code, allocResp.ResourceID)
 
 	if allocResp.Code != 200 {
-		return fmt.Errorf("CloudTokenAlloc resp: %+v", allocResp)
+		return fmt.Errorf("CloudTokenAlloc code=%d message=%q", allocResp.Code, allocResp.Message)
 	}
 
 	// 4.上传文件
@@ -387,10 +391,10 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 			return fmt.Errorf("CloudUpload: %w", uploadErr)
 		}
 
-		log.Debugf("CloudUpload resp: %+v\n", uploadResp)
+		log.Debugf("CloudUpload err_code=%q offset=%d", uploadResp.ErrCode, uploadResp.Offset)
 
 		if uploadResp.ErrCode != "" {
-			return fmt.Errorf("CloudUpload resp: %+v", uploadResp)
+			return fmt.Errorf("CloudUpload code=%q message=%q", uploadResp.ErrCode, uploadResp.ErrMsg)
 		}
 	}
 
@@ -412,14 +416,14 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		// CoverId:    "",
 		// ObjectKey: allocResp.ObjectKey, // 不能穿入此值不然会报告 {"msg":"rep create failed","code":404}
 	}
-	log.Debugf("CloudInfo req: %+v", InfoReq)
+	log.Debugf("CloudInfo filename=%q bitrate=%s resource_id=%d", InfoReq.Filename, InfoReq.Bitrate, InfoReq.ResourceId)
 
 	infoResp, err := client.CloudInfo(ctx, &InfoReq)
 	if err != nil {
 		return fmt.Errorf("CloudInfo: %w", err)
 	}
 
-	log.Debugf("CloudInfo resp: %+v\n", infoResp)
+	log.Debugf("CloudInfo code=%d song_id=%s exists=%t", infoResp.Code, infoResp.SongId, infoResp.Exists)
 
 	if infoResp.Code != 200 {
 		return fmt.Errorf("CloudInfo: %+v", infoResp.RespCommon)
@@ -442,7 +446,7 @@ retry:
 		return fmt.Errorf("CloudMusicStatus: %w", err)
 	}
 
-	log.Debugf("CloudMusicStatus #%v resp: %+v\n", retryNum, statusResp)
+	log.Debugf("CloudMusicStatus attempt=%d code=%d statuses=%d", retryNum, statusResp.Code, len(statusResp.Statuses))
 
 	if statusResp.Code != 200 {
 		log.Errorf("CloudMusicStatus #%v resp: %+v\n", retryNum, statusResp)
@@ -460,7 +464,7 @@ retry:
 		return fmt.Errorf("CloudPublish: %w", err)
 	}
 
-	log.Debugf("CloudPublish resp: %+v\n", publishResp)
+	log.Debugf("CloudPublish code=%d", publishResp.Code)
 
 	switch publishResp.Code {
 	case 200:

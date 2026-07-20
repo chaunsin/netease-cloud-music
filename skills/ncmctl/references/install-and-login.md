@@ -1,7 +1,7 @@
 ---
 title: ncmctl Installation and Login Guide
 description: Install, upgrade, authenticate, log out, and troubleshoot ncmctl safely.
-version: "0.3.0"
+version: "0.4.0"
 ---
 
 # Installation and Login Guide
@@ -104,7 +104,7 @@ For a cloned checkout, fetch the desired revision and run `make install`. Preser
 
 ## Runtime home
 
-The global `--home` flag controls the default runtime root:
+The global `--home` value is substituted for `${HOME}` in the default runtime paths:
 
 ```bash
 ncmctl --home /srv/ncmctl COMMAND
@@ -112,7 +112,7 @@ ncmctl --home /srv/ncmctl COMMAND
 
 Default authentication data is stored at `<home>/.ncmctl/cookie.json`. The Cookie directory and file are created with restrictive POSIX permissions, but copied/exported files and Docker volumes remain the user's responsibility.
 
-The optional `--config` flag selects an exact YAML path; ncmctl does not auto-load `<home>/.ncmctl/config.yaml`. Loader compatibility varies by build, so use the configuration section in `commands.md` for the single current limitation and schema description.
+The optional `--config` flag loads one exact YAML path; ncmctl does not auto-load `<home>/.ncmctl/config.yaml`. Copy the complete schema from `config/config.yaml`, because omitted sections are not merged from the embedded defaults. Unknown fields are rejected and `NCMCTL_` environment variables can override loaded values.
 
 ## Login methods
 
@@ -151,6 +151,8 @@ Use the spelling `netscape` for `--format`, even though older help examples cont
 
 Do not post exported cookies in issues, logs, screenshots, or chat. Logging out of the browser can invalidate a previously exported Cookie.
 
+Cookie and CookieCloud imports are first checked with an in-memory Cookie jar. ncmctl writes them to the configured Cookie file only after the account endpoint returns code 200 with both account and profile data.
+
 ### CookieCloud
 
 CookieCloud syncs browser cookies through a configured server. First log in to the NetEase web player and perform a manual CookieCloud sync, then run:
@@ -183,7 +185,7 @@ The command sends an SMS, prompts for the captcha, verifies it, then completes l
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--countrycode` | 86 | Telephone country code |
-| `-t, --timeout` | `10m` | Overall login timeout |
+| `-t, --timeout` | `10m` | Network request deadline; it does not interrupt the terminal while waiting for captcha input |
 
 SMS sending has service limits and can trigger risk control. Avoid repeated attempts.
 
@@ -242,7 +244,7 @@ The command calls the remote logout endpoint, flushes the updated Cookie jar, an
 | QR expires | Re-run `login qrcode`; confirm within the timeout |
 | Docker login is not persisted | Mount the same host directory at `/root` for login and later commands |
 | Permission denied in Docker | Verify ownership and restrictive permissions of the host-mounted directory |
-| Custom config is not discovered automatically | Automatic discovery is unsupported; explicit loading also has the current limitation in the next row |
-| `invalid decode hook signature` with `--config` | Follow the build-sensitive compatibility note in the configuration section of `commands.md` |
+| Custom config is not discovered automatically | Pass its exact path with `--config`; automatic discovery is unsupported |
+| Custom config reports unknown or missing fields | Start from the complete `config/config.yaml` schema and change only the required values |
 
 For exact flags on the installed version, run `ncmctl login <method> --help`.

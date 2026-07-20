@@ -34,7 +34,7 @@ func (a *Api) NeedLogin(ctx context.Context) bool {
 			return true
 		}
 
-		log.Debugf("NeedLogin: %+v", reply)
+		log.Debugf("NeedLogin: code=%d account=%t profile=%t", reply.Code, reply.Account != nil, reply.Profile != nil)
 
 		if reply.Code != 200 || reply.Account == nil || reply.Profile == nil {
 			return true

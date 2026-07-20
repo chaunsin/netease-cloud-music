@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # 配置文件版本
-version: 1.0
+version: "1.0"
 # log 日志模块配置
 log:
   # 应用名称
@@ -11,7 +11,7 @@ log:
   format: text
   # 日志级别 debug < info < warn < error
   level: info
-  # 日志是否输出到标准输出
+  # 是否同时输出到标准错误（stdout 字段名为历史兼容）
   stdout: false
   # 滚动日志配置
   rotate:

@@ -38,10 +38,15 @@ func cookieCloud(root *Login, l *log.Logger) *cobra.Command {
 		l:    l,
 	}
 	c.cmd = &cobra.Command{
-		Use:     "cookiecloud",
-		Long:    "What is cookiecloud?\n  detail: https://github.com/easychen/CookieCloud",
-		Short:   "use cookiecloud login",
-		Example: "  ncmctl login cookiecloud -u <your uuid> -p <your password> -s http://127.0.0.1:8088",
+		Use:   "cookiecloud",
+		Short: "Log in with cookies synchronized by CookieCloud",
+		Long: "Fetch cookies from a CookieCloud server, import the NetEase domains, and validate " +
+			"the resulting account. --uuid and --password are required. These credential flags may " +
+			"be visible in shell history and process lists. CookieCloud project: " +
+			"https://github.com/easychen/CookieCloud",
+		Example: "  ncmctl login cookiecloud --uuid '<uuid>' --password '<password>'\n" +
+			"  ncmctl login cookiecloud -u '<uuid>' -p '<password>' -s http://127.0.0.1:8088",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
 		},
@@ -51,11 +56,17 @@ func cookieCloud(root *Login, l *log.Logger) *cobra.Command {
 }
 
 func (c *loginCookieCloudCmd) addFlags() {
-	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Second*30, "timeout, eg: 1s、1m")
-	c.cmd.Flags().StringVarP(&c.server, "server", "s", "http://127.0.0.1:8088", "cookiecloud server address")
-	c.cmd.Flags().StringVarP(&c.uuid, "uuid", "u", "", "login account uuid")
-	c.cmd.Flags().StringVarP(&c.password, "password", "p", "", "use when logging in with a password.")
-	c.cmd.Flags().StringVarP(&c.headers, "headers", "H", "", "custom headers, eg: key1=value1,key2=value2")
+	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Second*30, "CookieCloud request timeout")
+	c.cmd.Flags().StringVarP(&c.server, "server", "s", "http://127.0.0.1:8088", "CookieCloud server URL")
+	c.cmd.Flags().StringVarP(&c.uuid, "uuid", "u", "", "CookieCloud UUID (required; visible in process arguments)")
+	c.cmd.Flags().StringVarP(
+		&c.password,
+		"password",
+		"p",
+		"",
+		"CookieCloud password (required; visible in process arguments)",
+	)
+	c.cmd.Flags().StringVarP(&c.headers, "headers", "H", "", "additional HTTP headers as comma-separated key=value pairs")
 }
 
 func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
@@ -163,6 +174,10 @@ func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
 	user, err := request.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
 	if err != nil {
 		return fmt.Errorf("GetUserInfo: %w", err)
+	}
+
+	if err := validateLoginAccount(user); err != nil {
+		return err
 	}
 
 	c.cmd.Printf("login success: %+v\n", user)

@@ -34,10 +34,17 @@ type Root struct {
 func New() *Root {
 	c := &Root{
 		cmd: &cobra.Command{
-			Use:     "ncmctl",
-			Short:   "ncmctl command",
-			Long:    "ncmctl is a toolbox for netease cloud music\n\nMIT License Copyright (c) 2024 chaunsin\nhttps://github.com/chaunsin/netease-cloud-music\n" + title,
-			Example: "  ncmctl cloud\n  ncmctl crypto\n  ncmctl login\n  ncmctl curl\n  ncmctl proxy\n  ncmctl partner\n  ncmctl scrobble\n  ncmctl sign\n  ncmctl task",
+			Use:   "ncmctl",
+			Short: "NetEase Cloud Music command-line toolbox",
+			Long: "ncmctl provides NetEase Cloud Music login, scheduled account tasks, media download and upload, " +
+				"NCM file decoding, API payload debugging, and an HTTP(S) monitoring proxy.\n" +
+				"Run 'ncmctl <command> --help' for command-specific inputs, side effects, and limits.\n\n" +
+				"MIT License Copyright (c) 2026 chaunsin\nhttps://github.com/chaunsin/netease-cloud-music\n" + title,
+			Example: "  ncmctl login qrcode\n" +
+				"  ncmctl download --level lossless 2161154646\n" +
+				"  ncmctl ncm input.ncm --output ./decoded\n" +
+				"  ncmctl task --sign --scrobble\n" +
+				"  ncmctl proxy",
 		},
 	}
 	c.cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
@@ -68,8 +75,6 @@ func New() *Root {
 			return fmt.Errorf("config validate error: %w", err)
 		}
 
-		// Pending: 暂时关闭debug模式,api中得resty日志需要统一输出本库中得logger里
-		c.Cfg.Network.Debug = false
 		// 命令行开启了debug模式优先级大于配置文件中得优先级
 		if c.Opts.Debug {
 			c.Cfg.Log.Stdout = true
@@ -122,7 +127,23 @@ func (c *Root) Execute() {
 }
 
 func (c *Root) addFlags() {
-	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "run in debug mode")
-	c.cmd.PersistentFlags().StringVarP(&c.Opts.Config, "config", "c", "", "configuration file path")
-	c.cmd.PersistentFlags().StringVar(&c.Opts.Home, "home", config.HomeDir, "configuration home path. the home path is used to store running information")
+	c.cmd.PersistentFlags().BoolVar(
+		&c.Opts.Debug,
+		"debug",
+		false,
+		"enable redacted debug and network metadata logs on stderr and in the configured log file",
+	)
+	c.cmd.PersistentFlags().StringVarP(
+		&c.Opts.Config,
+		"config",
+		"c",
+		"",
+		"path to a complete YAML configuration file (not auto-discovered)",
+	)
+	c.cmd.PersistentFlags().StringVar(
+		&c.Opts.Home,
+		"home",
+		config.HomeDir,
+		"value substituted for ${HOME} in configured runtime paths, including the generated proxy CA",
+	)
 }

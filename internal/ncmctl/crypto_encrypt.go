@@ -32,9 +32,15 @@ func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
 		l:    l,
 	}
 	c.cmd = &cobra.Command{
-		Use:     "encrypt",
-		Short:   "Encrypt data",
-		Example: "  ncmctl crypto encrypt -k weapi -u /eapi/sms/captcha/sent\n  ncmctl crypto encrypt -k weapi '{\"key\":\"value\"}'",
+		Use:   "encrypt <json-or-file>",
+		Short: "Encrypt a JSON request payload",
+		Long: "Encrypt a JSON object supplied directly or read from a file. Select WEAPI, EAPI, " +
+			"or Linux API with --kind. EAPI also requires --url because the request route is part " +
+			"of its digest. The formatted result is printed to stdout unless --output is set.",
+		Example: "  ncmctl crypto encrypt --kind weapi '{\"key\":\"value\"}'\n" +
+			"  ncmctl crypto encrypt --kind eapi --url /eapi/v3/song/detail request.json\n" +
+			"  ncmctl crypto encrypt --kind linux request.json --output encrypted.json",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
 		},
@@ -44,7 +50,7 @@ func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
 }
 
 func (c *cryptoCmd) addFlags() {
-	c.cmd.Flags().StringVarP(&c.url, "url", "u", "", "url params value,used closely in 'k=eapi' mode")
+	c.cmd.Flags().StringVarP(&c.url, "url", "u", "", "request route used in the EAPI digest (required for --kind eapi)")
 }
 
 func (c *cryptoCmd) execute(_ context.Context, args []string) error {

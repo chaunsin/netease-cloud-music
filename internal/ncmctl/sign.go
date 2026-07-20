@@ -32,9 +32,14 @@ func NewSignIn(root *Root, l *log.Logger) *SignIn {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "sign",
-			Short:   "[need login] Sign perform daily cloud shell check-in",
-			Example: `  ncmctl sign`,
+			Use:   "sign",
+			Short: "Run YunBei and eligible VIP daily sign-in actions",
+			Long: "Perform the YunBei sign-in and eligible VIP sign-in actions once. Login is " +
+				"required. --automatic also claims available YunBei and VIP rewards, which performs " +
+				"additional account actions and may increase risk-control exposure.",
+			Example: "  ncmctl sign\n" +
+				"  ncmctl sign --automatic",
+			Args: cobra.NoArgs,
 		},
 	}
 	c.addFlags()
@@ -53,7 +58,7 @@ func (c *SignIn) Command() *cobra.Command {
 }
 
 func (c *SignIn) addFlags() {
-	c.cmd.Flags().BoolVarP(&c.opts.Automatic, "automatic", "a", false, "automatically claim sign-in rewards")
+	c.cmd.Flags().BoolVarP(&c.opts.Automatic, "automatic", "a", false, "claim available YunBei and VIP rewards after sign-in")
 }
 
 func (c *SignIn) validate() error {

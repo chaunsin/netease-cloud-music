@@ -1,7 +1,7 @@
 ---
 title: ncmctl Command Reference
 description: Current command flags, behavior, safety boundaries, and configuration schema for ncmctl.
-version: "0.3.0"
+version: "0.4.0"
 ---
 
 # Command Reference
@@ -44,7 +44,7 @@ Do not infer that a value accepted by a generic flag is implemented by every sub
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--debug` | false | Enable debug/stdout logging and network debug |
-| `-c, --config <file>` | none | Select this exact YAML file; current source has the loader issue described below |
+| `-c, --config <file>` | none | Load this exact complete YAML file; omitted sections are not merged |
 | `--home <dir>` | OS user home | Substitute this value for `${HOME}` in runtime paths |
 | `-v, --version` | - | Print build and runtime version information |
 
@@ -135,7 +135,7 @@ Deduplication and the daily counter are stored in `<home>/.ncmctl/database/badge
 
 ## download
 
-Download songs, albums, artists, or playlists. Login is required.
+Download one or more songs, albums, artists, or playlists. Login is required. A bare numeric input is treated as a song ID; URLs identify song, album, artist, or playlist resources.
 
 ```bash
 # Song ID or URL
@@ -150,6 +150,10 @@ ncmctl download 'https://music.163.com/playlist?id=593617579'
 
 # Destination and parallelism
 ncmctl download --output ./music --parallel 5 1820944399
+
+# Multiple resources in one invocation
+ncmctl download 1820944399 \
+  'https://music.163.com/playlist?id=593617579'
 ```
 
 | Flag | Default | Description |
@@ -176,7 +180,7 @@ The command writes to a temporary file, verifies the server-provided MD5, and th
 
 ## cloud
 
-Upload one local music file or recursively scan one directory. Login is required and uploads modify the account's cloud disk.
+Upload exactly one local music file or recursively scan one directory. Login is required and uploads modify the account's cloud disk.
 
 ```bash
 ncmctl cloud '/path/to/music.mp3'
@@ -205,6 +209,10 @@ ncmctl ncm '/path/to/directory' --output ./decoded --parallel 10
 ncmctl ncm '/path/to/file.ncm' --tag
 ```
 
+Every positional path is treated as an input. Set the destination only with `-o`/`--output`; for example, use `ncmctl ncm '/path/to/directory' -o .` to write to the current directory.
+
+A missing path or an explicitly provided non-`.ncm` file returns an error before the output directory is created.
+
 | Flag | Default | Description |
 | --- | --- | --- |
 | `-o, --output` | `./ncm` | Output directory |
@@ -218,11 +226,13 @@ Tags are written by default for supported MP3 and FLAC output. Directory travers
 Inspect legacy API encryption formats locally. This is a debugging tool, not an authentication bypass.
 
 ```bash
-# Encrypt JSON
+# Encrypt a JSON string or a file containing one JSON object
 ncmctl crypto encrypt --kind weapi '{"key":"value"}'
 ncmctl crypto encrypt --kind eapi \
   --url /eapi/v3/song/detail '{"c":[]}'
 ncmctl crypto encrypt --kind linux '{"method":"POST"}'
+ncmctl crypto encrypt --kind weapi request.json \
+  --output encrypted.json
 
 # Direct EAPI request decryption
 ncmctl crypto decrypt --kind eapi --encode hex 'CIPHERTEXT'
@@ -314,7 +324,7 @@ Install and trust only `ca.crt` on the client device. The command prints its pat
 
 Behavior and limitations:
 
-- Only NetEase-related target domains are captured or MITM'd; other traffic is tunneled without capture.
+- Only NetEase-related target domains are captured or MITM'd; other traffic is forwarded without capture.
 - Structured content is formatted and recursively redacted by default. Binary, media, multipart, unknown-length streaming, invalid UTF-8, and unsafe unstructured bodies are summarized.
 - Display truncation, decompression, parsing, or redaction failure does not change forwarded bytes.
 - EAPI, Linux API, and plain API payloads are decoded when possible.
@@ -346,12 +356,12 @@ The intended customization flow is to copy the repository's `config/config.yaml`
 ncmctl --config ~/.ncmctl/config.yaml COMMAND
 ```
 
-Checkout compatibility note: the source revision documented by this skill currently fails to load even `config/config.yaml` with `UnmarshalExact: '' invalid decode hook signature`. Installed binaries may differ. If that exact error occurs, omit `--config` and use embedded defaults; otherwise follow the installed binary's behavior. The schema below is the intended contract for this checkout.
+The loader reads the exact file, applies `NCMCTL_` environment overrides, and rejects unknown fields or unsupported log formats and levels. Start from the complete schema below because partial files do not inherit omitted sections from the embedded defaults.
 
 Current schema:
 
 ```yaml
-version: 1.0
+version: "1.0"
 log:
   app: ncm
   format: text
@@ -376,9 +386,11 @@ database:
   path: "${HOME}/.ncmctl/database/badger/"
 ```
 
-The intended loader rejects unknown fields. There are no top-level `download`, `timeout`, or `output` configuration keys.
+`log.stdout` is a legacy field name; when true, the configured logger mirrors output to stderr in addition to the rolling file.
 
-When the installed loader works, environment variables use the `NCMCTL_` prefix and underscores for nested keys:
+The loader rejects unknown fields. There are no top-level `download`, `timeout`, or `output` configuration keys.
+
+Environment variables use the `NCMCTL_` prefix and underscores for nested keys:
 
 ```bash
 NCMCTL_LOG_LEVEL=debug \

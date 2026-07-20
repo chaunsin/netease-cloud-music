@@ -33,9 +33,15 @@ func phone(root *Login, l *log.Logger) *cobra.Command {
 		l:    l,
 	}
 	c.cmd = &cobra.Command{
-		Use:     "phone",
-		Short:   "use phone login",
-		Example: "  ncmctl login phone 188xxxx8888\n  ncmctl login phone 188xxxx8888 -p password",
+		Use:   "phone <number>",
+		Short: "Log in by phone using SMS or a password",
+		Long: "Log in with one phone number. Without --password, the command sends an SMS and " +
+			"prompts for its captcha; with --password, it uses password login instead. Successful " +
+			"login persists cookies. Password values may be visible in shell history and process lists.",
+		Example: "  ncmctl login phone 18800008888\n" +
+			"  ncmctl login phone --countrycode 86 18800008888\n" +
+			"  ncmctl login phone 18800008888 --password '<password>'",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
 		},
@@ -45,9 +51,21 @@ func phone(root *Login, l *log.Logger) *cobra.Command {
 }
 
 func (c *loginPhoneCmd) addFlags() {
-	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Minute*10, "login timeout, eg: 1s、1m")
-	c.cmd.Flags().Int64Var(&c.countrycode, "countrycode", 86, "country code")
-	c.cmd.Flags().StringVarP(&c.password, "password", "p", "", "use when logging in with a password.")
+	c.cmd.Flags().DurationVarP(
+		&c.timeout,
+		"timeout",
+		"t",
+		time.Minute*10,
+		"network request deadline; waiting for SMS input is not interrupted (for example 30s or 10m)",
+	)
+	c.cmd.Flags().Int64Var(&c.countrycode, "countrycode", 86, "telephone country calling code without '+'")
+	c.cmd.Flags().StringVarP(
+		&c.password,
+		"password",
+		"p",
+		"",
+		"use password login instead of SMS (visible in shell history and process lists)",
+	)
 }
 
 func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
@@ -150,6 +168,10 @@ func (c *loginPhoneCmd) execute(ctx context.Context, args []string) error {
 	user, err := request.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
 	if err != nil {
 		return fmt.Errorf("GetUserInfo: %w", err)
+	}
+
+	if err := validateLoginAccount(user); err != nil {
+		return err
 	}
 
 	c.cmd.Printf("login success: %+v\n", user)

@@ -40,9 +40,16 @@ func NewPartner(root *Root, l *log.Logger) *Partner {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "partner",
-			Short:   "[need login] Executive music partner daily reviews, rule details: https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3",
-			Example: "  ncmctl partner (default)\n  ncmctl partner -s 3,4 (set the base song evaluation score level random range 3-4)\n  ncmctl partner -s 3,4 -e 2,3,4 (set the random range of song evaluation rating 3-4, and the random range of additional songs 2-4)\n  ncmctl partner -n 5 (set the number of additional evaluation songs)",
+			Use:   "partner",
+			Short: "Submit music-partner evaluations",
+			Long: "Report play events and submit music-partner evaluations once. Login and partner " +
+				"eligibility are required. The command changes account state and waits 15-24 seconds " +
+				"between evaluated items. Rules: " +
+				"https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3",
+			Example: "  ncmctl partner\n" +
+				"  ncmctl partner --star 3,4 --extra 2,3,4\n" +
+				"  ncmctl partner --num 5",
+			Args: cobra.NoArgs,
 		},
 	}
 	c.addFlags()
@@ -61,9 +68,9 @@ func (c *Partner) Command() *cobra.Command {
 }
 
 func (c *Partner) addFlags() {
-	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.Star, "star", "s", []int64{3, 4}, "set the base song evaluation score level random range 1-5")
-	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.ExtStar, "extra", "e", []int64{2, 3, 4}, "set the extra song evaluation score level random range 1-5")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.ExtNum, "num", "n", "random", "extra evaluation number of songs,'random' means 2 to 7")
+	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.Star, "star", "s", []int64{3, 4}, "base evaluation score choices (unique values from 1 to 5)")
+	c.cmd.PersistentFlags().Int64SliceVarP(&c.opts.ExtStar, "extra", "e", []int64{2, 3, 4}, "extra evaluation score choices (unique values from 1 to 5)")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.ExtNum, "num", "n", "random", "extra evaluation count: 'random' (2-7) or an integer from 0 to 15")
 }
 
 func (c *Partner) validate() error {

@@ -45,6 +45,17 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
+	switch c.Format {
+	case "", "text", "json":
+	default:
+		return fmt.Errorf("unsupported log format %q", c.Format)
+	}
+
+	switch c.Level {
+	case "", "debug", "info", "warn", "error":
+	default:
+		return fmt.Errorf("unsupported log level %q", c.Level)
+	}
 	return nil
 }
 

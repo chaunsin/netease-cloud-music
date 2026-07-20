@@ -26,9 +26,15 @@ func NewCrypto(root *Root, l *log.Logger) *Crypto {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "crypto",
-			Short:   "Crypto is a tool for encrypting and decrypting the http data",
-			Example: "  ncmctl crypto -h\n  ncmctl crypto decrypt -k eapi 'ciphertext'\n  ncmctl crypto decrypt http_request.har\n  ncmctl crypto encrypt -k weapi '{\"key\":\"value\"}'",
+			Use:   "crypto",
+			Short: "Encrypt and decrypt legacy NetEase API payloads",
+			Long: "Inspect supported NetEase API encryption formats locally. Encryption supports " +
+				"WEAPI, EAPI, and Linux API payloads; direct request decryption currently supports EAPI " +
+				"only. HAR files and decrypted output may contain credentials and personal data.",
+			Example: "  ncmctl crypto encrypt --kind weapi '{\"key\":\"value\"}'\n" +
+				"  ncmctl crypto encrypt --kind eapi --url /eapi/v3/song/detail request.json\n" +
+				"  ncmctl crypto decrypt --kind eapi --encode hex 'CIPHERTEXT'\n" +
+				"  ncmctl crypto decrypt --url '/eapi/*' capture.har",
 		},
 	}
 	c.addFlags()
@@ -46,6 +52,6 @@ func (c *Crypto) Command() *cobra.Command {
 }
 
 func (c *Crypto) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate decrypt file directory location")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "encryption and decryption mode, weapi|eapi|linux")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "write the JSON result to a file instead of stdout")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "payload mode: weapi, eapi, or linux (decrypt supports eapi only)")
 }

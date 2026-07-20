@@ -53,9 +53,18 @@ func NewTask(root *Root, l *log.Logger) *Task {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "task",
-			Short:   "[need login] Daily tasks are executed asynchronously [partner、scrobble、sign]",
-			Example: `  ncmctl task`,
+			Use:   "task",
+			Short: "Schedule account tasks as a long-running service",
+			Long: "Schedule sign, partner, and scrobble jobs using five-field cron expressions. " +
+				"Login is required. With no task selectors, all three jobs are registered; explicit " +
+				"selectors register only those jobs. The service runs until interrupted.",
+			Example: "  # Schedule all tasks\n" +
+				"  ncmctl task\n\n" +
+				"  # Schedule only sign and scrobble\n" +
+				"  ncmctl task --sign --scrobble\n\n" +
+				"  # Run scrobble daily at 20:00 in the selected time zone\n" +
+				"  ncmctl task --scrobble --scrobble.cron '0 20 * * *' --location Asia/Shanghai",
+			Args: cobra.NoArgs,
 		},
 	}
 	c.addFlags()
@@ -74,22 +83,22 @@ func (c *Task) Command() *cobra.Command {
 }
 
 func (c *Task) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Location, "location", "l", "Asia/Shanghai", "crontab time zone setting")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.RunAll, "runAll", false, "default enabled all task")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Location, "location", "l", "Asia/Shanghai", "IANA time zone used for cron schedules")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.RunAll, "runAll", false, "schedule all tasks (same as using no task selectors)")
 
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Partner, "partner", false, "enabled partner task")
-	c.cmd.PersistentFlags().StringVar(&c.opts.PartnerOptsCrontab, "partner.cron", "0 18 * * *", "partner crontab expression. usage detail: https://crontab.guru")
-	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.Star, "partner.star", []int64{3, 4}, "set the base song evaluation score level random range 1-5")
-	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.ExtStar, "partner.extStar", []int64{2, 3, 4}, "set the extra song evaluation score level random range 1-5")
-	c.cmd.PersistentFlags().StringVar(&c.opts.ExtNum, "partner.extNum", "random", "extra evaluation number of songs,'random' means 2 to 7")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Partner, "partner", false, "schedule the music-partner evaluation task")
+	c.cmd.PersistentFlags().StringVar(&c.opts.PartnerOptsCrontab, "partner.cron", "0 18 * * *", "five-field cron schedule for the partner task")
+	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.Star, "partner.star", []int64{3, 4}, "base evaluation score choices (unique values from 1 to 5)")
+	c.cmd.PersistentFlags().Int64SliceVar(&c.opts.ExtStar, "partner.extStar", []int64{2, 3, 4}, "extra evaluation score choices (unique values from 1 to 5)")
+	c.cmd.PersistentFlags().StringVar(&c.opts.ExtNum, "partner.extNum", "random", "extra evaluation count: 'random' (2-7) or an integer from 0 to 15")
 
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Scrobble, "scrobble", false, "enabled scrobble task")
-	c.cmd.PersistentFlags().StringVar(&c.opts.ScrobbleOptsCrontab, "scrobble.cron", "0 18 * * *", "scrobble crontab expression. usage detail: https://crontab.guru")
-	c.cmd.PersistentFlags().Int64Var(&c.opts.Num, "scrobble.num", 300, "scrobble num of songs")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Scrobble, "scrobble", false, "schedule the play-log scrobble task")
+	c.cmd.PersistentFlags().StringVar(&c.opts.ScrobbleOptsCrontab, "scrobble.cron", "0 18 * * *", "five-field cron schedule for the scrobble task")
+	c.cmd.PersistentFlags().Int64Var(&c.opts.Num, "scrobble.num", 300, "requested play-log count per run (1-300)")
 
-	c.cmd.PersistentFlags().BoolVar(&c.opts.SignIn, "sign", false, "enabled sign task")
-	c.cmd.PersistentFlags().StringVar(&c.opts.SignInOptsCrontab, "sign.cron", "0 10 * * *", "sign crontab expression. usage detail: https://crontab.guru")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Automatic, "sign.automatic", false, "automatically claim sign-in rewards")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.SignIn, "sign", false, "schedule the YunBei and VIP sign-in task")
+	c.cmd.PersistentFlags().StringVar(&c.opts.SignInOptsCrontab, "sign.cron", "0 10 * * *", "five-field cron schedule for the sign task")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Automatic, "sign.automatic", false, "claim eligible rewards during sign-in (increased account risk)")
 }
 
 func (c *Task) validate() error {
@@ -157,6 +166,8 @@ func (c *Task) registerScheduledCommand(ctx context.Context, job *cron.Cron, nam
 	log.Infof("%s task register", label)
 
 	command.Command().DisableFlagParsing = true
+	command.Command().SetArgs([]string{})
+
 	if err := command.validate(); err != nil {
 		return fmt.Errorf("validate: %w", err)
 	}

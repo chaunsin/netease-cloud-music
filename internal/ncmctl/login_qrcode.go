@@ -35,9 +35,14 @@ func qrcode(root *Login, l *log.Logger) *cobra.Command {
 		l:    l,
 	}
 	c.cmd = &cobra.Command{
-		Use:     "qrcode",
-		Short:   "use qrcode login",
-		Example: "  ncmctl login qrcode",
+		Use:   "qrcode",
+		Short: "Log in by scanning a QR code",
+		Long: "Generate qrcode.png and print the QR content in the terminal, then wait for " +
+			"confirmation in the NetEase Cloud Music mobile app. Successful login persists cookies " +
+			"and removes the image; a failed or cancelled attempt may leave the image on disk.",
+		Example: "  ncmctl login qrcode\n" +
+			"  ncmctl login qrcode --timeout 5m --dir ./private-qr",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
 		},
@@ -47,9 +52,9 @@ func qrcode(root *Login, l *log.Logger) *cobra.Command {
 }
 
 func (c *loginQrcodeCmd) addFlags() {
-	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Minute*5, "login timeout, eg: 1s、1m")
-	c.cmd.Flags().StringVarP(&c.dir, "dir", "d", "", "qrcode file output path. default ./")
-	c.cmd.Flags().IntVarP(&c.level, "level", "l", 1, "qrcode recovery capacity,0->7% 1->15%(default) 2->25% 3->30%")
+	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Minute*5, "maximum time to wait for QR confirmation")
+	c.cmd.Flags().StringVarP(&c.dir, "dir", "d", "", "directory for qrcode.png (default: current directory)")
+	c.cmd.Flags().IntVarP(&c.level, "level", "l", 1, "QR error-correction level: 0=7%, 1=15%, 2=25%, 3=30%")
 }
 
 func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
@@ -128,7 +133,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 			return fmt.Errorf("QrcodeCheck: %w", checkErr)
 		}
 
-		log.Debugf("QrcodeCheck resp: %v\n", resp)
+		log.Debugf("QrcodeCheck code=%d", resp.Code)
 
 		switch resp.Code {
 		case 800: // 二维码不存在、已过期、用户取消授权
@@ -156,6 +161,10 @@ ok:
 	user, err := request.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
 	if err != nil {
 		return fmt.Errorf("GetUserInfo: %w", err)
+	}
+
+	if err := validateLoginAccount(user); err != nil {
+		return err
 	}
 
 	c.cmd.Printf("login success: %+v\n", user)

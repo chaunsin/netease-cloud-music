@@ -64,7 +64,7 @@ Read `references/commands.md` for flags, limits, side effects, and examples.
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--debug` | false | Enable debug/stdout logging and network debug |
-| `-c, --config` | none | Select an exact YAML file; see the version-sensitive compatibility note in `references/commands.md` |
+| `-c, --config` | none | Select an exact complete YAML file; see the schema in `references/commands.md` |
 | `--home` | OS user home | Base value substituted for `${HOME}` in runtime paths |
 
 Without `--config`, ncmctl uses its embedded defaults; it does not automatically load `~/.ncmctl/config.yaml`.
@@ -79,7 +79,7 @@ Default runtime paths under `<home>`:
 | Proxy CA certificate | `<home>/.ncmctl/proxy/ca.crt` |
 | Proxy CA private key | `<home>/.ncmctl/proxy/ca.key` |
 
-Custom configuration is version-sensitive. Read the configuration section in `references/commands.md` and treat the installed binary's behavior as authoritative.
+For custom configuration, copy the full schema from `config/config.yaml`, edit it, and pass the path explicitly with `--config`.
 
 ## Safety boundaries
 

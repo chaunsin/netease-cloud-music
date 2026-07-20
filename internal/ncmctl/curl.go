@@ -42,9 +42,15 @@ func NewCurl(root *Root, l *log.Logger) *Curl {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "curl",
-			Short:   "Like curl invoke netease cloud music api",
-			Example: "  ncmctl curl -h\n  ncmctl curl -k weapi -d '{}' Ping",
+			Use:   "curl [method]",
+			Short: "Invoke an exported NetEase API wrapper method",
+			Long: "Invoke an exported Go method from the selected API wrapper package. This is not " +
+				"the system curl command: the method is a Go method name, and --data is decoded into " +
+				"its request struct. The selected endpoint determines login requirements and account effects.",
+			Example: "  ncmctl curl --kind weapi --data '{}' GetUserInfo\n" +
+				"  ncmctl curl --kind weapi --method GetUserInfo --data '{}'\n" +
+				"  ncmctl curl --kind weapi --data '{}' GetUserInfo --output response.json",
+			Args: cobra.MaximumNArgs(1),
 		},
 	}
 	c.addFlags()
@@ -63,11 +69,11 @@ func (c *Curl) Command() *cobra.Command {
 }
 
 func (c *Curl) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Method, "method", "m", "", "request method")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Data, "data", "d", `{}`, `request params. eg:'{"id":1,"name":"bob"}'`)
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate response file directory location")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "api kind, weapi|eapi|linux|api")
-	c.cmd.PersistentFlags().DurationVarP(&c.opts.Timeout, "timeout", "t", 15*time.Second, "request timeout eg:1s、1m")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Method, "method", "m", "", "exported Go API method name (overrides the positional method; not an HTTP verb)")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Data, "data", "d", `{}`, "JSON object decoded into the method request type; unknown fields are rejected")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "write the formatted JSON response to a file instead of stdout")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "API wrapper package: weapi, eapi, linux, or api")
+	c.cmd.PersistentFlags().DurationVarP(&c.opts.Timeout, "timeout", "t", 15*time.Second, "overall API call timeout (for example 1s or 1m)")
 }
 
 func validateCurlKind(kind string) error {
@@ -147,7 +153,7 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 		return fmt.Errorf("decode: %w", decodeErr)
 	}
 
-	log.Debugf("request: %+v", instance)
+	log.Debugf("request type: %s", req)
 
 	resp := methodName.Func.Call([]reflect.Value{reflect.ValueOf(request), reflect.ValueOf(ctx), instance.Addr()})
 	if len(resp) != 2 {

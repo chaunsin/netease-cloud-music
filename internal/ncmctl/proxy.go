@@ -50,7 +50,11 @@ func NewProxy(root *Root, l *log.Logger) *Proxy {
 		cmd: &cobra.Command{
 			Use:   "proxy",
 			Short: "Monitor NetEase Cloud Music HTTP(S) API traffic",
-			Args:  cobra.NoArgs,
+			Long: "Start an explicit HTTP(S) proxy for a client you control. NetEase-related " +
+				"traffic is captured and redacted by default; other traffic is forwarded without capture. " +
+				"The command generates or reuses a CA but never modifies a trust store. Non-loopback " +
+				"listeners expose an unauthenticated proxy and should be used only on trusted networks.",
+			Args: cobra.NoArgs,
 			Example: `  # Listen locally, then configure the client proxy as 127.0.0.1:9000
   ncmctl proxy
 
@@ -73,11 +77,11 @@ func (c *Proxy) Command() *cobra.Command {
 }
 
 func (c *Proxy) addFlags() {
-	c.cmd.Flags().StringVar(&c.opts.ListenAddr, "listen", "127.0.0.1:9000", "proxy listen address")
+	c.cmd.Flags().StringVar(&c.opts.ListenAddr, "listen", "127.0.0.1:9000", "proxy listen address in host:port form")
 	c.cmd.Flags().StringVar(&c.opts.CACertPath, "ca-cert", "", "existing CA certificate path (requires --ca-key)")
 	c.cmd.Flags().StringVar(&c.opts.CAKeyPath, "ca-key", "", "existing CA private key path (requires --ca-cert)")
-	c.cmd.Flags().StringVar(&c.opts.MaxBody, "max-body", "1MB", "maximum request or response body bytes to print")
-	c.cmd.Flags().BoolVar(&c.opts.ShowSensitive, "show-sensitive", false, "print credentials and other sensitive values without redaction")
+	c.cmd.Flags().StringVar(&c.opts.MaxBody, "max-body", "1MB", "maximum body bytes displayed per request or response; forwarding is unaffected")
+	c.cmd.Flags().BoolVar(&c.opts.ShowSensitive, "show-sensitive", false, "disable redaction and print credentials and identifiers")
 }
 
 func (c *Proxy) validate() error {

@@ -328,7 +328,8 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
 
-	log.Debugf("[request]: %+v encrypt: %+v", req, encryptData)
+	log.Debugf("[request] method=%s crypto=%s url=%s payload_type=%T encrypted_fields=%d",
+		opts.Method, opts.CryptoMode, requestURL, req, len(encryptData))
 
 	// append user options config
 	if len(opts.Headers) > 0 {
@@ -352,7 +353,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		return nil, fmt.Errorf("do request: %w", err)
 	}
 
-	log.Debugf("[response.raw]: %s", string(response.Body()))
+	log.Debugf("[response.raw] status=%d bytes=%d", response.StatusCode(), len(response.Body()))
 
 	var decryptData []byte
 
@@ -368,7 +369,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		// 	return nil, fmt.Errorf("EApiDecrypt: %w", err)
 		// }
 		decryptData = response.Body()
-		log.Debugf("[response.decrypt]: %s", string(decryptData))
+		log.Debugf("[response.decrypt] crypto=%s bytes=%d", opts.CryptoMode, len(decryptData))
 	case CryptoModeWEAPI:
 		// tips: weapi接口返回数据是明文
 		decryptData = response.Body()
@@ -378,7 +379,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
 
-		log.Debugf("[response.decrypt]: %s", string(decryptData))
+		log.Debugf("[response.decrypt] crypto=%s bytes=%d", opts.CryptoMode, len(decryptData))
 	case CryptoModeXEAPI:
 		c.updateXeapiSession(response)
 
@@ -387,7 +388,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 			return nil, fmt.Errorf("XeapiDecryptResponse: %w", err)
 		}
 
-		log.Debugf("[response.decrypt]: %s", string(decryptData))
+		log.Debugf("[response.decrypt] crypto=%s bytes=%d", opts.CryptoMode, len(decryptData))
 	default:
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
@@ -399,7 +400,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("http status code: %d detail: %s", response.StatusCode(), string(decryptData))
+		return nil, fmt.Errorf("http status code: %d response bytes: %d", response.StatusCode(), len(decryptData))
 	}
 	return response, nil
 }
@@ -423,14 +424,14 @@ func (c *Client) Upload(ctx context.Context, url string, headers map[string]stri
 		return nil, err
 	}
 
-	log.Debugf("response: %+v", string(response.Body()))
+	log.Debugf("[upload.response] status=%d bytes=%d", response.StatusCode(), len(response.Body()))
 
 	if err := json.Unmarshal(response.Body(), &resp); err != nil {
 		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("http status code: %d detail: %s", response.StatusCode(), string(response.Body()))
+		return nil, fmt.Errorf("http status code: %d response bytes: %d", response.StatusCode(), len(response.Body()))
 	}
 	return response, nil
 }

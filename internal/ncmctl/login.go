@@ -4,8 +4,12 @@
 package ncmctl
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/spf13/cobra"
 
+	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 )
 
@@ -20,9 +24,15 @@ func NewLogin(root *Root, l *log.Logger) *Login {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "login",
-			Short:   "Login netease cloud music",
-			Example: "  ncmctl login -h\n  ncmctl login qrcode\n  ncmctl login phone\n  ncmctl login cookiecloud\n  ncmctl login cookie",
+			Use:   "login",
+			Short: "Authenticate with NetEase Cloud Music",
+			Long: "Authenticate by phone, browser Cookie, CookieCloud, or QR code. Successful " +
+				"login validates the account and persists cookies under the configured runtime home. " +
+				"Authentication contacts live NetEase services; treat every credential as sensitive.",
+			Example: "  ncmctl login qrcode\n" +
+				"  ncmctl login phone 18800008888\n" +
+				"  ncmctl login cookie --file cookie.txt\n" +
+				"  ncmctl login cookiecloud --uuid '<uuid>' --password '<password>'",
 		},
 	}
 	c.addFlags()
@@ -43,3 +53,14 @@ func (c *Login) Command() *cobra.Command {
 }
 
 func (c *Login) addFlags() {}
+
+func validateLoginAccount(user *weapi.GetUserInfoResp) error {
+	if user == nil {
+		return errors.New("account validation failed: empty response")
+	}
+
+	if user.Code != 200 || user.Account == nil || user.Profile == nil {
+		return fmt.Errorf("account validation failed: login is invalid or expired (code %d)", user.Code)
+	}
+	return nil
+}

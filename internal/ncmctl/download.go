@@ -61,16 +61,20 @@ func NewDownload(root *Root, l *log.Logger) *Download {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "download",
-			Short:   "[need login] Download songs",
-			Example: `  ncmctl download 2161154646`,
+			Use:   "download <id-or-url> [id-or-url...]",
+			Short: "Download songs, albums, artists, or playlists",
+			Long: "Download one or more resources after resolving song IDs or NetEase song, album, " +
+				"artist, and playlist URLs. Login is required. Completed files are written to --output " +
+				"after MD5 verification; --strict skips songs when the exact quality is unavailable.",
+			Example: "  ncmctl download 2161154646\n" +
+				"  ncmctl download --level hires 'https://music.163.com/song?id=1820944399'\n" +
+				"  ncmctl download --strict 'https://music.163.com/playlist?id=593617579'\n" +
+				"  ncmctl download --output ./music --parallel 5 2161154646",
+			Args: cobra.MinimumNArgs(1),
 		},
 	}
 	c.addFlags()
 	c.cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 {
-			return errors.New("input is empty, please enter the song id or song link")
-		}
 		return c.execute(cmd.Context(), args)
 	}
 	return c
@@ -85,12 +89,18 @@ func (c *Download) Command() *cobra.Command {
 }
 
 func (c *Download) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./download", "music file output path")
-	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 5, "concurrent download count")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Level, "level", "l", string(types.LevelLossless), "song quality level. support: standard/128,higher/192,exhigh/HQ/320,lossless/SQ,hires/HR")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.EncodeType, "encode-type", "", "flac", "song encode type")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.ImmerseType, "immerse-type", "", "c51", "song immerse type")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Strict, "strict", false, "strict mode. when the downloaded song does not find the corresponding quality, it will not be downloaded.")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./download", "directory for completed music files")
+	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 5, "maximum concurrent downloads (1-20)")
+	c.cmd.PersistentFlags().StringVarP(
+		&c.opts.Level,
+		"level",
+		"l",
+		string(types.LevelLossless),
+		"requested quality: standard/128, higher/192, exhigh/HQ/320, lossless/SQ, or hires/HR",
+	)
+	c.cmd.PersistentFlags().StringVarP(&c.opts.EncodeType, "encode-type", "", "flac", "encode type sent to the player URL endpoint")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.ImmerseType, "immerse-type", "", "c51", "immersive-audio type sent to the player URL endpoint")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Strict, "strict", false, "skip a song when the exact requested quality is unavailable")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", true, "reserved for compatibility; download tag writing is not implemented")
 }
 
@@ -333,7 +343,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 							continue
 						}
 
-						set[id] = struct{}{}
+						set[v.Id] = struct{}{}
 
 						list = append(list, Music{
 							Id:      v.Id,
@@ -369,7 +379,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 						continue
 					}
 
-					set[id] = struct{}{}
+					set[v.Id] = struct{}{}
 
 					list = append(list, Music{
 						Id:      v.Id,
@@ -529,11 +539,11 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	}
 
 	if downResp.Code != 200 {
-		return fmt.Errorf("SongPlayerV1(%v) err: %+v", songId, downResp)
+		return fmt.Errorf("SongPlayerV1(%v) code=%d message=%q", songId, downResp.Code, downResp.Message)
 	}
 
 	if len(downResp.Data) == 0 {
-		return fmt.Errorf("SongPlayerV1(%v) is empty: %+v", songId, downResp)
+		return fmt.Errorf("SongPlayerV1(%v) returned no download data", songId)
 	}
 	// 歌曲变灰则不能下载
 	if ret := downResp.Data[0]; ret.Code != 200 || ret.Url == "" {
@@ -548,7 +558,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 			msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, ret.Code)
 		}
 
-		log.Warnf("资源已下架或无版权(%v) detail: %+v", songId, downResp)
+		log.Warnf("资源已下架或无版权(%v) code=%v message=%v", songId, ret.Code, ret.Message)
 		return msg
 	}
 
@@ -585,8 +595,8 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	}
 
 	size := resp.ContentLength
-	log.Debugf("id=%v downloadUrl=%v wantLevel=%v-%v realLevel=%v-%v encodeType=%v type=%v size=%vM,%vKB free=%v tempFile=%s outDir=%s",
-		drd.Id, drd.Url, c.opts.Level, quality.Br, drd.Level, drd.Br, drd.EncodeType, drd.Type, size/utils.MB, size, types.Free(drd.Fee), file.Name(), dest)
+	log.Debugf("id=%v status=%d downloadUrl=%v wantLevel=%v-%v realLevel=%v-%v encodeType=%v type=%v size=%vM,%vKB free=%v tempFile=%s outDir=%s",
+		drd.Id, resp.StatusCode, drd.Url, c.opts.Level, quality.Br, drd.Level, drd.Br, drd.EncodeType, drd.Type, size/utils.MB, size, types.Free(drd.Fee), file.Name(), dest)
 
 	// 校验md5文件完整性
 	if _, err := file.Seek(0, io.SeekStart); err != nil {

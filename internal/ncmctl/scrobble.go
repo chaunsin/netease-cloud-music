@@ -37,9 +37,14 @@ func NewScrobble(root *Root, l *log.Logger) *Scrobble {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "scrobble",
-			Short:   "[need login] Scrobble execute refresh 300 songs",
-			Example: `  ncmctl scrobble`,
+			Use:   "scrobble",
+			Short: "Submit play logs to increase the account listen count",
+			Long: "Submit play logs for up to 300 songs while using a local database to avoid " +
+				"repeats. Login is required. The requested count is not guaranteed when too few " +
+				"unrecorded songs are available. This automation has a high account-restriction risk.",
+			Example: "  ncmctl scrobble\n" +
+				"  ncmctl scrobble --num 200",
+			Args: cobra.NoArgs,
 		},
 	}
 	c.addFlags()
@@ -58,7 +63,7 @@ func (c *Scrobble) Command() *cobra.Command {
 }
 
 func (c *Scrobble) addFlags() {
-	c.cmd.PersistentFlags().Int64VarP(&c.opts.Num, "num", "n", 300, "num of songs")
+	c.cmd.PersistentFlags().Int64VarP(&c.opts.Num, "num", "n", 300, "requested play-log count (1-300)")
 }
 
 func (c *Scrobble) validate() error {

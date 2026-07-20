@@ -5,6 +5,7 @@ package config
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -51,6 +52,29 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
+	if c == nil {
+		return errors.New("config is nil")
+	}
+
+	if c.Log == nil {
+		return errors.New("log config is required")
+	}
+
+	if c.Network == nil {
+		return errors.New("network config is required")
+	}
+
+	if c.Database == nil {
+		return errors.New("database config is required")
+	}
+
+	if err := c.Log.Validate(); err != nil {
+		return fmt.Errorf("log: %w", err)
+	}
+
+	if err := c.Network.Validate(); err != nil {
+		return fmt.Errorf("network: %w", err)
+	}
 	return nil
 }
 
@@ -60,11 +84,11 @@ func GetDefault() *Config {
 
 func New(cfgPath ...string) (*Config, error) {
 	var (
-		conf Config
-		opts = viper.DecodeHook(func(m *mapstructure.DecoderConfig) {
-			m.TagName = "yaml"
-		})
 		_cfgPath string
+		conf     Config
+		opts     = func(m *mapstructure.DecoderConfig) {
+			m.TagName = "yaml"
+		}
 	)
 	if len(cfgPath) > 0 {
 		_cfgPath = cfgPath[0]

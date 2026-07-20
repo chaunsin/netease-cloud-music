@@ -61,8 +61,8 @@
 
 #### 🛠️ 调试工具
 
-- [X] 🔐 `crypto` 子命令 - 接口参数加解密，便于调试
-- [X] 🌐 `curl` 子命令 - 调用网易云音乐 API，无需关心参数加解密
+- [X] 🔐 `crypto` 子命令 - 本地加密 WEAPI/EAPI/Linux API 参数；直接解密当前仅支持 EAPI
+- [X] 🌐 `curl` 子命令 - 按导出的 Go 方法名调用 API wrapper；是否需要登录及是否修改账号取决于具体接口
   - [ ] 支持动态链接请求
 - [X] 🔎 `proxy` 子命令 - 监控网易云音乐 HTTP(S) 接口请求与响应
 
@@ -192,6 +192,28 @@ cp -r skills/ncmctl ~/.codex/skills/
 
 ## 🚀 使用指南
 
+### 命令速查
+
+当前构建的 `ncmctl <command> --help` 是命令语法、默认值和限制的事实来源。位置参数和输出参数不要混用；例如 `ncm` 的所有位置参数都是输入，输出目录必须通过 `-o`/`--output` 指定。
+
+| 命令 | 登录 | 用途与主要影响 |
+| :--- | :---: | :--- |
+| `ncmctl login <method>` | 否 | 通过手机、Cookie、CookieCloud 或二维码登录，并持久化 Cookie |
+| `ncmctl logout` | 已有会话 | 调用远端退出接口并删除默认持久化 Cookie |
+| `ncmctl task [flags]` | 是 | 按 cron 长期调度 `sign`、`partner`、`scrobble`；无选择器时调度全部任务 |
+| `ncmctl sign [flags]` | 是 | 立即执行一次云贝及符合条件的 VIP 签到 |
+| `ncmctl partner [flags]` | 是 | 立即上报播放并提交音乐合伙人测评，会修改账号状态 |
+| `ncmctl scrobble [flags]` | 是 | 提交播放日志并在本地去重，封号风险较高 |
+| `ncmctl download <id-or-url> [id-or-url...]` | 是 | 下载歌曲、专辑、歌手或歌单，并在 MD5 校验后写入本地文件 |
+| `ncmctl cloud <file-or-directory>` | 是 | 上传一个本地音乐文件或递归扫描一个目录，修改账号云盘 |
+| `ncmctl ncm <input> [input...]` | 否 | 本地解密一个或多个 `.ncm` 文件/目录；使用 `--output` 指定输出目录 |
+| `ncmctl crypto <encrypt-or-decrypt>` | 否 | 本地调试旧版 API 加密格式；直接请求解密当前仅支持 EAPI |
+| `ncmctl curl [method]` | 取决于接口 | 按导出的 Go API 方法名发起真实请求，登录要求和副作用由所选接口决定 |
+| `ncmctl proxy [flags]` | 否 | 启动 HTTP(S) 代理并管理本地 CA，默认脱敏捕获网易相关流量 |
+| `ncmctl completion <shell>` | 否 | 将 bash、fish、PowerShell 或 zsh 补全脚本写到标准输出 |
+
+全局 `--debug` 会把已脱敏的运行诊断和网络元数据写到 stderr 及配置的滚动日志文件；请求/响应正文会省略，Cookie、Authorization 等非安全请求头会脱敏。调试日志仍可能包含接口路径、资源 ID 和本地文件路径，请按敏感运行数据保护。
+
 ### 📱 一、登录
 
 支持 5 种登录方式，详情如下：
@@ -218,6 +240,7 @@ please input sms captcha:
 >
 > 1. 短信发送每日有限制，请勿频繁登录以免触发风控
 > 2. 若长时间未收到短信，可能是运营商延迟，可尝试重新发送或稍后再试
+> 3. `--timeout` 是登录网络请求的截止时间，不能中断终端中正在等待的验证码输入
 
 ---
 
@@ -244,7 +267,7 @@ Cookie，推荐 [Cookie Editor](https://chromewebstore.google.com/detail/cookie-
 
 ```shell
 # 方式一：直接导入 Cookie 字符串
-ncmctl login cookie 'cookie字符串内容'
+ncmctl login cookie 'MUSIC_U=<浏览器导出的值>; __csrf=<浏览器导出的值>'
 
 # 方式二：从文件导入
 ncmctl login cookie -f cookie.txt
@@ -355,7 +378,7 @@ ncmctl task --sign --scrobble
 
 ```shell
 # 设置刷歌任务在每天 20:00 执行
-ncmctl task --scrobble.cron "0 20 * * *"
+ncmctl task --scrobble --scrobble.cron "0 20 * * *"
 ```
 
 > 💡 **提示：**
@@ -436,6 +459,10 @@ ncmctl ncm '/path/to/ncm/files' -o ./output
 ncmctl ncm '/path/to/ncm/files' -o ./output -p 10
 ```
 
+> ℹ️ 所有位置参数都会被当作输入路径扫描；输出目录只能通过 `-o`/`--output` 指定。例如输出到当前目录应使用 `ncmctl ncm '/path/to/ncm/files' -o .`。
+>
+> 不存在的路径或显式传入的非 `.ncm` 文件会在创建输出目录前报错退出。
+>
 > ⚠️ 目录深度不能超过 3 层。音频标签默认写入；历史参数 `--tag` 的语义是关闭标签写入，而不是开启。
 
 ---
@@ -495,7 +522,7 @@ ncmctl --home /srv/ncmctl proxy
 ncmctl -h
 
 # 生成 shell 补全（以 zsh 为例）
-ncmctl completion zsh -h
+ncmctl completion zsh
 ```
 
 ---

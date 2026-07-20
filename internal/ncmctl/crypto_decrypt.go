@@ -40,9 +40,15 @@ func decrypt(root *Crypto, l *log.Logger) *cobra.Command {
 		l:    l,
 	}
 	c.cmd = &cobra.Command{
-		Use:     "decrypt",
-		Short:   "Decrypt data",
-		Example: "  ncmctl crypto decrypt -k weapi 'ciphertext'\n  ncmctl crypto decrypt http_request.har (automatic identification of encryption types)",
+		Use:   "decrypt <ciphertext-or-har>",
+		Short: "Decrypt an EAPI ciphertext or process a HAR file",
+		Long: "Decrypt one direct EAPI request ciphertext, a file containing that ciphertext, " +
+			"or matching EAPI entries from a HAR file. Direct WEAPI and Linux API decryption are " +
+			"not implemented. Restrict mixed HAR captures with --url. Input and output may contain secrets.",
+		Example: "  ncmctl crypto decrypt --kind eapi --encode hex 'CIPHERTEXT'\n" +
+			"  ncmctl crypto decrypt --kind eapi ciphertext.txt --output decrypted.json\n" +
+			"  ncmctl crypto decrypt --url '/eapi/*' capture.har",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
 		},
@@ -52,8 +58,8 @@ func decrypt(root *Crypto, l *log.Logger) *cobra.Command {
 }
 
 func (c *decryptCmd) addFlags() {
-	c.cmd.Flags().StringVarP(&c.encode, "encode", "e", "hex", "ciphertext content encoding: string|hex|base64")
-	c.cmd.Flags().StringVarP(&c.url, "url", "u", "*", "routing address matching example: https://music.163.com/*")
+	c.cmd.Flags().StringVarP(&c.encode, "encode", "e", "hex", "direct ciphertext encoding: string, hex, or base64")
+	c.cmd.Flags().StringVarP(&c.url, "url", "u", "*", "path glob used to select HAR entries (for example /eapi/*)")
 }
 
 func (c *decryptCmd) execute(_ context.Context, args []string) error {
@@ -83,7 +89,7 @@ func (c *decryptCmd) execute(_ context.Context, args []string) error {
 				return fmt.Errorf("parseHar: %w", parseErr)
 			}
 
-			log.Debugf("parseHar data: %+v", list)
+			log.Debugf("parseHar entries=%d", len(list))
 
 			for i := range list {
 				if decryptErr := c.decryptReq(&list[i], "hex"); decryptErr != nil {
@@ -176,7 +182,7 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 		return errors.New("response chiphertext is nil or empty")
 	}
 
-	log.Debugf("[decryptRes] response: %+v", p.Response)
+	log.Debugf("[decryptRes] ciphertext_bytes=%d", len(p.Response.Ciphertext))
 
 	switch p.Kind {
 	case "eapi":
@@ -192,7 +198,7 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 				// 如果根据标识分隔成3段则说明此数据是包含url和digest摘要形式拼接的数据,反之是结构体数据
 				value = strings.Split(str, "-36cd479b6b5-")
 			)
-			log.Debugf("[decryptRes] EApiDecrypt: %s", string(data))
+			log.Debugf("[decryptRes] decrypted_bytes=%d", len(data))
 
 			// 当请返回的内容content-encoding: br时,返回的内容是加密后的需要gzip在次解析,简单来说就是解密流程是这样
 			// 1. br解压缩
@@ -210,7 +216,7 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 				}
 
 				str = string(gdata)
-				log.Debugf("[decryptRes] gzip.NewReader: %s", str)
+				log.Debugf("[decryptRes] decompressed_bytes=%d", len(gdata))
 			}
 
 			if len(value) == 3 {
