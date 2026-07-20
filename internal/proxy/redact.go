@@ -112,25 +112,21 @@ func redactURL(u *url.URL, showSensitive bool) string {
 			copyURL.User = url.User(redactedValue)
 		}
 
-		copyURL.RawQuery = redactValues(copyURL.Query(), false).Encode()
+		query := copyURL.Query()
+		for key, entries := range query {
+			for i, entry := range entries {
+				if sensitiveKey(key) {
+					entries[i] = redactedValue
+					continue
+				}
+
+				entries[i] = redactJSONString(entry, false)
+			}
+		}
+
+		copyURL.RawQuery = query.Encode()
 	}
 	return copyURL.String()
-}
-
-func redactValues(values url.Values, showSensitive bool) url.Values {
-	result := make(url.Values, len(values))
-	for key, entries := range values {
-		result[key] = make([]string, len(entries))
-		for i, entry := range entries {
-			if !showSensitive && sensitiveKey(key) {
-				result[key][i] = redactedValue
-				continue
-			}
-
-			result[key][i] = redactJSONString(entry, showSensitive)
-		}
-	}
-	return result
 }
 
 // formatJSONLimited streams JSON tokens into a bounded output buffer. It never
@@ -139,10 +135,7 @@ func formatJSONLimited(data []byte, showSensitive bool, limit int64) ([]byte, js
 	if limit <= 0 || int64(len(data)) > limit {
 		return nil, jsonDisplayMeta{}, errJSONInputLimit
 	}
-	return formatJSON(data, showSensitive, limit)
-}
 
-func formatJSON(data []byte, showSensitive bool, limit int64) ([]byte, jsonDisplayMeta, error) {
 	if !utf8.Valid(data) {
 		return nil, jsonDisplayMeta{}, errors.New("JSON input is not valid UTF-8")
 	}
@@ -876,4 +869,23 @@ func truthy(value any) bool {
 		return err == nil && floatValue != 0
 	}
 	return false
+}
+
+type diagnosticWriter struct {
+	out           io.Writer
+	showSensitive bool
+}
+
+func (w *diagnosticWriter) Write(p []byte) (int, error) {
+	output := redactDiagnostic(p, w.showSensitive)
+
+	n, err := w.out.Write(output)
+	if err != nil {
+		return 0, err
+	}
+
+	if n != len(output) {
+		return 0, io.ErrShortWrite
+	}
+	return len(p), nil
 }

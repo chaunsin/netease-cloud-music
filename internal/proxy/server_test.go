@@ -122,6 +122,47 @@ func TestHTTPSMITMRequiresAndUsesGeneratedCA(t *testing.T) {
 	requireOutputContains(t, output, "RESPONSE status=200")
 }
 
+func TestMITMDebugDiagnostics(t *testing.T) {
+	const connectTarget = "music.163.com:443"
+
+	t.Run("matching SNI and certificate", func(t *testing.T) {
+		proxyURL, ca, _, diagnostics, _ := newTestProxyWithDebug(t, []string{"music.163.com"}, 1<<20, true)
+		roots := x509.NewCertPool()
+		roots.AddCert(ca.Leaf)
+		client := newMITMTestTLSClient(t, proxyURL, connectTarget, "music.163.com", roots)
+		require.NoError(t, client.Handshake())
+
+		requireOutputContains(t, diagnostics, "[TLS_DIAGNOSTIC] phase=client_hello")
+		text := diagnostics.String()
+		require.Contains(t, text, `[TLS_DIAGNOSTIC] phase=connect`)
+		require.Contains(t, text, `connect_target="music.163.com:443"`)
+		require.Contains(t, text, `sni="music.163.com" sni_relation=match`)
+		require.Contains(t, text, `dns_sans=["music.163.com"]`)
+		require.Contains(t, text, `cert_matches_connect=true cert_matches_sni=true`)
+	})
+
+	t.Run("SNI and CONNECT mismatch", func(t *testing.T) {
+		proxyURL, ca, _, diagnostics, _ := newTestProxyWithDebug(t, []string{"music.163.com"}, 1<<20, true)
+		roots := x509.NewCertPool()
+		roots.AddCert(ca.Leaf)
+		client := newMITMTestTLSClient(t, proxyURL, connectTarget, "interface3.music.163.com", roots)
+		require.Error(t, client.Handshake())
+
+		requireOutputContains(t, diagnostics, "cert_matches_connect=true cert_matches_sni=false")
+		text := diagnostics.String()
+		require.Contains(t, text, `sni="interface3.music.163.com" sni_relation=mismatch`)
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		proxyURL, ca, _, diagnostics, _ := newTestProxyWithDebug(t, []string{"music.163.com"}, 1<<20, false)
+		roots := x509.NewCertPool()
+		roots.AddCert(ca.Leaf)
+		client := newMITMTestTLSClient(t, proxyURL, connectTarget, "music.163.com", roots)
+		require.NoError(t, client.Handshake())
+		require.NotContains(t, diagnostics.String(), "TLS_DIAGNOSTIC")
+	})
+}
+
 func TestNonTargetHTTPSIsTunneledWithoutCapture(t *testing.T) {
 	t.Parallel()
 
@@ -1107,6 +1148,12 @@ func TestTrackedConnFindsSplitPlaintextHeaderEnd(t *testing.T) {
 
 func newTestProxy(t *testing.T, domains []string, maxBodyBytes int64) (*url.URL, *tls.Certificate, *lockedBuffer, *http.Transport) {
 	t.Helper()
+	proxyURL, ca, output, _, upstreamTransport := newTestProxyWithDebug(t, domains, maxBodyBytes, false)
+	return proxyURL, ca, output, upstreamTransport
+}
+
+func newTestProxyWithDebug(t *testing.T, domains []string, maxBodyBytes int64, debug bool) (*url.URL, *tls.Certificate, *lockedBuffer, *lockedBuffer, *http.Transport) {
+	t.Helper()
 	dir := filepath.Join(t.TempDir(), "proxy")
 	ca, _, err := loadOrCreateCA(filepath.Join(dir, "ca.crt"), filepath.Join(dir, "ca.key"), false)
 	require.NoError(t, err)
@@ -1118,6 +1165,7 @@ func newTestProxy(t *testing.T, domains []string, maxBodyBytes int64) (*url.URL,
 	cfg := Config{
 		MaxBodyBytes:  maxBodyBytes,
 		ShowSensitive: false,
+		Debug:         debug,
 		Out:           output,
 		ErrOut:        diagnostics,
 	}
@@ -1130,7 +1178,34 @@ func newTestProxy(t *testing.T, domains []string, maxBodyBytes int64) (*url.URL,
 
 	proxyURL, err := url.Parse(server.URL)
 	require.NoError(t, err)
-	return proxyURL, ca, output, upstreamTransport
+	return proxyURL, ca, output, diagnostics, upstreamTransport
+}
+
+func newMITMTestTLSClient(t *testing.T, proxyURL *url.URL, connectTarget, serverName string, roots *x509.CertPool) *tls.Conn {
+	t.Helper()
+
+	rawConn, err := net.Dial("tcp", proxyURL.Host)
+	require.NoError(t, err)
+	require.NoError(t, rawConn.SetDeadline(time.Now().Add(5*time.Second)))
+	t.Cleanup(func() { _ = rawConn.Close() })
+
+	_, err = fmt.Fprintf(rawConn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", connectTarget, connectTarget)
+	require.NoError(t, err)
+
+	reader := bufio.NewReader(rawConn)
+	response, err := http.ReadResponse(reader, &http.Request{Method: http.MethodConnect})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	require.NoError(t, response.Body.Close())
+
+	client := tls.Client(&bufferedTestConn{Conn: rawConn, reader: reader}, &tls.Config{
+		RootCAs:    roots,
+		ServerName: serverName,
+		MinVersion: tls.VersionTLS12,
+	})
+
+	t.Cleanup(func() { _ = client.Close() })
+	return client
 }
 
 func newTrackedTestProxy(t *testing.T, domains []string, handshakeTimeout time.Duration) (*url.URL, *tls.Certificate, *http.Transport) {
@@ -1294,6 +1369,16 @@ func (b *lockedBuffer) String() string {
 	defer b.mu.RUnlock()
 
 	return b.buffer.String()
+}
+
+type bufferedTestConn struct {
+	net.Conn
+
+	reader *bufio.Reader
+}
+
+func (c *bufferedTestConn) Read(p []byte) (int, error) {
+	return c.reader.Read(p)
 }
 
 type shortWriter struct{}

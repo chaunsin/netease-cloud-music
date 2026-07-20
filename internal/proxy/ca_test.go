@@ -185,6 +185,27 @@ func TestLoadOrCreateCAFailsClosedOnPartialPair(t *testing.T) {
 	}
 }
 
+func TestLoadOrCreateCAAcceptsMissingKeyUsage(t *testing.T) {
+	dir := t.TempDir()
+	certPath := filepath.Join(dir, "ca.crt")
+	keyPath := filepath.Join(dir, "ca.key")
+	template := testCertificateTemplate(time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true, 0)
+	writeTestCertificatePair(t, certPath, keyPath, &template, false)
+
+	ca, created, err := loadOrCreateCA(certPath, keyPath, false)
+	if err != nil {
+		t.Fatalf("loadOrCreateCA() error = %v", err)
+	}
+
+	if created {
+		t.Fatal("existing CA reported as newly created")
+	}
+
+	if ca.Leaf.KeyUsage != 0 {
+		t.Fatalf("KeyUsage = %v, want no extension", ca.Leaf.KeyUsage)
+	}
+}
+
 func TestLoadOrCreateCARejectsInvalidExistingPair(t *testing.T) {
 	now := time.Now()
 

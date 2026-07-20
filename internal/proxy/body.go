@@ -9,7 +9,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 )
@@ -183,13 +182,4 @@ func snapshotDetail(snapshot *bodySnapshot) string {
 	default:
 		return ""
 	}
-}
-
-func cloneURL(input *url.URL) *url.URL {
-	if input == nil {
-		return &url.URL{}
-	}
-
-	cloned := *input
-	return &cloned
 }

@@ -126,6 +126,8 @@ ncmctl proxy > capture.log
 
 Configure the client to use `127.0.0.1:9000` for HTTP and HTTPS, then trust `<home>/.ncmctl/proxy/ca.crt`. The proxy never modifies the system trust store automatically.
 
+Use `ncmctl --debug proxy` to correlate the CONNECT target with ClientHello SNI, the generated certificate SANs, and hostname-match results. Matching identities followed by a client handshake alert narrow the remaining causes to client trust policy or certificate pinning; the alert alone cannot distinguish them.
+
 ## References
 
 | File | Read when |

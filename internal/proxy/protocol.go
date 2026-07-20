@@ -79,10 +79,6 @@ func classifyProtocol(requestPath string) protocol {
 	}
 }
 
-func hasPathPrefix(value, prefix string) bool {
-	return value == prefix || strings.HasPrefix(value, prefix+"/")
-}
-
 func decodeRequestLimited(method string, u *url.URL, header http.Header, body []byte, showSensitive bool, maxBodyBytes int64) decodeResult {
 	if u == nil {
 		u = &url.URL{}

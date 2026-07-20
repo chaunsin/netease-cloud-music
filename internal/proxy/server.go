@@ -5,7 +5,6 @@ package proxy
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -120,6 +119,42 @@ func Run(ctx context.Context, rawConfig *Config) error {
 }
 
 func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, recorder *recorder, tracked *trackedListener) (*goproxy.ProxyHttpServer, *http.Transport) {
+	target := goproxy.ReqConditionFunc(func(req *http.Request, _ *goproxy.ProxyCtx) bool {
+		if req == nil {
+			return false
+		}
+
+		host := req.Host
+		if req.URL != nil {
+			switch {
+			case req.URL.Host != "":
+				host = req.URL.Host
+			case req.URL.Opaque != "":
+				host = req.URL.Opaque
+			}
+		}
+		return matcher.Match(host)
+	})
+	tlsConfig := func(host string, proxyCtx *goproxy.ProxyCtx) (*tls.Config, error) {
+		handshakeTimeout := defaultConnectHandshakeTimeout
+		if tracked != nil && tracked.handshakeTimeout > 0 {
+			handshakeTimeout = tracked.handshakeTimeout
+		}
+
+		config, err := goproxy.TLSConfigFromCA(ca)(host, proxyCtx)
+		if err != nil {
+			return nil, err
+		}
+
+		var observeClientHello func(*tls.ClientHelloInfo, *tls.Config)
+		if cfg.Debug {
+			observeClientHello = func(hello *tls.ClientHelloInfo, selected *tls.Config) {
+				logMITMClientHello(proxyCtx, host, hello, selected)
+			}
+		}
+		return withMITMHandshakeTimeout(config, handshakeTimeout, observeClientHello), nil
+	}
+
 	transport, ok := http.DefaultTransport.(*http.Transport)
 	if ok {
 		transport = transport.Clone()
@@ -140,25 +175,12 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 	server.ConnectDial = nil
 	server.ConnectDialWithReq = nil
 	server.CertStore = newMemoryCertStore()
-
-	target := goproxy.ReqConditionFunc(func(req *http.Request, _ *goproxy.ProxyCtx) bool {
-		return matcher.Match(requestHost(req))
-	})
-	tlsConfig := func(host string, proxyCtx *goproxy.ProxyCtx) (*tls.Config, error) {
-		handshakeTimeout := defaultConnectHandshakeTimeout
-		if tracked != nil && tracked.handshakeTimeout > 0 {
-			handshakeTimeout = tracked.handshakeTimeout
-		}
-
-		config, err := goproxy.TLSConfigFromCA(ca)(host, proxyCtx)
-		if err != nil {
-			return nil, err
-		}
-		return withMITMHandshakeTimeout(config, handshakeTimeout), nil
-	}
-
 	server.OnRequest().HandleConnectFunc(func(host string, proxyCtx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
 		if matcher.Match(host) {
+			if cfg.Debug && proxyCtx != nil {
+				proxyCtx.Logf("[TLS_DIAGNOSTIC] phase=connect connect_target=%q connect_host=%q action=mitm", host, canonicalHostname(host))
+			}
+
 			if tracked != nil && proxyCtx != nil && proxyCtx.Req != nil {
 				tracked.armHandshakeDeadline(proxyCtx.Req.RemoteAddr)
 			}
@@ -197,7 +219,7 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 				})
 
 				if outbound.URL != nil && strings.EqualFold(outbound.URL.Scheme, "https") {
-					return badGatewayResponse(outbound), nil
+					return goproxy.NewResponse(outbound, goproxy.ContentTypeText, http.StatusBadGateway, "Bad Gateway\n"), nil
 				}
 				return nil, roundTripErr
 			}
@@ -292,7 +314,7 @@ func prepareRequestCapture(state *captureState, request *http.Request, limit int
 	request.Body = newCaptureReadCloser(request.Body, &state.requestBody, limit, finish)
 }
 
-func withMITMHandshakeTimeout(config *tls.Config, timeout time.Duration) *tls.Config {
+func withMITMHandshakeTimeout(config *tls.Config, timeout time.Duration, observeClientHello func(*tls.ClientHelloInfo, *tls.Config)) *tls.Config {
 	if config == nil || timeout <= 0 {
 		return config
 	}
@@ -300,8 +322,6 @@ func withMITMHandshakeTimeout(config *tls.Config, timeout time.Duration) *tls.Co
 	base := config.Clone()
 	getConfigForClient := config.GetConfigForClient
 	base.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
-		// Refresh the deadline after a ClientHello is parsed, then clear it only
-		// after TLS has completed. ClientHelloInfo.Conn is the intercepted socket.
 		_ = hello.Conn.SetDeadline(time.Now().Add(timeout))
 
 		selected := config
@@ -317,6 +337,10 @@ func withMITMHandshakeTimeout(config *tls.Config, timeout time.Duration) *tls.Co
 			if selected == nil {
 				selected = config
 			}
+		}
+
+		if observeClientHello != nil {
+			observeClientHello(hello, selected)
 		}
 
 		selected = selected.Clone()
@@ -337,19 +361,42 @@ func withMITMHandshakeTimeout(config *tls.Config, timeout time.Duration) *tls.Co
 	return base
 }
 
-func badGatewayResponse(request *http.Request) *http.Response {
-	const body = "Bad Gateway\n"
-	return &http.Response{
-		Status:        "502 " + http.StatusText(http.StatusBadGateway),
-		StatusCode:    http.StatusBadGateway,
-		Proto:         "HTTP/1.1",
-		ProtoMajor:    1,
-		ProtoMinor:    1,
-		Header:        http.Header{"Content-Type": {"text/plain; charset=utf-8"}},
-		Body:          io.NopCloser(strings.NewReader(body)),
-		ContentLength: int64(len(body)),
-		Request:       request,
+func logMITMClientHello(proxyCtx *goproxy.ProxyCtx, connectTarget string, hello *tls.ClientHelloInfo, config *tls.Config) {
+	if proxyCtx == nil || hello == nil {
+		return
 	}
+
+	var (
+		connectHost = canonicalHostname(connectTarget)
+		sniHost     = canonicalHostname(hello.ServerName)
+		sniRelation = "mismatch"
+	)
+
+	switch {
+	case sniHost == "":
+		sniRelation = "missing"
+	case connectHost == sniHost:
+		sniRelation = "match"
+	}
+
+	if config == nil || len(config.Certificates) == 0 || config.Certificates[0].Leaf == nil {
+		proxyCtx.Logf("[TLS_DIAGNOSTIC] phase=client_hello connect_target=%q connect_host=%q sni=%q sni_relation=%s certificate_status=unavailable",
+			connectTarget, connectHost, hello.ServerName, sniRelation)
+		return
+	}
+
+	var (
+		leaf   = config.Certificates[0].Leaf
+		ipSANs = make([]string, len(leaf.IPAddresses))
+	)
+	for i, address := range leaf.IPAddresses {
+		ipSANs[i] = address.String()
+	}
+
+	proxyCtx.Logf(
+		"[TLS_DIAGNOSTIC] phase=client_hello connect_target=%q connect_host=%q sni=%q sni_relation=%s dns_sans=%q ip_sans=%q cert_matches_connect=%t cert_matches_sni=%t",
+		connectTarget, connectHost, hello.ServerName, sniRelation, leaf.DNSNames, ipSANs, leaf.VerifyHostname(connectHost) == nil, sniHost != "" && leaf.VerifyHostname(sniHost) == nil,
+	)
 }
 
 func isUpgradeResponse(response *http.Response) bool {
@@ -357,24 +404,20 @@ func isUpgradeResponse(response *http.Response) bool {
 		return false
 	}
 
-	if response.StatusCode == http.StatusSwitchingProtocols ||
-		headerHasToken(response.Header, "Connection", "upgrade") {
+	if response.StatusCode == http.StatusSwitchingProtocols {
 		return true
 	}
 
-	_, readWriter := response.Body.(io.ReadWriter)
-	return readWriter
-}
-
-func headerHasToken(header http.Header, name, token string) bool {
-	for _, value := range header.Values(name) {
+	for _, value := range response.Header.Values("Connection") {
 		for part := range strings.SplitSeq(value, ",") {
-			if strings.EqualFold(strings.TrimSpace(part), token) {
+			if strings.EqualFold(strings.TrimSpace(part), "upgrade") {
 				return true
 			}
 		}
 	}
-	return false
+
+	_, readWriter := response.Body.(io.ReadWriter)
+	return readWriter
 }
 
 func cloneResponseMetadata(response *http.Response) *http.Response {
@@ -390,23 +433,6 @@ func cloneResponseMetadata(response *http.Response) *http.Response {
 	}
 }
 
-func requestHost(req *http.Request) string {
-	if req == nil {
-		return ""
-	}
-
-	if req.URL != nil {
-		if req.URL.Host != "" {
-			return req.URL.Host
-		}
-
-		if req.URL.Opaque != "" {
-			return req.URL.Opaque
-		}
-	}
-	return req.Host
-}
-
 func printStartup(cfg *Config, address net.Addr, ca *tls.Certificate, generated bool) error {
 	state := "loaded"
 	if generated {
@@ -416,7 +442,7 @@ func printStartup(cfg *Config, address net.Addr, ca *tls.Certificate, generated 
 	lines := []string{
 		fmt.Sprintf("ncmctl proxy listening on http://%s\n", address.String()),
 		fmt.Sprintf("CA certificate (%s): %s\n", state, cfg.CACertPath),
-		fmt.Sprintf("CA SHA-256: %s\n", formatFingerprint(sha256.Sum256(ca.Leaf.Raw))),
+		fmt.Sprintf("CA SHA-256: %s\n", formatFingerprint(ca.Leaf.Raw)),
 		"Trust this CA on the client before capturing HTTPS. Press Ctrl+C to stop.\n",
 	}
 
@@ -432,31 +458,4 @@ func printStartup(cfg *Config, address net.Addr, ca *tls.Certificate, generated 
 		return fmt.Errorf("write startup diagnostics: %w", err)
 	}
 	return nil
-}
-
-func formatFingerprint(raw [sha256.Size]byte) string {
-	parts := make([]string, len(raw))
-	for i, value := range raw {
-		parts[i] = fmt.Sprintf("%02X", value)
-	}
-	return strings.Join(parts, ":")
-}
-
-type diagnosticWriter struct {
-	out           io.Writer
-	showSensitive bool
-}
-
-func (w *diagnosticWriter) Write(p []byte) (int, error) {
-	output := redactDiagnostic(p, w.showSensitive)
-
-	n, err := w.out.Write(output)
-	if err != nil {
-		return 0, err
-	}
-
-	if n != len(output) {
-		return 0, io.ErrShortWrite
-	}
-	return len(p), nil
 }

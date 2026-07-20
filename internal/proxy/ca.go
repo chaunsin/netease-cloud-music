@@ -152,7 +152,8 @@ func validateCA(ca *tls.Certificate, now time.Time) error {
 		return errors.New("certificate is not a CA")
 	}
 
-	if ca.Leaf.KeyUsage&x509.KeyUsageCertSign == 0 {
+	// Key Usage is optional, but it must permit certificate signing when present.
+	if ca.Leaf.KeyUsage != 0 && ca.Leaf.KeyUsage&x509.KeyUsageCertSign == 0 {
 		return errors.New("CA certificate cannot sign certificates")
 	}
 

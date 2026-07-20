@@ -122,18 +122,3 @@ func validateListenAddress(address string, allowPortZero bool) error {
 	}
 	return nil
 }
-
-func isLoopbackListenAddress(address string) bool {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		return false
-	}
-
-	host = strings.TrimSuffix(strings.ToLower(host), ".")
-	if host == "localhost" {
-		return true
-	}
-
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
-}

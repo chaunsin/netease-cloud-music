@@ -322,6 +322,8 @@ With no CA flags, ncmctl creates and reuses:
 
 Install and trust only `ca.crt` on the client device. The command prints its path and SHA-256 fingerprint but does not modify any trust store. Keep `ca.key` private.
 
+The global `--debug` flag adds `TLS_DIAGNOSTIC` records for targeted HTTPS connections. Records with the same session show the CONNECT target, ClientHello SNI, generated DNS/IP SANs, and `cert_matches_connect` / `cert_matches_sni` results. If SNI and both certificate checks match but the client still rejects the handshake, investigate client CA trust policy or certificate pinning; the TLS alert cannot distinguish those causes by itself.
+
 Behavior and limitations:
 
 - Only NetEase-related target domains are captured or MITM'd; other traffic is forwarded without capture.
