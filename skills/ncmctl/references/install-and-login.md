@@ -116,7 +116,7 @@ The optional `--config` flag loads one exact YAML path; ncmctl does not auto-loa
 
 ## Login methods
 
-ncmctl exposes four login subcommands and five user flows because `login phone` supports either SMS or password. Login contacts live NetEase services and persists cookies after success.
+ncmctl exposes four login subcommands and five user flows because `login phone` supports either SMS or password. Login contacts live NetEase services and uses the configured persistent Cookie jar.
 
 Prefer Cookie-file login when it is available: it avoids placing a full Cookie string or password directly in shell history. All authentication material is sensitive.
 
@@ -151,7 +151,7 @@ Use the spelling `netscape` for `--format`, even though older help examples cont
 
 Do not post exported cookies in issues, logs, screenshots, or chat. Logging out of the browser can invalidate a previously exported Cookie.
 
-Cookie and CookieCloud imports are first checked with an in-memory Cookie jar. ncmctl writes them to the configured Cookie file only after the account endpoint returns code 200 with both account and profile data.
+Cookie and CookieCloud imports are inserted into the configured persistent jar before the account endpoint is validated. Depending on the configured interval, they can be written immediately, periodically, or during deferred close even when validation fails. Use an isolated `--home` or temporary config when testing credentials, and remove the resulting Cookie file after a failed validation if it must not be retained.
 
 ### CookieCloud
 
@@ -172,7 +172,7 @@ ncmctl login cookiecloud \
 | `-t, --timeout` | `30s` | Request timeout |
 | `-H, --headers` | none | Comma-separated `key=value` request headers |
 
-The current command requires UUID and password flags. It does not prompt for them and does not read dedicated `COOKIECLOUD_*` variables. These values can be visible in shell history and process listings, so run only on a trusted machine and prefer Cookie-file login if that exposure is unacceptable. Treat third-party CookieCloud servers as credential-bearing services.
+The current command requires UUID and password flags. It does not prompt for them and does not read dedicated `COOKIECLOUD_*` variables. These values can be visible in shell history and process listings, so run only on a trusted machine and prefer Cookie-file login if that exposure is unacceptable. Treat third-party CookieCloud servers as credential-bearing services. The current CookieCloud client disables TLS certificate verification, so an HTTPS URL encrypts traffic without authenticating the server identity.
 
 ### Phone SMS
 

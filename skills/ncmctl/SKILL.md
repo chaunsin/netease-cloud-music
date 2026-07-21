@@ -85,7 +85,9 @@ For custom configuration, copy the full schema from `config/config.yaml`, edit i
 
 - **Account risk:** `scrobble`, partner evaluation, automatic reward claims, and other automation can trigger NetEase risk control. Scrobble has a particularly high ban risk.
 - **Credentials:** Cookie values, `MUSIC_U`, phone passwords, and CookieCloud UUID/passwords are secrets. The current phone-password and CookieCloud commands accept credentials as flags; they do not provide a hidden password prompt or dedicated credential environment variable.
+- **TLS verification:** The current NetEase API and CookieCloud clients disable server-certificate verification. HTTPS traffic is encrypted but the peer identity is not authenticated; use only a trusted network path and CookieCloud server.
 - **Cookie files:** ncmctl creates its default Cookie directory/file with restrictive permissions on POSIX, but backups and exported Cookie files remain sensitive. Prefer `login cookie -f` over placing a Cookie string directly in shell history.
+- **Cookie import persistence:** Cookie and CookieCloud imports enter the configured persistent jar before account validation. A failed validation can still write those values during immediate, periodic, or final flush.
 - **Proxy CA:** Trust only `ca.crt` on a client you control. Never install, share, or commit `ca.key`. Remove trust when monitoring is finished if it is no longer needed.
 - **Sensitive capture:** Proxy redaction is enabled by default. `--show-sensitive` can expose credentials and identifiers in the terminal or redirected files.
 - **LAN proxy:** `--listen 0.0.0.0:9000` is unauthenticated. Use it only temporarily on a trusted network behind a firewall.

@@ -214,6 +214,8 @@ cp -r skills/ncmctl ~/.codex/skills/
 
 全局 `--debug` 会把已脱敏的运行诊断和网络元数据写到 stderr 及配置的滚动日志文件；请求/响应正文会省略，Cookie、Authorization 等非安全请求头会脱敏。调试日志仍可能包含接口路径、资源 ID 和本地文件路径，请按敏感运行数据保护。
 
+> ⚠️ 当前网易 API 与 CookieCloud HTTP 客户端关闭了服务端证书校验。HTTPS 流量仍会加密，但不能确认服务端身份；请只在可信网络路径上使用，并把 CookieCloud 服务端视为凭据系统。
+
 ### 📱 一、登录
 
 支持 5 种登录方式，详情如下：
@@ -306,7 +308,7 @@ ncmctl login cookiecloud -u <UUID> -p <密码> -s http://127.0.0.1:8088
 >
 > 1. 请确保服务端地址、账号、密码正确
 > 2. 若出现 Cookie 找不到错误，请在插件中手动同步或重新登录后重试
-> 3. 使用第三方服务器请自行评估安全风险
+> 3. 使用第三方服务器请自行评估安全风险；当前 CookieCloud 客户端不会校验 HTTPS 服务端证书
 > 4. 当前命令要求通过 `-u`、`-p` 传入凭据，没有内置交互式密码提示或专用凭据环境变量；参数可能出现在 shell 历史和进程列表中
 
 ---
@@ -510,7 +512,7 @@ ncmctl --home /srv/ncmctl proxy
 > - HTTPS 监控依赖客户端信任生成的 CA；证书固定、Android 用户 CA 限制、QUIC/HTTP3 或绕过系统代理的连接可能无法捕获。
 > - 首版按 CONNECT/Host 域名筛选目标；客户端若以 IP 地址作为 CONNECT 目标，即使 TLS SNI 是网易域名，也可能只会透明转发而不记录。
 > - WEAPI 的随机请求密钥和新版 XEAPI 的会话密钥无法由被动代理完整还原，程序会标记为不支持并打印脱敏后的原始字段；EAPI、Linux API 和明文 API 会尽可能解析。
-> - 音视频、图片、multipart 以及未知长度的流式请求正文只打印摘要；当前不解析 WebSocket 帧。
+> - 音视频、图片、multipart 以及所有未知正文长度的请求（包括有限的 chunked 请求）只打印摘要；当前不解析 WebSocket 帧。
 > - 输出端被慢终端、FIFO 或磁盘阻塞时，代理会优先保持真实流量可用；有界记录队列满时会输出 `CAPTURE_DROPPED` 标记，表示部分捕获块未写出。
 
 按 `Ctrl+C` 可平滑停止代理。

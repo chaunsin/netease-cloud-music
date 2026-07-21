@@ -8,13 +8,21 @@
 
 当前最低 Go 版本以 `go.mod` 为准，现为 Go 1.25.0。
 
-## 开始工作前
+## 核心原则
 
-1. 先运行 `git status --short`，确认暂存区、工作区和未跟踪文件。工作区可能包含用户尚未提交的改动，不要回退、覆盖或顺手格式化无关文件。
-2. 阅读离改动最近的源码、测试和文档。不要只根据 README、CLI 表象或远端协议猜测实现。
-3. 搜索已有类型、辅助函数和调用模式后再新增代码。优先使用标准库和现有依赖；几行代码可以完成时不要引入新依赖。
-4. 保持行为不变，除非任务明确要求改变语义。删除代码前必须证明没有调用方，并清理导出、引用、测试和文档残留。
-5. 不忽略错误。返回值应包装足够的上下文；只能在无法继续返回错误的清理或异步边界记录日志。
+在代码开始编写前你需要遵守以下规则
+
+1. 这东西真的有必要存在吗？如果只是推测需要，那就直接省略，一句话说明就好。（YAGNI）
+2. 能否复用。编写代码前先查看代码库中已有的辅助函数、工具函数、类型或模式。重复实现功能是最低效做法。
+3. 标准库能做到吗？用它就行了。
+4. 如果已安装的依赖项可以解决问题，那就用它。几行代码就能解决的问题，千万别添加新的依赖项。
+5. 简单至上(Simplicity): 可以只写一行吗？一行。
+6. 代码可读性(Readability): 应注重阅读速度，而不是打字速度
+7. 高内聚低耦合。强相关的放在一起，减少不必要的依赖。方法、变量不能琐碎零散。
+8. 单一职责(SRP):一个模块、类、方法只做一件事情，职责划分清晰。
+9. 删除胜于添加，乏味胜于聪明。
+10. 快速失败(Fail Fast): 禁止吞掉异常，提前暴露错误，显示错误优于隐式错误；只能在无法继续返回错误的清理或异步边界记录日志。
+11. 为维护者编程: 机器可运行的代码不是目的，而是未来的自己、同事，甚至几年后的维护者都能快速理解和安全修改的代码。
 
 ## 常用命令
 
@@ -26,7 +34,7 @@ make install
 # 格式化与静态检查（需要 golangci-lint v2）
 make fmt
 make lint
-make lintfix
+make lintfix # 检测并修复 golangci-lint run --fix ./...
 
 # Makefile 的完整测试入口
 make test
@@ -59,85 +67,15 @@ go test -tags=integration -v -run TestWeapiLoginByQrcode ./example/
 
 若没有权限运行真实网络测试，完成离线的目标包测试、`make lint`（适用时）和 `git diff --check`，并在结果中明确未验证的边界。
 
-## 目录与职责
+## 仓库导航
 
-```text
-cmd/ncmctl/                         CLI 入口和版本信息
-internal/ncmctl/                    Cobra 命令、参数校验和命令编排
-internal/proxy/                     HTTP(S) 转发、MITM、捕获、解析与脱敏
-api/api.go                          HTTP 客户端、加密模式分派、Cookie 生命周期
-api/options.go                      请求方法和 CryptoMode 选项
-api/xeapi.go                        XEAPI URL 改写、公钥刷新、会话状态
-api/weapi/                          Web/小程序接口
-api/eapi/                           PC/移动端接口
-api/api/                            明文 API 接口
-api/linux/                          Linux API 接口
-api/types/                          跨接口共享类型
-pkg/crypto/                         WEAPI/EAPI/Linux/XEAPI/NCBL 加解密
-pkg/cookie/                         Cookie Jar 和持久化
-pkg/cookiecloud/                    CookieCloud 客户端
-pkg/database/                       数据库接口和 Badger 实现
-pkg/ncm/                            NCM 解析、解密和音频标签
-pkg/log/                            日志与滚动文件
-config/                             配置结构和嵌入式默认配置
-example/                            带 integration tag 的真实服务示例
-docs/xeapi.md                       XEAPI 研究记录，不替代源码和黄金向量
-skills/ncmctl/                      可分发的 ncmctl 用户 skill
-.claude/skills/ncmctl-dev/          本仓库开发 skill
-```
-
-## CLI 开发
-
-- 根命令在 `internal/ncmctl/ncmctl.go` 注册子命令。新增命令前先复制最接近的现有命令模式，不要假设所有命令都有完全相同的结构。
-- 使用 Cobra 的 `RunE` 传播错误；参数在执行副作用前校验。不要只打印错误后返回成功。
-- 运行时客户端使用 `api.NewClient(c.root.Cfg.Network, c.l)`。在 `internal/ncmctl` 内通过 `defer closeAPIClient(ctx, cli)` 关闭客户端，确保 Cookie 最终刷盘且关闭错误不会被静默丢弃。
-- 需要登录的命令在产生账号操作前验证登录状态。Token 刷新位置以邻近命令的实际控制流为准，不要套用会漏掉早退路径的通用模板。
-- 并发下载、上传、解密和代理代码必须正确处理取消、资源关闭和 goroutine 退出；共享状态需要用原子操作、锁或现有同步抽象保护。
-- CLI 语法的事实来源是 Cobra flag 定义和当前构建的 `ncmctl <command> --help` 输出。只有语法、默认值、输出、错误、持久化位置或安全/副作用边界变化时，才同步更新用户文档；行为不变的内部重构不需要制造文档 churn。
-
-## API 开发
-
-`api.Client.Request` 根据 `api.Options` 处理请求。目前的模式定义在 `api/options.go`：
-
-| 模式 | 用途 | 主要实现 |
-| --- | --- | --- |
-| `CryptoModeWEAPI` | Web/小程序请求，默认模式 | `pkg/crypto.WeApiEncrypt` |
-| `CryptoModeEAPI` | PC/移动端请求 | `pkg/crypto.EApiEncrypt` |
-| `CryptoModeLinux` | Linux 客户端请求 | `pkg/crypto.LinuxApiEncrypt` |
-| `CryptoModeAPI` | 明文 API | `api.Client.Request` |
-| `CryptoModeXEAPI` | Aegis/XEAPI 请求与响应 | `api/xeapi.go`、`pkg/crypto` |
-
-当前通用请求层对 `CryptoModeAPI` 不会自动将 `req` 序列化到 query 或 form；`CryptoModeEAPI` 也只直接处理明文 JSON 响应，不透明解密 `e_r=true` 响应。将这些模式用于新 endpoint 前，先补请求/响应路径和测试。
-
-添加或修改接口时：
-
-1. 在匹配的 `api/weapi`、`api/eapi`、`api/api` 或 `api/linux` 包中定义请求、响应和方法；共享响应结构放到 `api/types` 之前先证明它确实跨接口复用。
-2. 使用 `opts := api.NewOptions()`；WEAPI 是默认值，其他模式调用 `SetCryptoModeEAPI`、`SetCryptoModeLinux`、`SetCryptoModeAPI` 或 `SetCryptoModeXEAPI`。仓库没有 `api.WithCryptoMode` 函数。
-3. 调用 `a.client.Request(ctx, endpoint, req, &reply, opts)`，包装传输错误，并由调用方显式判断业务 `Code`。目前请求层只实现 GET 和 POST；扩展方法前补齐实现和测试。
-4. EAPI 摘要依赖正确的原始路由路径；不要为了让请求“看起来一致”随意改写 URL。
-5. XEAPI 的明文 envelope 保留 `/api/` 语义，传输路径改写到 `/xeapi/`。公钥刷新、会话头、锁和 `singleflight` 是同一状态机，不能只修改其中一段。协议变更必须优先使用抓包或历史证据，并增加黄金向量；仅做加密后再自行解密的闭环测试不够。
-
-详细示例见 `.claude/skills/ncmctl-dev/references/api-guide.md`。XEAPI 背景材料见 `docs/xeapi.md`，当前客户端行为以 `api/api.go`、`api/xeapi.go`、`api/options.go`、`api/xeapi_test.go` 和 `pkg/crypto/crypto_test.go` 为准。NCBL 是独立的日志正文 wire format，以 `pkg/crypto/ncbl.go` 和 `pkg/crypto/ncbl_test.go` 为准，不属于 XEAPI 会话状态机。
-
-## 代理开发
-
-`internal/proxy` 的首要约束是“观察失败不能改变真实流量”：
-
-- 只对网易目标域名捕获和 HTTPS MITM；其他流量透明转发且不输出。
-- 捕获、截断、解压、协议解析、格式化和脱敏只操作观察副本，不得消费、替换或截断真实请求/响应。
-- 默认递归脱敏。无法安全结构化处理的正文应输出摘要；只有显式 `--show-sensitive` 才允许原始敏感值。
-- 输出使用有界异步队列。stdout 阻塞时报告 `CAPTURE_DROPPED`，不能反压转发链路。
-- 被动代理拿不到 WEAPI 随机密钥或 XEAPI 会话密钥时必须标记 `unsupported`，不能把密文或猜测伪装成明文。
-- 自动生成的 CA 私钥在 POSIX 上保持 `0600`，目录保持 `0700`；Windows 使用当前用户 ACL。不要使用 goproxy 内置的公开 CA 私钥。
-- 修改连接、队列、证书缓存或关闭流程后，至少运行目标测试；涉及共享状态时运行 `go test -race ./internal/proxy`。
-
-## 配置与持久化
-
-- 不传 `--config` 时，程序使用嵌入的 `config/config.yaml`；它不会自动读取 `~/.ncmctl/config.yaml`。
-- `--config <file>` 由 Viper 读取指定的完整配置文件并应用 `NCMCTL_` 前缀的环境变量覆盖；嵌套键用下划线表示，例如 `NCMCTL_LOG_LEVEL`。`viper.UnmarshalExact` 会拒绝未知字段，省略的配置段不会从嵌入式默认值自动合并。
-- 全局 `--home` 替换配置中的 `${HOME}`，默认运行数据位于 `<home>/.ncmctl/`。默认 Cookie、日志和数据库路径分别来自 `config/config.yaml`。
-- Cookie 目录和文件分别以 `0700`、`0600` 创建；`Client.Close` 会触发最终持久化。Cookie API 的 `GetCookies` 和 `SetCookies` 都需要明确的 `*url.URL`。
-- 自定义配置应从 `config/config.yaml` 复制完整结构再修改；修改加载逻辑时应覆盖文件加载、未知字段、环境变量和 `${HOME}` 替换测试。
+- `internal/ncmctl/`：Cobra 命令、参数校验和命令编排。
+- `internal/proxy/`：HTTP(S) 转发、MITM、捕获、解析与脱敏。
+- `api/`、`pkg/crypto/`：接口封装、请求传输和协议加解密。
+- `pkg/cookie/`、`pkg/database/`、`pkg/log/`、`config/`：配置与运行数据持久化。
+- `pkg/ncm/`：NCM 解析、解密和音频标签。
+- `.claude/skills/ncmctl-dev/`：按任务加载的开发流程与专题约束。
+- `skills/ncmctl/`：面向最终用户的安装和使用说明，不承载仓库开发约定。
 
 ## 测试与代码风格
 
@@ -156,7 +94,7 @@ skills/ncmctl/                      可分发的 ncmctl 用户 skill
 
 ## 完成检查
 
-1. 查看 `git diff HEAD -- <本次文件>`，确认暂存和未暂存变化都在任务范围内；需要分辨两层时再分别查看 `git diff --cached` 和 `git diff`。
+1. 先用 `git status --short` 识别暂存、未暂存和未跟踪文件；读取相关未跟踪文件内容，再用 `git diff HEAD -- <本次文件>` 检查已跟踪变化。需要分辨两层时分别查看 `git diff --cached` 和 `git diff`。
 2. 运行最小充分的目标测试和静态检查；不要越过上面的真实网络/账号边界。
 3. 运行 `git diff --check`，检查 diff 中的空白错误和冲突标记。
 4. 修改了 guidance、链接或 skill 时，用 `readlink`/`test -L` 检查符号链接，用 `test -e` 逐个确认本次改动的相对目标，并对每个改动的 skill 运行 validator；这些不属于 `git diff --check` 的能力。

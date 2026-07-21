@@ -1,4 +1,4 @@
-# CLI Development Reference
+# CLI Development
 
 This reference maps ncmctl's public commands to their implementation and development constraints. For the current flag tables and user examples, read the repository-root `skills/ncmctl/references/commands.md`; do not duplicate those tables here.
 
@@ -21,19 +21,17 @@ This reference maps ncmctl's public commands to their implementation and develop
 Execution order:
 
 1. Cobra parses persistent flags (`--debug`, `--config`, and `--home`).
-2. `PersistentPreRunE` uses the embedded default config or reads the exact complete `--config` path, replaces `${HOME}`, validates required sections and nested network/log settings, and initializes the logger.
+2. `PersistentPreRunE` loads and validates runtime configuration, applies CLI overrides, and initializes the logger. Load `references/configuration.md` through the skill routing table when changing this step.
 3. The selected command validates arguments and runs its operation.
 4. On a successful command path, `PersistentPostRunE` closes the logger. Cobra skips post-run hooks when `RunE` returns an error, so critical cleanup cannot rely on this hook.
-
-Without `--config`, the program does not auto-discover `~/.ncmctl/config.yaml`; it uses the embedded `config/config.yaml`.
 
 ## Command map
 
 | Command | Implementation | External effects and important dependencies |
 | --- | --- | --- |
 | `login phone` | `login_phone.go` | Sends SMS or submits a password, validates the resulting account, persists cookies |
-| `login cookie` | `login_cookie.go` | Imports Netscape/JSON/header cookies, requires `MUSIC_U`, validates in memory, then persists |
-| `login cookiecloud` | `login_cookiecloud.go` | Contacts a CookieCloud server, validates matching NetEase cookies in memory, then persists |
+| `login cookie` | `login_cookie.go` | Imports Netscape/JSON/header cookies, requires `MUSIC_U`, sets them on the persistent client, then validates the account |
+| `login cookiecloud` | `login_cookiecloud.go` | Contacts CookieCloud, sets matching NetEase cookies on the persistent client, then validates the account |
 | `login qrcode` | `login_qrcode.go` | Calls live login endpoints, writes a temporary `qrcode.png`, removes it after success |
 | `logout` | `logout.go` | Calls the logout endpoint, then removes `<home>/.ncmctl/cookie.json` |
 | `task` | `task.go` | Registers `sign`, `partner`, and/or `scrobble` in a long-running cron service |
@@ -78,7 +76,7 @@ defer closeAPIClient(ctx, cli)
 request := weapi.New(cli)
 ```
 
-For login-required work, verify authentication before the first account mutation. Add token refresh only where the command's control flow requires it, and make sure early returns do not silently skip required cleanup. `closeAPIClient` already records a final Cookie flush error and should be preferred over a bare ignored `cli.Close(ctx)` inside this package.
+For login-required work, verify authentication before the first account mutation. Add token refresh only where the command's control flow requires it, and make sure early returns do not skip cleanup. `closeAPIClient` triggers the final Cookie export and logs errors returned by `Client.Close`; prefer it over a bare ignored close. The Cookie exporter currently logs its own export failure internally, so do not promise stronger error propagation without changing and testing that contract.
 
 ## Scheduled tasks
 
@@ -89,7 +87,7 @@ For login-required work, verify authentication before the first account mutation
 
 The scheduler creates fresh command instances and copies embedded option structs into them. When adding a scheduled option, update the `TaskOpts` embedding/fields, flag binding, validation, and command-copy path together. Keep cron parsing in validation and timezone loading before job registration.
 
-`task` is long lived. Changes must preserve context cancellation, cron shutdown, logger/client cleanup, and the no-duplicate-registration behavior.
+`task` is long lived, but its current foreground wait is signal-only: `nohup.Daemon` does not observe the Cobra execution context. On SIGINT, SIGQUIT, or SIGTERM it calls `job.Stop()` but does not wait on the returned context, so in-flight jobs are not guaranteed to finish before deferred client/logger cleanup. Do not describe programmatic cancellation or graceful cron draining as implemented. Any lifecycle change needs deterministic cancellation, signal, in-flight-job, and cleanup-order tests.
 
 ## Concurrent file commands
 
@@ -98,6 +96,7 @@ The scheduler creates fresh command instances and copies embedded option structs
 - Acquire before launching the goroutine and always release in a defer.
 - Preserve the final wait or replace it with an equally explicit structured-concurrency mechanism.
 - Do not share mutable per-file buffers between workers.
+- Protect every other shared counter or state value with atomics, locks, or an existing synchronization abstraction.
 - Close files and response bodies on every path, including checksum, tag, and rename errors.
 - Keep partial output in a temporary file until validation succeeds.
 - Return setup/cancellation errors; per-item failures may be logged and counted when the command intentionally continues.

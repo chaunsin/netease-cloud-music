@@ -327,7 +327,7 @@ The global `--debug` flag adds `TLS_DIAGNOSTIC` records for targeted HTTPS conne
 Behavior and limitations:
 
 - Only NetEase-related target domains are captured or MITM'd; other traffic is forwarded without capture.
-- Structured content is formatted and recursively redacted by default. Binary, media, multipart, unknown-length streaming, invalid UTF-8, and unsafe unstructured bodies are summarized.
+- Structured content is formatted and recursively redacted by default. Binary, media, multipart, invalid UTF-8, unsafe unstructured bodies, and every request body with an unknown content length (including finite chunked requests) are summarized.
 - Display truncation, decompression, parsing, or redaction failure does not change forwarded bytes.
 - EAPI, Linux API, and plain API payloads are decoded when possible.
 - A passive proxy cannot recover WEAPI's random request key or modern XEAPI session keys; those request fields are marked `unsupported`, not presented as plaintext.
@@ -335,7 +335,7 @@ Behavior and limitations:
 - Capture output uses a bounded queue. If stdout blocks, `CAPTURE_DROPPED` reports omitted capture blocks rather than delaying real traffic.
 - `--listen 0.0.0.0:9000` exposes an unauthenticated proxy. Use it only temporarily on a trusted network.
 
-Press Ctrl+C or send SIGTERM for graceful shutdown.
+Press Ctrl+C or send SIGTERM to start bounded shutdown. The command does not wait indefinitely for blocked capture output; a writer that never returns can leave its recorder worker blocked after the proxy command exits.
 
 ## completion
 
