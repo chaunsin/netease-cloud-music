@@ -114,16 +114,17 @@ func New(cfgPath ...string) (*Config, error) {
 	if err := conf.Validate(); err != nil {
 		return nil, err
 	}
+
 	return &conf, nil
 }
 
 // ReplaceMagicVariables 替换配置文件中的魔法变量。注意该方法只能调用一次再次调用则不会生效.
 func (c *Config) ReplaceMagicVariables(name, value string) (*Config, bool) {
 	var (
-		isset   bool
+		isset   int
 		mapping = func(k string) string {
 			if k == name {
-				isset = true
+				isset++
 				return value
 			}
 			return ""
@@ -133,5 +134,5 @@ func (c *Config) ReplaceMagicVariables(name, value string) (*Config, bool) {
 	c.Log.Rotate.Filename = os.Expand(c.Log.Rotate.Filename, mapping)
 	c.Network.Cookie.Filepath = os.Expand(c.Network.Cookie.Filepath, mapping)
 	c.Database.Path = os.Expand(c.Database.Path, mapping)
-	return c, isset
+	return c, isset > 0
 }

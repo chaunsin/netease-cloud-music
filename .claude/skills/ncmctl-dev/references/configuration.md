@@ -37,7 +37,7 @@ Preserve these runtime rules:
 - With `--config <file>`, read that exact complete YAML file through Viper.
 - On the explicit-file path, apply `NCMCTL_` environment overrides after reading the file. Replace nested separators with underscores, such as `NCMCTL_LOG_LEVEL` and `NCMCTL_NETWORK_TIMEOUT`. The embedded-default path currently bypasses Viper and therefore does not apply these overrides.
 - Reject unknown keys through `UnmarshalExact`. Missing `log`, `network`, or `database` sections fail validation; omitted sections do not merge from embedded defaults.
-- Apply `--home` by replacing `${HOME}` after loading, then validate and apply `--debug` overrides before logger creation.
+- Apply `--home` to `Network.HomeDir` and replace `${HOME}` after loading, then validate and apply `--debug` overrides before logger creation. API-managed state is rooted at `<home>/.ncmctl/`.
 
 `config.GetDefault` returns the package-owned default pointer, not a clone. `ReplaceMagicVariables` mutates its log, Cookie, and database paths and only replaces placeholders still present. Do not assume repeated root-command construction starts from a fresh default; add isolation coverage before changing this behavior.
 

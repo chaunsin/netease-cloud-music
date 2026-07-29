@@ -70,6 +70,7 @@ func New() *Root {
 		}
 
 		c.Cfg.ReplaceMagicVariables("HOME", home)
+		c.Cfg.Network.HomeDir = home
 
 		if err := c.Cfg.Validate(); err != nil {
 			return fmt.Errorf("config validate error: %w", err)
@@ -131,7 +132,7 @@ func (c *Root) addFlags() {
 		&c.Opts.Debug,
 		"debug",
 		false,
-		"enable redacted debug and network metadata logs on stderr and in the configured log file",
+		"enable verbose logs; API headers and bodies may contain sensitive data",
 	)
 	c.cmd.PersistentFlags().StringVarP(
 		&c.Opts.Config,
@@ -144,6 +145,6 @@ func (c *Root) addFlags() {
 		&c.Opts.Home,
 		"home",
 		config.HomeDir,
-		"value substituted for ${HOME} in configured runtime paths, including the generated proxy CA",
+		"OS home used for .ncmctl state and substituted for ${HOME} in configured runtime paths",
 	)
 }

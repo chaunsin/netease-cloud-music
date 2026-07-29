@@ -14,32 +14,34 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-resty/resty/v2"
+	"golang.org/x/sync/singleflight"
+	"gopkg.in/yaml.v3"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
 
-const (
-	defaultXeapiAppVer    = "9.1.65"
-	defaultXeapiOS        = "android"
-	defaultXeapiUserAgent = "NeteaseMusic/9.1.65.240927161425(9001065);Dalvik/2.1.0 (Linux; U; Android 14; 23013RK75C Build/UKQ1.230804.001)"
-)
+const defaultXeapiUserAgent = "NeteaseMusic/9.2.85.250418145357(9002085);Dalvik/2.1.0 (Linux; U; Android 9; SM-S9180 Build/PQ3B.190801.10101846)"
 
-type xeapiKeyResponse struct {
+type xeapiRefreshPublicKeyResp struct {
 	Code int `json:"code"`
 	Data struct {
-		EncryptedData string          `json:"encryptedData"`
+		EncryptedData string          `json:"encryptedData"` // crypto.XeapiPublicKeyState
 		Signature     string          `json:"signature"`
 		Timestamp     json.RawMessage `json:"timestamp"`
 	} `json:"data"`
 	Message string `json:"message"`
 }
 
-type xeapiKeyRefreshRequest struct {
+type xeapiRefreshPublicKeyReq struct {
 	DeviceID          string
 	CurrentKeyVersion string
 	AppVersion        string
@@ -48,71 +50,145 @@ type xeapiKeyRefreshRequest struct {
 }
 
 type xeapiStateResult struct {
-	key     crypto.PublicKeyState
-	session crypto.Session
+	PublicKeyState crypto.XeapiPublicKeyState `json:"publicKeyState" yaml:"publicKeyState"`
+	Session        crypto.XeapiSession        `json:"session" yaml:"session"`
 }
 
-func (c *Client) xeapiEncrypt(ctx context.Context, rawURL string, req any, opts *Options, contentType string) (string, map[string]string, error) {
-	envelopeURL, xeapiURL, err := rewriteXeapiURL(rawURL) // Pending: url xeapi todo
-	if err != nil {
-		return "", nil, err
-	}
-
-	encryptReq := crypto.EncryptRequest{
-		URI:         envelopeURL,
-		Data:        req,
-		Method:      opts.Method,
-		ContentType: contentType,
-		OS:          firstNonEmpty(opts.XeapiOS, defaultXeapiOS),
-		AppVersion:  firstNonEmpty(opts.XeapiAppVer, defaultXeapiAppVer),
-		DeviceID:    c.GetDeviceId(),
-		UserAgent:   xeapiUserAgent(opts),
-	}
-
-	result, err := c.xeapiState(ctx, &encryptReq)
-	if err != nil {
-		return "", nil, fmt.Errorf("xeapiState: %w", err)
-	}
-
-	encryptData, err := crypto.XeapiEncrypt(&encryptReq, result.key, result.session)
-	if err != nil {
-		return "", nil, fmt.Errorf("XeapiEncrypt: %w", err)
-	}
-	return xeapiURL, encryptData, nil
+type xeapi struct {
+	cli              *resty.Client
+	mux              sync.Mutex
+	group            singleflight.Group
+	storePath        string // 持久化存储位置 xeapiStateResult
+	xeapiStateResult        //nolint:embeddedstructfieldcheck // 不做检查
 }
 
-func (c *Client) xeapiState(ctx context.Context, req *crypto.EncryptRequest) (*xeapiStateResult, error) {
-	c.xeapiMu.Lock()
+func newXeapi(cli *resty.Client, storePath string) *xeapi {
+	return &xeapi{cli: cli, storePath: storePath}
+}
+
+// Sync 对内存中得公钥相关数据持久到磁盘中。
+func (x *xeapi) Sync() error {
+	file := x.storePath
+	if file == "" {
+		file = utils.BaseDir("xeapi.yaml")
+	}
+
+	x.mux.Lock()
+	state := x.xeapiStateResult
+	x.mux.Unlock()
+
+	// 不完整的状态不能用于刷新，避免覆盖已有的可用缓存。
+	if !xeapiPublicKeyComplete(state.PublicKeyState) {
+		return nil
+	}
+
+	var marshal func(v any) ([]byte, error)
+
+	switch ext := filepath.Ext(x.storePath); ext {
+	case ".json":
+		marshal = json.Marshal
+	case ".yaml", ".yml":
+		marshal = yaml.Marshal
+	default:
+		marshal = yaml.Marshal
+	}
+
+	data, err := marshal(state)
+	if err != nil {
+		return err
+	}
+
+	if err = os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+		return fmt.Errorf("MkdirAll: %w", err)
+	}
+
+	if err = os.WriteFile(file, data, 0o600); err != nil {
+		return fmt.Errorf("xeapi write %s err: %w", file, err)
+	}
+	return nil
+}
+
+func (x *xeapi) LoadConfig() error {
+	data, err := os.ReadFile(x.storePath)
+	if err != nil {
+		return fmt.Errorf("read xeapi public token err: %w", err)
+	}
+
+	var cfg xeapiStateResult
+
+	switch ext := filepath.Ext(x.storePath); ext {
+	case ".json":
+		err = json.Unmarshal(data, &cfg)
+	case ".yaml", ".yml":
+		err = yaml.Unmarshal(data, &cfg)
+	default:
+		return fmt.Errorf("not support file ext type'%s'", ext)
+	}
+
+	if err != nil {
+		return fmt.Errorf("unmarshal err: %w", err)
+	}
+
+	if !xeapiPublicKeyComplete(cfg.PublicKeyState) {
+		return errors.New("public key state is incomplete")
+	}
+
+	cfg.Session.ID, cfg.Session.Key = strings.TrimSpace(cfg.Session.ID), strings.TrimSpace(cfg.Session.Key)
+	if (cfg.Session.ID == "") != (cfg.Session.Key == "") {
+		return errors.New("xeapi session is incomplete")
+	}
+
+	x.mux.Lock()
+	x.xeapiStateResult = cfg
+	x.mux.Unlock()
+	return nil
+}
+
+func (x *xeapi) Encrypt(ctx context.Context, req *crypto.XeapiEncryptRequest) (map[string]string, error) {
+	result, err := x.xeapiState(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("xeapiState: %w", err)
+	}
+
+	encryptData, err := crypto.XeapiEncrypt(req, result.PublicKeyState, result.Session)
+	if err != nil {
+		return nil, fmt.Errorf("XeapiEncrypt: %w", err)
+	}
+	return encryptData, nil
+}
+
+func (x *xeapi) xeapiState(ctx context.Context, req *crypto.XeapiEncryptRequest) (*xeapiStateResult, error) {
+	x.mux.Lock()
 
 	var (
-		key          = c.xeapiKey
-		session      = c.xeapiSession
-		needsRefresh = key.PublicKey == "" || key.SK == "" || xeapiKeyExpired(key)
+		key          = x.PublicKeyState
+		session      = x.Session
+		needsRefresh = xeapiKeyNeedsRefresh(key, req.DeviceID) // 暂时采用严格模式当公钥过期或设备id不一致时则需要刷新token。
 		groupKey     = strings.Join([]string{req.DeviceID, req.AppVersion, req.OS, req.UserAgent}, "\x00")
 	)
-	c.xeapiMu.Unlock()
+	x.mux.Unlock()
 
 	if !needsRefresh {
-		return &xeapiStateResult{key: key, session: session}, nil
+		return &xeapiStateResult{PublicKeyState: key, Session: session}, nil
 	}
 
-	value, err, _ := c.xeapiRefresh.Do(groupKey, func() (any, error) {
-		c.xeapiMu.Lock()
+	value, err, _ := x.group.Do(groupKey, func() (any, error) {
+		x.mux.Lock()
 
 		var (
-			key            = c.xeapiKey
-			session        = c.xeapiSession
-			needsRefresh   = key.PublicKey == "" || key.SK == "" || xeapiKeyExpired(key)
+			key            = x.PublicKeyState
+			session        = x.Session
+			needsRefresh   = xeapiKeyNeedsRefresh(key, req.DeviceID)
 			currentVersion = key.Version
 			currentSK      = key.SK
 		)
-		c.xeapiMu.Unlock()
+		x.mux.Unlock()
 
 		if !needsRefresh {
-			return &xeapiStateResult{key: key, session: session}, nil
+			return &xeapiStateResult{PublicKeyState: key, Session: session}, nil
 		}
 
-		refreshed, err := c.refreshXeapiPublicKey(ctx, &xeapiKeyRefreshRequest{
+		refreshed, err := x.refreshPublicKey(ctx, &xeapiRefreshPublicKeyReq{
 			DeviceID:          req.DeviceID,
 			CurrentKeyVersion: currentVersion,
 			AppVersion:        req.AppVersion,
@@ -131,11 +207,12 @@ func (c *Client) xeapiState(ctx context.Context, req *crypto.EncryptRequest) (*x
 			return nil, crypto.ErrServerKeyMissing
 		}
 
-		c.xeapiMu.Lock()
-		c.xeapiKey = *refreshed
-		session = c.xeapiSession
-		c.xeapiMu.Unlock()
-		return &xeapiStateResult{key: *refreshed, session: session}, nil
+		x.mux.Lock()
+		x.PublicKeyState = *refreshed
+		session = x.Session
+		x.mux.Unlock()
+
+		return &xeapiStateResult{PublicKeyState: *refreshed, Session: session}, nil
 	})
 	if err != nil {
 		return nil, err
@@ -148,34 +225,33 @@ func (c *Client) xeapiState(ctx context.Context, req *crypto.EncryptRequest) (*x
 	return result, nil
 }
 
-func (c *Client) refreshXeapiPublicKey(ctx context.Context, req *xeapiKeyRefreshRequest) (*crypto.PublicKeyState, error) {
+func (x *xeapi) refreshPublicKey(ctx context.Context, req *xeapiRefreshPublicKeyReq) (*crypto.XeapiPublicKeyState, error) {
 	nonce, err := generateXeapiNonce()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generateXeapiNonce: %w", err)
 	}
 
 	var (
 		timestamp = strconv.FormatInt(time.Now().UnixMilli(), 10)
 		form      = map[string]string{
-			"appVersion":        firstNonEmpty(req.AppVersion, defaultXeapiAppVer),
+			"appVersion":        req.AppVersion,
 			"currentKeyVersion": req.CurrentKeyVersion,
 			"deviceId":          req.DeviceID,
 			"nonce":             nonce,
-			"os":                firstNonEmpty(req.OS, defaultXeapiOS),
+			"os":                req.OS,
 			"requestType":       "active",
 			"signature":         crypto.XeapiSign(timestamp, nonce),
 			"timestamp":         timestamp,
-			"t1":                "", // Pending: Filling
+			"t1":                "", // TODO: Filling
 			"t2":                "",
 			"uid":               "",
 		}
 	)
 
-	request := c.cli.R().
+	request := x.cli.R().
 		SetContext(ctx).
-		SetHeader("Host", "interface.music.163.com").
 		SetHeader("Content-Type", "application/x-www-form-urlencoded").
-		SetHeader("User-Agent", firstNonEmpty(req.UserAgent, defaultXeapiUserAgent)).
+		SetHeader("User-Agent", req.UserAgent).
 		SetFormData(form)
 	if strings.TrimSpace(req.DeviceID) != "" {
 		request.SetCookie(&http.Cookie{Name: "deviceId", Value: req.DeviceID})
@@ -190,7 +266,7 @@ func (c *Client) refreshXeapiPublicKey(ctx context.Context, req *xeapiKeyRefresh
 		return nil, fmt.Errorf("xeapi public key http status %d: %s", response.StatusCode(), string(response.Body()))
 	}
 
-	var reply xeapiKeyResponse
+	var reply xeapiRefreshPublicKeyResp
 
 	decoder := json.NewDecoder(bytes.NewReader(response.Body()))
 	decoder.UseNumber()
@@ -205,7 +281,7 @@ func (c *Client) refreshXeapiPublicKey(ctx context.Context, req *xeapiKeyRefresh
 
 	respTimestamp, err := rawTimestampString(reply.Data.Timestamp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("rawTimestampString: %w", err)
 	}
 
 	expectedSignature := crypto.XeapiSign(respTimestamp, nonce)
@@ -222,12 +298,14 @@ func (c *Client) refreshXeapiPublicKey(ctx context.Context, req *xeapiKeyRefresh
 	return state, nil
 }
 
-func (c *Client) updateXeapiSession(response *resty.Response) {
+// updateSession 更新xeapi session key.
+// NOTE: 更新的session要和请求加密使用得的公钥要一致。
+func (x *xeapi) updateSession(response *resty.Response) {
 	if response == nil {
 		return
 	}
 
-	session := crypto.Session{
+	session := crypto.XeapiSession{
 		ID:  strings.TrimSpace(response.Header().Get("X-Encr-Ssid")),
 		Key: strings.TrimSpace(response.Header().Get("X-Encr-Sskey")),
 	}
@@ -235,9 +313,9 @@ func (c *Client) updateXeapiSession(response *resty.Response) {
 		return
 	}
 
-	c.xeapiMu.Lock()
-	c.xeapiSession = session
-	c.xeapiMu.Unlock()
+	x.mux.Lock()
+	x.Session = session
+	x.mux.Unlock()
 }
 
 func rewriteXeapiURL(rawURL string) (string, string, error) {
@@ -282,13 +360,6 @@ func rewriteXeapiURL(rawURL string) (string, string, error) {
 	return envelopeURI.String(), requestURI.String(), nil
 }
 
-func xeapiKeyExpired(key crypto.PublicKeyState) bool {
-	if key.NextUpdateTime <= 0 {
-		return false
-	}
-	return time.Now().UnixMilli() >= key.NextUpdateTime
-}
-
 func generateXeapiNonce() (string, error) {
 	nonce := make([]byte, 16)
 	for i := range nonce {
@@ -315,22 +386,17 @@ func rawTimestampString(raw json.RawMessage) (string, error) {
 	return "", errors.New("xeapi public key response timestamp invalid")
 }
 
-func xeapiUserAgent(opts *Options) string {
-	if opts != nil {
-		for key, value := range opts.Headers {
-			if strings.EqualFold(key, "User-Agent") && strings.TrimSpace(value) != "" {
-				return strings.TrimSpace(value)
-			}
-		}
+func xeapiKeyNeedsRefresh(key crypto.XeapiPublicKeyState, deviceID string) bool {
+	if !key.IsValid() {
+		return true
 	}
-	return defaultXeapiUserAgent
+
+	cachedDeviceID := strings.TrimSpace(key.DeviceID)
+	return cachedDeviceID != "" && cachedDeviceID != strings.TrimSpace(deviceID)
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
+func xeapiPublicKeyComplete(key crypto.XeapiPublicKeyState) bool {
+	return strings.TrimSpace(key.PublicKey) != "" &&
+		strings.TrimSpace(key.Version) != "" &&
+		strings.TrimSpace(key.SK) != ""
 }

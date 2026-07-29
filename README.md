@@ -212,7 +212,7 @@ cp -r skills/ncmctl ~/.codex/skills/
 | `ncmctl proxy [flags]` | 否 | 启动 HTTP(S) 代理并管理本地 CA，默认脱敏捕获网易相关流量 |
 | `ncmctl completion <shell>` | 否 | 将 bash、fish、PowerShell 或 zsh 补全脚本写到标准输出 |
 
-全局 `--debug` 会把已脱敏的运行诊断和网络元数据写到 stderr 及配置的滚动日志文件；请求/响应正文会省略，Cookie、Authorization 等非安全请求头会脱敏。调试日志仍可能包含接口路径、资源 ID 和本地文件路径，请按敏感运行数据保护。
+全局 `--debug` 会启用详细日志，包括未经代理脱敏器处理的 API 请求/响应头和正文，其中可能包含 Cookie、Token 和账号数据。仅在受控环境中短时启用，并将 stderr、滚动日志和重定向输出按敏感数据保护。
 
 > ⚠️ 当前网易 API 与 CookieCloud HTTP 客户端关闭了服务端证书校验。HTTPS 流量仍会加密，但不能确认服务端身份；请只在可信网络路径上使用，并把 CookieCloud 服务端视为凭据系统。
 

@@ -232,7 +232,7 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 	}
 
 	fileList = slices.Compact(fileList)
-	log.Debugf("Ready to upload list: %v", fileList)
+	c.l.Debugf("Ready to upload list: %v", fileList)
 
 	total := int64(len(fileList))
 	defer func() {
@@ -262,7 +262,7 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 	defer func() {
 		refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
 		if err != nil || refresh.Code != 200 {
-			log.Warnf("TokenRefresh resp:%+v err: %s", refresh, err)
+			c.l.Warnf("TokenRefresh resp:%+v err: %s", refresh, err)
 		}
 	}()
 
@@ -347,7 +347,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		return fmt.Errorf("CloudUploadCheck: %w", err)
 	}
 
-	log.Debugf("CloudUploadCheck code=%d need_upload=%t song_id=%s", resp.Code, resp.NeedUpload, resp.SongId)
+	c.l.Debugf("CloudUploadCheck code=%d need_upload=%t song_id=%s", resp.Code, resp.NeedUpload, resp.SongId)
 
 	if resp.Code != 200 {
 		return fmt.Errorf("CloudUploadCheck resp: %+v", resp)
@@ -369,7 +369,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		return fmt.Errorf("CloudTokenAlloc: %w", err)
 	}
 
-	log.Debugf("CloudTokenAlloc code=%d resource_id=%d", allocResp.Code, allocResp.ResourceID)
+	c.l.Debugf("CloudTokenAlloc code=%d resource_id=%d", allocResp.Code, allocResp.ResourceID)
 
 	if allocResp.Code != 200 {
 		return fmt.Errorf("CloudTokenAlloc code=%d message=%q", allocResp.Code, allocResp.Message)
@@ -377,7 +377,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 
 	// 4.上传文件
 	if resp.NeedUpload {
-		log.Infof("[%s] need upload", filename)
+		c.l.Infof("[%s] need upload", filename)
 		uploadReq := weapi.CloudUploadReq{
 			Bucket:      allocResp.Bucket,
 			ObjectKey:   allocResp.ObjectKey,
@@ -391,7 +391,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 			return fmt.Errorf("CloudUpload: %w", uploadErr)
 		}
 
-		log.Debugf("CloudUpload err_code=%q offset=%d", uploadResp.ErrCode, uploadResp.Offset)
+		c.l.Debugf("CloudUpload err_code=%q offset=%d", uploadResp.ErrCode, uploadResp.Offset)
 
 		if uploadResp.ErrCode != "" {
 			return fmt.Errorf("CloudUpload code=%q message=%q", uploadResp.ErrCode, uploadResp.ErrMsg)
@@ -416,14 +416,14 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		// CoverId:    "",
 		// ObjectKey: allocResp.ObjectKey, // 不能穿入此值不然会报告 {"msg":"rep create failed","code":404}
 	}
-	log.Debugf("CloudInfo filename=%q bitrate=%s resource_id=%d", InfoReq.Filename, InfoReq.Bitrate, InfoReq.ResourceId)
+	c.l.Debugf("CloudInfo filename=%q bitrate=%s resource_id=%d", InfoReq.Filename, InfoReq.Bitrate, InfoReq.ResourceId)
 
 	infoResp, err := client.CloudInfo(ctx, &InfoReq)
 	if err != nil {
 		return fmt.Errorf("CloudInfo: %w", err)
 	}
 
-	log.Debugf("CloudInfo code=%d song_id=%s exists=%t", infoResp.Code, infoResp.SongId, infoResp.Exists)
+	c.l.Debugf("CloudInfo code=%d song_id=%s exists=%t", infoResp.Code, infoResp.SongId, infoResp.Exists)
 
 	if infoResp.Code != 200 {
 		return fmt.Errorf("CloudInfo: %+v", infoResp.RespCommon)
@@ -446,14 +446,14 @@ retry:
 		return fmt.Errorf("CloudMusicStatus: %w", err)
 	}
 
-	log.Debugf("CloudMusicStatus attempt=%d code=%d statuses=%d", retryNum, statusResp.Code, len(statusResp.Statuses))
+	c.l.Debugf("CloudMusicStatus attempt=%d code=%d statuses=%d", retryNum, statusResp.Code, len(statusResp.Statuses))
 
 	if statusResp.Code != 200 {
-		log.Errorf("CloudMusicStatus #%v resp: %+v\n", retryNum, statusResp)
+		c.l.Errorf("CloudMusicStatus #%v resp: %+v\n", retryNum, statusResp)
 	}
 	// v.Status=9得条件下出现过云盘上传成功的情况,即使不走下面的CloudPublish逻辑,目前暂时未找到原因
 	if v, ok := statusResp.Statuses[infoResp.SongId]; ok && v.Status != 0 {
-		log.Warnf("CloudMusicStatus status: %v retry #%v\n", statusResp.Statuses, retryNum)
+		c.l.Warnf("CloudMusicStatus status: %v retry #%v\n", statusResp.Statuses, retryNum)
 		time.Sleep(time.Second * 30)
 		goto retry
 	}
@@ -464,7 +464,7 @@ retry:
 		return fmt.Errorf("CloudPublish: %w", err)
 	}
 
-	log.Debugf("CloudPublish code=%d", publishResp.Code)
+	c.l.Debugf("CloudPublish code=%d", publishResp.Code)
 
 	switch publishResp.Code {
 	case 200:

@@ -9,16 +9,23 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
 )
 
-type downloadRoundTripperFunc func(*http.Request) (*http.Response, error)
+type testRoundTripperFunc func(*http.Request) (*http.Response, error)
 
-func (f downloadRoundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+func (f testRoundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
 	return f(request)
 }
 
@@ -119,9 +126,65 @@ func TestDownloadClosesResponseBodyOnError(t *testing.T) {
 	}
 }
 
+func TestWeapiRequestSetsVisitorCookies(t *testing.T) {
+	var (
+		nnid string
+		nuid string
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if value, err := r.Cookie("_ntes_nnid"); err == nil {
+			nnid = value.Value
+		}
+
+		if value, err := r.Cookie("_ntes_nuid"); err == nil {
+			nuid = value.Value
+		}
+
+		_, _ = w.Write([]byte(`{"code":200}`))
+	}))
+	defer server.Close()
+
+	home := t.TempDir()
+	logger := log.New(&log.Config{Level: "error"})
+	client, err := NewClient(&Config{
+		Timeout: time.Second,
+		HomeDir: home,
+		Cookie: cookie.Config{
+			Filepath: filepath.Join(home, "cookie.json"),
+			Interval: 0,
+		},
+	}, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, client.Close(context.Background()))
+		require.NoError(t, logger.Close())
+	})
+
+	opts := NewOptions()
+	opts.Cookies = append(opts.Cookies, nil)
+
+	var response map[string]any
+
+	_, err = client.Request(
+		context.Background(),
+		server.URL+"/weapi/test",
+		map[string]string{"id": "1"},
+		&response,
+		opts,
+	)
+	require.NoError(t, err)
+
+	parts := strings.SplitN(nnid, ",", 2)
+	require.Len(t, parts, 2)
+	assert.Equal(t, nuid, parts[0])
+	assert.Len(t, nuid, 32)
+	assert.NotEmpty(t, parts[1])
+}
+
 func newDownloadTestClient(body io.ReadCloser, statusCode int, contentLength int64) *Client {
 	restyClient := resty.New()
-	restyClient.SetTransport(downloadRoundTripperFunc(func(*http.Request) (*http.Response, error) {
+	restyClient.SetTransport(testRoundTripperFunc(func(*http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode:    statusCode,
 			Header:        make(http.Header),

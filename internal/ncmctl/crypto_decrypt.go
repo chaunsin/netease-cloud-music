@@ -89,7 +89,7 @@ func (c *decryptCmd) execute(_ context.Context, args []string) error {
 				return fmt.Errorf("parseHar: %w", parseErr)
 			}
 
-			log.Debugf("parseHar entries=%d", len(list))
+			c.l.Debugf("parseHar entries=%d", len(list))
 
 			for i := range list {
 				if decryptErr := c.decryptReq(&list[i], "hex"); decryptErr != nil {
@@ -182,7 +182,7 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 		return errors.New("response chiphertext is nil or empty")
 	}
 
-	log.Debugf("[decryptRes] ciphertext_bytes=%d", len(p.Response.Ciphertext))
+	c.l.Debugf("[decryptRes] ciphertext_bytes=%d", len(p.Response.Ciphertext))
 
 	switch p.Kind {
 	case "eapi":
@@ -198,7 +198,8 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 				// 如果根据标识分隔成3段则说明此数据是包含url和digest摘要形式拼接的数据,反之是结构体数据
 				value = strings.Split(str, "-36cd479b6b5-")
 			)
-			log.Debugf("[decryptRes] decrypted_bytes=%d", len(data))
+
+			c.l.Debugf("[decryptRes] decrypted_bytes=%d", len(data))
 
 			// 当请返回的内容content-encoding: br时,返回的内容是加密后的需要gzip在次解析,简单来说就是解密流程是这样
 			// 1. br解压缩
@@ -271,9 +272,10 @@ func (c *decryptCmd) parseHar(data []byte) ([]Payload, error) {
 			continue
 		}
 
-		value := strings.Split(_url.Path, "/")
-
-		var kind string
+		var (
+			value = strings.Split(_url.Path, "/")
+			kind  string
+		)
 		if len(value) >= 2 {
 			// 如果地址是这样 https://music.163.com/api/eapi/nos/token/alloc 则返回eapi
 			kind = value[1]

@@ -3,10 +3,7 @@
 
 package api
 
-import (
-	"maps"
-	"net/http"
-)
+import "net/http"
 
 type CryptoMode string
 
@@ -19,19 +16,17 @@ const (
 )
 
 type Options struct {
-	Method      string
-	CryptoMode  CryptoMode
-	Headers     map[string]string
-	Cookies     []*http.Cookie
-	XeapiOS     string
-	XeapiAppVer string
+	Method     string
+	CryptoMode CryptoMode
+	Headers    http.Header
+	Cookies    []*http.Cookie
 }
 
 func NewOptions() *Options {
 	return &Options{
 		Method:     http.MethodPost,
 		CryptoMode: CryptoModeWEAPI,
-		Headers:    make(map[string]string),
+		Headers:    make(http.Header),
 		Cookies:    []*http.Cookie{},
 	}
 }
@@ -67,25 +62,38 @@ func (o *Options) SetMethod(method string) *Options {
 }
 
 func (o *Options) SetCookies(c ...*http.Cookie) {
-	o.Cookies = append(o.Cookies, c...)
+	for _, cookie := range c {
+		if cookie != nil {
+			o.Cookies = append(o.Cookies, cookie)
+		}
+	}
+}
+
+func (o *Options) GetCookie(key string) *http.Cookie {
+	for _, c := range o.Cookies {
+		if c == nil {
+			continue
+		}
+
+		if c.Name == key {
+			return c // TODO: 是否存在问题，返回的对象用户操作是否会影响此值，应该采用copy方式
+		}
+	}
+	return nil
 }
 
 func (o *Options) SetHeader(key, value string) *Options {
-	o.Headers[key] = value
+	if o.Headers == nil {
+		o.Headers = make(http.Header)
+	}
+
+	o.Headers.Set(key, value)
 	return o
 }
 
 func (o *Options) SetHeaders(h map[string]string) *Options {
-	maps.Copy(o.Headers, h)
-	return o
-}
-
-func (o *Options) SetXeapiOS(os string) *Options {
-	o.XeapiOS = os
-	return o
-}
-
-func (o *Options) SetXeapiAppVer(appVer string) *Options {
-	o.XeapiAppVer = appVer
+	for k, v := range h {
+		o.SetHeader(k, v)
+	}
 	return o
 }

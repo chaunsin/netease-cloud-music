@@ -63,9 +63,9 @@ Read `references/commands.md` for flags, limits, side effects, and examples.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--debug` | false | Enable debug/stdout logging and network debug |
+| `--debug` | false | Enable verbose logs; API headers and bodies may expose secrets |
 | `-c, --config` | none | Select an exact complete YAML file; see the schema in `references/commands.md` |
-| `--home` | OS user home | Base value substituted for `${HOME}` in runtime paths |
+| `--home` | OS user home | Root for `.ncmctl` state and the `${HOME}` replacement in configured paths |
 
 Without `--config`, ncmctl uses its embedded defaults; it does not automatically load `~/.ncmctl/config.yaml`.
 
@@ -74,6 +74,9 @@ Default runtime paths under `<home>`:
 | Data | Path |
 | --- | --- |
 | Cookies | `<home>/.ncmctl/cookie.json` |
+| XEAPI key and session state | `<home>/.ncmctl/xeapi.yaml` |
+| Anonymous token | `<home>/.ncmctl/anonymous_token` |
+| Optional API header overrides | `<home>/.ncmctl/header.yaml` |
 | Badger database | `<home>/.ncmctl/database/badger/` |
 | Logs | `<home>/.ncmctl/log/ncm.log` |
 | Proxy CA certificate | `<home>/.ncmctl/proxy/ca.crt` |
@@ -86,10 +89,11 @@ For custom configuration, copy the full schema from `config/config.yaml`, edit i
 - **Account risk:** `scrobble`, partner evaluation, automatic reward claims, and other automation can trigger NetEase risk control. Scrobble has a particularly high ban risk.
 - **Credentials:** Cookie values, `MUSIC_U`, phone passwords, and CookieCloud UUID/passwords are secrets. The current phone-password and CookieCloud commands accept credentials as flags; they do not provide a hidden password prompt or dedicated credential environment variable.
 - **TLS verification:** The current NetEase API and CookieCloud clients disable server-certificate verification. HTTPS traffic is encrypted but the peer identity is not authenticated; use only a trusted network path and CookieCloud server.
-- **Cookie files:** ncmctl creates its default Cookie directory/file with restrictive permissions on POSIX, but backups and exported Cookie files remain sensitive. Prefer `login cookie -f` over placing a Cookie string directly in shell history.
+- **State files:** Cookies, XEAPI session state, and anonymous tokens are sensitive. ncmctl creates its managed state files with restrictive permissions on POSIX, but backups, exported Cookies, and user-provided `header.yaml` files remain the user's responsibility. Prefer `login cookie -f` over placing a Cookie string directly in shell history.
 - **Cookie import persistence:** Cookie and CookieCloud imports enter the configured persistent jar before account validation. A failed validation can still write those values during immediate, periodic, or final flush.
 - **Proxy CA:** Trust only `ca.crt` on a client you control. Never install, share, or commit `ca.key`. Remove trust when monitoring is finished if it is no longer needed.
 - **Sensitive capture:** Proxy redaction is enabled by default. `--show-sensitive` can expose credentials and identifiers in the terminal or redirected files.
+- **Debug logs:** Global `--debug` enables raw API request/response logging outside the proxy redactor. Treat stderr, rolling logs, and redirected output as sensitive.
 - **LAN proxy:** `--listen 0.0.0.0:9000` is unauthenticated. Use it only temporarily on a trusted network behind a firewall.
 - **Local files:** Download, upload, NCM decode, QR login, HAR processing, and redirected proxy output read or write local files. Confirm paths before running them.
 

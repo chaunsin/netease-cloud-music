@@ -150,7 +150,7 @@ func TestCommandFlagDescriptionsExplainConstraints(t *testing.T) {
 		flag     string
 		contains string
 	}{
-		{flag: "debug", contains: "redacted"},
+		{flag: "debug", contains: "sensitive data"},
 		{flag: "home", contains: "substituted for ${HOME}"},
 		{flag: "config", contains: "not auto-discovered"},
 		{path: []string{"login", "phone"}, flag: "password", contains: "process lists"},
@@ -187,6 +187,27 @@ func TestCommandFlagDescriptionsExplainConstraints(t *testing.T) {
 			assert.Contains(t, flag.Usage, tt.contains)
 		})
 	}
+}
+
+func TestRootPreRunSetsNetworkRuntimeHome(t *testing.T) {
+	root := New()
+	previousLogger := projectlog.Default
+
+	t.Cleanup(func() {
+		if root.l != nil {
+			require.NoError(t, root.l.Close())
+		}
+
+		projectlog.Default = previousLogger
+	})
+
+	home := t.TempDir()
+	root.Opts.Home = home
+	root.Opts.Config = filepath.Join("..", "..", "config", "config.yaml")
+
+	require.NoError(t, root.cmd.PersistentPreRunE(root.cmd, nil))
+	assert.Equal(t, home, root.Cfg.Network.HomeDir)
+	assert.Equal(t, filepath.Join(home, ".ncmctl", "cookie.json"), root.Cfg.Network.Cookie.Filepath)
 }
 
 func TestPartnerPropagatesCommandErrors(t *testing.T) {
@@ -284,7 +305,8 @@ func TestCloseAndRemoveDefaultCookie(t *testing.T) {
 	home := t.TempDir()
 	cookiePath := filepath.Join(home, ".ncmctl", "cookie.json")
 	cli, err := client.NewClient(&client.Config{
-		Cookie: cookiepkg.Config{Filepath: cookiePath},
+		HomeDir: home,
+		Cookie:  cookiepkg.Config{Filepath: cookiePath},
 	}, nil)
 	require.NoError(t, err)
 

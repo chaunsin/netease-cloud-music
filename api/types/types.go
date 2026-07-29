@@ -14,11 +14,11 @@ type ReqCommon struct {
 
 // EApiReqCommon EAPI 接口通用请求载荷字段.
 type EApiReqCommon struct {
+	ER       bool   `json:"e_r"`
+	Header   any    `json:"header"`
 	DeviceId string `json:"deviceId,omitempty"`
 	OS       string `json:"os,omitempty"`
 	VerifyId int    `json:"verifyId,omitempty"`
-	Header   any    `json:"header,omitempty"`
-	ER       bool   `json:"e_r,omitempty"`
 }
 
 // RespCommon weapi通用返回字段.

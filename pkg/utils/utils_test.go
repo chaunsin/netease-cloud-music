@@ -8,10 +8,12 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -129,6 +131,51 @@ func TestParseBytes(t *testing.T) {
 			assert.Equalf(t, tt.want, got, "ParseBytes(%v)", tt.args.input)
 		})
 	}
+}
+
+func TestBaseDir(t *testing.T) {
+	t.Parallel()
+
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+
+	assert.Equal(t, filepath.Join(home, ".ncmctl"), BaseDir())
+	assert.Equal(t, filepath.Join(home, ".ncmctl", "xeapi.yaml"), BaseDir("xeapi.yaml"))
+}
+
+func TestGenerateNVIDMatchesBrowserVector(t *testing.T) {
+	got := GenerateNVID(NVIDInput{
+		DateNowMillis: 1773424950453,
+		MathRandom:    0.123456789,
+		Location:      "https://music.163.com/song?id=1",
+		Referrer:      "https://music.163.com/",
+		ScreenWidth:   1440,
+		ScreenHeight:  900,
+		UserAgent:     "NeteaseMusicDesktop/3.0.12.2443",
+		Cookie:        "foo=你; emoji=😀",
+		ClientWidth:   1280,
+		ClientHeight:  720,
+	})
+
+	assert.Equal(t, "8e80ef6aad7177999b61740eeff9721d", got)
+}
+
+func TestGenerateFakeNVID(t *testing.T) {
+	before := time.Now().UnixMilli()
+	nnid, nuid, err := GenerateFakeNVID()
+	after := time.Now().UnixMilli()
+
+	require.NoError(t, err)
+
+	parts := strings.SplitN(nnid, ",", 2)
+	require.Len(t, parts, 2)
+	assert.Equal(t, nuid, parts[0])
+	assert.Len(t, nuid, 32)
+
+	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, timestamp, before)
+	assert.LessOrEqual(t, timestamp, after)
 }
 
 func TestMd5Hex(t *testing.T) {
@@ -613,14 +660,16 @@ func TestGenerateDeviceId(t *testing.T) {
 			t.Logf("GenerateDeviceId(%v) = %s", tt.isLong, got)
 
 			if tt.isLong {
-				// 验证长格式: UUID|UUID (全大写)
+				// 验证长格式: UUIDv5|UUIDv4 (全大写)
 				parts := strings.Split(got, "|")
-				assert.Len(t, parts, 2, "长格式ID应包含两个UUID")
-				assert.Len(t, parts[0], 36, "UUID长度应为36")
-				assert.Len(t, parts[1], 36, "UUID长度应为36")
-				assert.Contains(t, parts[0], "-")
-				assert.Contains(t, parts[1], "-")
-				// 验证全大写
+				require.Len(t, parts, 2, "长格式ID应包含两个UUID")
+
+				uuidV5, err := uuid.Parse(parts[0])
+				require.NoError(t, err)
+				uuidV4, err := uuid.Parse(parts[1])
+				require.NoError(t, err)
+				assert.Equal(t, uuid.Version(5), uuidV5.Version())
+				assert.Equal(t, uuid.Version(4), uuidV4.Version())
 				assert.Equal(t, strings.ToUpper(parts[0]), parts[0], "UUID应为大写")
 				assert.Equal(t, strings.ToUpper(parts[1]), parts[1], "UUID应为大写")
 			} else {

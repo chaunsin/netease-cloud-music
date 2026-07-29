@@ -43,12 +43,14 @@ Do not infer that a value accepted by a generic flag is implemented by every sub
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--debug` | false | Enable debug/stdout logging and network debug |
+| `--debug` | false | Enable verbose logs; API headers and bodies may expose secrets |
 | `-c, --config <file>` | none | Load this exact complete YAML file; omitted sections are not merged |
-| `--home <dir>` | OS user home | Substitute this value for `${HOME}` in runtime paths |
+| `--home <dir>` | OS user home | Select the `.ncmctl` state root and substitute this value for `${HOME}` in configured paths |
 | `-v, --version` | - | Print build and runtime version information |
 
 Without `--config`, ncmctl uses embedded defaults. It does not automatically read `~/.ncmctl/config.yaml`.
+
+Global `--debug` enables raw API request/response logging outside the proxy redactor. Treat stderr, rolling logs, and redirected output as sensitive.
 
 ## task
 
@@ -400,4 +402,4 @@ NCMCTL_NETWORK_TIMEOUT=30s \
 ncmctl --config ~/.ncmctl/config.yaml COMMAND
 ```
 
-An explicit `--home` supplies the `${HOME}` replacement used by log, Cookie, database, and proxy paths. Without the flag, ncmctl uses the OS user-home lookup, which commonly derives from the shell environment on Unix.
+An explicit `--home` selects the root for `.ncmctl` API state and the generated proxy CA, and supplies the `${HOME}` replacement used by configured log, Cookie, and database paths. Without the flag, ncmctl uses the OS user-home lookup, which commonly derives from the shell environment on Unix.

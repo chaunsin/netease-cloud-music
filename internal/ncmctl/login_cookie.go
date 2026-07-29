@@ -244,6 +244,7 @@ func (c *loginCookieCmd) execute(ctx context.Context, args []string) error {
 	}
 
 	// Parse the domain into a URL (adjust a scheme if needed)
+	// NOTE: 暂时设置成 https://music.163.com 域名,网易其他 127.com 126.com等域名不适配。
 	u, err := url.Parse("https://music.163.com")
 	if err != nil {
 		return fmt.Errorf("failed to parse domain URL: %w", err)

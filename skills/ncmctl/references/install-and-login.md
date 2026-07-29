@@ -104,13 +104,13 @@ For a cloned checkout, fetch the desired revision and run `make install`. Preser
 
 ## Runtime home
 
-The global `--home` value is substituted for `${HOME}` in the default runtime paths:
+The global `--home` value selects the root for `<home>/.ncmctl/` state and is substituted for `${HOME}` in configured runtime paths:
 
 ```bash
 ncmctl --home /srv/ncmctl COMMAND
 ```
 
-Default authentication data is stored at `<home>/.ncmctl/cookie.json`. The Cookie directory and file are created with restrictive POSIX permissions, but copied/exported files and Docker volumes remain the user's responsibility.
+Default authentication and session data is stored at `<home>/.ncmctl/cookie.json`, `<home>/.ncmctl/xeapi.yaml`, and `<home>/.ncmctl/anonymous_token`; an optional API header override is read from `<home>/.ncmctl/header.yaml`. Managed state directories and files are created with restrictive POSIX permissions, but copied/exported files, user-provided header files, and Docker volumes remain the user's responsibility.
 
 The optional `--config` flag loads one exact YAML path; ncmctl does not auto-load `<home>/.ncmctl/config.yaml`. Copy the complete schema from `config/config.yaml`, because omitted sections are not merged from the embedded defaults. Unknown fields are rejected and `NCMCTL_` environment variables can override loaded values.
 

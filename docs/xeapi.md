@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > 本文是 XEAPI/AegisSDK 的研究档案，混合了外部 issue、抓包观察、逆向笔记、实验代码和 AI 整理内容，不是稳定的公共 API 规范。带有“推测”“可能”或尚未由固定向量覆盖的内容只能作为调查线索。
 >
-> 当前仓库客户端行为以 `api/api.go`、`api/options.go`、`api/xeapi.go`、`pkg/crypto/crypto.go` 及其 XEAPI 测试为准。协议修改应使用真实抓包或兼容实现的固定输入/输出向量验证；仅做本实现内部的加密/解密往返不能证明线上兼容性。NCBL 是另一种日志正文 wire format，不属于本文的 XEAPI 会话状态机。
+> 当前仓库客户端行为以 `api/api.go`、`api/options.go`、`api/xeapi.go`、`pkg/crypto/xeapi.go` 及其 XEAPI 测试为准。协议修改应使用真实抓包或兼容实现的固定输入/输出向量验证；仅做本实现内部的加密/解密往返不能证明线上兼容性。NCBL 是另一种日志正文 wire format，不属于本文的 XEAPI 会话状态机。
 >
 > 分享或新增抓包材料前必须移除 Cookie、Token、手机号、设备标识、会话密钥和其他账号信息。
 
@@ -15,7 +15,7 @@
 | 业务请求 | 传输层使用 POST form 携带 `B`/`S`/`R` | 默认 POST 路径会发送 `B`/`S`/`R` | `httptest` 覆盖 URL、header 和 form，不代表线上兼容 |
 | XEAPI + GET | 研究记录仍要求将原始 method 放入加密 envelope，传输为 POST | 当前 `api.Client.Request` 会发出 GET，且不携带已生成的 `B`/`S`/`R` | 已知缺口；不应将 XEAPI GET 标记为已支持 |
 | URL 改写 | envelope 保留 `/api/`，传输改为 `/xeapi/`，query 进入 envelope | `rewriteXeapiURL` 按该边界实现 | 有本地单元测试 |
-| 响应与会话 | 传统 EAPI 响应解密，保存 `X-Encr-Ssid` / `X-Encr-Sskey` | `XeapiDecryptResponse` 及 `updateXeapiSession` | 解密向量与本地会话测试已覆盖；线上交互仍未验证 |
+| 响应与会话 | 传统 EAPI 响应解密，保存 `X-Encr-Ssid` / `X-Encr-Sskey` | `XeapiDecryptResponse` 及 `(*xeapi).updateSession` | 解密向量与本地会话测试已覆盖；线上交互仍未验证 |
 
 上表是实现状态说明，不是将当前代码反向视为协议正确性证据。修复仅有源码依据或已知缺口的项目前，应先获得抓包或兼容实现的固定向量。
 

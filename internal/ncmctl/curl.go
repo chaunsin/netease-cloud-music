@@ -153,7 +153,7 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 		return fmt.Errorf("decode: %w", decodeErr)
 	}
 
-	log.Debugf("request type: %s", req)
+	c.l.Debugf("request type: %s", req)
 
 	resp := methodName.Func.Call([]reflect.Value{reflect.ValueOf(request), reflect.ValueOf(ctx), instance.Addr()})
 	if len(resp) != 2 {

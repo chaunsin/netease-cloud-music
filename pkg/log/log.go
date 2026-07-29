@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"runtime"
+	"sync/atomic"
 	"time"
 
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -18,7 +19,6 @@ import (
 
 var (
 	Default       *Logger
-	ctx           = context.Background()
 	hostname, _   = os.Hostname()
 	defaultConfig = Config{
 		App:    hostname,
@@ -63,6 +63,7 @@ type Logger struct {
 	cfg   *Config
 	l     *slog.Logger
 	level *slog.LevelVar
+	skip  *atomic.Int32
 }
 
 func New(cfg *Config) *Logger {
@@ -114,11 +115,14 @@ func New(cfg *Config) *Logger {
 	}
 
 	h = h.WithAttrs([]slog.Attr{slog.String("app", cfg.App)})
+	skip := new(atomic.Int32)
+	skip.Store(3)
 
 	l := Logger{
 		cfg:   cfg,
 		l:     slog.New(h),
 		level: &level,
+		skip:  skip, // default 3
 	}
 	return &l
 }
@@ -138,60 +142,143 @@ func (l *Logger) SetLevel(level slog.Level) {
 	l.level.Set(level)
 }
 
-func log(h slog.Handler, lv slog.Level, msg string, args ...any) {
-	// 需要检查是否满足日志级别？
-	if !h.Enabled(ctx, lv) {
+func (l *Logger) SetRuntimeSkip(n int32) {
+	if n < 0 {
+		return
+	}
+
+	l.skip.Store(n)
+}
+
+func (l *Logger) Debug(msg string, args ...any) {
+	l.log(context.Background(), slog.LevelDebug, msg, args...)
+}
+
+func (l *Logger) Debugf(format string, args ...any) {
+	l.log(context.Background(), slog.LevelDebug, fmt.Sprintf(format, args...))
+}
+
+func (l *Logger) DebugContext(ctx context.Context, msg string, args ...any) {
+	l.log(ctx, slog.LevelDebug, msg, args...)
+}
+
+//nolint:goprintffuncname // Preserve DebugfContext for API compatibility.
+func (l *Logger) DebugfContext(ctx context.Context, format string, args ...any) {
+	l.log(ctx, slog.LevelDebug, fmt.Sprintf(format, args...))
+}
+
+func (l *Logger) Info(msg string, args ...any) {
+	l.log(context.Background(), slog.LevelInfo, msg, args...)
+}
+
+func (l *Logger) Infof(format string, args ...any) {
+	l.log(context.Background(), slog.LevelInfo, fmt.Sprintf(format, args...))
+}
+
+func (l *Logger) InfoContext(ctx context.Context, msg string, args ...any) {
+	l.log(ctx, slog.LevelInfo, msg, args...)
+}
+
+//nolint:goprintffuncname // Match DebugfContext's API naming convention.
+func (l *Logger) InfofContext(ctx context.Context, format string, args ...any) {
+	l.log(ctx, slog.LevelInfo, fmt.Sprintf(format, args...))
+}
+
+func (l *Logger) Warn(msg string, args ...any) {
+	l.log(context.Background(), slog.LevelWarn, msg, args...)
+}
+
+func (l *Logger) Warnf(format string, args ...any) {
+	l.log(context.Background(), slog.LevelWarn, fmt.Sprintf(format, args...))
+}
+
+func (l *Logger) WarnContext(ctx context.Context, msg string, args ...any) {
+	l.log(ctx, slog.LevelWarn, msg, args...)
+}
+
+//nolint:goprintffuncname // Match DebugfContext's API naming convention.
+func (l *Logger) WarnfContext(ctx context.Context, format string, args ...any) {
+	l.log(ctx, slog.LevelWarn, fmt.Sprintf(format, args...))
+}
+
+func (l *Logger) Error(msg string, args ...any) {
+	l.log(context.Background(), slog.LevelError, msg, args...)
+}
+
+func (l *Logger) Errorf(format string, args ...any) {
+	l.log(context.Background(), slog.LevelError, fmt.Sprintf(format, args...))
+}
+
+func (l *Logger) ErrorContext(ctx context.Context, msg string, args ...any) {
+	l.log(ctx, slog.LevelError, msg, args...)
+}
+
+//nolint:goprintffuncname // Match DebugfContext's API naming convention.
+func (l *Logger) ErrorfContext(ctx context.Context, format string, args ...any) {
+	l.log(ctx, slog.LevelError, fmt.Sprintf(format, args...))
+}
+
+func (l *Logger) log(ctx context.Context, level slog.Level, msg string, args ...any) {
+	if l == nil || l.l == nil {
+		return
+	}
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	if !l.l.Enabled(ctx, level) {
 		return
 	}
 
 	var pcs [1]uintptr
-	runtime.Callers(3, pcs[:]) // skip [Callers, Info]
-	r := slog.NewRecord(time.Now(), lv, msg, pcs[0])
-	r.Add(args...)
+	runtime.Callers(int(l.skip.Load()), pcs[:])
+	record := slog.NewRecord(time.Now(), level, msg, pcs[0])
+	record.Add(args...)
 
-	if err := h.Handle(ctx, r); err != nil {
+	if err := l.l.Handler().Handle(ctx, record); err != nil {
 		stdlog.Printf("[log] handler error: %v", err)
 	}
 }
 
 func Debugf(format string, args ...any) {
-	log(Default.l.Handler(), slog.LevelDebug, fmt.Sprintf(format, args...))
+	Default.log(context.Background(), slog.LevelDebug, fmt.Sprintf(format, args...))
 }
 
 func Infof(format string, args ...any) {
-	log(Default.l.Handler(), slog.LevelInfo, fmt.Sprintf(format, args...))
+	Default.log(context.Background(), slog.LevelInfo, fmt.Sprintf(format, args...))
 }
 
 func Warnf(format string, args ...any) {
-	log(Default.l.Handler(), slog.LevelWarn, fmt.Sprintf(format, args...))
+	Default.log(context.Background(), slog.LevelWarn, fmt.Sprintf(format, args...))
 }
 
 func Errorf(format string, args ...any) {
-	log(Default.l.Handler(), slog.LevelError, fmt.Sprintf(format, args...))
+	Default.log(context.Background(), slog.LevelError, fmt.Sprintf(format, args...))
 }
 
 func Fatalf(format string, args ...any) {
-	log(Default.l.Handler(), slog.LevelError, fmt.Sprintf(format, args...))
+	Default.log(context.Background(), slog.LevelError, fmt.Sprintf(format, args...))
 	os.Exit(1)
 }
 
-func DebugW(msg string, args ...any) {
-	log(Default.l.Handler(), slog.LevelDebug, msg, args...)
+func Debug(msg string, args ...any) {
+	Default.log(context.Background(), slog.LevelDebug, msg, args...)
 }
 
-func InfoW(msg string, args ...any) {
-	log(Default.l.Handler(), slog.LevelInfo, msg, args...)
+func Info(msg string, args ...any) {
+	Default.log(context.Background(), slog.LevelInfo, msg, args...)
 }
 
-func WarnW(msg string, args ...any) {
-	log(Default.l.Handler(), slog.LevelWarn, msg, args...)
+func Warn(msg string, args ...any) {
+	Default.log(context.Background(), slog.LevelWarn, msg, args...)
 }
 
-func ErrorW(msg string, args ...any) {
-	log(Default.l.Handler(), slog.LevelError, msg, args...)
+func Error(msg string, args ...any) {
+	Default.log(context.Background(), slog.LevelError, msg, args...)
 }
 
-func FatalW(msg string, args ...any) {
-	log(Default.l.Handler(), slog.LevelError, msg, args...)
+func Fatal(msg string, args ...any) {
+	Default.log(context.Background(), slog.LevelError, msg, args...)
 	os.Exit(1)
 }

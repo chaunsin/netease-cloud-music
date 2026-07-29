@@ -4,6 +4,7 @@
 package log
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
@@ -62,13 +64,15 @@ func TestLogFunctionsRespectConfiguredLevel(t *testing.T) {
 	logger, filename := newTestLogger(t, "info")
 
 	Debugf("debug message")
-	DebugW("debug structured", "kind", "debug")
+	Debug("debug structured", "kind", "debug")
 	Infof("info message: %s", "chaunsin")
-	InfoW("info structured", "kind", "info")
+	Info("info structured", "kind", "info")
 	Warnf("warn message")
-	WarnW("warn structured", "kind", "warn")
+	Warn("warn structured", "kind", "warn")
 	Errorf("error message")
-	ErrorW("error structured", "kind", "error")
+	Error("error structured", "kind", "error")
+	logger.Info("info instance", "kind", "instance")
+	logger.WarnContext(context.Background(), "warn context", "kind", "context")
 
 	output := readTestLog(t, logger, filename)
 	for _, unexpected := range []string{"debug message", "debug structured"} {
@@ -87,11 +91,67 @@ func TestLogFunctionsRespectConfiguredLevel(t *testing.T) {
 		"error message",
 		"error structured",
 		`"kind":"error"`,
+		"info instance",
+		`"kind":"instance"`,
+		"warn context",
+		`"kind":"context"`,
 	} {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("log output does not contain %q: %s", expected, output)
 		}
 	}
+}
+
+func TestFormattedDebugMessage(t *testing.T) {
+	logger, filename := newTestLogger(t, "debug")
+
+	Debugf("debug message: %s", "formatted")
+
+	output := readTestLog(t, logger, filename)
+	if !strings.Contains(output, "debug message: formatted") {
+		t.Fatalf("formatted debug message was not rendered: %s", output)
+	}
+}
+
+func TestFormattedInstanceMethods(t *testing.T) {
+	logger, filename := newTestLogger(t, "debug")
+	ctx := context.Background()
+
+	logger.Debugf("debug: %s", "formatted")
+	logger.DebugfContext(ctx, "debug context: %s", "formatted")
+	logger.Infof("info: %s", "formatted")
+	logger.InfofContext(ctx, "info context: %s", "formatted")
+	logger.Warnf("warn: %s", "formatted")
+	logger.WarnfContext(ctx, "warn context: %s", "formatted")
+	logger.Errorf("error: %s", "formatted")
+	logger.ErrorfContext(ctx, "error context: %s", "formatted")
+
+	output := readTestLog(t, logger, filename)
+	for _, expected := range []string{
+		"debug: formatted",
+		"debug context: formatted",
+		"info: formatted",
+		"info context: formatted",
+		"warn: formatted",
+		"warn context: formatted",
+		"error: formatted",
+		"error context: formatted",
+	} {
+		assert.Contains(t, output, expected)
+	}
+}
+
+func TestNilLoggerDropsMessages(t *testing.T) {
+	previous := Default
+	Default = nil
+
+	t.Cleanup(func() {
+		Default = previous
+	})
+
+	var logger *Logger
+	logger.Debug("ignored instance message")
+	Info("ignored default message")
 }
 
 func TestSetLevel(t *testing.T) {
@@ -129,7 +189,7 @@ func TestFatalExits(t *testing.T) {
 		case "formatted":
 			Fatalf("fatal message: %s", mode)
 		case "structured":
-			FatalW("fatal message", "kind", mode)
+			Fatal("fatal message", "kind", mode)
 		default:
 			os.Exit(3)
 		}

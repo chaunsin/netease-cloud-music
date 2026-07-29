@@ -45,15 +45,15 @@ The route is authenticated input. Do not make normalization appear more precise 
 
 ## XEAPI
 
-XEAPI spans `api/api.go`, `api/options.go`, `api/xeapi.go`, and `pkg/crypto/crypto.go`:
+XEAPI spans `api/api.go`, `api/options.go`, `api/xeapi.go`, and `pkg/crypto/xeapi.go`:
 
 - Require the original URL to contain `/api/`, `/eapi/`, or `/xeapi/`.
 - Keep the logical API route in the plaintext envelope while transporting on `/xeapi/`.
 - Move query parameters into the encrypted envelope and remove them from the transport URL.
-- Protect public-key and session state with `xeapiMu`; use `singleflight` only to coalesce refreshes, not as a replacement for the mutex.
+- Protect public-key and session state with `xeapi.mux`; use `singleflight` only to coalesce refreshes, not as a replacement for the mutex.
 - Refresh expired or absent public-key state and apply `X-Encr-Ssid` and `X-Encr-Sskey` response updates under the same state-machine discipline.
 - Set the XEAPI user agent and `X-Client-Enc-State: ENCRYPTED`.
-- Apply `SetXeapiOS` and `SetXeapiAppVer` only to XEAPI identity.
+- Keep the XEAPI identity in `Headers.XEAPI` (`appver`, `os`, and `User-Agent`); do not leak those defaults into other modes.
 
 Do not change URL rewriting, key refresh, session updates, locking, headers, or response decryption in isolation. Read the current-status table and only the relevant research section in `docs/xeapi.md` before archived notes.
 
