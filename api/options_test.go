@@ -54,6 +54,6 @@ func TestCookieHelpersSkipNilValues(t *testing.T) {
 	client := &Client{}
 	cookie := &http.Cookie{Name: "token", Value: "value"}
 
-	assert.Same(t, cookie, client.getDefCookie("token", []*http.Cookie{nil, cookie}, ""))
+	assert.Same(t, cookie, client.resolveRequestCookie("token", []*http.Cookie{nil, cookie}, ""))
 	assert.Equal(t, []*http.Cookie{cookie}, client.excludeCookie(nil, []*http.Cookie{nil, cookie}))
 }

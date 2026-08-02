@@ -16,13 +16,13 @@
 2. 能否复用。编写代码前先查看代码库中已有的辅助函数、工具函数、类型或模式。重复实现功能是最低效做法。
 3. 标准库能做到吗？用它就行了。
 4. 如果已安装的依赖项可以解决问题，那就用它。几行代码就能解决的问题，千万别添加新的依赖项。
-5. 简单至上(Simplicity): 可以只写一行吗？一行。
-6. 代码可读性(Readability): 应注重阅读速度，而不是打字速度
-7. 高内聚低耦合。强相关的放在一起，减少不必要的依赖。方法、变量不能琐碎零散。
-8. 单一职责(SRP):一个模块、类、方法只做一件事情，职责划分清晰。
+5. **简单至上(Simplicity)**: 可以只写一行吗？一行。
+6. **代码可读性(Readability)**: 应注重阅读速度，而不是打字速度
+7. **高内聚低耦合**。强相关的放在一起，减少不必要的依赖。方法、变量不能琐碎零散。
+8. **单一职责(SRP)**:一个模块、类、方法只做一件事情，职责划分清晰。
 9. 删除胜于添加，乏味胜于聪明。
-10. 快速失败(Fail Fast): 禁止吞掉异常，提前暴露错误，显示错误优于隐式错误；只能在无法继续返回错误的清理或异步边界记录日志。
-11. 为维护者编程: 机器可运行的代码不是目的，而是未来的自己、同事，甚至几年后的维护者都能快速理解和安全修改的代码。
+10. **快速失败(Fail Fast)**: 禁止吞掉异常，提前暴露错误，显示错误优于隐式错误；只能在无法继续返回错误的清理或异步边界记录日志。
+11. **为维护者编程**: 机器可运行的代码不是目的，而是未来的自己、同事，甚至几年后的维护者都能快速理解和安全修改的代码。
 
 ## 常用命令
 
@@ -38,6 +38,7 @@ make lintfix # 检测并修复 golangci-lint run --fix ./...
 
 # Makefile 的完整测试入口
 make test
+make test-live # 显式启用依赖本地 Cookie 的真实 API 测试
 
 # Docker
 make build-image
@@ -56,9 +57,16 @@ go test -race ./internal/proxy
 go test -run TestName ./path/to/package
 ```
 
-不要把 `go test ./...` 或 `make test` 当作无副作用的默认检查：
+`api/*` 中的真实网络测试默认跳过；只有 `NCMCTL_RUN_LIVE_TESTS=1` 时才会访问网易服务，只在用户明确允许相应副作用后运行：
 
-- `api/weapi` 和 `api/eapi` 中存在未加 build tag 的真实网络测试，会访问网易服务；若 `testdata/cookie.json` 有有效凭据，部分测试会签到、提交音乐合伙人测评或执行其他账号操作。
+```bash
+make test-live
+# 只调试一个真实接口测试
+NCMCTL_RUN_LIVE_TESTS=1 go test -count=1 -v -run '^TestYunBeiInSign$' ./api/eapi
+```
+
+`make test` 和普通的 `go test ./...` 不会启用这些真实 API 测试。其他集成测试仍需单独考虑其副作用：
+
 - `example/` 使用 `integration` build tag，登录、上传和下载示例同样访问真实网络并可能修改账号或本地文件。只有在用户明确允许相应副作用后才运行，例如：
 
 ```bash
@@ -76,6 +84,7 @@ go test -tags=integration -v -run TestWeapiLoginByQrcode ./example/
 - `pkg/ncm/`：NCM 解析、解密和音频标签。
 - `.claude/skills/ncmctl-dev/`：按任务加载的开发流程与专题约束。
 - `skills/ncmctl/`：面向最终用户的安装和使用说明，不承载仓库开发约定。
+- `testdata`：测试调试相关内容，**AI禁止读取此目录文件，除非用户明确允许才能访问。**
 
 ## 测试与代码风格
 
@@ -86,6 +95,8 @@ go test -tags=integration -v -run TestWeapiLoginByQrcode ./example/
 - 保留现有 SPDX/版权头格式。注释说明原因、协议约束或不直观的并发行为，不重复代码字面意思。
 
 ## 文档与 skill 同步
+
+> 对重要内容更新，保持内容精简，避免膨胀。skills要满足规范，AGENTS.md内容仅做目录导航作用。
 
 - `AGENTS.md -> CLAUDE.md`，`.agents/skills/ncmctl-dev -> ../../.claude/skills/ncmctl-dev`；提交前用 `readlink` 确认链接未被替换成副本。
 - `CLAUDE.md` 维护仓库级开发规则；`.claude/skills/ncmctl-dev` 维护按任务渐进加载的开发流程；`skills/ncmctl` 只面向 ncmctl 安装与使用，不承担仓库开发约定。

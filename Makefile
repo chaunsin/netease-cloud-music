@@ -22,7 +22,11 @@ lint:
 .PHONY: test
 test:
 	go test -v ./...
-	
+
+.PHONY: test-live
+test-live:
+	NCMCTL_RUN_LIVE_TESTS=1 go test -count=1 -v ./api/eapi ./api/weapi
+
 .PHONY: install
 install:
 	cd cmd/ncmctl && go install .

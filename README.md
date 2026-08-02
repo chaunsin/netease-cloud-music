@@ -85,7 +85,7 @@
 | 模式 | 当前边界 |
 | :--- | :--- |
 | `weapi` | 默认模式，请求加密、响应明文 JSON |
-| `eapi` | 请求加密；通用客户端目前只直接处理明文 JSON 响应，不会透明解密 `e_r=true` 响应 |
+| `eapi` | 请求加密；缺失 `e_r` / `header` 时分别发送 `true` / `"{}"`；`e_r=false` 时解析明文 JSON，`e_r=true` 时解密原始二进制响应，`x-aeapi=true` 时再透明展开解密后的 gzip 内容；非 200 响应按相同规则处理后以 `api.APIError` 返回状态码 |
 | `api` | 不加密；通用请求参数序列化尚未完成 |
 | `linux` | Linux API 的请求/响应加解密，暂无高级 endpoint wrapper |
 | `xeapi` | 底层 Aegis/XEAPI 封装，暂无独立 endpoint wrapper，CLI `curl -k` 也不支持；默认 POST 路径只有本地测试验证 |

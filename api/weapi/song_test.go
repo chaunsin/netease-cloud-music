@@ -8,10 +8,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/chaunsin/netease-cloud-music/api/internal/testutil"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 func TestSongPlayer(t *testing.T) {
+	testutil.RequireLiveAPI(t)
+
 	got, err := cli.SongPlayer(ctx, &SongPlayerReq{Ids: types.IntsString{2115747785}, Br: "128000"})
 	require.NoError(t, err)
 	t.Logf("resp:%+v\n", got)

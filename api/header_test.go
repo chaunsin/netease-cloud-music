@@ -24,13 +24,13 @@ func TestDefaultWeapiUserAgent(t *testing.T) {
 	assert.Equal(t, defaultWeapiUserAgent, defaultHeaders.WEAPI.GetHeader("User-Agent"))
 }
 
-func TestHeadersValidateXeapiIdentity(t *testing.T) {
+func TestHeadersValidateRejectsEmptyXeapiIdentity(t *testing.T) {
 	for _, name := range []string{"appver", "buildver", "mobilename", "os", "osver"} {
 		t.Run(name, func(t *testing.T) {
 			headers := defaultHeaders.clone()
 			headers.XEAPI.Cookie[name] = ""
 
-			require.EqualError(t, headers.Validate(), fmt.Sprintf("xeapi: '%s' cookie value required. ", name))
+			require.EqualError(t, headers.Validate(), fmt.Sprintf("xeapi: %s cookie value required. ", name))
 		})
 	}
 }
@@ -45,7 +45,7 @@ func TestHeadersCloneAndTransactionalLoad(t *testing.T) {
     User-Agent:
       - configured-agent
 `), 0o600))
-	require.NoError(t, configured.Load(configPath))
+	require.NoError(t, configured.LoadConfig(configPath))
 
 	assert.Equal(t, "configured-agent", configured.WEAPI.GetHeader("User-Agent"))
 	assert.Equal(t, original.API, configured.API)
@@ -62,7 +62,7 @@ func TestHeadersCloneAndTransactionalLoad(t *testing.T) {
   cookie:
     channel: ""
 `), 0o600))
-	require.Error(t, configured.Load(configPath))
+	require.Error(t, configured.LoadConfig(configPath))
 	assert.Equal(t, beforeInvalidLoad, configured)
 }
 

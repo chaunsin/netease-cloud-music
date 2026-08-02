@@ -53,7 +53,7 @@ func TestXeapiPublicKeyStateIsValid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.state.IsValid())
+			assert.Equal(t, tt.want, tt.state.Validate() == nil)
 		})
 	}
 }
@@ -184,13 +184,35 @@ func TestBuildPlaintextEnvelope(t *testing.T) {
 	})
 }
 
+func TestFormValuesDoesNotDeleteCallerKeys(t *testing.T) {
+	t.Run("url values", func(t *testing.T) {
+		source := url.Values{"e_r": []string{"false"}, "id": []string{"1"}}
+
+		values, err := formValues(source)
+		require.NoError(t, err)
+		values.Del("e_r")
+
+		assert.Equal(t, []string{"false"}, source["e_r"])
+	})
+
+	t.Run("string slice map", func(t *testing.T) {
+		source := map[string][]string{"e_r": {"false"}, "id": {"1"}}
+
+		values, err := formValues(source)
+		require.NoError(t, err)
+		values.Del("e_r")
+
+		assert.Equal(t, []string{"false"}, source["e_r"])
+	})
+}
+
 func TestXeapiStaticKey(t *testing.T) {
 	assert.Len(t, xeapiStaticKey, 32)
 
 	want := XeapiPublicKeyState{
 		PublicKey:      "test-public-key",
 		Version:        "v1",
-		NextUpdateTime: 123456789,
+		NextUpdateTime: 4102444800000,
 		SK:             "server-key",
 		DeviceID:       "device-id",
 	}
@@ -214,7 +236,25 @@ func TestXeapiStaticKey(t *testing.T) {
 	ciphertext, err = aesECBEncrypt(xeapiStaticKey, plain)
 	require.NoError(t, err)
 	_, err = XeapiDecryptPublicKey(base64.StdEncoding.EncodeToString(ciphertext))
-	assert.ErrorIs(t, err, ErrPublicKeyMissing)
+	require.ErrorIs(t, err, ErrPublicKeyMissing)
+
+	missingVersion := want
+	missingVersion.Version = ""
+	plain, err = json.Marshal(missingVersion)
+	require.NoError(t, err)
+	ciphertext, err = aesECBEncrypt(xeapiStaticKey, plain)
+	require.NoError(t, err)
+	_, err = XeapiDecryptPublicKey(base64.StdEncoding.EncodeToString(ciphertext))
+	require.ErrorIs(t, err, ErrPublicKeyVersionMissing)
+
+	expired := want
+	expired.NextUpdateTime = time.Now().Add(-time.Minute).UnixMilli()
+	plain, err = json.Marshal(expired)
+	require.NoError(t, err)
+	ciphertext, err = aesECBEncrypt(xeapiStaticKey, plain)
+	require.NoError(t, err)
+	_, err = XeapiDecryptPublicKey(base64.StdEncoding.EncodeToString(ciphertext))
+	require.ErrorIs(t, err, ErrPublicKeyExpired)
 }
 
 func TestXeapiSign(t *testing.T) {
@@ -310,15 +350,49 @@ func TestXeapiEncrypt(t *testing.T) {
 		PublicKey: publicKey.PublicKey,
 		Version:   "v1",
 	}, XeapiSession{})
-	assert.ErrorIs(t, err, ErrServerKeyMissing)
+	require.ErrorIs(t, err, ErrServerKeyMissing)
+
+	_, err = XeapiEncrypt(&req, XeapiPublicKeyState{
+		PublicKey: publicKey.PublicKey,
+		SK:        publicKey.SK,
+	}, XeapiSession{})
+	require.ErrorIs(t, err, ErrPublicKeyVersionMissing)
+
+	expired := publicKey
+	expired.NextUpdateTime = time.Now().Add(-time.Minute).UnixMilli()
+	_, err = XeapiEncrypt(&req, expired, XeapiSession{})
+	require.ErrorIs(t, err, ErrPublicKeyExpired)
 }
 
-func TestXeapiDecryptResponse(t *testing.T) {
+func TestDynamicKeyValidatesSessionPairAndRawKeyLength(t *testing.T) {
+	for _, key := range []string{
+		"0123456789abcdef",
+		"0123456789abcdefghijklmn",
+		"0123456789abcdefghijklmnopqrstuv",
+		" 123456789abcde ",
+	} {
+		gotKey, gotID, err := dynamicKey(XeapiSession{ID: "session-id", Key: key})
+		require.NoError(t, err)
+		assert.Equal(t, key, string(gotKey))
+		assert.Equal(t, "session-id", gotID)
+	}
+
+	_, _, err := dynamicKey(XeapiSession{ID: "session-id"})
+	require.ErrorIs(t, err, ErrSessionIncomplete)
+
+	_, _, err = dynamicKey(XeapiSession{Key: "0123456789abcdef"})
+	require.ErrorIs(t, err, ErrSessionIncomplete)
+
+	_, _, err = dynamicKey(XeapiSession{ID: "session-id", Key: "too-short"})
+	require.ErrorIs(t, err, ErrSessionKeyLength)
+}
+
+func TestXeapiDecrypt(t *testing.T) {
 	t.Run("plain json", func(t *testing.T) {
 		ciphertext, err := aesECBEncrypt([]byte(eApiKey), []byte(`{"code":200}`))
 		require.NoError(t, err)
 
-		got, err := XeapiDecryptResponse(ciphertext)
+		got, err := XeapiDecrypt(ciphertext)
 		require.NoError(t, err)
 		assert.Equal(t, `{"code":200}`, string(got))
 	})
@@ -334,7 +408,7 @@ func TestXeapiDecryptResponse(t *testing.T) {
 		ciphertext, err := aesECBEncrypt([]byte(eApiKey), buf.Bytes())
 		require.NoError(t, err)
 
-		got, err := XeapiDecryptResponse(ciphertext)
+		got, err := XeapiDecrypt(ciphertext)
 		require.NoError(t, err)
 		assert.Equal(t, `{"code":201}`, string(got))
 	})

@@ -119,8 +119,8 @@ func aesEncrypt(text, key, iv, mode, format string) (string, error) {
 }
 
 // aesDecrypt 解密.
-func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
-	// fmt.Printf("[aesDecrypt] request mode=%s format=%s\n", mode, format)
+func aesDecrypt(cipherText, key, iv, mode, encode string) ([]byte, error) {
+	// fmt.Printf("[aesDecrypt] request mode=%s encode=%s\n", mode, encode)
 	block, err := aes.NewCipher([]byte(key))
 	if err != nil {
 		return nil, fmt.Errorf("NewCipher: %w", err)
@@ -128,7 +128,7 @@ func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 
 	var data []byte
 
-	switch format {
+	switch encode {
 	case "base64":
 		data, err = base64.StdEncoding.DecodeString(cipherText)
 	case "hex", "HEX":
@@ -136,11 +136,11 @@ func aesDecrypt(cipherText, key, iv, mode, format string) ([]byte, error) {
 	case "":
 		data = []byte(cipherText)
 	default:
-		return nil, fmt.Errorf("%s unknown format", format)
+		return nil, fmt.Errorf("%s unknown encode", encode)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("format: %w", err)
+		return nil, fmt.Errorf("encode: %w", err)
 	}
 
 	var text []byte

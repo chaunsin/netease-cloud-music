@@ -7,9 +7,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/chaunsin/netease-cloud-music/api/internal/testutil"
 )
 
 func TestYunBeiInSign(t *testing.T) {
+	testutil.RequireLiveAPI(t)
+
 	req := YunBeiSignInReq{
 		Type: 1,
 	}

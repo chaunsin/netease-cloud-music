@@ -17,7 +17,7 @@ import (
 
 // MusicianVipTasksReq 获取音乐人黑胶会员任务请求.
 type MusicianVipTasksReq struct {
-	ER bool `json:"e_r"` // false=明文响应, true=加密响应
+	types.EApiReqCommon
 }
 
 // MusicianVipTasksData 获取音乐人黑胶会员任务响应 (data 字段内容).
@@ -42,15 +42,6 @@ type MusicianVipTasksData struct {
 // MusicianVipTasksResp 获取音乐人黑胶会员任务响应.
 type MusicianVipTasksResp struct {
 	types.RespCommon[MusicianVipTasksData]
-}
-
-// MusicianEAPIReq 音乐人 EAPI 通用请求字段。
-type MusicianEAPIReq struct {
-	DeviceId string `json:"deviceId,omitempty"`
-	OS       string `json:"os,omitempty"`
-	VerifyId int    `json:"verifyId,omitempty"`
-	Header   any    `json:"header"`
-	ER       bool   `json:"e_r"`
 }
 
 // MusicianVipFurtherTask 进阶任务.
@@ -92,10 +83,14 @@ type MusicianVipSubTask struct {
 // MusicianVipTasks 获取音乐人黑胶会员任务
 // needLogin: 是.
 func (a *Api) MusicianVipTasks(ctx context.Context, req *MusicianVipTasksReq) (*MusicianVipTasksResp, error) {
+	if req != nil && req.ER == nil {
+		req.SetResponseEncrypted(false)
+	}
+
 	var (
 		url   = "https://music.163.com/eapi/nmusician/workbench/special/right/vip/info"
 		reply MusicianVipTasksResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -109,7 +104,7 @@ func (a *Api) MusicianVipTasks(ctx context.Context, req *MusicianVipTasksReq) (*
 
 // MusicianRoleGetReq 获取音乐人身份请求。
 type MusicianRoleGetReq struct {
-	MusicianEAPIReq
+	types.EApiReqCommon
 }
 
 // MusicianRoleGetResp 获取音乐人身份响应。
@@ -133,12 +128,12 @@ func (a *Api) MusicianRoleGet(ctx context.Context, req *MusicianRoleGetReq) (*Mu
 		req = &MusicianRoleGetReq{}
 	}
 
-	a.fillMusicianEAPIReq(&req.MusicianEAPIReq)
+	a.fillMusicianEAPIReq(&req.EApiReqCommon)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/musician/role/get"
 		reply MusicianRoleGetResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -152,7 +147,7 @@ func (a *Api) MusicianRoleGet(ctx context.Context, req *MusicianRoleGetReq) (*Mu
 
 // MusicianSignReq 音乐人签到请求。
 type MusicianSignReq struct {
-	MusicianEAPIReq
+	types.EApiReqCommon
 }
 
 // MusicianSignResp 音乐人签到响应。
@@ -167,12 +162,12 @@ func (a *Api) MusicianSign(ctx context.Context, req *MusicianSignReq) (*Musician
 		req = &MusicianSignReq{}
 	}
 
-	a.fillMusicianEAPIReq(&req.MusicianEAPIReq)
+	a.fillMusicianEAPIReq(&req.EApiReqCommon)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/creator/user/access"
 		reply MusicianSignResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -186,7 +181,7 @@ func (a *Api) MusicianSign(ctx context.Context, req *MusicianSignReq) (*Musician
 
 // MusicianMissionListReq 获取音乐人任务列表请求。
 type MusicianMissionListReq struct {
-	MusicianEAPIReq
+	types.EApiReqCommon
 
 	Platform   int `json:"platform,omitempty"`
 	Tag        int `json:"tag,omitempty"`
@@ -241,12 +236,12 @@ func (a *Api) MusicianMissionCycleList(ctx context.Context, req *MusicianMission
 		req = &MusicianMissionListReq{}
 	}
 
-	a.fillMusicianEAPIReq(&req.MusicianEAPIReq)
+	a.fillMusicianEAPIReq(&req.EApiReqCommon)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/mission/cycle/list"
 		reply MusicianMissionListResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -264,12 +259,12 @@ func (a *Api) MusicianMissionStageList(ctx context.Context, req *MusicianMission
 		req = &MusicianMissionListReq{}
 	}
 
-	a.fillMusicianEAPIReq(&req.MusicianEAPIReq)
+	a.fillMusicianEAPIReq(&req.EApiReqCommon)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/mission/stage/list"
 		reply MusicianMissionListResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -283,7 +278,7 @@ func (a *Api) MusicianMissionStageList(ctx context.Context, req *MusicianMission
 
 // MusicianRewardObtainReq 音乐人云豆领奖请求。
 type MusicianRewardObtainReq struct {
-	MusicianEAPIReq
+	types.EApiReqCommon
 
 	UserMissionId int64 `json:"userMissionId"`
 	Period        int64 `json:"period"`
@@ -304,12 +299,12 @@ func (a *Api) MusicianRewardObtain(ctx context.Context, req *MusicianRewardObtai
 		return nil, errors.New("userMissionId is required")
 	}
 
-	a.fillMusicianEAPIReq(&req.MusicianEAPIReq)
+	a.fillMusicianEAPIReq(&req.EApiReqCommon)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/mission/reward/obtain/new"
 		reply MusicianRewardObtainResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

@@ -436,7 +436,7 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 			return nil, fmt.Errorf("splitFile: %w", err)
 		}
 
-		resp, err = a.client.Upload(ctx, _addr, headers, bytes.NewReader(partData), &reply, req.ProgressBar)
+		resp, err = a.client.Upload(ctx, http.MethodPost, _addr, headers, bytes.NewReader(partData), &reply, req.ProgressBar)
 		log.Debugf("upload addr: %s chunk %d/%d, offset: %d, complete: %v, resp: %+v",
 			addr, i+1, chunks, start, complete, reply.ErrCode)
 
@@ -766,7 +766,7 @@ func (a *Api) CloudUploadNode(ctx context.Context, req *CloudUploadNodeReq) (*Cl
 	var (
 		url   = "http://wanproxy.127.net/lbs?version=%s"
 		reply CloudUploadNodeResp
-		opts  = api.NewOptions().SetCryptoModeAPI().SetMethod(http.MethodGet)
+		opts  = api.NewOptions().SetAPI().SetMethod(http.MethodGet)
 	)
 
 	if req.Version == "" {

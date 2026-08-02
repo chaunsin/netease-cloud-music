@@ -17,16 +17,17 @@ import (
 )
 
 // defaultHeaders 由于是手动配置需要满足规范, cookie注意大写,header需要满足 http.CanonicalHeaderKey() 规范。
+// 当前配置的值不能随意修改，以免造成apl中得Request空指针问题。
 var defaultHeaders = &Headers{
 	// API 需要一个真实场景的内容填充.
 	API: HeaderItem{
 		Cookie: map[string]string{
-			"channel":       "channel",
+			"channel":       "netease",
 			"ntes_kaola_ad": "1",
 			"WEVNSM":        "1.0",
-			"deviceId":      "",
 			"os":            "osx",
 			"osver":         "15.3.2",
+			// "deviceId":      "7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62|5FD718A3-0602-4389-B612-EBEFAA7F108B",
 		},
 		Header: map[string][]string{
 			"User-Agent": {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"},
@@ -37,7 +38,6 @@ var defaultHeaders = &Headers{
 			"channel":       "netease",
 			"ntes_kaola_ad": "1",
 			"WEVNSM":        "1.0",
-			"deviceId":      "",
 			"appver":        "9.2.85",       // 要和UserAgent中一致
 			"os":            "android",      // 要和UserAgent中一致
 			"osver":         "9",            // 要和UserAgent中一致
@@ -46,6 +46,8 @@ var defaultHeaders = &Headers{
 			"mobilename":    "SM-S9180",
 			"brand":         "samsung",
 			"versioncode":   "9002085", // 要和UserAgent中一致
+			"packageType":   "release", // beta、release
+			"deviceId":      "MzUxNTY0MTAxMTE4NDEyCTA4OjAwOjI3OjRmOjEyOmJhCThjMzczZDE5ODk3ODc2M2EJOTZiOGEzZjBmYzgyMDgxNw==",
 		},
 		Header: map[string][]string{
 			"User-Agent": {"NeteaseMusic/9.2.85.250418145357(9002085);Dalvik/2.1.0 (Linux; U; Android 9; SM-S9180 Build/PQ3B.190801.10101846)"},
@@ -56,12 +58,12 @@ var defaultHeaders = &Headers{
 			"channel":       "appstore",
 			"ntes_kaola_ad": "1",
 			"WEVNSM":        "1.0",
-			"deviceId":      "",
 			"appver":        "3.0.12",         // 要和UserAgent中一致
 			"os":            "osx",            // 要和UserAgent中一致
 			"osver":         "15.3.2",         // 要和UserAgent中一致
 			"mode":          "MacBookPro16,1", // 要和UserAgent中一致
 			"_iuqxldmzr_":   "33",
+			// "deviceId":      "7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62|5FD718A3-0602-4389-B612-EBEFAA7F108B",
 		},
 		Header: map[string][]string{
 			"User-Agent": {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/3.0.12.2443"},
@@ -72,7 +74,6 @@ var defaultHeaders = &Headers{
 			"channel":       "netease",
 			"ntes_kaola_ad": "1",
 			"WEVNSM":        "1.0",
-			"deviceId":      "",
 			"appver":        "9.2.85",       // 要和UserAgent中一致
 			"os":            "android",      // 要和UserAgent中一致
 			"osver":         "9",            // 要和UserAgent中一致
@@ -81,6 +82,8 @@ var defaultHeaders = &Headers{
 			"mobilename":    "SM-S9180",
 			"brand":         "samsung",
 			"versioncode":   "9002085", // 要和UserAgent中一致
+			"packageType":   "release", // beta、release
+			"deviceId":      "MzUxNTY0MTAxMTE4NDEyCTA4OjAwOjI3OjRmOjEyOmJhCThjMzczZDE5ODk3ODc2M2EJOTZiOGEzZjBmYzgyMDgxNw==",
 		},
 		Header: map[string][]string{
 			"User-Agent": {defaultXeapiUserAgent},
@@ -91,10 +94,10 @@ var defaultHeaders = &Headers{
 			"channel":       "netease",
 			"ntes_kaola_ad": "1",
 			"WEVNSM":        "1.0",
-			"deviceId":      "",
 			"appver":        "1.2.1.0428",
 			"os":            "linux",
 			"osver":         "Deepin 20.9",
+			// "deviceId":      "7A8EB581-E60B-5230-BB5B-E6DAB1FBFA62|5FD718A3-0602-4389-B612-EBEFAA7F108B",
 		},
 		Header: map[string][]string{
 			"User-Agent": {"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36"},
@@ -102,38 +105,9 @@ var defaultHeaders = &Headers{
 	},
 }
 
-var (
-	cookieNameSet      = map[string]struct{}{"channel": {}, "ntes_kaola_ad": {}, "WEVNSM": {}}
-	xeapiCookieNameSet = map[string]struct{}{"appver": {}, "buildver": {}, "mobilename": {}, "os": {}, "osver": {}}
-	headerNameSet      = map[string]struct{}{"User-Agent": {}}
-)
-
 type HeaderItem struct {
 	Cookie map[string]string `json:"cookie" yaml:"cookie"` // cookie值的key有大写小限制
 	Header http.Header       `json:"header" yaml:"header"` // header无大小写限制
-}
-
-// Validate 校验通用必须要的值，未判定值有效性。
-func (h *HeaderItem) Validate() error {
-	if len(h.Cookie) == 0 || len(h.Header) == 0 {
-		return errors.New("cookie or header is empty. ")
-	}
-
-	for k := range cookieNameSet {
-		v, ok := h.Cookie[k]
-		if !ok || strings.TrimSpace(v) == "" {
-			return fmt.Errorf("'%s' cookie value required. ", k)
-		}
-	}
-
-	for k := range headerNameSet {
-		v := h.Header.Get(k)
-		if strings.TrimSpace(v) == "" {
-			return fmt.Errorf("'%s' header value required. ", k)
-		}
-	}
-
-	return nil
 }
 
 // GetCookie 获取cookie value值,区分大小写.
@@ -174,37 +148,59 @@ type Headers struct {
 }
 
 func (h *Headers) Validate() error {
-	if err := h.API.Validate(); err != nil {
-		return fmt.Errorf("api: %w", err)
-	}
-
-	if err := h.EAPI.Validate(); err != nil {
-		return fmt.Errorf("eapi: %w", err)
-	}
-
-	if err := h.WEAPI.Validate(); err != nil {
-		return fmt.Errorf("weapi: %w", err)
-	}
-
-	if err := h.XEAPI.Validate(); err != nil {
-		return fmt.Errorf("xeapi: %w", err)
-	}
-
-	for k := range xeapiCookieNameSet {
-		if strings.TrimSpace(h.XEAPI.Cookie[k]) == "" {
-			return fmt.Errorf("xeapi: '%s' cookie value required. ", k)
+	for k := range defaultHeaders.API.Header {
+		if h.API.Header.Get(k) == "" {
+			return fmt.Errorf("api: %v header value required. ", k)
 		}
 	}
 
-	if err := h.LinuxAPI.Validate(); err != nil {
-		return fmt.Errorf("linuxapi: %w", err)
+	for k := range defaultHeaders.API.Cookie {
+		if h.API.GetCookie(k) == "" {
+			return fmt.Errorf("api: %v cookie value required. ", k)
+		}
+	}
+
+	for k := range defaultHeaders.EAPI.Header {
+		if h.EAPI.Header.Get(k) == "" {
+			return fmt.Errorf("eapi: %v header value required. ", k)
+		}
+	}
+
+	for k := range defaultHeaders.WEAPI.Cookie {
+		if h.WEAPI.GetCookie(k) == "" {
+			return fmt.Errorf("weapi: %v cookie value required. ", k)
+		}
+	}
+
+	for k := range defaultHeaders.XEAPI.Header {
+		if h.XEAPI.Header.Get(k) == "" {
+			return fmt.Errorf("xeapi: %v header value required. ", k)
+		}
+	}
+
+	for k := range defaultHeaders.XEAPI.Cookie {
+		if h.XEAPI.GetCookie(k) == "" {
+			return fmt.Errorf("xeapi: %v cookie value required. ", k)
+		}
+	}
+
+	for k := range defaultHeaders.LinuxAPI.Header {
+		if h.LinuxAPI.Header.Get(k) == "" {
+			return fmt.Errorf("linuxapi: %v header value required. ", k)
+		}
+	}
+
+	for k := range defaultHeaders.LinuxAPI.Cookie {
+		if h.LinuxAPI.GetCookie(k) == "" {
+			return fmt.Errorf("linuxapi: %v cookie value required. ", k)
+		}
 	}
 
 	return nil
 }
 
-// Load 从配置中加载并校验,考虑局部覆盖和整体覆盖两种方式.
-func (h *Headers) Load(filename string) error {
+// LoadConfig 从配置中加载并校验,考虑局部覆盖和整体覆盖两种方式.
+func (h *Headers) LoadConfig(filename string) error {
 	if h == nil {
 		return errors.New("headers is nil")
 	}
@@ -241,8 +237,8 @@ func (h *Headers) Load(filename string) error {
 	return nil
 }
 
-// GetDefValue 根据加密模式获取对应请求头相关默认配置.
-func (h *Headers) GetDefValue(mode CryptoMode) *HeaderItem {
+// HeaderItemForCryptoMode 根据加密模式获取对应请求头配置.
+func (h *Headers) HeaderItemForCryptoMode(mode CryptoMode) *HeaderItem {
 	switch mode {
 	case CryptoModeAPI:
 		return &h.API
@@ -273,9 +269,9 @@ func (h *Headers) clone() Headers {
 	}
 }
 
-// getDefHeaderVal header头加载顺序与优先级:
+// resolveHeaderValue header头加载顺序与优先级:
 // 用户接口传入 > 系统默认.
-func (c *Client) getDefHeaderVal(name string, userHeader http.Header, defVal string) string {
+func (c *Client) resolveHeaderValue(name string, userHeader http.Header, defVal string) string {
 	// 返回用户传入值
 	var userVal string
 	if userHeader != nil {
@@ -290,9 +286,9 @@ func (c *Client) getDefHeaderVal(name string, userHeader http.Header, defVal str
 	return defVal
 }
 
-// getDefCookie 从cookie中加载顺序与优先级:
+// resolveRequestCookie 从cookie中加载顺序与优先级:
 // 用户接口传入 > 已写入cookiejar > 系统默认.
-func (c *Client) getDefCookie(name string, userCookie []*http.Cookie, defVal string) *http.Cookie {
+func (c *Client) resolveRequestCookie(name string, userCookie []*http.Cookie, defVal string) *http.Cookie {
 	// 返回用户传入值
 	if len(userCookie) > 0 {
 		for _, ck := range userCookie {
@@ -309,7 +305,7 @@ func (c *Client) getDefCookie(name string, userCookie []*http.Cookie, defVal str
 
 	// 从当前cookiejar中获取值.
 	// NOTE: 暂时定位从 https://music.163.com 中获取，其他127.com、126.com等等域名得数据不支持获取。
-	cookieVal, ok := c.Cookie("https://music.163.com", name)
+	cookieVal, ok := c.Cookie("https://music.163.com", name) // TODO: 存在遗漏问题
 	if ok && cookieVal.Value != "" {
 		return &cookieVal
 	}
@@ -323,9 +319,9 @@ func (c *Client) getDefCookie(name string, userCookie []*http.Cookie, defVal str
 	return &http.Cookie{Name: name, Value: value, Domain: defDomain}
 }
 
-// getDefVal 从header和cookie中获取，先从cookie中获取，然后从header中获取,找到第一个对象后返回.
+// resolveCookieOrHeaderValue 从header和cookie中获取，先从cookie中获取，然后从header中获取,找到第一个对象后返回.
 // 注意: name区分大小写cookie获取场景.
-func (c *Client) getDefVal(name string, opts *Options, defVal *HeaderItem) string {
+func (c *Client) resolveCookieOrHeaderValue(name string, opts *Options, defVal *HeaderItem) string {
 	if opts == nil {
 		if defVal == nil {
 			return ""
@@ -333,15 +329,10 @@ func (c *Client) getDefVal(name string, opts *Options, defVal *HeaderItem) strin
 		return defVal.Get(name)
 	}
 
-	// value := c.getDefCookieVal(name, opts.Cookies, defVal.GetCookie(name))
-	// if value != "" {
-	// 	return value
-	// }
-
-	cookie := c.getDefCookie(name, opts.Cookies, defVal.GetCookie(name))
+	cookie := c.resolveRequestCookie(name, opts.Cookies, defVal.GetCookie(name))
 	if cookie != nil && cookie.Value != "" {
 		return cookie.Value
 	}
 
-	return c.getDefHeaderVal(name, opts.Headers, defVal.GetHeader(name))
+	return c.resolveHeaderValue(name, opts.Headers, defVal.GetHeader(name))
 }

@@ -10,13 +10,14 @@ import (
 	"strings"
 
 	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 const dailySongShareMConfigInfo = `{"IuRPVVmc3WWul9fT":{"version":"115240960","appver":"9.5.37"},"tPJJnts2H31BZXmp":{"version":"5230592","appver":"4.74.0"},"c0Ve6C0uNl2Am0Rl":{"version":"276480","appver":"1.4.30"},"zr4bw6pKFDIZScpo":{"version":"3758080","appver":"2.40.0"}}`
 
 // DailySongShareRegisterReq registers the current user for the sharing activity.
 type DailySongShareRegisterReq struct {
-	DailySongShareBaseReq
+	types.EApiReqCommon
 }
 
 // DailySongShareRegisterResp is the sharing activity registration response.
@@ -37,10 +38,8 @@ func (a *Api) DailySongShareRegister(ctx context.Context, req *DailySongShareReg
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/note/common/activity/in/registration"
 		reply    DailySongShareRegisterResp
-		opts     = api.NewOptions().SetCryptoModeXEAPI()
+		opts     = api.NewOptions().SetXEAPI()
 	)
-
-	req.fill()
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
 		return nil, fmt.Errorf("request daily song share registration: %w", err)
@@ -50,7 +49,7 @@ func (a *Api) DailySongShareRegister(ctx context.Context, req *DailySongShareReg
 
 // DailySongShareAttendanceRegisterReq registers an activity attendance cycle.
 type DailySongShareAttendanceRegisterReq struct {
-	DailySongShareBaseReq
+	types.EApiReqCommon
 
 	ActivityId      int64 `json:"activityId"`
 	ActivityCycleId int64 `json:"activityCycleId"`
@@ -75,10 +74,8 @@ func (a *Api) DailySongShareAttendanceRegister(ctx context.Context, req *DailySo
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/note/attendance/activity/register"
 		reply    DailySongShareAttendanceRegisterResp
-		opts     = api.NewOptions().SetCryptoModeXEAPI()
+		opts     = api.NewOptions().SetXEAPI()
 	)
-
-	req.fill()
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
 		return nil, fmt.Errorf("request daily song share attendance registration: %w", err)
@@ -88,7 +85,7 @@ func (a *Api) DailySongShareAttendanceRegister(ctx context.Context, req *DailySo
 
 // DailySongShareRegistrationGuideReq requests the current activity guide.
 type DailySongShareRegistrationGuideReq struct {
-	DailySongShareBaseReq
+	types.EApiReqCommon
 }
 
 // DailySongShareRegistrationGuideResp describes the current activity and progress.
@@ -123,10 +120,8 @@ func (a *Api) DailySongShareRegistrationGuide(ctx context.Context, req *DailySon
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/note/attendance/activity/registration/v2/guide"
 		reply    DailySongShareRegistrationGuideResp
-		opts     = api.NewOptions().SetCryptoModeXEAPI()
+		opts     = api.NewOptions().SetXEAPI()
 	)
-
-	req.fill()
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
 		return nil, fmt.Errorf("request daily song share registration guide: %w", err)
@@ -136,7 +131,7 @@ func (a *Api) DailySongShareRegistrationGuide(ctx context.Context, req *DailySon
 
 // DailySongSharePublishReq publishes a note used by the sharing activity.
 type DailySongSharePublishReq struct {
-	DailySongShareBaseReq
+	types.EApiReqCommon
 
 	AddComment         bool   `json:"addComment"`
 	AutoSaveDraft      bool   `json:"autoSaveDraft"`
@@ -144,7 +139,7 @@ type DailySongSharePublishReq struct {
 	ThreadId           string `json:"threadId,omitempty"`
 	ResourceId         string `json:"resourceId,omitempty"`
 	Msg                string `json:"msg"`
-	SessionId          string `json:"sessionId"`
+	SessionId          string `json:"sessionId"` // 格式貌似为 a1b2c3d4-e5f
 	TargetPublishTime  any    `json:"targetPublishTime"`
 	ServerUuid         string `json:"serverUuid"`
 	UseNewUpload       bool   `json:"useNewUpload"`
@@ -172,8 +167,6 @@ func (a *Api) DailySongSharePublish(ctx context.Context, req *DailySongSharePubl
 	if req == nil {
 		return nil, errors.New("daily song share publish request is nil")
 	}
-
-	var err error
 
 	req.AutoSaveDraft = true
 	req.UseNewUpload = true
@@ -214,42 +207,11 @@ func (a *Api) DailySongSharePublish(ctx context.Context, req *DailySongSharePubl
 		}
 	}
 
-	if req.Uuid == "" {
-		req.Uuid, err = randomDailySongHex(16, true)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if req.ServerUuid == "" {
-		req.ServerUuid, err = randomDailySongHex(16, true)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if req.PubTraceId == "" {
-		req.PubTraceId, err = randomDailySongHex(16, true)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if req.SessionId == "" {
-		req.SessionId, err = randomDailySongSessionID()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	req.fill()
-
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/note/share/friends/resource"
 		reply    EventPublishResp
 		opts     = api.NewOptions().
-				SetCryptoModeXEAPI().
-				SetHeader("cm_no_encrypt_native_tag_20220105", "false").
+				SetXEAPI().
 				SetHeader("CMPageId", "page_songlist").
 				SetHeader("MConfig-Info", dailySongShareMConfigInfo)
 	)
@@ -262,7 +224,7 @@ func (a *Api) DailySongSharePublish(ctx context.Context, req *DailySongSharePubl
 
 // DailySongShareTriggerReq reports a song-sharing trigger.
 type DailySongShareTriggerReq struct {
-	DailySongShareBaseReq
+	types.EApiReqCommon
 
 	SongId  string `json:"songId"`
 	Channel string `json:"channel"`
@@ -288,10 +250,8 @@ func (a *Api) DailySongShareTrigger(ctx context.Context, req *DailySongShareTrig
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/music/song/share/trigger"
 		reply    DailySongShareTriggerResp
-		opts     = api.NewOptions().SetCryptoModeXEAPI()
+		opts     = api.NewOptions().SetXEAPI()
 	)
-
-	req.fill()
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
 		return nil, fmt.Errorf("request daily song share trigger: %w", err)
@@ -301,10 +261,9 @@ func (a *Api) DailySongShareTrigger(ctx context.Context, req *DailySongShareTrig
 
 // DailySongShareLotteryReq draws a prize from the sharing activity.
 type DailySongShareLotteryReq struct {
-	DailySongShareBaseReq
+	types.EApiReqCommon
 
 	ActivityId int64 `json:"activityId"`
-	// CheckToken string `json:"checkToken,omitempty"` // todo: 暂时注释掉采用DailySongShareBaseReq中得AntiCheatToken，需要注意实际传输是否使用这个
 }
 
 // DailySongShareLotteryPrizeDetail describes one possible lottery prize.
@@ -345,10 +304,8 @@ func (a *Api) DailySongShareLottery(ctx context.Context, req *DailySongShareLott
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/middle/play/do/lottery"
 		reply    DailySongShareLotteryResp
-		opts     = api.NewOptions().SetCryptoModeXEAPI()
+		opts     = api.NewOptions().SetXEAPI()
 	)
-
-	req.fill()
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
 		return nil, fmt.Errorf("request daily song share lottery: %w", err)

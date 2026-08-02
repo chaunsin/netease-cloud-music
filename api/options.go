@@ -31,28 +31,28 @@ func NewOptions() *Options {
 	}
 }
 
-func (o *Options) SetCryptoModeAPI() *Options {
+func (o *Options) SetAPI() *Options {
 	o.CryptoMode = CryptoModeAPI
 	return o
 }
 
-func (o *Options) SetCryptoModeEAPI() *Options {
+func (o *Options) SetEAPI() *Options {
 	o.CryptoMode = CryptoModeEAPI
 	return o
 }
 
-func (o *Options) SetCryptoModeWEAPI() *Options {
+func (o *Options) SetWEAPI() *Options {
 	o.CryptoMode = CryptoModeWEAPI
 	return o
 }
 
-func (o *Options) SetCryptoModeLinux() *Options {
-	o.CryptoMode = CryptoModeLinux
+func (o *Options) SetXEAPI() *Options {
+	o.CryptoMode = CryptoModeXEAPI
 	return o
 }
 
-func (o *Options) SetCryptoModeXEAPI() *Options {
-	o.CryptoMode = CryptoModeXEAPI
+func (o *Options) SetLinuxAPI() *Options {
+	o.CryptoMode = CryptoModeLinux
 	return o
 }
 

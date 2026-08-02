@@ -282,7 +282,7 @@ func (a *Api) TopList(ctx context.Context, req *TopListReq) (*TopListResp, error
 	var (
 		url   = "https://music.163.com/api/toplist"
 		reply TopListResp
-		opts  = api.NewOptions().SetCryptoModeAPI()
+		opts  = api.NewOptions().SetAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

@@ -13,12 +13,18 @@ type ReqCommon struct {
 }
 
 // EApiReqCommon EAPI 接口通用请求载荷字段.
+// ER 和 Header 在 EAPI 请求中必须存在；其余字段是否发送取决于接口。
 type EApiReqCommon struct {
-	ER       bool   `json:"e_r"`
-	Header   any    `json:"header"`
+	ER       *bool  `json:"e_r,omitempty"`    // nil 时由 Client.Request 发送 true。
+	Header   string `json:"header,omitempty"` // 空值时由 Client.Request 发送 "{}"。
 	DeviceId string `json:"deviceId,omitempty"`
 	OS       string `json:"os,omitempty"`
 	VerifyId int    `json:"verifyId,omitempty"`
+}
+
+// SetResponseEncrypted explicitly selects encrypted or plaintext EAPI responses.
+func (r *EApiReqCommon) SetResponseEncrypted(encrypted bool) {
+	r.ER = &encrypted
 }
 
 // RespCommon weapi通用返回字段.

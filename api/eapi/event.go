@@ -7,11 +7,13 @@
 package eapi
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,6 +26,8 @@ import (
 
 // EventPublishReq 发送动态请求.
 type EventPublishReq struct {
+	types.EApiReqCommon
+
 	// Title 动态标题 (新版图文笔记支持标题)
 	Title string `json:"title,omitempty"`
 	// Msg 动态文本内容
@@ -88,7 +92,7 @@ func (a *Api) EventPublish(ctx context.Context, req *EventPublishReq) (*EventPub
 	var (
 		url   = "https://interface3.music.163.com/eapi/note/share/friends/resource"
 		reply EventPublishResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -102,6 +106,8 @@ func (a *Api) EventPublish(ctx context.Context, req *EventPublishReq) (*EventPub
 
 // EventDeleteReq 删除动态请求.
 type EventDeleteReq struct {
+	types.EApiReqCommon
+
 	// Id 动态ID
 	Id int64 `json:"id"`
 }
@@ -117,7 +123,7 @@ func (a *Api) EventDelete(ctx context.Context, req *EventDeleteReq) (*EventDelet
 	var (
 		url   = "https://interface3.music.163.com/eapi/event/delete"
 		reply EventDeleteResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -171,6 +177,8 @@ type eventUploadImgResp struct {
 
 // eventNosTokenReq 获取 Nos Token 请求.
 type eventNosTokenReq struct {
+	types.EApiReqCommon
+
 	Filename   string `json:"filename"`
 	Local      string `json:"local"`
 	NosProduct int    `json:"nos_product"`
@@ -182,6 +190,8 @@ type eventNosTokenReq struct {
 
 // eventUploadImgReq 获取事件图片信息请求.
 type eventUploadImgReq struct {
+	types.EApiReqCommon
+
 	ImgId  string `json:"imgid"`
 	Format string `json:"format"`
 }
@@ -213,10 +223,10 @@ func (a *Api) uploadEventImage(ctx context.Context, filePath, uploadNode string,
 			Type:       "image",
 		}
 		tokenReply eventNosTokenResp
-		tokenOpts  = api.NewOptions().SetCryptoModeEAPI()
+		tokenOpts  = api.NewOptions().SetEAPI()
 	)
 
-	if _, err := a.client.Request(ctx, tokenURL, tokenReq, &tokenReply, tokenOpts); err != nil {
+	if _, err = a.client.Request(ctx, tokenURL, tokenReq, &tokenReply, tokenOpts); err != nil {
 		return nil, fmt.Errorf("get nos token: %w", err)
 	}
 
@@ -233,9 +243,13 @@ func (a *Api) uploadEventImage(ctx context.Context, filePath, uploadNode string,
 			"Content-Type": utils.DetectContentType(data, ext),
 		}
 	)
-	if err := a.rawUpload(ctx, uploadURL, headers, data); err != nil {
+
+	reply, err := a.client.Upload(ctx, http.MethodPut, uploadURL, headers, bytes.NewReader(data), nil, nil) // resp 暂时为空后续补充
+	if err != nil {
 		return nil, fmt.Errorf("upload file: %w", err)
 	}
+
+	_ = reply
 
 	// Step 3: 获取事件图片信息
 	var (
@@ -245,7 +259,7 @@ func (a *Api) uploadEventImage(ctx context.Context, filePath, uploadNode string,
 			Format: ext,
 		}
 		imgReply eventUploadImgResp
-		imgOpts  = api.NewOptions().SetCryptoModeEAPI()
+		imgOpts  = api.NewOptions().SetEAPI()
 	)
 
 	if _, err := a.client.Request(ctx, imgURL, imgReq, &imgReply, imgOpts); err != nil {

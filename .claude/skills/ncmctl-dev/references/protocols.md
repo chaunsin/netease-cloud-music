@@ -37,7 +37,9 @@ A passive proxy cannot recover the random secret key and therefore cannot truthf
 
 The route is authenticated input. Do not make normalization appear more precise than the implementation, and do not change substring or path-boundary behavior without fixed vectors and boundary tests.
 
-`EApiDecrypt` accepts the content encoding explicitly. `Client.Request` currently sends every EAPI response body directly to JSON decoding, so endpoint wrappers must request a plain response; encrypted `e_r=true` responses are not transparently supported.
+`EApiDecrypt` accepts the content encoding explicitly. `Client.Request` normalizes EAPI JSON-object payloads before encryption from their final marshaled JSON, not reflected Go fields: a missing `e_r` becomes `true`, and a missing, `null`, or empty-string `header` becomes the JSON string `"{}"`. The normalized payload is local to the request. `types.EApiReqCommon` uses `*bool` so an explicit `false` remains distinguishable from omission.
+
+The same resolved `e_r` value controls response decoding. When it is true, the body is decrypted as raw binary ciphertext; `x-aeapi=true` means the decrypted payload is gzip-compressed and must be expanded. ASCII-hex ciphertext and plaintext JSON are not accepted on this path. When `e_r` is false, the body is decoded as plaintext JSON. EAPI response-processing failures return `*api.APIError`: `StatusCode` records the HTTP response status, and `Err` contains any decryption, decompression, or JSON-decoding failure. Non-200 responses go through the same decoding path before `Client.Request` returns `APIError`. Do not infer omission versus `false` from an ordinary Go `bool`: that information is already lost before JSON normalization can inspect it.
 
 ## Linux API
 

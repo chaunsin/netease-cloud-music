@@ -12,6 +12,8 @@ import (
 )
 
 type YunBeiSignInReq struct {
+	types.EApiReqCommon
+
 	// Type 签到类型 0:安卓(默认)3点经验 1:web/PC2点经验
 	Type int64 `json:"type"`
 }
@@ -33,7 +35,7 @@ func (a *Api) YunBeiSignIn(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSi
 	var (
 		url   = "https://music.163.com/eapi/point/dailyTask"
 		reply YunBeiSignInResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -46,6 +48,8 @@ func (a *Api) YunBeiSignIn(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSi
 }
 
 type YunbeiClickTaskReq struct {
+	types.EApiReqCommon
+
 	TaskId     int64  `json:"taskId"`
 	SubAction  string `json:"subAction"`
 	Type       string `json:"type"`
@@ -63,7 +67,7 @@ func (a *Api) YunbeiClickTask(ctx context.Context, req *YunbeiClickTaskReq) (*Yu
 	var (
 		url   = "https://interface3.music.163.com/eapi/yunbei/click/task"
 		reply YunbeiClickTaskResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -76,6 +80,8 @@ func (a *Api) YunbeiClickTask(ctx context.Context, req *YunbeiClickTaskReq) (*Yu
 }
 
 type YunbeiDistributionRecommendSongReq struct {
+	types.EApiReqCommon
+
 	Offset int `json:"offset"`
 	Limit  int `json:"limit"`
 }
@@ -94,7 +100,7 @@ func (a *Api) YunbeiDistributionRecommendSong(ctx context.Context, req *YunbeiDi
 	var (
 		url   = "https://interface3.music.163.com/eapi/ad/power/yunbei/distribution/recommend/song"
 		reply YunbeiDistributionRecommendSongResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -107,6 +113,8 @@ func (a *Api) YunbeiDistributionRecommendSong(ctx context.Context, req *YunbeiDi
 }
 
 type YunbeiDistributionCreateReq struct {
+	types.EApiReqCommon
+
 	YunbeiAmount int64 `json:"yunbeiAmount"`
 }
 
@@ -121,7 +129,7 @@ func (a *Api) YunbeiDistributionCreate(ctx context.Context, req *YunbeiDistribut
 	var (
 		url   = "https://interface3.music.163.com/eapi/ad/power/yunbei/distribution/create"
 		reply YunbeiDistributionCreateResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -133,7 +141,9 @@ func (a *Api) YunbeiDistributionCreate(ctx context.Context, req *YunbeiDistribut
 	return &reply, nil
 }
 
-type YunbeiReserveInfoReq struct{}
+type YunbeiReserveInfoReq struct {
+	types.EApiReqCommon
+}
 
 type YunbeiReserveInfoResp struct {
 	Code    int    `json:"code"`
@@ -151,7 +161,7 @@ func (a *Api) YunbeiReserveInfo(ctx context.Context, req *YunbeiReserveInfoReq) 
 	var (
 		url   = "https://interface3.music.163.com/eapi/new/yunbei/activity/reserve/info"
 		reply YunbeiReserveInfoResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -164,6 +174,8 @@ func (a *Api) YunbeiReserveInfo(ctx context.Context, req *YunbeiReserveInfoReq) 
 }
 
 type YunbeiReserveBookedReq struct {
+	types.EApiReqCommon
+
 	ReqId string `json:"reqId"`
 }
 
@@ -178,7 +190,7 @@ func (a *Api) YunbeiReserveBooked(ctx context.Context, req *YunbeiReserveBookedR
 	var (
 		url   = "https://interface3.music.163.com/eapi/new/yunbei/activity/reserve/booked"
 		reply YunbeiReserveBookedResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -191,6 +203,8 @@ func (a *Api) YunbeiReserveBooked(ctx context.Context, req *YunbeiReserveBookedR
 }
 
 type YunbeiReserveRewardReceiveReq struct {
+	types.EApiReqCommon
+
 	ReqId      string `json:"reqId"`
 	CheckToken string `json:"checkToken"`
 }
@@ -209,7 +223,7 @@ func (a *Api) YunbeiReserveRewardReceive(ctx context.Context, req *YunbeiReserve
 	var (
 		url   = "https://interface3.music.163.com/eapi/new/yunbei/activity/reserve/reward/receive"
 		reply YunbeiReserveRewardReceiveResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -221,7 +235,9 @@ func (a *Api) YunbeiReserveRewardReceive(ctx context.Context, req *YunbeiReserve
 	return &reply, nil
 }
 
-type YunBeiTaskTodoReq struct{}
+type YunBeiTaskTodoReq struct {
+	types.EApiReqCommon
+}
 
 type YunBeiTaskTodoResp struct {
 	types.RespCommon[[]YunBeiTaskTodoRespData]
@@ -243,7 +259,7 @@ func (a *Api) YunBeiTaskTodo(ctx context.Context, req *YunBeiTaskTodoReq) (*YunB
 	var (
 		url   = "https://interface3.music.163.com/eapi/usertool/task/todo/query"
 		reply YunBeiTaskTodoResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

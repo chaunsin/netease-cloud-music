@@ -145,6 +145,14 @@ func TestEApiDecrypt(t *testing.T) {
 	}
 }
 
+func TestEApiDecryptResponse(t *testing.T) {
+	const responseGolden = "DCC52B3013E9B66C038F8E027E580ECEDF84E0F44CB93FC365BED7B646A9BC08"
+
+	got, err := EApiDecrypt(responseGolden, "hex")
+	require.NoError(t, err)
+	assert.Equal(t, `{"code":200,"data":true}`, string(got))
+}
+
 func TestEApiEncrypt(t *testing.T) {
 	type args struct {
 		url    string
@@ -426,7 +434,7 @@ func TestIssue174CapturedXeapiVectors(t *testing.T) {
 
 	responseBody, err := hex.DecodeString("BCC6C3A838364F78C6613EF403862326D0CB333FB97328516FB0C72CD7DB1B8E6AA3B102FBE7296AB0DB9EA5C46AD12B")
 	require.NoError(t, err)
-	plaintext, err := XeapiDecryptResponse(responseBody)
+	plaintext, err := XeapiDecrypt(responseBody)
 	require.NoError(t, err)
 	assert.Equal(t, `{"code":200}`, string(plaintext))
 }

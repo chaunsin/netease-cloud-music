@@ -11,13 +11,15 @@
 
 | 环节 | 本文研究记录 | 当前 Go 实现 | 验证状态 |
 | --- | --- | --- | --- |
-| 公钥刷新 | 传统 EAPI 包装的 `/eapi/gorilla/anti/crawler/security/key/get` | `api/xeapi.go` 直接向 `/api/gorilla/anti/crawler/security/key/get` POST 普通 form | 仅由当前源码体现；尚无线上兼容或固定传输向量证据 |
-| 业务请求 | 传输层使用 POST form 携带 `B`/`S`/`R` | 默认 POST 路径会发送 `B`/`S`/`R` | `httptest` 覆盖 URL、header 和 form，不代表线上兼容 |
-| XEAPI + GET | 研究记录仍要求将原始 method 放入加密 envelope，传输为 POST | 当前 `api.Client.Request` 会发出 GET，且不携带已生成的 `B`/`S`/`R` | 已知缺口；不应将 XEAPI GET 标记为已支持 |
+| 公钥刷新 | 传统 EAPI 包装的 `/eapi/gorilla/anti/crawler/security/key/get` | 使用 `/api/...` 作为 EAPI 签名路由、向 `/eapi/...` POST `params`，响应按原始 EAPI 密文解密后再识别 gzip | `httptest` 覆盖明文字段、传输路径及加密响应；尚未线上验证 |
+| 业务请求 | 传输层使用 POST form 携带 `B`/`S`/`R` | 无论 envelope 中的原始 method 为何，外层均固定 POST `B`/`S`/`R` | `httptest` 覆盖 GET/PUT envelope 对应的 POST 传输，不代表线上兼容 |
+| XEAPI + GET/PUT | 原始 method 放入加密 envelope，传输仍为 POST | `api.Client.Request` 保留原始 method 参与加密并固定使用 POST 发送 | envelope 单元测试及离线传输测试已覆盖 |
 | URL 改写 | envelope 保留 `/api/`，传输改为 `/xeapi/`，query 进入 envelope | `rewriteXeapiURL` 按该边界实现 | 有本地单元测试 |
-| 响应与会话 | 传统 EAPI 响应解密，保存 `X-Encr-Ssid` / `X-Encr-Sskey` | `XeapiDecryptResponse` 及 `(*xeapi).updateSession` | 解密向量与本地会话测试已覆盖；线上交互仍未验证 |
+| 响应与会话 | 传统 EAPI 响应解密，保存 `X-Encr-Ssid` / `X-Encr-Sskey` | `XeapiDecrypt`；仅在 HTTP 200 且解密、JSON 解析成功后，按本地公钥修订号和请求顺序更新完整会话 | 解密向量与离线状态测试已覆盖；线上交互仍未验证 |
 
 上表是实现状态说明，不是将当前代码反向视为协议正确性证据。修复仅有源码依据或已知缺口的项目前，应先获得抓包或兼容实现的固定向量。
+
+公钥刷新中的 `t1`、`t2`、`uid`、`checkToken` 可通过 `Options.XeapiKeyRefresh` 分别注入。本地客户端不会伪造运行时 SDK Token；未提供时 `t1`、`t2`、`uid` 保持空字符串，`checkToken` 省略，且不会拿 `X-antiCheatToken` 替代这些字段。
 
 - 来自: https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced/issues/174#issuecomment-4565170281
 - 作者: 1254qwer

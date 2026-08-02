@@ -5,12 +5,10 @@ package ncmctl
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -192,41 +190,28 @@ func (c *decryptCmd) decryptRes(p *Payload, encode string) error {
 				return fmt.Errorf("解密失败: %w", err)
 			}
 
-			var (
-				str     = string(data)
-				payload string
-				// 如果根据标识分隔成3段则说明此数据是包含url和digest摘要形式拼接的数据,反之是结构体数据
-				value = strings.Split(str, "-36cd479b6b5-")
-			)
-
 			c.l.Debugf("[decryptRes] decrypted_bytes=%d", len(data))
 
-			// 当请返回的内容content-encoding: br时,返回的内容是加密后的需要gzip在次解析,简单来说就是解密流程是这样
+			// 当请返回的内容content-encoding: br时,返回的内容是加密后的需要gzip在次解析,简单来说解密流程是这样
 			// 1. br解压缩
 			// 2. 调用eapi解密方法
 			// 3. 调用gzip进行解压缩
-			if utils.IsGzipHeader(data) {
-				gr, err := gzip.NewReader(bytes.NewReader(data))
-				if err != nil {
-					return fmt.Errorf("gzip.NewReader: %w", err)
-				}
-
-				gdata, err := io.ReadAll(gr)
-				if err != nil {
-					return fmt.Errorf("ReadAll: %w", err)
-				}
-
-				str = string(gdata)
-				log.Debugf("[decryptRes] decompressed_bytes=%d", len(gdata))
+			binary, err := utils.GzipReader(data)
+			if err != nil {
+				return fmt.Errorf("GzipReader: %w", err)
 			}
+
+			var (
+				plaintext = string(binary)
+				// 如果根据标识分隔成3段则说明此数据是包含url和digest摘要形式拼接的数据,反之是结构体数据
+				value = strings.Split(plaintext, "-36cd479b6b5-")
+			)
 
 			if len(value) == 3 {
-				payload = value[1]
-			} else {
-				payload = str
+				plaintext = value[1]
 			}
 
-			p.Response.Plaintext = []byte(payload)
+			p.Response.Plaintext = []byte(plaintext)
 		}
 	case "weapi":
 		return fmt.Errorf("this [%s] method is not supported", p.Kind)

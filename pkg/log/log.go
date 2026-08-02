@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	Default       *Logger
+	Default       = New(&defaultConfig)
 	hostname, _   = os.Hostname()
 	defaultConfig = Config{
 		App:    hostname,

@@ -105,7 +105,7 @@ Available modes:
 | Mode | Endpoint/client use | Current constraint |
 | --- | --- | --- |
 | `CryptoModeWEAPI` | Default Web and mini-program requests | Plain JSON response |
-| `CryptoModeEAPI` | PC and mobile requests | `Client.Request` does not transparently decrypt encrypted `e_r=true` responses |
+| `CryptoModeEAPI` | PC and mobile requests | JSON-object payloads receive missing `e_r=true` and `header="{}"`; `e_r` selects plaintext or encrypted responses and `x-aeapi` selects inner gzip compression |
 | `CryptoModeLinux` | Linux-client requests | Uses the Linux request and response path |
 | `CryptoModeAPI` | Plain API requests | The generic layer does not serialize `req` into query or form parameters |
 | `CryptoModeXEAPI` | Stateful Aegis/XEAPI requests | Client coordinates URL rewriting, keys, session headers, and response decryption |
@@ -113,6 +113,12 @@ Available modes:
 There is no `api.WithCryptoMode`. Select modes with `SetCryptoModeWEAPI`, `SetCryptoModeEAPI`, `SetCryptoModeLinux`, `SetCryptoModeAPI`, or `SetCryptoModeXEAPI`.
 
 `api.Client.Request` currently supports GET and POST. Do not set another verb without implementing its transport branch and tests. Check whether an existing GET endpoint actually serializes the request fields before copying its pattern.
+
+For EAPI requests, `Client.Request` normalizes every payload from its final JSON representation, so `map`, struct, and custom `MarshalJSON` inputs follow the same path without field reflection or mutation of the caller's value. Missing `e_r` defaults to `true`; missing, `null`, or empty-string `header` defaults to the JSON string `"{}"`. A non-object payload or an `e_r` value that is not a boolean is rejected before the HTTP request is sent.
+
+The generic layer can only observe the wire JSON. A plain `bool` cannot express both an omitted value and an explicit `false`; requests that need that distinction use `*bool` with `omitempty`, as `types.EApiReqCommon` does. Its `SetResponseEncrypted(false)` method selects a plaintext response. This is a source-breaking change from the former `ER bool` and `Header any` fields; migrate struct literals to the setter (or a `*bool`) and a JSON string header.
+
+For an `e_r=false` response, `Client.Request` decodes plaintext JSON. For an `e_r=true` response, it decrypts raw binary ciphertext; when `x-aeapi=true`, the decrypted payload is gzip-compressed and is transparently expanded. ASCII-hex ciphertext and plaintext JSON are not accepted as `e_r=true` response bodies. EAPI response-processing failures return `*api.APIError`, which callers can retrieve with `errors.As`. Its `StatusCode` is the HTTP status, and `Err` contains any decryption, decompression, or JSON-decoding failure. Non-200 responses go through the same response processing before `Client.Request` returns `APIError`.
 
 ## Transport security
 
@@ -163,4 +169,4 @@ Useful focused commands:
 go test ./api ./pkg/cookiecloud ./pkg/alert/...
 ```
 
-The tests in `api/weapi` and `api/eapi` are not all isolated; many call real NetEase endpoints and some can act on an account. Do not include those packages in an automatic broad test run without explicit authorization and a deliberate test selection.
+The live tests in `api/weapi` and `api/eapi` call `testutil.RequireLiveAPI` and are skipped unless `NCMCTL_RUN_LIVE_TESTS=1`. Some can act on an account, so keep the switch unset in automation and use `make test-live` only deliberately and with explicit authorization.

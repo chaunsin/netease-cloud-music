@@ -330,7 +330,7 @@ func (a *Api) PCDailyRecommendBlock(ctx context.Context, req *PCDailyRecommendBl
 		reply PCDailyRecommendBlockResp
 		opts  = api.NewOptions()
 	)
-	// opts = api.NewOptions().SetCryptoModeEAPI()
+	// opts = api.NewOptions().SetEAPI()
 	// opts.SetCookies(&http.Cookie{Name: "os", Value: "osx"})
 	// opts.SetCookies(&http.Cookie{Name: "mode", Value: "MacBookPro16,1"})
 	// opts.SetCookies(&http.Cookie{Name: "osver", Value: "15.3.2"})

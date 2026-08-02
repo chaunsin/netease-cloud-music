@@ -9,11 +9,12 @@ import (
 	"fmt"
 
 	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 // VipMemberGiftTokenCreateReq creates an invitation token.
 type VipMemberGiftTokenCreateReq struct {
-	DailySongShareBaseReq
+	types.EApiReqCommon
 }
 
 // VipMemberGiftTokenCreateResp is the invitation token response.
@@ -34,10 +35,8 @@ func (a *Api) VipMemberGiftTokenCreate(ctx context.Context, req *VipMemberGiftTo
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/vipactivity/app/vip/invitation/token/create"
 		reply    VipMemberGiftTokenCreateResp
-		opts     = api.NewOptions().SetCryptoModeXEAPI()
+		opts     = api.NewOptions().SetXEAPI()
 	)
-
-	req.fill()
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
 		return nil, fmt.Errorf("request VIP member gift token creation: %w", err)
@@ -47,7 +46,7 @@ func (a *Api) VipMemberGiftTokenCreate(ctx context.Context, req *VipMemberGiftTo
 
 // VipMemberGiftPageInfoReq requests the current member gift page state.
 type VipMemberGiftPageInfoReq struct {
-	DailySongShareBaseReq
+	types.EApiReqCommon
 }
 
 // VipMemberGiftPageInfoResp describes whether and how the current user can send VIP days.
@@ -76,10 +75,8 @@ func (a *Api) VipMemberGiftPageInfo(ctx context.Context, req *VipMemberGiftPageI
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/vipactivity/app/vip/invitation/page/info"
 		reply    VipMemberGiftPageInfoResp
-		opts     = api.NewOptions().SetCryptoModeXEAPI()
+		opts     = api.NewOptions().SetXEAPI()
 	)
-
-	req.fill()
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
 		return nil, fmt.Errorf("request VIP member gift page info: %w", err)
@@ -89,7 +86,7 @@ func (a *Api) VipMemberGiftPageInfo(ctx context.Context, req *VipMemberGiftPageI
 
 // VipMemberGiftDetailReq identifies a member gift by token or record ID.
 type VipMemberGiftDetailReq struct {
-	DailySongShareBaseReq
+	types.EApiReqCommon
 
 	Token    string `json:"token,omitempty"`
 	RecordId int64  `json:"recordId,omitempty"`
@@ -132,10 +129,8 @@ func (a *Api) VipMemberGiftDetail(ctx context.Context, req *VipMemberGiftDetailR
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/vipactivity/app/vip/invitation/detail/info/get"
 		reply    VipMemberGiftDetailResp
-		opts     = api.NewOptions().SetCryptoModeXEAPI()
+		opts     = api.NewOptions().SetXEAPI()
 	)
-
-	req.fill()
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
 		return nil, fmt.Errorf("request VIP member gift detail: %w", err)
@@ -145,7 +140,7 @@ func (a *Api) VipMemberGiftDetail(ctx context.Context, req *VipMemberGiftDetailR
 
 // VipMemberGiftAcceptReq accepts a member gift invitation.
 type VipMemberGiftAcceptReq struct {
-	DailySongShareBaseReq
+	types.EApiReqCommon
 
 	Token      string `json:"token"`
 	Refer      string `json:"refer,omitempty"`
@@ -180,10 +175,8 @@ func (a *Api) VipMemberGiftAccept(ctx context.Context, req *VipMemberGiftAcceptR
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/vipactivity/app/vip/invitation/accept"
 		reply    VipMemberGiftAcceptResp
-		opts     = api.NewOptions().SetCryptoModeXEAPI()
+		opts     = api.NewOptions().SetXEAPI()
 	)
-
-	req.fill()
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
 		return nil, fmt.Errorf("request VIP member gift acceptance: %w", err)

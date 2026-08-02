@@ -47,22 +47,3 @@ func (a *Api) GetUploadNode(ctx context.Context, bucket string) (string, error) 
 	}
 	return lbs.Upload[0], nil
 }
-
-// rawUpload 原始文件上传 (PUT)
-// 将文件字节以 PUT 方式上传到 NOS 存储
-// 注意: 不使用 client.Upload() 因为它强制使用 POST.
-func (a *Api) rawUpload(ctx context.Context, url string, headers map[string]string, data []byte) error {
-	resp, err := a.client.NewRequest().
-		SetContext(ctx).
-		SetHeaders(headers).
-		SetBody(data).
-		Put(url)
-	if err != nil {
-		return fmt.Errorf("PUT %s: %w", url, err)
-	}
-
-	if resp.StatusCode() != http.StatusOK {
-		return fmt.Errorf("PUT %s returned status %d: %s", url, resp.StatusCode(), string(resp.Body()))
-	}
-	return nil
-}

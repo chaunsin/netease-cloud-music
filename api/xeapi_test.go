@@ -5,15 +5,20 @@ package api
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/aes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	neturl "net/url"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -156,10 +161,12 @@ func TestXeapiStateEntersRefreshPath(t *testing.T) {
 			client.SetTransport(testRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
 				calls++
 
-				require.NoError(t, request.ParseForm())
-				assert.Equal(t, "/api/gorilla/anti/crawler/security/key/get", request.URL.Path)
-				assert.Equal(t, tt.deviceID, request.Form.Get("deviceId"))
-				assert.Equal(t, tt.wantVersion, request.Form.Get("currentKeyVersion"))
+				assert.Equal(t, "/eapi/gorilla/anti/crawler/security/key/get", request.URL.Path)
+				payload := decodeEAPIRequestPayload(t, request)
+				assert.Equal(t, tt.deviceID, payload["deviceId"])
+				assert.Equal(t, tt.wantVersion, payload["currentKeyVersion"])
+				assert.Equal(t, true, payload["e_r"])
+				assert.Equal(t, "{}", payload["header"])
 				return nil, refreshErr
 			}))
 
@@ -168,11 +175,82 @@ func TestXeapiStateEntersRefreshPath(t *testing.T) {
 
 			_, err := manager.xeapiState(context.Background(), &ncmcrypto.XeapiEncryptRequest{
 				DeviceID: tt.deviceID,
+				T1:       "token-t1",
+				T2:       "token-t2",
+				UID:      "user-id",
 			})
 			require.ErrorIs(t, err, refreshErr)
 			assert.Equal(t, 1, calls)
 		})
 	}
+}
+
+func TestXeapiRefreshPublicKeyDecryptsEAPIResponseAndClearsSession(t *testing.T) {
+	refreshed := ncmcrypto.XeapiPublicKeyState{
+		PublicKey:      "3m5wN9om11qRESjEV+5EoFf9qLEylO6gyThMbl1XxEk=",
+		Version:        "v2",
+		NextUpdateTime: 4102444800000,
+		SK:             "server-key-v2",
+	}
+
+	client := resty.New()
+	client.SetTransport(testRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		assert.Equal(t, http.MethodPost, request.Method)
+		assert.Equal(t, "/eapi/gorilla/anti/crawler/security/key/get", request.URL.Path)
+		assert.Equal(t, "true", request.Header.Get("X-Aeapi"))
+
+		payload := decodeEAPIRequestPayload(t, request)
+		assert.Equal(t, "/api/gorilla/anti/crawler/security/key/get", payload["_route"])
+		assert.Equal(t, "v1", payload["currentKeyVersion"])
+		assert.Equal(t, "device-b", payload["deviceId"])
+		assert.NotContains(t, payload, "checkToken")
+
+		const responseTimestamp = int64(1779955023124)
+
+		nonce, ok := payload["nonce"].(string)
+		require.True(t, ok)
+
+		reply, err := json.Marshal(map[string]any{
+			"code": http.StatusOK,
+			"data": map[string]any{
+				"encryptedData": encryptXeapiPublicKeyState(t, refreshed),
+				"signature":     ncmcrypto.XeapiSign("1779955023124", nonce),
+				"timestamp":     responseTimestamp,
+			},
+			"message": "",
+		})
+		require.NoError(t, err)
+
+		body := encryptLegacyEapiResponse(t, gzipPayload(t, reply))
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(bytes.NewReader(body)),
+			Request:    request,
+		}, nil
+	}))
+
+	manager := newXeapi(client, "")
+	manager.PublicKeyState = ncmcrypto.XeapiPublicKeyState{
+		PublicKey:      refreshed.PublicKey,
+		Version:        "v1",
+		NextUpdateTime: 4102444800000,
+		SK:             "server-key-v1",
+		DeviceID:       "device-a",
+	}
+	manager.Session = ncmcrypto.XeapiSession{ID: "old-session", Key: "0123456789abcdef"}
+
+	state, err := manager.xeapiState(
+		context.Background(),
+		&ncmcrypto.XeapiEncryptRequest{DeviceID: "device-b", OS: "android", AppVersion: "9.5.15"},
+	)
+	require.NoError(t, err)
+
+	refreshed.DeviceID = "device-b"
+	assert.Equal(t, refreshed, state.PublicKeyState)
+	assert.Empty(t, state.Session)
+	assert.Empty(t, manager.Session)
+	assert.Equal(t, uint64(1), manager.keyRevision)
 }
 
 func TestXeapiLoadConfig(t *testing.T) {
@@ -209,8 +287,21 @@ func TestXeapiLoadConfig(t *testing.T) {
 			PublicKeyState: validKey,
 			Session:        ncmcrypto.XeapiSession{Key: "0123456789abcdef"},
 		}, wantErr: "xeapi session is incomplete"},
-		{name: "incomplete public key", state: xeapiStateResult{
+		{name: "invalid session key length", state: xeapiStateResult{
+			PublicKeyState: validKey,
+			Session:        ncmcrypto.XeapiSession{ID: "session-id", Key: "too-short"},
+		}, wantErr: "xeapi session key length is invalid: got 9 bytes"},
+		{name: "missing public key", state: xeapiStateResult{
+			PublicKeyState: ncmcrypto.XeapiPublicKeyState{Version: "v1", SK: "server-key"},
+		}, wantErr: "public key state is incomplete"},
+		{name: "missing version", state: xeapiStateResult{
 			PublicKeyState: ncmcrypto.XeapiPublicKeyState{PublicKey: "public-key", SK: "server-key"},
+		}, wantErr: "public key state is incomplete"},
+		{name: "missing server key", state: xeapiStateResult{
+			PublicKeyState: ncmcrypto.XeapiPublicKeyState{PublicKey: "public-key", Version: "v1"},
+		}, wantErr: "public key state is incomplete"},
+		{name: "blank public key", state: xeapiStateResult{
+			PublicKeyState: ncmcrypto.XeapiPublicKeyState{PublicKey: " \t", Version: "v1", SK: "server-key"},
 		}, wantErr: "public key state is incomplete"},
 	}
 
@@ -232,6 +323,103 @@ func TestXeapiLoadConfig(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.state, manager.xeapiStateResult)
 		})
+	}
+}
+
+func TestXeapiLoadConfigYAML(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		wantErr string
+	}{
+		{name: "canonical field names", content: `publicKeyState:
+    publicKey: public-key
+    version: v1
+    nextUpdateTime: 4102444800000
+    sk: server-key
+    deviceId: device-a
+session:
+    id: session-id
+    key: 0123456789abcdef
+`},
+		{name: "legacy lowercase field names", content: `publicKeyState:
+    publickey: public-key
+    version: v1
+    nextupdatetime: 0
+    sk: server-key
+    deviceid: ""
+session:
+    id: ""
+    key: ""
+`, wantErr: "public key state is incomplete"},
+		{name: "empty file", wantErr: "public key state is incomplete"},
+		{name: "malformed yaml", content: "publicKeyState: [", wantErr: "unmarshal err:"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "xeapi.yaml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.content), 0o600))
+
+			manager := newXeapi(resty.New(), path)
+
+			err := manager.LoadConfig()
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, testXeapiState(), manager.xeapiStateResult)
+		})
+	}
+}
+
+func TestXeapiSyncRoundTripYAML(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state", "xeapi.yaml")
+	want := testXeapiState()
+
+	writer := newXeapi(resty.New(), path)
+	writer.xeapiStateResult = want
+	require.NoError(t, writer.Sync())
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	output := string(data)
+	for _, key := range []string{"publicKeyState:", "publicKey:", "nextUpdateTime:", "deviceId:"} {
+		assert.Contains(t, output, key)
+	}
+
+	for _, legacyKey := range []string{"publickey:", "nextupdatetime:", "deviceid:"} {
+		assert.NotContains(t, output, legacyKey)
+	}
+
+	if runtime.GOOS != "windows" {
+		fileInfo, statErr := os.Stat(path)
+		require.NoError(t, statErr)
+		assert.Equal(t, os.FileMode(0o600), fileInfo.Mode().Perm())
+
+		dirInfo, statErr := os.Stat(filepath.Dir(path))
+		require.NoError(t, statErr)
+		assert.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm())
+	}
+
+	reader := newXeapi(resty.New(), path)
+	require.NoError(t, reader.LoadConfig())
+	assert.Equal(t, want, reader.xeapiStateResult)
+}
+
+func testXeapiState() xeapiStateResult {
+	return xeapiStateResult{
+		PublicKeyState: ncmcrypto.XeapiPublicKeyState{
+			PublicKey:      "public-key",
+			Version:        "v1",
+			NextUpdateTime: 4102444800000,
+			SK:             "server-key",
+			DeviceID:       "device-a",
+		},
+		Session: ncmcrypto.XeapiSession{ID: "session-id", Key: "0123456789abcdef"},
 	}
 }
 
@@ -276,17 +464,47 @@ func TestGetDeviceIdReadsXeapiDomain(t *testing.T) {
 }
 
 func TestUpdateXeapiSessionReadsIssue174Header(t *testing.T) {
-	client := xeapi{}
-	response := &resty.Response{
-		RawResponse: &http.Response{Header: http.Header{}},
-	}
-	response.RawResponse.Header.Set("X-Encr-Ssid", "session-id")
-	response.RawResponse.Header.Set("X-Encr-Sskey", "0123456789abcdef0123456789abcdef")
+	client := xeapi{keyRevision: 1}
+	response := xeapiSessionResponse("session-id", "0123456789abcdef0123456789abcdef")
 
-	client.updateSession(response)
+	require.NoError(t, client.updateSession(response, xeapiRequestRevision{keyRevision: 1, requestSequence: 1}))
 
 	assert.Equal(t, "session-id", client.Session.ID)
 	assert.Equal(t, "0123456789abcdef0123456789abcdef", client.Session.Key)
+}
+
+func TestUpdateXeapiSessionValidatesRevisionOrderingAndKey(t *testing.T) {
+	manager := xeapi{keyRevision: 2}
+
+	require.NoError(t, manager.updateSession(
+		xeapiSessionResponse("stale-key-revision", "0123456789abcdef"),
+		xeapiRequestRevision{keyRevision: 1, requestSequence: 100},
+	))
+	assert.Empty(t, manager.Session)
+
+	err := manager.updateSession(
+		xeapiSessionResponse("session-id", "too-short"),
+		xeapiRequestRevision{keyRevision: 2, requestSequence: 1},
+	)
+	require.ErrorIs(t, err, ncmcrypto.ErrSessionKeyLength)
+	assert.Empty(t, manager.Session)
+
+	err = manager.updateSession(
+		xeapiSessionResponse("session-id", ""),
+		xeapiRequestRevision{keyRevision: 2, requestSequence: 1},
+	)
+	require.ErrorIs(t, err, ncmcrypto.ErrSessionIncomplete)
+	assert.Empty(t, manager.Session)
+
+	require.NoError(t, manager.updateSession(
+		xeapiSessionResponse("newer-session", "0123456789abcdef"),
+		xeapiRequestRevision{keyRevision: 2, requestSequence: 2},
+	))
+	require.NoError(t, manager.updateSession(
+		xeapiSessionResponse("older-session", "abcdef0123456789"),
+		xeapiRequestRevision{keyRevision: 2, requestSequence: 1},
+	))
+	assert.Equal(t, ncmcrypto.XeapiSession{ID: "newer-session", Key: "0123456789abcdef"}, manager.Session)
 }
 
 func TestNewClientUsesRuntimeHomeForStateFiles(t *testing.T) {
@@ -326,7 +544,7 @@ func TestNewClientUsesRuntimeHomeForStateFiles(t *testing.T) {
 	assert.Equal(t, "runtime-home-header", client.defHeader.API.Header.Get("User-Agent"))
 }
 
-func TestXeapiRequestSetsEncryptedAppHeaders(t *testing.T) {
+func TestXeapiRequestUsesConfiguredMethodAndResolvedIdentity(t *testing.T) {
 	oldLogger := log.Default
 	log.Default = log.New(nil)
 
@@ -335,18 +553,38 @@ func TestXeapiRequestSetsEncryptedAppHeaders(t *testing.T) {
 	})
 
 	var (
-		capturedHeader http.Header
-		capturedHost   string
-		homeDir        = t.TempDir()
+		capturedHeader  http.Header
+		capturedCookies map[string]string
+		capturedHost    string
+		capturedMethods []string
+		requestCount    int
+		homeDir         = t.TempDir()
 	)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+
+		capturedMethods = append(capturedMethods, r.Method)
 		capturedHeader = r.Header.Clone()
 		capturedHost = r.Host
+
+		capturedCookies = make(map[string]string)
+		for _, ck := range r.Cookies() {
+			capturedCookies[ck.Name] = ck.Value
+		}
+
 		assert.Equal(t, "/xeapi/song/detail", r.URL.Path)
-		assert.NotEmpty(t, r.FormValue("B"))
-		assert.NotEmpty(t, r.FormValue("S"))
-		assert.NotEmpty(t, r.FormValue("R"))
+
+		if r.Method == http.MethodPost {
+			assert.NotEmpty(t, r.FormValue("B"))
+			assert.NotEmpty(t, r.FormValue("S"))
+			assert.NotEmpty(t, r.FormValue("R"))
+		} else {
+			assert.Empty(t, r.FormValue("B"))
+			assert.Empty(t, r.FormValue("S"))
+			assert.Empty(t, r.FormValue("R"))
+		}
+
 		_, _ = w.Write(encryptLegacyEapiResponse(t, []byte(`{"code":200}`)))
 	}))
 	defer server.Close()
@@ -371,26 +609,138 @@ func TestXeapiRequestSetsEncryptedAppHeaders(t *testing.T) {
 		SK:        "8PZfbIFA1779944463972",
 	}
 
-	opts := NewOptions().SetCryptoModeXEAPI()
+	for _, method := range []string{http.MethodPost, http.MethodGet} {
+		opts := NewOptions().SetXEAPI().SetMethod(method)
+		opts.SetCookies(
+			&http.Cookie{Name: "deviceId", Value: "request-device-id"},
+			&http.Cookie{Name: "MUSIC_U", Value: "request-music-u"},
+		)
 
-	var reply map[string]any
+		var reply map[string]any
 
-	_, err = client.Request(context.Background(), server.URL+"/eapi/song/detail?id=1", map[string]string{"id": "1"}, &reply, opts)
-	require.NoError(t, err)
+		_, err = client.Request(
+			context.Background(),
+			server.URL+"/eapi/song/detail?id=1",
+			map[string]string{"id": "1"},
+			&reply,
+			opts,
+		)
+		require.NoError(t, err)
+	}
 
+	assert.Equal(t, 2, requestCount)
+	assert.Equal(t, []string{http.MethodPost, http.MethodGet}, capturedMethods)
 	assert.Equal(t, "ENCRYPTED", capturedHeader.Get("X-Client-Enc-State"))
 	assert.Equal(t, defaultXeapiUserAgent, capturedHeader.Get("User-Agent"))
 	assert.Equal(t, "application/x-www-form-urlencoded", capturedHeader.Get("Content-Type"))
+	assert.Equal(t, "request-device-id", capturedHeader.Get("X-Deviceid"))
+	assert.Equal(t, "request-device-id", capturedHeader.Get("X-Sdeviceid"))
+	assert.Equal(t, "request-music-u", capturedHeader.Get("X-Music-U"))
+	assert.Equal(t, "request-device-id", capturedCookies["deviceId"])
+	assert.Equal(t, "request-device-id", capturedCookies["sDeviceId"])
+	assert.Equal(t, "request-music-u", capturedCookies["MUSIC_U"])
 
 	serverURL, err := neturl.Parse(server.URL)
 	require.NoError(t, err)
 	assert.Equal(t, serverURL.Host, capturedHost)
 }
 
+func TestXeapiResponseSessionUpdate(t *testing.T) {
+	tests := []struct {
+		name         string
+		statusCode   int
+		body         func(*testing.T) []byte
+		sessionKey   string
+		wantAPIError bool
+		wantSession  ncmcrypto.XeapiSession
+	}{
+		{
+			name:         "valid session survives decrypt failure",
+			statusCode:   http.StatusServiceUnavailable,
+			body:         func(*testing.T) []byte { return []byte("not encrypted") },
+			sessionKey:   "0123456789abcdef",
+			wantAPIError: true,
+			wantSession:  ncmcrypto.XeapiSession{ID: "new-session", Key: "0123456789abcdef"},
+		},
+		{
+			name:       "valid session survives json failure",
+			statusCode: http.StatusOK,
+			body: func(t *testing.T) []byte {
+				t.Helper()
+
+				return encryptLegacyEapiResponse(t, []byte("not-json"))
+			},
+			sessionKey:   "0123456789abcdef",
+			wantAPIError: true,
+			wantSession:  ncmcrypto.XeapiSession{ID: "new-session", Key: "0123456789abcdef"},
+		},
+		{
+			name:       "invalid session is ignored",
+			statusCode: http.StatusOK,
+			body: func(t *testing.T) []byte {
+				t.Helper()
+
+				return encryptLegacyEapiResponse(t, []byte(`{"code":200}`))
+			},
+			sessionKey: "too-short",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("X-Encr-Ssid", "new-session")
+				w.Header().Set("X-Encr-Sskey", tt.sessionKey)
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write(tt.body(t))
+			}))
+			defer server.Close()
+
+			client := newOfflineXeapiClient(t)
+
+			var reply map[string]any
+
+			_, err := client.Request(
+				context.Background(),
+				server.URL+"/api/song/detail",
+				map[string]string{"id": "1"},
+				&reply,
+				NewOptions().SetXEAPI(),
+			)
+			if tt.wantAPIError {
+				require.Error(t, err)
+
+				var apiErr *APIError
+				require.ErrorAs(t, err, &apiErr)
+				assert.Equal(t, tt.statusCode, apiErr.StatusCode)
+			} else {
+				require.NoError(t, err)
+			}
+
+			assert.Equal(t, tt.wantSession, client.xeapi.Session)
+		})
+	}
+}
+
 func encryptLegacyEapiResponse(t *testing.T, plaintext []byte) []byte {
 	t.Helper()
+	return encryptECBPayload(t, []byte("e82ckenh8dichen8"), plaintext)
+}
 
-	block, err := aes.NewCipher([]byte("e82ckenh8dichen8"))
+func encryptXeapiPublicKeyState(t *testing.T, state ncmcrypto.XeapiPublicKeyState) string {
+	t.Helper()
+
+	key, err := base64.StdEncoding.DecodeString("qx1aQw9rsEo/Aegd3XK9kW1c5ZEkisEocUgG1/j7G4Q=")
+	require.NoError(t, err)
+	plaintext, err := json.Marshal(state)
+	require.NoError(t, err)
+	return base64.StdEncoding.EncodeToString(encryptECBPayload(t, key, plaintext))
+}
+
+func encryptECBPayload(t *testing.T, key, plaintext []byte) []byte {
+	t.Helper()
+
+	block, err := aes.NewCipher(key)
 	require.NoError(t, err)
 
 	padding := block.BlockSize() - len(plaintext)%block.BlockSize()
@@ -401,4 +751,74 @@ func encryptLegacyEapiResponse(t *testing.T, plaintext []byte) []byte {
 		block.Encrypt(ciphertext[i:i+block.BlockSize()], padded[i:i+block.BlockSize()])
 	}
 	return ciphertext
+}
+
+func gzipPayload(t *testing.T, plaintext []byte) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+
+	writer := gzip.NewWriter(&buf)
+	_, err := writer.Write(plaintext)
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+	return buf.Bytes()
+}
+
+func decodeEAPIRequestPayload(t *testing.T, request *http.Request) map[string]any {
+	t.Helper()
+
+	require.NoError(t, request.ParseForm())
+	params := request.Form.Get("params")
+	require.NotEmpty(t, params)
+
+	plaintext, err := ncmcrypto.EApiDecrypt(params, "hex")
+	require.NoError(t, err)
+
+	parts := strings.Split(string(plaintext), "-36cd479b6b5-")
+	require.Len(t, parts, 3)
+
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal([]byte(parts[1]), &payload))
+	payload["_route"] = parts[0]
+	return payload
+}
+
+func xeapiSessionResponse(id, key string) *resty.Response {
+	header := make(http.Header)
+	header.Set("X-Encr-Ssid", id)
+	header.Set("X-Encr-Sskey", key)
+	return &resty.Response{RawResponse: &http.Response{Header: header}}
+}
+
+func newOfflineXeapiClient(t *testing.T) *Client {
+	t.Helper()
+
+	homeDir := t.TempDir()
+	logger := log.New(&log.Config{Level: "error"})
+
+	t.Cleanup(func() {
+		require.NoError(t, logger.Close())
+	})
+
+	client, err := NewClient(&Config{
+		Timeout: time.Second,
+		HomeDir: homeDir,
+		Cookie: cookie.Config{
+			Filepath: filepath.Join(homeDir, "cookie.json"),
+			Interval: 0,
+		},
+	}, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, client.Close(context.Background()))
+	})
+
+	client.xeapi.PublicKeyState = ncmcrypto.XeapiPublicKeyState{
+		PublicKey:      "3m5wN9om11qRESjEV+5EoFf9qLEylO6gyThMbl1XxEk=",
+		Version:        "1000000000000",
+		NextUpdateTime: 4102444800000,
+		SK:             "8PZfbIFA1779944463972",
+	}
+	return client
 }

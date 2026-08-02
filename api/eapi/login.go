@@ -33,6 +33,7 @@ func (a *Api) LoginPhone(ctx context.Context, req *LoginPhoneReq) (*LoginPhoneRe
 }
 
 type QrcodeCreateKeyReq struct {
+	types.EApiReqCommon
 	types.ReqCommon
 
 	Type int64 `json:"type"`
@@ -52,7 +53,7 @@ func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*Qr
 	var (
 		url   = "https://music.163.com/eapi/login/qrcode/unikey"
 		reply QrcodeCreateKeyResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -104,6 +105,8 @@ func (a *Api) QrcodeGenerate(ctx context.Context, req *QrcodeGenerateReq) (*Qrco
 }
 
 type QrcodeCheckReq struct {
+	types.EApiReqCommon
+
 	Key  string `json:"key"`  // QrcodeCreateKey()返回值codekey
 	Type int64  `json:"type"` // 目前传3 weapi中好像传1
 }
@@ -122,7 +125,7 @@ func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeChec
 	var (
 		url   = "https://music.163.com/eapi/login/qrcode/client/login"
 		reply QrcodeCheckResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -135,6 +138,7 @@ func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeChec
 }
 
 type GetUserInfoReq struct {
+	types.EApiReqCommon
 	types.ReqCommon
 }
 
@@ -206,7 +210,7 @@ func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInf
 	var (
 		url   = "https://music.163.com/eapi/w/nuser/account/get"
 		reply GetUserInfoResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -218,7 +222,9 @@ func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInf
 	return &reply, nil
 }
 
-type TokenRefreshReq struct{}
+type TokenRefreshReq struct {
+	types.EApiReqCommon
+}
 
 type TokenRefreshResp struct {
 	types.RespCommon[any]
@@ -231,7 +237,7 @@ func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRef
 	var (
 		url   = "https://music.163.com/eapi/login/token/refresh"
 		reply TokenRefreshResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

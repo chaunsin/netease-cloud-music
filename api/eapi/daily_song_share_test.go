@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/aes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,32 +29,6 @@ type capturedXeapiRequest struct {
 	path   string
 	header http.Header
 	form   url.Values
-}
-
-func TestDailySongShareBaseReqFill(t *testing.T) {
-	req := DailySongShareBaseReq{
-		DeviceId:       "device-id",
-		OS:             "android",
-		VerifyId:       7,
-		AntiCheatToken: "anti-token",
-	}
-	req.fill()
-
-	data, err := json.Marshal(req)
-	require.NoError(t, err)
-	assert.JSONEq(t, `{
-  "header": "{}",
-  "e_r": true,
-  "deviceId": "device-id",
-  "os": "android",
-  "verifyId": 7,
-  "X-antiCheatToken": "anti-token"
-}`, string(data))
-
-	customHeader := map[string]any{"custom": "value"}
-	req.Header = customHeader
-	req.fill()
-	assert.Equal(t, customHeader, req.Header)
 }
 
 func TestDailySongShareAndVipMemberGiftXEAPIWire(t *testing.T) {

@@ -12,6 +12,8 @@ import (
 )
 
 type PlaylistReq struct {
+	types.EApiReqCommon
+
 	Uid    string `json:"uid"`
 	Offset string `json:"offset"`
 	// Limit default 1000
@@ -116,7 +118,7 @@ func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, er
 	var (
 		url   = "https://music.163.com/eapi/user/playlist/"
 		reply PlaylistResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	if req.Limit == "" {

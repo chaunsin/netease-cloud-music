@@ -316,7 +316,7 @@ func (a *Api) PlaylistDetail(ctx context.Context, req *PlaylistDetailReq) (*Play
 	var (
 		url   = "https://music.163.com/api/v6/playlist/detail?id=" + req.Id
 		reply PlaylistDetailResp
-		opts  = api.NewOptions().SetCryptoModeAPI()
+		opts  = api.NewOptions().SetAPI()
 	)
 
 	if req.N == "" {

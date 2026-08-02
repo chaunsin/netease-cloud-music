@@ -29,12 +29,16 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
 
-const defaultXeapiUserAgent = "NeteaseMusic/9.2.85.250418145357(9002085);Dalvik/2.1.0 (Linux; U; Android 9; SM-S9180 Build/PQ3B.190801.10101846)"
+const (
+	defaultXeapiUserAgent = "NeteaseMusic/9.2.85.250418145357(9002085);Dalvik/2.1.0 (Linux; U; Android 9; SM-S9180 Build/PQ3B.190801.10101846)"
+	xeapiPublicKeyRoute   = "/api/gorilla/anti/crawler/security/key/get"
+	xeapiPublicKeyURL     = "https://interface.music.163.com/eapi/gorilla/anti/crawler/security/key/get"
+)
 
 type xeapiRefreshPublicKeyResp struct {
 	Code int `json:"code"`
 	Data struct {
-		EncryptedData string          `json:"encryptedData"` // crypto.XeapiPublicKeyState
+		EncryptedData string          `json:"encryptedData"` // plaintext is crypto.XeapiPublicKeyState
 		Signature     string          `json:"signature"`
 		Timestamp     json.RawMessage `json:"timestamp"`
 	} `json:"data"`
@@ -47,6 +51,9 @@ type xeapiRefreshPublicKeyReq struct {
 	AppVersion        string
 	UserAgent         string
 	OS                string
+	T1                string
+	T2                string
+	UID               string
 }
 
 type xeapiStateResult struct {
@@ -54,12 +61,29 @@ type xeapiStateResult struct {
 	Session        crypto.XeapiSession        `json:"session" yaml:"session"`
 }
 
+// xeapiStateSnapshot 将公钥和会话快照绑定到本地公钥修订号。
+type xeapiStateSnapshot struct {
+	xeapiStateResult
+
+	keyRevision uint64
+}
+
+// xeapiRequestRevision 记录提交响应会话所需的乐观并发版本：公钥修订号
+// 必须仍然匹配，且同一修订号内只允许较新的请求响应覆盖会话。
+type xeapiRequestRevision struct {
+	keyRevision     uint64 // 请求使用的本地公钥修订号，不是服务端的 PublicKeyState.Version。
+	requestSequence uint64 // 请求发送前分配的单调序号，用来裁决并发响应的先后。
+}
+
 type xeapi struct {
-	cli              *resty.Client
-	mux              sync.Mutex
-	group            singleflight.Group
-	storePath        string // 持久化存储位置 xeapiStateResult
-	xeapiStateResult        //nolint:embeddedstructfieldcheck // 不做检查
+	cli                     *resty.Client
+	mux                     sync.Mutex
+	group                   singleflight.Group
+	storePath               string // 持久化 xeapiStateResult 存储位置
+	keyRevision             uint64 // 本地乐观锁修订号；替换公钥时递增，使旧响应失效。
+	requestSequence         uint64 // 已完成加密的请求序号；数值越大，请求越新。
+	acceptedSessionSequence uint64 // 当前会话来源请求的序号；作为拒绝旧响应的高水位。
+	xeapiStateResult               //nolint:embeddedstructfieldcheck // 不做检查
 }
 
 func newXeapi(cli *resty.Client, storePath string) *xeapi {
@@ -134,42 +158,57 @@ func (x *xeapi) LoadConfig() error {
 	}
 
 	cfg.Session.ID, cfg.Session.Key = strings.TrimSpace(cfg.Session.ID), strings.TrimSpace(cfg.Session.Key)
-	if (cfg.Session.ID == "") != (cfg.Session.Key == "") {
-		return errors.New("xeapi session is incomplete")
+	if err := cfg.Session.Validate(); err != nil {
+		return err
 	}
 
 	x.mux.Lock()
 	x.xeapiStateResult = cfg
+	x.keyRevision++
+	x.acceptedSessionSequence = 0
 	x.mux.Unlock()
 	return nil
 }
 
-func (x *xeapi) Encrypt(ctx context.Context, req *crypto.XeapiEncryptRequest) (map[string]string, error) {
+func (x *xeapi) Encrypt(ctx context.Context, req *crypto.XeapiEncryptRequest) (map[string]string, xeapiRequestRevision, error) {
 	result, err := x.xeapiState(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("xeapiState: %w", err)
+		return nil, xeapiRequestRevision{}, fmt.Errorf("xeapiState: %w", err)
 	}
 
 	encryptData, err := crypto.XeapiEncrypt(req, result.PublicKeyState, result.Session)
 	if err != nil {
-		return nil, fmt.Errorf("XeapiEncrypt: %w", err)
+		return nil, xeapiRequestRevision{}, fmt.Errorf("XeapiEncrypt: %w", err)
 	}
-	return encryptData, nil
+
+	x.mux.Lock()
+	x.requestSequence++
+	revision := xeapiRequestRevision{
+		keyRevision:     result.keyRevision,
+		requestSequence: x.requestSequence,
+	}
+	x.mux.Unlock()
+
+	return encryptData, revision, nil
 }
 
-func (x *xeapi) xeapiState(ctx context.Context, req *crypto.XeapiEncryptRequest) (*xeapiStateResult, error) {
+func (x *xeapi) xeapiState(ctx context.Context, req *crypto.XeapiEncryptRequest) (*xeapiStateSnapshot, error) {
 	x.mux.Lock()
 
 	var (
 		key          = x.PublicKeyState
 		session      = x.Session
+		keyRevision  = x.keyRevision
 		needsRefresh = xeapiKeyNeedsRefresh(key, req.DeviceID) // 暂时采用严格模式当公钥过期或设备id不一致时则需要刷新token。
 		groupKey     = strings.Join([]string{req.DeviceID, req.AppVersion, req.OS, req.UserAgent}, "\x00")
 	)
 	x.mux.Unlock()
 
 	if !needsRefresh {
-		return &xeapiStateResult{PublicKeyState: key, Session: session}, nil
+		return &xeapiStateSnapshot{
+			xeapiStateResult: xeapiStateResult{PublicKeyState: key, Session: session},
+			keyRevision:      keyRevision,
+		}, nil
 	}
 
 	value, err, _ := x.group.Do(groupKey, func() (any, error) {
@@ -178,6 +217,7 @@ func (x *xeapi) xeapiState(ctx context.Context, req *crypto.XeapiEncryptRequest)
 		var (
 			key            = x.PublicKeyState
 			session        = x.Session
+			keyRevision    = x.keyRevision
 			needsRefresh   = xeapiKeyNeedsRefresh(key, req.DeviceID)
 			currentVersion = key.Version
 			currentSK      = key.SK
@@ -185,7 +225,10 @@ func (x *xeapi) xeapiState(ctx context.Context, req *crypto.XeapiEncryptRequest)
 		x.mux.Unlock()
 
 		if !needsRefresh {
-			return &xeapiStateResult{PublicKeyState: key, Session: session}, nil
+			return &xeapiStateSnapshot{
+				xeapiStateResult: xeapiStateResult{PublicKeyState: key, Session: session},
+				keyRevision:      keyRevision,
+			}, nil
 		}
 
 		refreshed, err := x.refreshPublicKey(ctx, &xeapiRefreshPublicKeyReq{
@@ -194,6 +237,9 @@ func (x *xeapi) xeapiState(ctx context.Context, req *crypto.XeapiEncryptRequest)
 			AppVersion:        req.AppVersion,
 			UserAgent:         req.UserAgent,
 			OS:                req.OS,
+			T1:                req.T1,
+			T2:                req.T2,
+			UID:               req.UID,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("refreshXeapiPublicKey: %w", err)
@@ -203,22 +249,29 @@ func (x *xeapi) xeapiState(ctx context.Context, req *crypto.XeapiEncryptRequest)
 			refreshed.SK = currentSK
 		}
 
-		if strings.TrimSpace(refreshed.SK) == "" {
-			return nil, crypto.ErrServerKeyMissing
+		if err := refreshed.Validate(); err != nil {
+			return nil, err
 		}
 
 		x.mux.Lock()
+		// 新公钥不能沿用旧会话，同时使刷新前创建的响应修订号全部失效。
 		x.PublicKeyState = *refreshed
-		session = x.Session
+		x.Session = crypto.XeapiSession{}
+		x.keyRevision++
+		x.acceptedSessionSequence = 0
+		keyRevision = x.keyRevision
 		x.mux.Unlock()
 
-		return &xeapiStateResult{PublicKeyState: *refreshed, Session: session}, nil
+		return &xeapiStateSnapshot{
+			xeapiStateResult: xeapiStateResult{PublicKeyState: *refreshed},
+			keyRevision:      keyRevision,
+		}, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	result, ok := value.(*xeapiStateResult)
+	result, ok := value.(*xeapiStateSnapshot)
 	if !ok {
 		return nil, fmt.Errorf("unexpected xeapi state result %T", value)
 	}
@@ -231,33 +284,49 @@ func (x *xeapi) refreshPublicKey(ctx context.Context, req *xeapiRefreshPublicKey
 		return nil, fmt.Errorf("generateXeapiNonce: %w", err)
 	}
 
+	osName := strings.TrimSpace(req.OS)
+	if osName == "" {
+		osName = "android"
+	}
+
 	var (
 		timestamp = strconv.FormatInt(time.Now().UnixMilli(), 10)
-		form      = map[string]string{
+		payload   = map[string]any{
 			"appVersion":        req.AppVersion,
 			"currentKeyVersion": req.CurrentKeyVersion,
 			"deviceId":          req.DeviceID,
+			"e_r":               true,
+			"header":            "{}",
 			"nonce":             nonce,
-			"os":                req.OS,
+			"os":                osName,
 			"requestType":       "active",
 			"signature":         crypto.XeapiSign(timestamp, nonce),
 			"timestamp":         timestamp,
-			"t1":                "", // TODO: Filling
-			"t2":                "",
-			"uid":               "",
+			"t1":                req.T1,
+			"t2":                req.T2,
+			"uid":               req.UID,
 		}
 	)
 
+	form, err := crypto.EApiEncrypt(xeapiPublicKeyRoute, payload)
+	if err != nil {
+		return nil, fmt.Errorf("EApiEncrypt xeapi public key request: %w", err)
+	}
+
 	request := x.cli.R().
 		SetContext(ctx).
+		SetHeader("Accept-Encoding", "gzip, deflate, br").
 		SetHeader("Content-Type", "application/x-www-form-urlencoded").
+		SetHeader("Connection", "keep-alive").
+		SetHeader("Referer", "https://music.163.com").
 		SetHeader("User-Agent", req.UserAgent).
+		SetHeader("x-aeapi", "true").
 		SetFormData(form)
 	if strings.TrimSpace(req.DeviceID) != "" {
 		request.SetCookie(&http.Cookie{Name: "deviceId", Value: req.DeviceID})
 	}
 
-	response, err := request.Post("https://interface.music.163.com/api/gorilla/anti/crawler/security/key/get")
+	response, err := request.Post(xeapiPublicKeyURL)
 	if err != nil {
 		return nil, fmt.Errorf("xeapi public key request: %w", err)
 	}
@@ -266,9 +335,19 @@ func (x *xeapi) refreshPublicKey(ctx context.Context, req *xeapiRefreshPublicKey
 		return nil, fmt.Errorf("xeapi public key http status %d: %s", response.StatusCode(), string(response.Body()))
 	}
 
+	plaintext, err := crypto.EApiDecrypt(string(response.Body()), "")
+	if err != nil {
+		return nil, fmt.Errorf("EApiDecrypt xeapi public key response: %w", err)
+	}
+
+	plaintext, err = utils.GzipReader(plaintext)
+	if err != nil {
+		return nil, fmt.Errorf("decompress xeapi public key response: %w", err)
+	}
+
 	var reply xeapiRefreshPublicKeyResp
 
-	decoder := json.NewDecoder(bytes.NewReader(response.Body()))
+	decoder := json.NewDecoder(bytes.NewReader(plaintext))
 	decoder.UseNumber()
 
 	if decodeErr := decoder.Decode(&reply); decodeErr != nil {
@@ -298,24 +377,41 @@ func (x *xeapi) refreshPublicKey(ctx context.Context, req *xeapiRefreshPublicKey
 	return state, nil
 }
 
-// updateSession 更新xeapi session key.
-// NOTE: 更新的session要和请求加密使用得的公钥要一致。
-func (x *xeapi) updateSession(response *resty.Response) {
+// updateSession 使用乐观锁更新响应会话：公钥修订号必须仍然匹配，且同一公钥下
+// 不能让较早请求的响应覆盖较晚请求已经写入的会话。
+func (x *xeapi) updateSession(response *resty.Response, revision xeapiRequestRevision) error {
 	if response == nil {
-		return
+		return nil
 	}
 
 	session := crypto.XeapiSession{
 		ID:  strings.TrimSpace(response.Header().Get("X-Encr-Ssid")),
 		Key: strings.TrimSpace(response.Header().Get("X-Encr-Sskey")),
 	}
-	if session.ID == "" || session.Key == "" {
-		return
+	if session.ID == "" && session.Key == "" {
+		return nil
 	}
 
 	x.mux.Lock()
+	defer x.mux.Unlock()
+
+	// 刷新公钥或重新加载状态后，旧公钥请求的响应不再有资格更新会话。
+	if revision.keyRevision != x.keyRevision {
+		return nil
+	}
+
+	if err := session.Validate(); err != nil {
+		return err
+	}
+
+	// 同一公钥修订号内，只接受尚未被更新请求超越的响应。
+	if revision.requestSequence < x.acceptedSessionSequence {
+		return nil
+	}
+
 	x.Session = session
-	x.mux.Unlock()
+	x.acceptedSessionSequence = revision.requestSequence
+	return nil
 }
 
 func rewriteXeapiURL(rawURL string) (string, string, error) {
@@ -387,7 +483,7 @@ func rawTimestampString(raw json.RawMessage) (string, error) {
 }
 
 func xeapiKeyNeedsRefresh(key crypto.XeapiPublicKeyState, deviceID string) bool {
-	if !key.IsValid() {
+	if key.Validate() != nil {
 		return true
 	}
 

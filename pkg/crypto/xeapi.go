@@ -4,8 +4,6 @@
 package crypto
 
 import (
-	"bytes"
-	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdh"
@@ -16,12 +14,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"maps"
 	"mime"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
 
 // crypto xeapi implements the algorithm documented in
@@ -30,10 +30,13 @@ import (
 const xeapiDefaultContentType = "application/x-www-form-urlencoded;charset=utf-8"
 
 var (
-	ErrEncryptRequestMissing = errors.New("xeapi encrypt request is missing")
-	ErrPublicKeyMissing      = errors.New("xeapi public key is missing")
-	ErrServerKeyMissing      = errors.New("xeapi server key is missing")
-	ErrSessionKeyLength      = errors.New("xeapi session key length is invalid")
+	ErrEncryptRequestMissing   = errors.New("xeapi encrypt request is missing")
+	ErrPublicKeyMissing        = errors.New("xeapi public key is missing")
+	ErrPublicKeyVersionMissing = errors.New("xeapi public key version is missing")
+	ErrPublicKeyExpired        = errors.New("xeapi public key is expired")
+	ErrServerKeyMissing        = errors.New("xeapi server key is missing")
+	ErrSessionIncomplete       = errors.New("xeapi session is incomplete")
+	ErrSessionKeyLength        = errors.New("xeapi session key length is invalid")
 )
 
 var (
@@ -58,17 +61,29 @@ type XeapiPublicKeyState struct {
 	DeviceID       string `json:"deviceId,omitempty" yaml:"deviceId,omitempty"`
 }
 
-func (p XeapiPublicKeyState) IsValid() bool {
-	if strings.TrimSpace(p.PublicKey) == "" ||
-		strings.TrimSpace(p.Version) == "" ||
-		strings.TrimSpace(p.SK) == "" {
-		return false
+// Validate verifies that the cached public-key state is safe to use for a request.
+func (p XeapiPublicKeyState) Validate() error {
+	return p.validate(true)
+}
+
+func (p XeapiPublicKeyState) validate(requireServerKey bool) error {
+	if strings.TrimSpace(p.PublicKey) == "" {
+		return ErrPublicKeyMissing
 	}
 
-	if p.NextUpdateTime <= 0 {
-		return true
+	if strings.TrimSpace(p.Version) == "" {
+		return ErrPublicKeyVersionMissing
 	}
-	return time.Now().UnixMilli() < p.NextUpdateTime
+
+	if requireServerKey && strings.TrimSpace(p.SK) == "" {
+		return ErrServerKeyMissing
+	}
+
+	if p.NextUpdateTime > 0 && time.Now().UnixMilli() >= p.NextUpdateTime {
+		return ErrPublicKeyExpired
+	}
+
+	return nil
 }
 
 // XeapiSession 保存 xeapi 响应头下发的会话信息。
@@ -77,7 +92,30 @@ type XeapiSession struct {
 	Key string `json:"key" yaml:"key"`
 }
 
-// XeapiEncryptRequest 描述待封装的原始 API 请求。
+// Validate accepts an empty session or a complete session with a raw AES key.
+func (s XeapiSession) Validate() error {
+	var (
+		hasID  = strings.TrimSpace(s.ID) != ""
+		hasKey = strings.TrimSpace(s.Key) != ""
+	)
+
+	if !hasID && !hasKey {
+		return nil
+	}
+
+	if !hasID || !hasKey {
+		return ErrSessionIncomplete
+	}
+
+	switch len([]byte(s.Key)) {
+	case 16, 24, 32:
+		return nil
+	default:
+		return fmt.Errorf("%w: got %d bytes", ErrSessionKeyLength, len([]byte(s.Key)))
+	}
+}
+
+// XeapiEncryptRequest 描述待封装的原始 API 请求及公钥失效时使用的刷新上下文。
 type XeapiEncryptRequest struct {
 	URI         string
 	Data        any
@@ -88,6 +126,9 @@ type XeapiEncryptRequest struct {
 	AppVersion  string
 	DeviceID    string
 	UserAgent   string
+	T1          string
+	T2          string
+	UID         string
 }
 
 type xeapiPlaintextEnvelope struct {
@@ -105,18 +146,24 @@ func XeapiSign(timestamp, nonce string) string {
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
-// XeapiEncrypt 将原始 API 请求封装为 xeapi 的 B/S/R 表单参数。
+// XeapiDecrypt解密 xeapi 业务响应，明文为 gzip 时会继续解压。
+func XeapiDecrypt(body []byte) ([]byte, error) {
+	plaintext, err := aesECBDecrypt([]byte(eApiKey), body)
+	if err != nil {
+		return nil, fmt.Errorf("aesECBDecrypt: %w", err)
+	}
+
+	return utils.GzipReader(plaintext)
+}
+
+// XeapiEncrypt 将原始 API 请求加密并封装为 xeapi 的 B/S/R 表单参数。
 func XeapiEncrypt(req *XeapiEncryptRequest, publicKey XeapiPublicKeyState, session XeapiSession) (map[string]string, error) {
 	if req == nil {
 		return nil, ErrEncryptRequestMissing
 	}
 
-	if strings.TrimSpace(publicKey.PublicKey) == "" {
-		return nil, ErrPublicKeyMissing
-	}
-
-	if strings.TrimSpace(publicKey.SK) == "" {
-		return nil, ErrServerKeyMissing
+	if err := publicKey.Validate(); err != nil {
+		return nil, err
 	}
 
 	osName := req.OS
@@ -182,38 +229,12 @@ func XeapiDecryptPublicKey(encryptedData string) (*XeapiPublicKeyState, error) {
 		return nil, fmt.Errorf("json.Unmarshal public key: %w", err)
 	}
 
-	if strings.TrimSpace(state.PublicKey) == "" {
-		return nil, ErrPublicKeyMissing
+	// The refresh caller may inherit SK from the previous state, but the new
+	// public key, version, and expiration must be independently trustworthy.
+	if err := state.validate(false); err != nil {
+		return nil, err
 	}
 	return &state, nil
-}
-
-// XeapiDecryptResponse 解密 xeapi 业务响应，明文为 gzip 时会继续解压。
-func XeapiDecryptResponse(body []byte) ([]byte, error) {
-	plaintext, err := aesECBDecrypt([]byte(eApiKey), body)
-	if err != nil {
-		return nil, fmt.Errorf("aesECBDecrypt: %w", err)
-	}
-
-	if len(plaintext) >= 2 && plaintext[0] == 0x1f && plaintext[1] == 0x8b {
-		r, err := gzip.NewReader(bytes.NewReader(plaintext))
-		if err != nil {
-			return nil, fmt.Errorf("gzip.NewReader: %w", err)
-		}
-
-		data, readErr := io.ReadAll(r)
-
-		closeErr := r.Close()
-		if readErr != nil {
-			return nil, fmt.Errorf("gzip.ReadAll: %w", errors.Join(readErr, closeErr))
-		}
-
-		if closeErr != nil {
-			return nil, fmt.Errorf("gzip.Close: %w", closeErr)
-		}
-		return data, nil
-	}
-	return plaintext, nil
 }
 
 // buildPlaintextEnvelope 构建加冕请求体.
@@ -340,9 +361,9 @@ func formValues(data any) (url.Values, error) {
 	case nil:
 		return url.Values{}, nil
 	case url.Values:
-		return cloneFormValues(v), nil
+		return maps.Clone(v), nil
 	case map[string][]string:
-		return cloneFormValues(url.Values(v)), nil
+		return maps.Clone(url.Values(v)), nil
 	case map[string]string:
 		return stringMapFormValues(v), nil
 	case string:
@@ -352,14 +373,6 @@ func formValues(data any) (url.Values, error) {
 	default:
 		return jsonFormValues(v)
 	}
-}
-
-func cloneFormValues(src url.Values) url.Values {
-	values := make(url.Values, len(src))
-	for key, list := range src {
-		values[key] = append([]string(nil), list...)
-	}
-	return values
 }
 
 func stringMapFormValues(src map[string]string) url.Values {
@@ -406,15 +419,13 @@ func rawFormValue(raw json.RawMessage) (string, error) {
 }
 
 func dynamicKey(session XeapiSession) ([]byte, string, error) {
-	if strings.TrimSpace(session.Key) != "" {
+	if err := session.Validate(); err != nil {
+		return nil, "", err
+	}
+
+	if strings.TrimSpace(session.ID) != "" {
 		// x-encr-sskey 是服务端下发的 ASCII 字符串，形似 hex 时也不能做 hex.DecodeString。
-		key := []byte(session.Key)
-		switch len(key) {
-		case 16, 24, 32:
-			return key, session.ID, nil
-		default:
-			return nil, "", fmt.Errorf("%w: got %d bytes", ErrSessionKeyLength, len(key))
-		}
+		return []byte(session.Key), strings.TrimSpace(session.ID), nil
 	}
 
 	key, err := xeapiRandomBytes(16)

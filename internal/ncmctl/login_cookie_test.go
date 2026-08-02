@@ -36,11 +36,13 @@ func TestParseCookieData(t *testing.T) {
 		},
 	}
 
+	lc := &loginCookieCmd{}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			cookies, err := parseCookieData([]byte(tt.data), tt.format)
+			cookies, err := lc.parseCookieData([]byte(tt.data), tt.format)
 			require.NoError(t, err)
 			require.NotEmpty(t, cookies)
 			assert.Equal(t, "MUSIC_U", cookies[0].Name)
@@ -52,6 +54,6 @@ func TestParseCookieData(t *testing.T) {
 func TestParseCookieDataRejectsUnknownFormat(t *testing.T) {
 	t.Parallel()
 
-	_, err := parseCookieData([]byte("MUSIC_U=token"), "unknown")
+	_, err := (&loginCookieCmd{}).parseCookieData([]byte("MUSIC_U=token"), "unknown")
 	require.ErrorContains(t, err, `unsupported cookie format "unknown"`)
 }

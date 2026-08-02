@@ -12,12 +12,9 @@ import (
 )
 
 type VipTaskListReq struct {
-	DeviceId string `json:"deviceId,omitempty"`
-	OS       string `json:"os,omitempty"`
-	VerifyId int    `json:"verifyId,omitempty"`
-	Header   any    `json:"header"`
-	IsNew    int    `json:"isNew,omitempty"`
-	ER       bool   `json:"e_r,omitempty"`
+	types.EApiReqCommon
+
+	IsNew int `json:"isNew,omitempty"`
 }
 
 type VipTaskListResp struct {
@@ -44,7 +41,7 @@ func (a *Api) VipTaskList(ctx context.Context, req *VipTaskListReq) (*VipTaskLis
 	var (
 		url   = "https://interface3.music.163.com/eapi/vip-center-bff/task/list"
 		reply VipTaskListResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -57,11 +54,7 @@ func (a *Api) VipTaskList(ctx context.Context, req *VipTaskListReq) (*VipTaskLis
 }
 
 type VipCommonReq struct {
-	DeviceId string `json:"deviceId,omitempty"`
-	OS       string `json:"os,omitempty"`
-	VerifyId int    `json:"verifyId,omitempty"`
-	Header   any    `json:"header"`
-	ER       bool   `json:"e_r,omitempty"`
+	types.EApiReqCommon
 }
 
 type VipCommonResp struct {
@@ -71,9 +64,9 @@ type VipCommonResp struct {
 }
 
 type VipTaskSignReq struct {
-	Header any    `json:"header"`
-	IsNew  string `json:"isNew"`
-	ER     bool   `json:"e_r,omitempty"`
+	types.EApiReqCommon
+
+	IsNew string `json:"isNew"`
 }
 
 type VipTaskSignResp struct {
@@ -87,7 +80,7 @@ func (a *Api) VipTaskSign(ctx context.Context, req *VipTaskSignReq) (*VipTaskSig
 	var (
 		url   = "https://interface3.music.163.com/eapi/vip-center-bff/task/sign"
 		reply VipTaskSignResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -100,7 +93,7 @@ func (a *Api) VipTaskSign(ctx context.Context, req *VipTaskSignReq) (*VipTaskSig
 }
 
 type VipSignInfoReq struct {
-	VipCommonReq
+	types.EApiReqCommon
 }
 
 type VipSignInfoResp struct {
@@ -125,7 +118,7 @@ func (a *Api) VipSignInfo(ctx context.Context, req *VipSignInfoReq) (*VipSignInf
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/user/sign/info"
 		reply VipSignInfoResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -138,7 +131,7 @@ func (a *Api) VipSignInfo(ctx context.Context, req *VipSignInfoReq) (*VipSignInf
 }
 
 type VipGrowPointReq struct {
-	VipCommonReq
+	types.EApiReqCommon
 }
 
 type VipGrowPointResp struct {
@@ -165,7 +158,7 @@ func (a *Api) VipGrowPoint(ctx context.Context, req *VipGrowPointReq) (*VipGrowP
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/level/growhpoint/basic"
 		reply VipGrowPointResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -182,7 +175,7 @@ func (a *Api) VipOldSignPrizeList(ctx context.Context, req *VipCommonReq) (*VipC
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/level/user/checkin/old/sign-prize/list"
 		reply VipCommonResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -220,7 +213,7 @@ func (a *Api) VipMonthPrizeList(ctx context.Context, req *VipCommonReq) (*VipMon
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/level/user/checkin/month-prize/list"
 		reply VipMonthPrizeListResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -237,7 +230,7 @@ func (a *Api) VipFrontInfo(ctx context.Context, req *VipCommonReq) (*VipCommonRe
 	var (
 		url   = "https://interface3.music.163.com/eapi/music-vip-membership/front/vip/info"
 		reply VipCommonResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -250,7 +243,7 @@ func (a *Api) VipFrontInfo(ctx context.Context, req *VipCommonReq) (*VipCommonRe
 }
 
 type VipCheckinHistoryDetailReq struct {
-	VipCommonReq
+	types.EApiReqCommon
 
 	SignDayTime int64 `json:"-"`
 	Type        int   `json:"-"`
@@ -269,7 +262,7 @@ func (a *Api) VipCheckinHistoryDetail(ctx context.Context, req *VipCheckinHistor
 			req.Type,
 		)
 		reply VipCommonResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -282,11 +275,7 @@ func (a *Api) VipCheckinHistoryDetail(ctx context.Context, req *VipCheckinHistor
 }
 
 type VipRewardGetAllReq struct {
-	DeviceId string `json:"deviceId,omitempty"`
-	OS       string `json:"os,omitempty"`
-	VerifyId int    `json:"verifyId,omitempty"`
-	Header   any    `json:"header,omitempty"`
-	ER       bool   `json:"e_r,omitempty"`
+	types.EApiReqCommon
 }
 
 type VipRewardGetAllResp struct {
@@ -302,7 +291,7 @@ func (a *Api) VipRewardGetAll(ctx context.Context, req *VipRewardGetAllReq) (*Vi
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/level/task/reward/getall"
 		reply VipRewardGetAllResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -315,10 +304,7 @@ func (a *Api) VipRewardGetAll(ctx context.Context, req *VipRewardGetAllReq) (*Vi
 }
 
 type VipWelfareListReq struct {
-	DeviceId string `json:"deviceId,omitempty"`
-	OS       string `json:"os,omitempty"`
-	VerifyId int    `json:"verifyId,omitempty"`
-	Header   any    `json:"header"`
+	types.EApiReqCommon
 }
 
 type VipWelfareListResp struct {
@@ -331,7 +317,7 @@ func (a *Api) VipWelfareList(ctx context.Context, req *VipWelfareListReq) (*VipW
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/level/welfare/new/list"
 		reply VipWelfareListResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -344,9 +330,9 @@ func (a *Api) VipWelfareList(ctx context.Context, req *VipWelfareListReq) (*VipW
 }
 
 type VipBenefitCategoryListReq struct {
+	types.EApiReqCommon
+
 	Category string `json:"category"`
-	Header   any    `json:"header"`
-	ER       bool   `json:"e_r,omitempty"`
 }
 
 type VipBenefitCategoryListResp struct {
@@ -365,7 +351,7 @@ func (a *Api) VipBenefitCategoryList(ctx context.Context, req *VipBenefitCategor
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipnewcenter/app/benefitcenter/benefits/category/list"
 		reply VipBenefitCategoryListResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -378,9 +364,9 @@ func (a *Api) VipBenefitCategoryList(ctx context.Context, req *VipBenefitCategor
 }
 
 type VipBenefitGetReq struct {
-	Id     string `json:"id"`
-	Header any    `json:"header"`
-	ER     bool   `json:"e_r,omitempty"`
+	types.EApiReqCommon
+
+	Id string `json:"id"`
 }
 
 type VipBenefitGetResp struct {
@@ -396,7 +382,7 @@ func (a *Api) VipBenefitGet(ctx context.Context, req *VipBenefitGetReq) (*VipBen
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipcenter/benefits/get"
 		reply VipBenefitGetResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -427,7 +413,7 @@ func (a *Api) TrialsongListen(ctx context.Context, req *TrialsongListenReq) (*Tr
 	var (
 		url   = "https://interface3.music.163.com/eapi/vipmall/interest/trialsong/listen"
 		reply TrialsongListenResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

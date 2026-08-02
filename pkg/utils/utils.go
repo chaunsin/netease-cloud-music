@@ -5,11 +5,13 @@ package utils
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/md5" //nolint:gosec // NetEase exposes MD5 checksums for media integrity verification.
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/rand/v2"
 	"net/http"
@@ -33,7 +35,10 @@ const (
 	PB
 )
 
-const jsessionIDCharset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/\\"
+const (
+	defMaxGzipSize    = MB * 32
+	jsessionIDCharset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/\\"
+)
 
 var (
 	homeDir          string
@@ -289,22 +294,59 @@ func Filename(path string, replacement ...string) string {
 	return filenameRegexp.ReplaceAllString(path, "")
 }
 
-// IsGzipHeader 判断字节数据是否以 Gzip 文件头开头
-// Gzip 文件头特征：前 2 个字节为 0x1F 0x8B，第三个字节为压缩方法（通常 0x08 表示 DEFLATE）.
-func IsGzipHeader(data []byte) bool {
-	// Gzip 最小头长度检查
-	if len(data) < 3 {
+// IsGzipHeader 判断数据是否为 Gzip 格式。
+// 参数:
+//
+//	data: 待检查的字节切片
+//	strict: 可选参数，若传入且为 true，则额外检查压缩方法是否为 DEFLATE (0x08)
+//
+// 返回: 如果符合 Gzip 格式则返回 true，否则返回 false.
+func IsGzipHeader(data []byte, strict ...bool) bool {
+	if len(data) < 2 {
 		return false
 	}
 
-	// 魔术字节校验
-	magicBytes := []byte{0x1F, 0x8B}
-	if !bytes.Equal(data[:2], magicBytes) {
+	if data[0] != 0x1F || data[1] != 0x8B {
 		return false
 	}
 
-	// 压缩方法校验（0x08 = DEFLATE）
-	return data[2] == 0x08
+	// 默认仅检查 gzip 魔数；严格模式额外验证压缩方法。
+	if len(strict) == 0 || !strict[0] {
+		return true
+	}
+
+	return len(data) >= 3 && data[2] == 0x08
+}
+
+// GzipReader 如果不是gzip则直接返回。
+func GzipReader(plaintext []byte, maxSize ...int64) ([]byte, error) {
+	if !IsGzipHeader(plaintext) {
+		return plaintext, nil
+	}
+
+	reader, err := gzip.NewReader(bytes.NewReader(plaintext))
+	if err != nil {
+		return nil, fmt.Errorf("gzip.NewReader: %w", err)
+	}
+
+	// 防止压缩炸弹攻击
+	limit := defMaxGzipSize
+	if len(maxSize) > 0 && maxSize[0] > 0 {
+		limit = maxSize[0]
+	}
+
+	data, readErr := io.ReadAll(io.LimitReader(reader, limit+1))
+
+	closeErr := reader.Close()
+	if readErr != nil {
+		return nil, fmt.Errorf("gzip.ReadAll: %w", errors.Join(readErr, closeErr))
+	}
+
+	if closeErr != nil {
+		return nil, fmt.Errorf("gzip.Close: %w", closeErr)
+	}
+
+	return data, nil
 }
 
 // GenerateWNMCID 生成WNMCID(貌似是Netease Machine Client ID缩写)

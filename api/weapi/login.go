@@ -462,7 +462,7 @@ func (a *Api) LoginCellphone(ctx context.Context, req *LoginCellphoneReq) (*Logi
 	var (
 		url    = "https://interface.music.163.com/eapi/w/login/cellphone" // use weapi 出现 8821需要行为验证码验证
 		reply  LoginCellphoneResp
-		opts   = api.NewOptions().SetCryptoModeEAPI()
+		opts   = api.NewOptions().SetEAPI()
 		params = make(map[string]any)
 	)
 

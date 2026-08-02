@@ -15,6 +15,7 @@ import (
 	"net/http"
 	neturl "net/url"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/andybalholm/brotli"
@@ -34,7 +35,7 @@ const (
 
 var (
 	_wnmcid    = utils.GenerateWNMCID()
-	_deviceId  = utils.GenerateDeviceId() // todo: 设备id需要实现方式3,传入参数考虑使用cryptoMode控制？
+	_deviceId  = utils.GenerateDeviceId() // todo: 设备id存在不同格式,考虑使用cryptoMode控制生成？
 	_ntes_nnid string
 	_ntes_nuid string
 
@@ -76,7 +77,7 @@ func (c *Config) Validate() error {
 type Client struct {
 	cfg       *Config
 	cli       *resty.Client
-	cookie    *cookie.Cookie
+	cookie    *cookie.Cookie // is coookiejar
 	defHeader *Headers
 	l         *log.Logger
 	xeapi     *xeapi
@@ -113,17 +114,24 @@ func NewClient(cfg *Config, l *log.Logger) (*Client, error) {
 	// 读取header、cookie配置文件并覆盖硬编码默认配置如果文件存。
 	cfgPath := filepath.Join(stateDir, "header.yaml")
 	if utils.FileExists(cfgPath) {
-		if err := defHeader.Load(cfgPath); err != nil {
-			return nil, fmt.Errorf("load %s header config err: %w", cfgPath, err)
+		if err := defHeader.LoadConfig(cfgPath); err != nil {
+			return nil, fmt.Errorf("load '%s' header config err: %w", cfgPath, err)
 		}
+
+		l.Info("load header config success")
 	}
 
 	// 初始化匿名token
-	anonymous := NewAnonymous(filepath.Join(stateDir, "anonymous_token"))
-	if err := anonymous.LoadConfig(); err != nil {
-		l.Warn("load anonymous token config", "error", err)
-	} else {
-		l.Info("load anonymous token config success")
+	var (
+		anonymousFile = filepath.Join(stateDir, "anonymous_token")
+		anonymous     = NewAnonymous(anonymousFile)
+	)
+	if utils.FileExists(anonymousFile) {
+		if err := anonymous.LoadConfig(); err != nil {
+			l.Warnf("load '%s' anonymous token config err: %s", anonymousFile, err)
+		} else {
+			l.Info("load anonymous token config success")
+		}
 	}
 
 	opts := []cookie.Option{cookie.WithSyncInterval(cfg.Cookie.Interval)}
@@ -156,10 +164,12 @@ func NewClient(cfg *Config, l *log.Logger) (*Client, error) {
 
 	// 初始化xeapi管理器
 	xeapi := newXeapi(cli, filepath.Join(stateDir, "xeapi.yaml"))
-	if err := xeapi.LoadConfig(); err != nil {
-		l.Warn("load xeapi config", "error", err)
-	} else {
-		l.Info("load xeapi config success")
+	if utils.FileExists(xeapi.storePath) {
+		if err := xeapi.LoadConfig(); err != nil {
+			l.Warnf("load '%s' xeapi config err: %s", xeapi.storePath, err)
+		} else {
+			l.Info("load xeapi config success")
+		}
 	}
 
 	c := Client{
@@ -302,6 +312,14 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		return nil, errors.New("request args invalid")
 	}
 
+	if reqValue := reflect.ValueOf(req); reqValue.Kind() == reflect.Pointer && reqValue.IsNil() {
+		return nil, errors.New("request args invalid")
+	}
+
+	if respValue := reflect.ValueOf(resp); respValue.Kind() == reflect.Pointer && respValue.IsNil() {
+		return nil, errors.New("request args invalid")
+	}
+
 	if opts == nil {
 		opts = NewOptions()
 	}
@@ -310,7 +328,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		opts.SetMethod(http.MethodPost)
 	}
 
-	def := c.defHeader.GetDefValue(opts.CryptoMode)
+	def := c.defHeader.HeaderItemForCryptoMode(opts.CryptoMode)
 	if def == nil {
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
@@ -323,6 +341,8 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	var (
 		encryptData   map[string]string
 		response      *resty.Response
+		eapiEncrypted bool
+		xeapiRevision xeapiRequestRevision
 		requestURL    = url
 		cryptoMode    = opts.CryptoMode
 		userHeader    = opts.Headers
@@ -330,22 +350,24 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		defDeviceId   = def.GetCookie("deviceId")
 		execudeCookie = []string{"__csrf", "appver", "channel", "deviceId", "ntes_kaola_ad", "os", "osver", "WEVNSM", "WNMCID"}
 		execudeHeader = []string{"User-Agent", "X-antiCheatToken"}
-		ua            = c.getDefHeaderVal("User-Agent", userHeader, def.GetHeader("User-Agent"))
-		appver        = c.getDefCookie("appver", userCookie, def.GetCookie("appver"))
-		channel       = c.getDefCookie("channel", userCookie, def.GetCookie("channel"))
-		osVal         = c.getDefCookie("os", userCookie, def.GetCookie("os"))
-		osver         = c.getDefCookie("osver", userCookie, def.GetCookie("osver"))
-		csrf          = c.getDefCookie("__csrf", userCookie, "")
-		nka           = c.getDefCookie("ntes_kaola_ad", userCookie, def.GetCookie("ntes_kaola_ad"))
-		wevnsm        = c.getDefCookie("WEVNSM", userCookie, def.GetCookie("WEVNSM"))
-		wnmcid        = c.getDefCookie("WNMCID", userCookie, _wnmcid)
+		ua            = c.resolveHeaderValue("User-Agent", userHeader, def.GetHeader("User-Agent"))
+		appver        = c.resolveRequestCookie("appver", userCookie, def.GetCookie("appver"))
+		channel       = c.resolveRequestCookie("channel", userCookie, def.GetCookie("channel"))
+		osVal         = c.resolveRequestCookie("os", userCookie, def.GetCookie("os"))
+		osver         = c.resolveRequestCookie("osver", userCookie, def.GetCookie("osver"))
+		csrf          = c.resolveRequestCookie("__csrf", userCookie, "")
+		nka           = c.resolveRequestCookie("ntes_kaola_ad", userCookie, def.GetCookie("ntes_kaola_ad"))
+		wevnsm        = c.resolveRequestCookie("WEVNSM", userCookie, def.GetCookie("WEVNSM"))
+		wnmcid        = c.resolveRequestCookie("WNMCID", userCookie, _wnmcid)
+		musicU        = c.resolveRequestCookie("MUSIC_U", userCookie, def.GetCookie("MUSIC_U"))
+		musicRU       = c.resolveRequestCookie("MUSIC_R_U", userCookie, def.GetCookie("MUSIC_R_U"))
 	)
 
 	if defDeviceId == "" {
 		defDeviceId = _deviceId
 	}
 
-	deviceId := c.getDefCookie("deviceId", userCookie, defDeviceId)
+	deviceId := c.resolveRequestCookie("deviceId", userCookie, defDeviceId)
 
 	// Host请求头根据请求地址交给底层自己装配
 	request := c.cli.R().
@@ -362,17 +384,17 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	// c.setCookie(request, &http.Cookie{Name: "NMTID", Value: ""}) // 应该是NetEase Machine Token ID,风控是由服务器下发。
 
 	// 当没有正常登录token信息时，则使用匿名登录token
-	if u := c.getDefCookie("MUSIC_U", userCookie, def.GetCookie("MUSIC_U")); u == nil || u.Value == "" {
+	if (musicU == nil || musicU.Value == "") && (musicRU == nil || musicRU.Value == "") {
 		anonymous := c.anonymous.Get()
 		if anonymous == "" {
 			anonymous = def.GetCookie("MUSIC_A")
 		}
 
-		c.setCookie(request, c.getDefCookie("MUSIC_A", userCookie, anonymous))
+		c.setCookie(request, c.resolveRequestCookie("MUSIC_A", userCookie, anonymous))
 	}
 
 	// 如果用户传入了token则优先级高于默认token配置
-	antiToken := c.getDefVal("x-antiCheatToken", opts, def)
+	antiToken := c.resolveCookieOrHeaderValue("x-antiCheatToken", opts, def)
 	if t := opts.Headers.Get("X-Anticheattoken"); t != "" {
 		antiToken = t
 	}
@@ -383,15 +405,15 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 
 	switch cryptoMode {
 	case CryptoModeEAPI:
-		c.setCookie(request, c.getDefCookie("buildver", userCookie, def.GetCookie("buildver")))
-		c.setCookie(request, c.getDefCookie("sDeviceId", userCookie, defDeviceId)) // 和deviceId为一个值
-		c.setCookie(request, c.getDefCookie("mobilename", userCookie, def.GetCookie("mobilename")))
-		c.setCookie(request, c.getDefCookie("resolution", userCookie, def.GetCookie("resolution")))
-		c.setCookie(request, c.getDefCookie("versioncode", userCookie, def.GetCookie("versioncode")))
-		// c.setCookie(request, c.getDefCookie("requestId", userCookie, utils.GenerateRequestId())) // 是否需要
+		c.setCookie(request, c.resolveRequestCookie("buildver", userCookie, def.GetCookie("buildver")))
+		c.setCookie(request, c.resolveRequestCookie("sDeviceId", userCookie, deviceId.Value)) // 和deviceId为一个值
+		c.setCookie(request, c.resolveRequestCookie("mobilename", userCookie, def.GetCookie("mobilename")))
+		c.setCookie(request, c.resolveRequestCookie("resolution", userCookie, def.GetCookie("resolution")))
+		c.setCookie(request, c.resolveRequestCookie("versioncode", userCookie, def.GetCookie("versioncode")))
+		// c.setCookie(request, c.resolveRequestCookie("requestId", userCookie, utils.GenerateRequestId())) // 是否需要
 
 		request.SetHeader("x-mam-custommark", "okhttp") // 网络栈可能会影响风控策略 eg: okhttp(HTTP/2,TLS Socket)、cronet(HTTP/3,QUIC)
-		request.SetHeader("x-aeapi", "true")            // 服务器会使用gzip压缩返回值?
+		request.SetHeader("x-aeapi", "true")            // 解密后的响应值为gzip压缩数据
 		request.SetHeader("cm_no_encrypt_native_tag_20220105", "false")
 		// request.SetHeader("mconfig-info","{\"IuRPVVmc3WWul9fT\":{\"version\":\"86118336\",\"appver\":\"9.2.85\"},\"tPJJnts2H31BZXmp\":{\"version\":\"4077568\",\"appver\":\"4.48.0\"},\"c0Ve6C0uNl2Am0Rl\":{\"version\":\"272384\",\"appver\":\"1.4.30\"},\"zr4bw6pKFDIZScpo\":{\"version\":\"2502656\",\"appver\":\"2.28.0\"}}")
 		// request.SetHeader("X-MUSIC-LOC-SITE", "300_rn-vip-growth-level@index/home") // 会跟随改变，貌似和app页面导航索引有关
@@ -400,7 +422,14 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		_execudeCookie := []string{"buildver", "sDeviceId", "mobilename", "resolution", "versioncode"}
 		execudeCookie = append(execudeCookie, _execudeCookie...)
 
-		encryptData, err = crypto.EApiEncrypt(uri.Path, req)
+		eapiPayload, encrypted, eapiErr := prepareEAPIRequest(req)
+		if eapiErr != nil {
+			return nil, fmt.Errorf("prepare EAPI request: %w", eapiErr)
+		}
+
+		eapiEncrypted = encrypted
+
+		encryptData, err = crypto.EApiEncrypt(uri.Path, eapiPayload)
 		if err != nil {
 			return nil, fmt.Errorf("EApiEncrypt: %w", err)
 		}
@@ -416,10 +445,10 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 
 		request.SetQueryParam("csrf_token", csrf).
 			SetCookie(&http.Cookie{Name: "__remember_me", Value: "true", Domain: defDomain, HttpOnly: true})
-		c.setCookie(request, c.getDefCookie("_iuqxldmzr_", userCookie, def.GetCookie("_iuqxldmzr_"))) // eg: 33
-		c.setCookie(request, c.getDefCookie("_ntes_nnid", userCookie, _ntes_nnid))
-		c.setCookie(request, c.getDefCookie("_ntes_nuid", userCookie, _ntes_nuid))
-		c.setCookie(request, c.getDefCookie("JSESSIONID-WYYY", userCookie, def.GetCookie("JSESSIONID-WYYY"))) // 生成规则未知,但流出配置选项。
+		c.setCookie(request, c.resolveRequestCookie("_iuqxldmzr_", userCookie, def.GetCookie("_iuqxldmzr_"))) // eg: 33
+		c.setCookie(request, c.resolveRequestCookie("_ntes_nnid", userCookie, _ntes_nnid))
+		c.setCookie(request, c.resolveRequestCookie("_ntes_nuid", userCookie, _ntes_nuid))
+		c.setCookie(request, c.resolveRequestCookie("JSESSIONID-WYYY", userCookie, def.GetCookie("JSESSIONID-WYYY"))) // 生成规则未知,但留出配置选项。
 		// request.SetHeader("nm-gcore-status", "1")
 		// request.SetHeader("mconfig-info", "{\"IuRPVVmc3WWul9fT\":{\"version\":614400,\"appver\":\"3.0.14.202884\"}}")
 
@@ -436,12 +465,12 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		}
 	case CryptoModeXEAPI:
 		var (
-			buildver   = c.getDefCookie("buildver", userCookie, def.GetCookie("buildver"))
-			sDeviceId  = c.getDefCookie("sDeviceId", userCookie, defDeviceId) // 和deviceId为一个值
-			mobilename = c.getDefCookie("mobilename", userCookie, def.GetCookie("mobilename"))
-			// reqId       = c.getDefCookie("requestId", userCookie, utils.GenerateRequestId()) // todo: 多余？
-			// resolution  = c.getDefCookie("resolution", userCookie, def.GetCookie("resolution"))
-			// versioncode = c.getDefCookie("versioncode", userCookie, def.GetCookie("versioncode"))
+			buildver   = c.resolveRequestCookie("buildver", userCookie, def.GetCookie("buildver"))
+			sDeviceId  = c.resolveRequestCookie("sDeviceId", userCookie, deviceId.Value) // 和deviceId为一个值
+			mobilename = c.resolveRequestCookie("mobilename", userCookie, def.GetCookie("mobilename"))
+			// reqId       = c.resolveRequestCookie("requestId", userCookie, utils.GenerateRequestId()) // todo: 多余？
+			// resolution  = c.resolveRequestCookie("resolution", userCookie, def.GetCookie("resolution"))
+			// versioncode = c.resolveRequestCookie("versioncode", userCookie, def.GetCookie("versioncode"))
 		)
 
 		c.setCookie(request, buildver)
@@ -459,14 +488,14 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		request.SetHeader("x-mobilename", mobilename.Value)
 		request.SetHeader("x-os", osVal.Value)
 		request.SetHeader("x-osver", osver.Value)
-		request.SetHeader("x-aeapi", "true")            // 服务器会使用gzip压缩返回值?
+		request.SetHeader("x-aeapi", "true")            // 解密后的响应值为gzip压缩数据
 		request.SetHeader("x-mam-custommark", "okhttp") // 网络栈可能会影响风控策略 eg: okhttp(HTTP/2,TLS Socket)、cronet(HTTP/3,QUIC)
 		request.SetHeader("X-Client-Enc-State", "ENCRYPTED")
 		// request.SetHeader("x-resolution", c.getDefCookieVal("resolution", userCookie, def.GetCookie("resolution")))
 		// request.SetHeader("x-versioncode", c.getDefCookieVal("versioncode", userCookie, def.GetCookie("versioncode")))
 
-		if musicu := c.GetMusicU(); musicu != "" {
-			request.SetHeader("x-music-u", musicu)
+		if musicU != nil && musicU.Value != "" {
+			request.SetHeader("x-music-u", musicU.Value)
 		}
 
 		_execudeCookie := []string{"buildver", "sDeviceId", "mobilename" /*,"requestId", "resolution", "versioncode"*/}
@@ -491,10 +520,12 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 			AppVersion:  appver.Value,
 			DeviceID:    deviceId.Value,
 			UserAgent:   ua,
+			T1:          "",
+			T2:          "",
+			UID:         "", // TODO: 后续处理
 		}
 
-		// todo: 优先从本地配置中读取公钥信息，如果没有或失效才获取新的公钥
-		encryptData, err = c.xeapi.Encrypt(ctx, encryptReq)
+		encryptData, xeapiRevision, err = c.xeapi.Encrypt(ctx, encryptReq)
 		if err != nil {
 			return nil, fmt.Errorf("xeapi encrypt: %w", err)
 		}
@@ -521,23 +552,24 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	// 设置cookie和header值，但排除execudeCookie和execudeHeader值
 	c.setHeaderAndCookie(request, execudeCookie, execudeHeader, opts, def)
 
-	log.Debugf("[request] method=%s crypto=%s url=%s payload_type=%T encrypted_fields=%d",
-		opts.Method, opts.CryptoMode, requestURL, req, len(encryptData))
+	c.l.Debugf("[request] method=%s crypto=%s url=%s payload_type=%T eapiEncrypted=%v encrypted_fields=%d",
+		opts.Method, opts.CryptoMode, requestURL, req, eapiEncrypted, len(encryptData))
 
+	// 注意: 大多数请求都是post请求,如果是get请求会丢弃 encryptData 使用者要注意。
 	switch opts.Method {
 	case http.MethodPost:
 		response, err = request.SetFormData(encryptData).Post(requestURL)
 	case http.MethodGet:
 		response, err = request.Get(requestURL)
 	default:
-		return nil, fmt.Errorf("%s not surpport http method", opts.Method) // Pending: 需要适配PUT等方法
+		return nil, fmt.Errorf("%s not surpport http method", opts.Method) // TODO: 需要适配PUT等方法
 	}
 
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
 	}
 
-	log.Debugf("[response.raw] status=%d bytes=%d", response.StatusCode(), len(response.Body()))
+	c.l.Debugf("[response.raw] status=%d bytes=%d", response.StatusCode(), len(response.Body()))
 
 	var decryptData []byte
 
@@ -546,15 +578,25 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		// tips: api接口返回数据是明文
 		decryptData = response.Body()
 	case CryptoModeEAPI:
-		// Pending: 貌似eapi接口返回数据是否是是明文,跟传入参数e_r: true有关,true为加密，false为明文。此处考虑采用反射req中得字段处理。
-		// see: https://gitlab.com/Binaryify/neteasecloudmusicapi/-/commit/58e9865b70e41197c2ab75c46a775fc45d6efa6e
-		// decryptData, err = crypto.EApiDecrypt(string(response.Body()), "")
-		// if err != nil {
-		// 	return nil, fmt.Errorf("EApiDecrypt: %w", err)
-		// }
 		decryptData = response.Body()
+
+		if eapiEncrypted {
+			xaeapi := c.resolveHeaderValue("x-aeapi", userHeader, def.GetHeader("x-aeapi"))
+			c.l.Debugf("x-aepai value %v", xaeapi)
+
+			plaintext, decryptErr := crypto.EApiDecrypt(string(decryptData), "") // 二进制方式解密
+			if decryptErr != nil {
+				return nil, newAPIError(response.StatusCode(), fmt.Errorf("EApiDecrypt: %w", decryptErr))
+			}
+
+			// 如果请求头中传递了 x-aeapi = true 并请求包含 e_r = true
+			// 则说明解密后的内容里面gzip压缩需要进行解压缩,这里采用自动识别判断处理。
+			decryptData, err = utils.GzipReader(plaintext)
+			if err != nil {
+				return nil, newAPIError(response.StatusCode(), fmt.Errorf("GzipReader: %w", err))
+			}
+		}
 	case CryptoModeWEAPI:
-		// tips: weapi接口返回数据是明文
 		decryptData = response.Body()
 	case CryptoModeLinux:
 		decryptData, err = crypto.LinuxApiDecrypt(string(response.Body()))
@@ -562,11 +604,14 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 			return nil, fmt.Errorf("LinuxApiDecrypt: %w", err)
 		}
 	case CryptoModeXEAPI:
-		c.xeapi.updateSession(response)
+		if err = c.xeapi.updateSession(response, xeapiRevision); err != nil {
+			c.l.Warnf("update xeapi session %+v err: %s", xeapiRevision, err)
+			// return nil, newAPIError(response.StatusCode(), fmt.Errorf("update xeapi session: %w", err))
+		}
 
-		decryptData, err = crypto.XeapiDecryptResponse(response.Body())
+		decryptData, err = crypto.XeapiDecrypt(response.Body())
 		if err != nil {
-			return nil, fmt.Errorf("XeapiDecryptResponse: %w", err)
+			return nil, newAPIError(response.StatusCode(), fmt.Errorf("XeapiDecrypt: %w", err))
 		}
 	default:
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
@@ -577,38 +622,105 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	decode := json.NewDecoder(bytes.NewReader(decryptData))
 	// decode.DisallowUnknownFields()
 	if err := decode.Decode(&resp); err != nil {
-		return nil, fmt.Errorf("json.NewDecoder: %w", err)
+		return nil, newAPIError(response.StatusCode(), fmt.Errorf("json.NewDecoder: %w", err))
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("http status code: %d response bytes: %d", response.StatusCode(), len(decryptData))
+		return nil, newAPIError(response.StatusCode(), nil)
 	}
 	return response, nil
 }
 
-func (c *Client) Upload(ctx context.Context, url string, headers map[string]string, data io.Reader, resp any, bar *pb.ProgressBar) (*resty.Response, error) {
+// prepareEAPIRequest derives the EAPI defaults from the final wire JSON without
+// modifying the caller's request value.
+func prepareEAPIRequest(req any) (json.RawMessage, bool, error) {
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, false, fmt.Errorf("json.Marshal: %w", err)
+	}
+
+	data = bytes.TrimSpace(data)
+	if len(data) < 2 || data[0] != '{' || data[len(data)-1] != '}' {
+		return nil, false, errors.New("payload must be a JSON object")
+	}
+
+	var fields map[string]json.RawMessage
+	if err = json.Unmarshal(data, &fields); err != nil {
+		return nil, false, fmt.Errorf("json.Unmarshal: %w", err)
+	}
+
+	responseEncrypted := true
+
+	if raw, ok := fields["e_r"]; ok {
+		raw = bytes.TrimSpace(raw)
+		if bytes.Equal(raw, []byte("null")) {
+			return nil, false, errors.New("e_r must be a boolean")
+		}
+
+		if err = json.Unmarshal(raw, &responseEncrypted); err != nil {
+			return nil, false, fmt.Errorf("decode e_r: %w", err)
+		}
+	} else {
+		fields["e_r"] = json.RawMessage("true")
+	}
+
+	rawHeader, hasHeader := fields["header"]
+	rawHeader = bytes.TrimSpace(rawHeader)
+
+	if !hasHeader || bytes.Equal(rawHeader, []byte("null")) || bytes.Equal(rawHeader, []byte(`""`)) {
+		// Header is a JSON string containing JSON, not a JSON object.
+		fields["header"] = json.RawMessage(`"{}"`)
+	}
+
+	payload, err := json.Marshal(fields)
+	if err != nil {
+		return nil, false, fmt.Errorf("json.Marshal normalized payload: %w", err)
+	}
+
+	return json.RawMessage(payload), responseEncrypted, nil
+}
+
+func (c *Client) Upload(ctx context.Context, method, url string, headers map[string]string, data io.Reader, resp any, bar *pb.ProgressBar) (*resty.Response, error) {
 	var body any = data
 	if bar != nil {
 		body = bar.NewProxyReader(data)
 	}
 
-	response, err := c.cli.R().
-		SetContext(ctx).
-		SetHeaders(headers).
-		SetHeader("Connection", "keep-alive").
-		SetHeader("Accept", "*/*").
-		SetHeader("Referer", "https://music.163.com").
-		SetHeader("User-Agent", defUserAgent). // TODO: 考虑使用defaultHeaders.GetDefValue(cryptoMode) 方式来控制不同的UA值。
-		SetBody(body).
-		Post(url)
+	var (
+		err      error
+		response *resty.Response
+		request  = c.cli.R().
+				SetContext(ctx).
+				SetHeader("Connection", "keep-alive").
+				SetHeader("Accept", "*/*").
+				SetHeader("Referer", "https://music.163.com").
+				SetHeader("User-Agent", defUserAgent). // TODO: 考虑使用defaultHeaders.HeaderItemForCryptoMode(cryptoMode) 方式来控制不同的UA值。
+				SetBody(body)
+	)
+
+	if len(headers) > 0 {
+		request.SetHeaders(headers)
+	}
+
+	switch method {
+	case http.MethodPost, "":
+		response, err = request.Post(url)
+	case http.MethodPut:
+		response, err = request.Put(url)
+	default:
+		return nil, fmt.Errorf("%s not surpport http method", method)
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
 	c.l.Debugf("[upload.response] status=%d bytes=%d", response.StatusCode(), len(response.Body()))
 
-	if err := json.Unmarshal(response.Body(), &resp); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal: %w", err)
+	if resp != nil {
+		if err := json.Unmarshal(response.Body(), &resp); err != nil {
+			return nil, fmt.Errorf("json.Unmarshal: %w", err)
+		}
 	}
 
 	if response.StatusCode() != http.StatusOK {
@@ -630,7 +742,7 @@ func (c *Client) Download(ctx context.Context, url string, headers map[string]st
 	request.Header.Set("Referer", "https://music.163.com")
 	request.Header.Set("Accept-Encoding", "gzip")
 	request.Header.Set("Accept-Language", "zh-CN,zh-Hans;q=0.9")
-	request.Header.Set("User-Agent", defUserAgent) // TODO: 考虑使用defaultHeaders.GetDefValue(cryptoMode) 方式来控制不同的UA值。
+	request.Header.Set("User-Agent", defUserAgent) // TODO: 考虑使用defaultHeaders.HeaderItemForCryptoMode(cryptoMode) 方式来控制不同的UA值。
 	request.Header.Set("Range", "bytes=0-")
 
 	for k, v := range headers {

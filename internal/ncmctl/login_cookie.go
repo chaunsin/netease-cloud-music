@@ -145,47 +145,6 @@ func (c *loginCookieCmd) addFlags() {
 	c.cmd.Flags().StringVar(&c.format, "format", "", "input format: header, json, or netscape (default: auto-detect)")
 }
 
-func parseCookieData(data []byte, format string) ([]*http.Cookie, error) {
-	parse := func(candidate string) ([]*http.Cookie, error) {
-		switch candidate {
-		case "json":
-			return ParseCookeJson(bytes.NewReader(data))
-		case "netscape":
-			return mozcookie.Decode(bytes.NewReader(data))
-		case "header":
-			return http.ParseCookie(string(data))
-		default:
-			return nil, fmt.Errorf("unsupported cookie format %q", candidate)
-		}
-	}
-
-	if format != "" {
-		cookies, err := parse(format)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s cookies: %w", format, err)
-		}
-		return cookies, nil
-	}
-
-	var parseErrors []error
-
-	for _, candidate := range []string{"netscape", "json", "header"} {
-		cookies, err := parse(candidate)
-		if err == nil && len(cookies) > 0 {
-			return cookies, nil
-		}
-
-		if err != nil {
-			parseErrors = append(parseErrors, fmt.Errorf("%s: %w", candidate, err))
-		}
-	}
-
-	if len(parseErrors) == 0 {
-		return nil, errors.New("cookie is empty")
-	}
-	return nil, fmt.Errorf("detect cookie format: %w", errors.Join(parseErrors...))
-}
-
 func (c *loginCookieCmd) execute(ctx context.Context, args []string) error {
 	var content string
 	if len(args) > 0 {
@@ -221,7 +180,7 @@ func (c *loginCookieCmd) execute(ctx context.Context, args []string) error {
 		}
 	}
 
-	cookies, err := parseCookieData(data, c.format)
+	cookies, err := c.parseCookieData(data, c.format)
 	if err != nil {
 		return err
 	}
@@ -272,4 +231,45 @@ func (c *loginCookieCmd) execute(ctx context.Context, args []string) error {
 
 	c.cmd.Printf("login success: %+v\n", user)
 	return nil
+}
+
+func (c *loginCookieCmd) parseCookieData(data []byte, format string) ([]*http.Cookie, error) {
+	parse := func(candidate string) ([]*http.Cookie, error) {
+		switch candidate {
+		case "json":
+			return ParseCookeJson(bytes.NewReader(data))
+		case "netscape":
+			return mozcookie.Decode(bytes.NewReader(data))
+		case "header":
+			return http.ParseCookie(string(data))
+		default:
+			return nil, fmt.Errorf("unsupported cookie format %q", candidate)
+		}
+	}
+
+	if format != "" {
+		cookies, err := parse(format)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s cookies: %w", format, err)
+		}
+		return cookies, nil
+	}
+
+	var parseErrors []error
+
+	for _, candidate := range []string{"netscape", "json", "header"} {
+		cookies, err := parse(candidate)
+		if err == nil && len(cookies) > 0 {
+			return cookies, nil
+		}
+
+		if err != nil {
+			parseErrors = append(parseErrors, fmt.Errorf("%s: %w", candidate, err))
+		}
+	}
+
+	if len(parseErrors) == 0 {
+		return nil, errors.New("cookie is empty")
+	}
+	return nil, fmt.Errorf("detect cookie format: %w", errors.Join(parseErrors...))
 }

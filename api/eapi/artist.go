@@ -9,9 +9,12 @@ import (
 	"strings"
 
 	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 type ArtistHotReq struct {
+	types.EApiReqCommon
+
 	Offset int `json:"offset"`
 	Limit  int `json:"limit"`
 }
@@ -38,7 +41,7 @@ func (a *Api) ArtistHot(ctx context.Context, req *ArtistHotReq) (*ArtistHotResp,
 	var (
 		url   = "https://interface3.music.163.com/eapi/artist/hot"
 		reply ArtistHotResp
-		opts  = api.NewOptions().SetCryptoModeEAPI()
+		opts  = api.NewOptions().SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -64,7 +67,7 @@ func (a *Api) ArtistSub(ctx context.Context, req *ArtistSubReq) (*ArtistSubResp,
 	var (
 		url   = "https://music.163.com/weapi/artist/sub"
 		reply ArtistSubResp
-		opts  = api.NewOptions().SetCryptoModeWEAPI()
+		opts  = api.NewOptions().SetWEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -109,7 +112,7 @@ func (a *Api) ArtistUnsub(ctx context.Context, req *ArtistUnsubReq) (*ArtistUnsu
 	var (
 		url   = "https://music.163.com/weapi/artist/unsub"
 		reply ArtistUnsubResp
-		opts  = api.NewOptions().SetCryptoModeWEAPI()
+		opts  = api.NewOptions().SetWEAPI()
 	)
 
 	weapiReq := &weapiArtistUnsubReq{ArtistIds: parsedIds}
