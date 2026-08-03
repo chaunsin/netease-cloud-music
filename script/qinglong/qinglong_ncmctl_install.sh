@@ -47,8 +47,8 @@ ARCH="$(uname -m)"
 # 系统类型
 OS="$(uname -s)"
 # 最新版本
-#LATEST_VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-LATEST_VERSION=$(curl -s "https://gitee.com/api/v5/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+LATEST_VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+# LATEST_VERSION=$(curl -s "https://gitee.com/api/v5/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
 # 重试次数默认3次
 MAX_RETRIES=${MAX_RETRIES:-3}
 
@@ -96,8 +96,8 @@ is_installed() {
 # 下载和解压程序
 download_and_extract() {
     echo "Downloading the latest version..."
-    #local download_url="https://github.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}_${OS}_${ARCH}.tar.gz"
-    local download_url="https://gitee.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}_${OS}_${ARCH}.tar.gz"
+    local download_url="https://github.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}_${OS}_${ARCH}.tar.gz"
+    # local download_url="https://gitee.com/$REPO/releases/download/$LATEST_VERSION/${BINARY_NAME}_${OS}_${ARCH}.tar.gz"
     local retry_count=0
     local tar_file="$TEMP_DIR/$BINARY_NAME.tar.gz"
 
