@@ -44,7 +44,7 @@ Prebuilt binaries are published on the project's GitHub Releases page.
 | Command | Login | Purpose |
 | --- | --- | --- |
 | `login` | No | Phone/SMS, password, Cookie, CookieCloud, or QR login |
-| `logout` | Existing session | Log out and remove the default persisted Cookie file |
+| `logout` | Existing session | Log out, remove the default Cookie and XEAPI state, and optionally remove the anonymous token |
 | `task` | Yes | Run sign, partner, and/or scrobble on cron schedules |
 | `sign` | Yes | Run YunBei and eligible VIP daily sign-in actions once |
 | `partner` | Yes | Submit music-partner evaluations once |

@@ -33,7 +33,7 @@ Execution order:
 | `login cookie` | `login_cookie.go` | Imports Netscape/JSON/header cookies, requires `MUSIC_U`, sets them on the persistent client, then validates the account |
 | `login cookiecloud` | `login_cookiecloud.go` | Contacts CookieCloud, sets matching NetEase cookies on the persistent client, then validates the account |
 | `login qrcode` | `login_qrcode.go` | Calls live login endpoints, writes a temporary `qrcode.png`, removes it after success |
-| `logout` | `logout.go` | Calls the logout endpoint, then removes `<home>/.ncmctl/cookie.json` |
+| `logout` | `logout.go` | Calls the logout endpoint, then removes the default Cookie and XEAPI state; `--clear-anonymous-token` also removes the anonymous token |
 | `task` | `task.go` | Registers `sign`, `partner`, and/or `scrobble` in a long-running cron service |
 | `sign` | `sign.go` | Performs YunBei and VIP account actions; optional automatic reward claims |
 | `partner` | `partner.go` | Reports plays and submits music-partner evaluations after randomized waits |
@@ -102,6 +102,10 @@ The scheduler creates fresh command instances and copies embedded option structs
 - Return setup/cancellation errors; per-item failures may be logged and counted when the command intentionally continues.
 
 ## Command-specific traps
+
+### `logout` state cleanup
+
+After a successful remote logout, call `api.Client.Close` exactly once before deleting local state: `Close` synchronizes XEAPI, anonymous-token, and Cookie data, so a later deferred close can recreate files that were just removed. Always remove `cookie.json` and `xeapi.yaml` under `Network.HomeDir`; remove `anonymous_token` only when `--clear-anonymous-token` is set. Preserve `header.yaml`, logs, databases, and any custom Cookie path selected through configuration.
 
 ### `ncm --tag`
 

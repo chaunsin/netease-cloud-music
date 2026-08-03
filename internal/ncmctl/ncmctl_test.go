@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -65,7 +66,7 @@ func TestCommandHelpContract(t *testing.T) {
 		{path: []string{"login", "qrcode"}, use: "qrcode", longContains: "qrcode.png", exampleContains: "--dir"},
 		{path: []string{"login", "cookie"}, use: "cookie [cookie]", longContains: "MUSIC_U", exampleContains: "--file"},
 		{path: []string{"login", "cookiecloud"}, use: "cookiecloud", longContains: "--uuid and --password are required", exampleContains: "-s http"},
-		{path: []string{"logout"}, use: "logout", longContains: "cookie.json", exampleContains: "ncmctl logout"},
+		{path: []string{"logout"}, use: "logout", longContains: "xeapi.yaml", exampleContains: "--clear-anonymous-token"},
 		{path: []string{"task"}, use: "task", longContains: "all three jobs", exampleContains: "--sign --scrobble"},
 		{path: []string{"sign"}, use: "sign", longContains: "Login is required", exampleContains: "--automatic"},
 		{path: []string{"partner"}, use: "partner", longContains: "changes account state", exampleContains: "--star"},
@@ -156,6 +157,7 @@ func TestCommandFlagDescriptionsExplainConstraints(t *testing.T) {
 		{path: []string{"login", "phone"}, flag: "password", contains: "process lists"},
 		{path: []string{"login", "cookie"}, flag: "format", contains: "auto-detect"},
 		{path: []string{"login", "cookiecloud"}, flag: "password", contains: "required"},
+		{path: []string{"logout"}, flag: "clear-anonymous-token", contains: "preserved by default"},
 		{path: []string{"task"}, flag: "runAll", contains: "no task selectors"},
 		{path: []string{"task"}, flag: "sign.automatic", contains: "account risk"},
 		{path: []string{"partner"}, flag: "num", contains: "0 to 15"},
@@ -299,26 +301,61 @@ func TestValidateCurlKind(t *testing.T) {
 	require.EqualError(t, validateCurlKind("typo"), `unsupported API kind "typo"`)
 }
 
-func TestCloseAndRemoveDefaultCookie(t *testing.T) {
+func TestCloseAndRemoveLogoutState(t *testing.T) {
 	t.Parallel()
 
-	home := t.TempDir()
-	cookiePath := filepath.Join(home, ".ncmctl", "cookie.json")
-	cli, err := client.NewClient(&client.Config{
-		HomeDir: home,
-		Cookie:  cookiepkg.Config{Filepath: cookiePath},
-	}, nil)
-	require.NoError(t, err)
+	tests := []struct {
+		name                string
+		clearAnonymousToken bool
+		wantAnonymousToken  bool
+	}{
+		{name: "preserve anonymous token by default", wantAnonymousToken: true},
+		{name: "clear anonymous token when requested", clearAnonymousToken: true},
+	}
 
-	musicURL, err := url.Parse("https://music.163.com")
-	require.NoError(t, err)
-	cli.SetCookies(musicURL, []*http.Cookie{{Name: "MUSIC_U", Value: "token"}})
-	require.FileExists(t, cookiePath)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	require.NoError(t, closeAndRemoveDefaultCookie(context.Background(), cli, home))
-	assert.NoFileExists(t, cookiePath)
+			home := t.TempDir()
+			stateDir := filepath.Join(home, ".ncmctl")
+			cookiePath := filepath.Join(stateDir, "cookie.json")
+			xeapiPath := filepath.Join(stateDir, "xeapi.yaml")
+			anonymousPath := filepath.Join(stateDir, "anonymous_token")
+			headerPath := filepath.Join(stateDir, "header.yaml")
 
-	// The deferred second close in logout must remain idempotent and not recreate the file.
-	require.NoError(t, cli.Close(context.Background()))
-	assert.NoFileExists(t, cookiePath)
+			require.NoError(t, os.MkdirAll(stateDir, 0o700))
+
+			cli, err := client.NewClient(&client.Config{
+				HomeDir: home,
+				Cookie:  cookiepkg.Config{Filepath: cookiePath},
+			}, nil)
+			require.NoError(t, err)
+
+			musicURL, err := url.Parse("https://music.163.com")
+			require.NoError(t, err)
+			cli.SetCookies(musicURL, []*http.Cookie{{Name: "MUSIC_U", Value: "token"}})
+			cli.GetAnonymous().Set("anonymous-token")
+			require.NoError(t, os.WriteFile(xeapiPath, []byte("xeapi-state"), 0o600))
+			require.NoError(t, os.WriteFile(headerPath, []byte("header-state"), 0o600))
+
+			require.NoError(t, (&Logout{}).closeAndclear(
+				context.Background(),
+				cli,
+				home,
+				tt.clearAnonymousToken,
+			))
+			assert.NoFileExists(t, cookiePath)
+			assert.NoFileExists(t, xeapiPath)
+			assert.FileExists(t, headerPath)
+
+			if tt.wantAnonymousToken {
+				data, readErr := os.ReadFile(anonymousPath)
+				require.NoError(t, readErr)
+				assert.Equal(t, "anonymous-token", string(data))
+			} else {
+				assert.NoFileExists(t, anonymousPath)
+			}
+		})
+	}
 }

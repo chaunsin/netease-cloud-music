@@ -227,9 +227,11 @@ Re-run the command if the code expires. Repeated login attempts can trigger risk
 
 ```bash
 ncmctl logout
+ncmctl logout --clear-anonymous-token
+ncmctl --home /srv/ncmctl logout --clear-anonymous-token
 ```
 
-The command calls the remote logout endpoint, flushes the updated Cookie jar, and then removes `<home>/.ncmctl/cookie.json` so the final flush cannot recreate it. With `--home`, it removes the corresponding path under that home. A custom Cookie filepath loaded through `--config` is not the path removed by the current logout implementation; remove that file separately if necessary.
+After the remote logout succeeds, the command flushes client state and removes `<home>/.ncmctl/cookie.json` and `<home>/.ncmctl/xeapi.yaml`. The anonymous token is preserved by default; pass `--clear-anonymous-token` to also remove `<home>/.ncmctl/anonymous_token`. All three paths follow the selected global `--home`, which defaults to the OS user home. A custom Cookie filepath loaded through `--config` is not removed automatically; remove that file separately if necessary.
 
 ## Troubleshooting
 

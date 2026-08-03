@@ -5,6 +5,7 @@ package ncmctl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,10 +17,15 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 )
 
+type LogoutOpts struct {
+	ClearAnonymousToken bool
+}
+
 type Logout struct {
 	root *Root
 	cmd  *cobra.Command
 	l    *log.Logger
+	opts LogoutOpts
 }
 
 func NewLogout(root *Root, l *log.Logger) *Logout {
@@ -28,11 +34,13 @@ func NewLogout(root *Root, l *log.Logger) *Logout {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:   "logout",
-			Short: "Log out and remove the persisted Cookie",
-			Long: "Call the NetEase logout endpoint and remove <home>/.ncmctl/cookie.json. " +
+			Short: "Log out and remove persisted session state",
+			Long: "Call the NetEase logout endpoint and remove <home>/.ncmctl/cookie.json and <home>/.ncmctl/xeapi.yaml. " +
+				"Use --clear-anonymous-token to also remove <home>/.ncmctl/anonymous_token. " +
 				"A custom Cookie path selected through configuration is not removed automatically.",
 			Example: "  ncmctl logout\n" +
-				"  ncmctl --home /srv/ncmctl logout",
+				"  ncmctl logout --clear-anonymous-token\n" +
+				"  ncmctl --home /srv/ncmctl logout --clear-anonymous-token",
 			Args: cobra.NoArgs,
 		},
 	}
@@ -52,18 +60,13 @@ func (c *Logout) Command() *cobra.Command {
 	return c.cmd
 }
 
-func (c *Logout) addFlags() {}
-
-func closeAndRemoveDefaultCookie(ctx context.Context, cli *api.Client, home string) error {
-	if err := cli.Close(ctx); err != nil {
-		return fmt.Errorf("close API client: %w", err)
-	}
-
-	cookiePath := filepath.Join(home, ".ncmctl", "cookie.json")
-	if err := os.Remove(cookiePath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove cookie file: %w", err)
-	}
-	return nil
+func (c *Logout) addFlags() {
+	c.cmd.Flags().BoolVar(
+		&c.opts.ClearAnonymousToken,
+		"clear-anonymous-token",
+		false,
+		"also remove <home>/.ncmctl/anonymous_token (preserved by default)",
+	)
 }
 
 func (c *Logout) execute(ctx context.Context, _ []string) error {
@@ -71,7 +74,13 @@ func (c *Logout) execute(ctx context.Context, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer closeAPIClient(ctx, cli)
+
+	closeOnReturn := true
+	defer func() {
+		if closeOnReturn {
+			closeAPIClient(ctx, cli)
+		}
+	}()
 
 	request := weapi.New(cli)
 
@@ -84,11 +93,35 @@ func (c *Logout) execute(ctx context.Context, _ []string) error {
 		return fmt.Errorf("layout: %+v", resp)
 	}
 
-	// Flush the logged-out jar before deleting the default credential file.
-	if err := closeAndRemoveDefaultCookie(ctx, cli, c.root.Opts.Home); err != nil {
+	// This cleanup owns the final Close; closing again would resync deleted state files.
+	closeOnReturn = false
+
+	if err := c.closeAndclear(context.WithoutCancel(ctx), cli, c.root.Cfg.Network.HomeDir, c.opts.ClearAnonymousToken); err != nil {
 		return err
 	}
 
 	c.cmd.Println("Logout success")
 	return nil
+}
+
+func (c *Logout) closeAndclear(ctx context.Context, cli *api.Client, home string, clearAnonymousToken bool) error {
+	var errs []error
+
+	if err := cli.Close(ctx); err != nil {
+		errs = append(errs, fmt.Errorf("close API client: %w", err))
+	}
+
+	files := []string{"cookie.json", "xeapi.yaml", "xeapi.json"}
+	if clearAnonymousToken {
+		files = append(files, "anonymous_token")
+	}
+
+	stateDir := filepath.Join(home, ".ncmctl")
+	for _, name := range files {
+		if err := os.Remove(filepath.Join(stateDir, name)); err != nil && !os.IsNotExist(err) {
+			errs = append(errs, fmt.Errorf("remove %s: %w", name, err))
+		}
+	}
+
+	return errors.Join(errs...)
 }

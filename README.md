@@ -199,7 +199,7 @@ cp -r skills/ncmctl ~/.codex/skills/
 | 命令 | 登录 | 用途与主要影响 |
 | :--- | :---: | :--- |
 | `ncmctl login <method>` | 否 | 通过手机、Cookie、CookieCloud 或二维码登录，并持久化 Cookie |
-| `ncmctl logout` | 已有会话 | 调用远端退出接口并删除默认持久化 Cookie |
+| `ncmctl logout [--clear-anonymous-token]` | 已有会话 | 调用远端退出接口并删除默认 Cookie 与 XEAPI 状态；可选删除匿名 token |
 | `ncmctl task [flags]` | 是 | 按 cron 长期调度 `sign`、`partner`、`scrobble`；无选择器时调度全部任务 |
 | `ncmctl sign [flags]` | 是 | 立即执行一次云贝及符合条件的 VIP 签到 |
 | `ncmctl partner [flags]` | 是 | 立即上报播放并提交音乐合伙人测评，会修改账号状态 |
