@@ -72,10 +72,15 @@ stored := cli.GetCookies(musicURL)
 
 Preserve these behaviors:
 
-- A positive sync interval starts periodic export; a non-positive interval exports when cookies change.
-- `Client.Close` calls `Cookie.Close` for a final export. The current exporter logs export failures internally and returns `nil`; do not document caller-visible propagation unless the implementation and tests change.
+- A positive sync interval starts periodic export. A non-positive interval attempts an export after every `SetCookies` call accepted before shutdown, even when the underlying Jar ignores the update.
+- `Client.Close` calls `Cookie.Close` for a final export and returns that export error. If its context is canceled first, the shared close continues in the background; a later `Close` call can wait for the same final result.
 - An empty configured Cookie filepath makes `api.NewClient` omit `WithFilePath`, so the jar falls back to `./cookie.json`. Treat changes to this working-directory write as a safety-sensitive behavior change.
-- Missing parent directories are created with `0700`, and a newly created Cookie file uses `0600` on POSIX. Existing permissions are not repaired by `os.WriteFile`.
+- The persistent Jar uses `publicsuffix.List` by default. Callers must explicitly pass `WithPublicSuffixList(nil)` to opt out of public-suffix protection; the lower-level in-memory `New(nil)` retains the standard-library nil-list behavior.
+- Missing parent directories are created with `0700`. Exports write and sync a same-directory temporary file, then replace the target with `os.Rename`. Same-directory rename is atomic on Unix; Windows follows the standard library's platform semantics and does not promise atomicity. POSIX targets use mode `0600`, repairing an existing Cookie file's broader mode.
+- Loading requires every field emitted by the original persistence format; only `Quoted` may be absent for backward compatibility. It validates each persisted entry and its containing bucket, including the entry ID, canonical domain, absolute path, HostOnly/IP relationship, session expiration, and public-suffix scope.
+- Valid origin-derived buckets required by an explicit nil or safely isolated custom Public Suffix List are preserved. Former nil-PSL buckets migrate when HostOnly makes the origin explicit or the current list is the default `publicsuffix.List`; ambiguous custom-list collisions remain in their original bucket. Migration collisions and other invalid files fail initialization without rewriting the source. Sequence numbers are compacted deterministically, and expired persistent cookies are discarded.
+- Session cookies intentionally survive process restarts. This is the persistence extension's explicit difference from an in-memory browser session; do not drop them during load or export.
+- A Cookie file has a single-writer contract. Goroutines sharing one `Cookie` are synchronized, and the final export includes `SetCookies` calls accepted before shutdown marks the jar as closing; later calls are ignored. Separate processes do not lock or merge the same file, so the last completed replacement wins.
 - `GetDeviceId` searches `deviceId` and `sDeviceId` across the music, interface, and interface3 domains for XEAPI.
 - CookieCloud credentials, imported cookies, and `MUSIC_U` values must stay out of logs, fixtures, and errors.
 - The current CookieCloud HTTP client disables TLS certificate verification. Treat this as a security defect, do not describe HTTPS peer identity as authenticated, and do not copy the setting into new clients.

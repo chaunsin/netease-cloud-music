@@ -128,8 +128,6 @@ func (a *Api) MusicianRoleGet(ctx context.Context, req *MusicianRoleGetReq) (*Mu
 		req = &MusicianRoleGetReq{}
 	}
 
-	a.fillMusicianEAPIReq(&req.EApiReqCommon)
-
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/musician/role/get"
 		reply MusicianRoleGetResp
@@ -161,8 +159,6 @@ func (a *Api) MusicianSign(ctx context.Context, req *MusicianSignReq) (*Musician
 	if req == nil {
 		req = &MusicianSignReq{}
 	}
-
-	a.fillMusicianEAPIReq(&req.EApiReqCommon)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/creator/user/access"
@@ -236,8 +232,6 @@ func (a *Api) MusicianMissionCycleList(ctx context.Context, req *MusicianMission
 		req = &MusicianMissionListReq{}
 	}
 
-	a.fillMusicianEAPIReq(&req.EApiReqCommon)
-
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/mission/cycle/list"
 		reply MusicianMissionListResp
@@ -258,8 +252,6 @@ func (a *Api) MusicianMissionStageList(ctx context.Context, req *MusicianMission
 	if req == nil {
 		req = &MusicianMissionListReq{}
 	}
-
-	a.fillMusicianEAPIReq(&req.EApiReqCommon)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/mission/stage/list"
@@ -298,8 +290,6 @@ func (a *Api) MusicianRewardObtain(ctx context.Context, req *MusicianRewardObtai
 	if req.UserMissionId <= 0 {
 		return nil, errors.New("userMissionId is required")
 	}
-
-	a.fillMusicianEAPIReq(&req.EApiReqCommon)
 
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/mission/reward/obtain/new"

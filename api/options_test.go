@@ -50,10 +50,11 @@ func TestRequestRejectsUnknownCryptoModeWithoutPanic(t *testing.T) {
 	}
 }
 
-func TestCookieHelpersSkipNilValues(t *testing.T) {
-	client := &Client{}
-	cookie := &http.Cookie{Name: "token", Value: "value"}
+func TestOptionsGetCookieUsesLastValue(t *testing.T) {
+	first := &http.Cookie{Name: "token", Value: "first"}
+	last := &http.Cookie{Name: "token", Value: "last"}
+	opts := &Options{Cookies: []*http.Cookie{first, nil, last}}
 
-	assert.Same(t, cookie, client.resolveRequestCookie("token", []*http.Cookie{nil, cookie}, ""))
-	assert.Equal(t, []*http.Cookie{cookie}, client.excludeCookie(nil, []*http.Cookie{nil, cookie}))
+	assert.Same(t, last, opts.GetCookie("token"))
+	assert.Nil(t, opts.GetCookie("missing"))
 }

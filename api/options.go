@@ -3,7 +3,10 @@
 
 package api
 
-import "net/http"
+import (
+	"net/http"
+	"slices"
+)
 
 type CryptoMode string
 
@@ -70,7 +73,7 @@ func (o *Options) SetCookies(c ...*http.Cookie) {
 }
 
 func (o *Options) GetCookie(key string) *http.Cookie {
-	for _, c := range o.Cookies {
+	for _, c := range slices.Backward(o.Cookies) {
 		if c == nil {
 			continue
 		}

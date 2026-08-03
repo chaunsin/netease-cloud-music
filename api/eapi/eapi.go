@@ -5,7 +5,6 @@ package eapi
 
 import (
 	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/api/types"
 )
 
 type Api struct {
@@ -15,18 +14,4 @@ type Api struct {
 func New(client *api.Client) *Api {
 	a := Api{client: client}
 	return &a
-}
-
-func (a *Api) fillMusicianEAPIReq(req *types.EApiReqCommon) {
-	if req.DeviceId == "" {
-		req.DeviceId = a.client.GetDeviceId()
-	}
-
-	if req.OS == "" {
-		req.OS = "iOS"
-	}
-
-	if req.VerifyId == 0 {
-		req.VerifyId = 1
-	}
 }
