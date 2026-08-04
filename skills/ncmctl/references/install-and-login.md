@@ -86,6 +86,8 @@ make build-image
 
 Use the repository's [Qinglong guide](https://github.com/chaunsin/netease-cloud-music/blob/master/docs/qinglong.md). Its `NCMCTL_QINGLONG_*` variables belong to the Qinglong wrapper scripts; they are not general credential variables implemented by the ncmctl binary.
 
+The Qinglong installer treats GitHub Releases as the only release source. It tries `https://ghproxy.net/`, `https://ghfast.top/`, and `https://gh-proxy.com/` in order before falling back to GitHub. Override the whitespace-separated prefixes with `NCMCTL_QINGLONG_GITHUB_PROXIES`, or set it to an empty value for direct GitHub only. `NCMCTL_QINGLONG_MAX_ATTEMPTS` controls transient attempts per URL and defaults to `1` (values above `1` require curl 7.52.0 or newer); invalid content, checksum failures, and wrong binary versions switch routes immediately. A valid installed SemVer newer than the resolved Release is not downgraded.
+
 ## Upgrade
 
 Re-run the installation mechanism and verify the resulting version:

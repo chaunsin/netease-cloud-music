@@ -16,8 +16,13 @@
 | XEAPI + GET/PUT | 原始 method 放入加密 envelope，传输仍为 POST | `api.Client.Request` 保留原始 method 参与加密并固定使用 POST 发送 | envelope 单元测试及离线传输测试已覆盖 |
 | URL 改写 | envelope 保留 `/api/`，传输改为 `/xeapi/`，query 进入 envelope | `rewriteXeapiURL` 按该边界实现 | 有本地单元测试 |
 | 响应与会话 | 传统 EAPI 响应解密，保存 `X-Encr-Ssid` / `X-Encr-Sskey` | `XeapiDecrypt`；仅在 HTTP 200 且解密、JSON 解析成功后，按本地公钥修订号和请求顺序更新完整会话 | 解密向量与离线状态测试已覆盖；线上交互仍未验证 |
+| CLI 离线解密 | `R` 可由静态 key 还原；`B` 还需要当次 dynamic/session key；`S` 需要请求端 X25519 私钥 | `XeapiDecryptRequest` 解 `R` 及可选的 `B`，`crypto decrypt` 支持直输、文件和 HAR；不解 `S`，也不开放 XEAPI CLI 加密 | Issue #174 固定向量、畸形输入及 CLI/HAR 离线测试已覆盖 |
 
 上表是实现状态说明，不是将当前代码反向视为协议正确性证据。修复仅有源码依据或已知缺口的项目前，应先获得抓包或兼容实现的固定向量。
+
+`ncmctl crypto decrypt --kind xeapi` 的直输默认按响应处理；请求需显式选择 `--target request` 并传入 URL-encoded `B/S/R`。未提供 dynamic key、请求字段不完整或表单畸形时，会尽量保留可恢复的 `R` 版本和 session ID，将该请求标为 `partial`，继续处理 HAR 响应及后续条目，写完完整 JSON 后退出非零；HAR 结构和响应解密错误仍快速失败。`--target` 只解析选中的一侧。输出中的每个 `ciphertext` 都由 `ciphertextEncoding` 标明表示方式，原始字节和 HAR 响应统一以 Base64 保存，避免二进制经过 JSON UTF-8 替换而损坏。
+
+dynamic/session key 属于敏感信息，只接受显式参数，不从 HAR 响应头或本地 `xeapi.yaml` 自动读取，也不会记录其值；命令行参数仍可能出现在 shell history 和进程列表中。
 
 公钥刷新中的 `t1`、`t2`、`uid`、`checkToken` 可通过 `Options.XeapiKeyRefresh` 分别注入。本地客户端不会伪造运行时 SDK Token；未提供时 `t1`、`t2`、`uid` 保持空字符串，`checkToken` 省略，且不会拿 `X-antiCheatToken` 替代这些字段。
 

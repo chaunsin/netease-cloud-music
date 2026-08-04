@@ -6,7 +6,7 @@ require (
 	codeberg.org/sbinet/mozcookie v0.4.0
 	github.com/andybalholm/brotli v1.2.1
 	github.com/bogem/id3v2/v2 v2.1.4
-	github.com/chaunsin/go-har v0.0.0-20250701034644-7438631031b9
+	github.com/chaunsin/go-har v0.0.0-20260803121011-24f803d1ae68
 	github.com/cheggaaa/pb/v3 v3.1.7
 	github.com/dgraph-io/badger/v4 v4.9.2
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8

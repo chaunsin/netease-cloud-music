@@ -296,6 +296,12 @@ func TestXeapiEncryptIssue174GoldenBody(t *testing.T) {
 		"S": "B6N8vBQgk8i3VdwbEOhstCY3StFqqFPtC9/AsrhtHHwAAQIDBAUGBwgJCguNFV1OAc3Z5noM7bYwvLwNFBK0H8NY/JVdIRN2dRDdG1JrMTLDI/ArlqMSIXdq9rfulgMKqRO7imtYLn8PrI4cIbwOdSkz",
 		"R": "3LCoCTuHo/mDfZ1x3PtHsQ==",
 	}, got)
+
+	decrypted, err := XeapiDecryptRequest(XeapiEncryptedRequest{B: got["B"], R: got["R"]}, dynamicKey)
+	require.NoError(t, err)
+	assert.Equal(t, "1000000000000", decrypted.PublicKeyVersion)
+	assert.Empty(t, decrypted.SessionID)
+	assert.JSONEq(t, `{"body":"","queryString":"e_r=true"}`, string(decrypted.Plaintext))
 }
 
 func TestXeapiEncrypt(t *testing.T) {
@@ -331,17 +337,20 @@ func TestXeapiEncrypt(t *testing.T) {
 
 	assert.NotEqual(t, withSession["R"], withoutSession["R"])
 
-	plaintext := decryptXeapiB(t, withSession["B"], []byte("0123456789abcdef"))
+	decrypted, err := XeapiDecryptRequest(
+		XeapiEncryptedRequest{B: withSession["B"], R: withSession["R"]},
+		[]byte("0123456789abcdef"),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "v1", decrypted.PublicKeyVersion)
+	assert.Equal(t, "session-id", decrypted.SessionID)
 
 	var envelope map[string]string
-	require.NoError(t, json.Unmarshal(plaintext, &envelope))
+	require.NoError(t, json.Unmarshal(decrypted.Plaintext, &envelope))
 	assert.Equal(t, "id=1&e_r=true", envelope["queryString"])
 	body, err := base64.StdEncoding.DecodeString(envelope["body"])
 	require.NoError(t, err)
 	assert.Equal(t, "id=1", string(body))
-
-	rPlaintext := decryptXeapiR(t, withSession["R"])
-	assert.Equal(t, "v1|session-id", string(rPlaintext))
 
 	sPlaintext := decryptXeapiS(t, withSession["S"], peer)
 	assert.Equal(t, base64.StdEncoding.EncodeToString([]byte("0123456789abcdef"))+"|android|server-key", string(sPlaintext))
@@ -387,6 +396,57 @@ func TestDynamicKeyValidatesSessionPairAndRawKeyLength(t *testing.T) {
 	require.ErrorIs(t, err, ErrSessionKeyLength)
 }
 
+func TestXeapiDecryptRequestRejectsMalformedInput(t *testing.T) {
+	dynamicKey := []byte("0123456789abcdef")
+	validR := encryptXeapiTestValue(t, xeapiStaticKey, []byte("v1|session-id"))
+	invalidR := encryptXeapiTestValue(t, xeapiStaticKey, []byte("missing-separator"))
+	emptyVersionR := encryptXeapiTestValue(t, xeapiStaticKey, []byte("|session-id"))
+	extraSeparatorR := encryptXeapiTestValue(t, xeapiStaticKey, []byte("v1|session|extra"))
+	oversizedPaddingR := encryptXeapiTestBlocks(t, xeapiStaticKey, append(
+		[]byte("v1|session-idxx"),
+		bytes.Repeat([]byte{17}, 17)...,
+	))
+	shortMid := encryptXeapiTestValue(t, dynamicKey, make([]byte, aes.BlockSize))
+	invalidMidBase64 := encryptXeapiTestValue(t, dynamicKey, append(make([]byte, aes.BlockSize), '!'))
+	invalidInnerMid := append(
+		make([]byte, aes.BlockSize),
+		[]byte(base64.StdEncoding.EncodeToString(make([]byte, aes.BlockSize)))...,
+	)
+	invalidInner := encryptXeapiTestValue(t, dynamicKey, invalidInnerMid)
+
+	tests := []struct {
+		name    string
+		req     XeapiEncryptedRequest
+		key     []byte
+		wantErr string
+	}{
+		{name: "missing R", req: XeapiEncryptedRequest{}, wantErr: "xeapi R is empty"},
+		{name: "invalid R base64", req: XeapiEncryptedRequest{R: "%%%"}, wantErr: "base64.DecodeString R"},
+		{name: "invalid R plaintext", req: XeapiEncryptedRequest{R: invalidR}, wantErr: "invalid R plaintext"},
+		{name: "empty R version", req: XeapiEncryptedRequest{R: emptyVersionR}, wantErr: "invalid R plaintext"},
+		{name: "extra R separator", req: XeapiEncryptedRequest{R: extraSeparatorR}, wantErr: "invalid R plaintext"},
+		{name: "oversized R padding", req: XeapiEncryptedRequest{R: oversizedPaddingR}, wantErr: "invalid padding size"},
+		{name: "missing B", req: XeapiEncryptedRequest{R: validR}, key: dynamicKey, wantErr: "xeapi B is empty"},
+		{name: "invalid dynamic key", req: XeapiEncryptedRequest{B: "AA==", R: validR}, key: []byte("short"), wantErr: "invalid key size"},
+		{name: "invalid B base64", req: XeapiEncryptedRequest{B: "%%%", R: validR}, key: dynamicKey, wantErr: "base64.DecodeString B"},
+		{name: "short mid payload", req: XeapiEncryptedRequest{B: shortMid, R: validR}, key: dynamicKey, wantErr: "mid payload too short"},
+		{name: "invalid mid base64", req: XeapiEncryptedRequest{B: invalidMidBase64, R: validR}, key: dynamicKey, wantErr: "reversed mid payload"},
+		{name: "invalid inner padding", req: XeapiEncryptedRequest{B: invalidInner, R: validR}, key: dynamicKey, wantErr: "decrypt B inner layer"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := XeapiDecryptRequest(tt.req, tt.key)
+			require.ErrorContains(t, err, tt.wantErr)
+
+			if tt.req.R == validR {
+				assert.Equal(t, "v1", got.PublicKeyVersion)
+				assert.Equal(t, "session-id", got.SessionID)
+			}
+		})
+	}
+}
+
 func TestXeapiDecrypt(t *testing.T) {
 	t.Run("plain json", func(t *testing.T) {
 		ciphertext, err := aesECBEncrypt([]byte(eApiKey), []byte(`{"code":200}`))
@@ -425,53 +485,6 @@ func decodeXeapiEnvelope(t *testing.T, req *XeapiEncryptRequest) map[string]stri
 	return envelope
 }
 
-func decryptXeapiB(t *testing.T, encryptedB string, dynamicKey []byte) []byte {
-	t.Helper()
-
-	ciphertext, err := base64.StdEncoding.DecodeString(encryptedB)
-	require.NoError(t, err)
-	mid, err := aesECBDecrypt(dynamicKey, ciphertext)
-	require.NoError(t, err)
-
-	if len(mid) < 16 {
-		t.Fatalf("midTransform payload too short: %d", len(mid))
-	}
-
-	random := mid[:16]
-	rotated := mid[16:]
-
-	rot := 0
-	if len(rotated) > 0 {
-		rot = int(random[0]&0x0f) % len(rotated)
-	}
-
-	b64 := make([]byte, 0, len(rotated))
-	b64 = append(b64, rotated[len(rotated)-rot:]...)
-	b64 = append(b64, rotated[:len(rotated)-rot]...)
-
-	xored, err := base64.StdEncoding.DecodeString(string(b64))
-	require.NoError(t, err)
-
-	inner := make([]byte, len(xored))
-	for i := range xored {
-		inner[i] = xored[i] ^ random[i&0x0f]
-	}
-
-	plaintext, err := aesECBDecrypt(xeapiStaticKey, inner)
-	require.NoError(t, err)
-	return plaintext
-}
-
-func decryptXeapiR(t *testing.T, encryptedR string) []byte {
-	t.Helper()
-
-	ciphertext, err := base64.StdEncoding.DecodeString(encryptedR)
-	require.NoError(t, err)
-	plaintext, err := aesECBDecrypt(xeapiStaticKey, ciphertext)
-	require.NoError(t, err)
-	return plaintext
-}
-
 func decryptXeapiS(t *testing.T, encryptedS string, peer *ecdh.PrivateKey) []byte {
 	t.Helper()
 
@@ -501,6 +514,23 @@ func decryptXeapiS(t *testing.T, encryptedS string, peer *ecdh.PrivateKey) []byt
 	plaintext, err := gcm.Open(nil, iv, ciphertext, nil)
 	require.NoError(t, err)
 	return plaintext
+}
+
+func encryptXeapiTestValue(t *testing.T, key, plaintext []byte) string {
+	t.Helper()
+
+	ciphertext, err := aesECBEncrypt(key, plaintext)
+	require.NoError(t, err)
+	return base64.StdEncoding.EncodeToString(ciphertext)
+}
+
+func encryptXeapiTestBlocks(t *testing.T, key, plaintext []byte) string {
+	t.Helper()
+
+	block, err := aes.NewCipher(key)
+	require.NoError(t, err)
+	require.Zero(t, len(plaintext)%block.BlockSize())
+	return base64.StdEncoding.EncodeToString(AesEncryptECB(block, plaintext))
 }
 
 func stubXeapiRandomness(t *testing.T, randoms [][]byte, privateKey []byte) {

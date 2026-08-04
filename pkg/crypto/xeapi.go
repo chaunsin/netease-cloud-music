@@ -131,6 +131,21 @@ type XeapiEncryptRequest struct {
 	UID         string
 }
 
+// XeapiEncryptedRequest contains the request fields that can be decrypted
+// without either side's X25519 private key. S is intentionally excluded.
+type XeapiEncryptedRequest struct {
+	B string
+	R string
+}
+
+// XeapiDecryptedRequest describes the metadata from R and, when a dynamic key
+// is available, the plaintext request envelope from B.
+type XeapiDecryptedRequest struct {
+	PublicKeyVersion string
+	SessionID        string
+	Plaintext        []byte
+}
+
 type xeapiPlaintextEnvelope struct {
 	Body        *string `json:"body,omitempty"`
 	Method      string  `json:"method,omitempty"`
@@ -154,6 +169,33 @@ func XeapiDecrypt(body []byte) ([]byte, error) {
 	}
 
 	return utils.GzipReader(plaintext)
+}
+
+// XeapiDecryptRequest decrypts R with the known static key and optionally B
+// with a caller-supplied dynamic or session key. If R succeeds but B fails,
+// the returned result retains the R metadata alongside the non-nil error. S
+// requires an X25519 private key and is outside this API's recoverable boundary.
+func XeapiDecryptRequest(req XeapiEncryptedRequest, dynamicKey []byte) (XeapiDecryptedRequest, error) {
+	version, sessionID, err := decryptXeapiR(req.R)
+	if err != nil {
+		return XeapiDecryptedRequest{}, fmt.Errorf("decrypt R: %w", err)
+	}
+
+	result := XeapiDecryptedRequest{
+		PublicKeyVersion: version,
+		SessionID:        sessionID,
+	}
+	if len(dynamicKey) == 0 {
+		return result, nil
+	}
+
+	plaintext, err := decryptXeapiB(req.B, dynamicKey)
+	if err != nil {
+		return result, fmt.Errorf("decrypt B: %w", err)
+	}
+
+	result.Plaintext = plaintext
+	return result, nil
 }
 
 // XeapiEncrypt 将原始 API 请求加密并封装为 xeapi 的 B/S/R 表单参数。
@@ -459,6 +501,74 @@ func midTransform(ciphertext []byte) ([]byte, error) {
 	out = append(out, b64[rot:]...)
 	out = append(out, b64[:rot]...)
 	return out, nil
+}
+
+func decryptXeapiB(encryptedB string, dynamicKey []byte) ([]byte, error) {
+	if encryptedB == "" {
+		return nil, errors.New("xeapi B is empty")
+	}
+
+	ciphertext, err := base64.StdEncoding.DecodeString(encryptedB)
+	if err != nil {
+		return nil, fmt.Errorf("base64.DecodeString B: %w", err)
+	}
+
+	mid, err := aesECBDecrypt(dynamicKey, ciphertext)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt B outer layer: %w", err)
+	}
+
+	if len(mid) <= aes.BlockSize {
+		return nil, fmt.Errorf("mid payload too short: got %d bytes", len(mid))
+	}
+
+	var (
+		random  = mid[:aes.BlockSize]
+		rotated = mid[aes.BlockSize:]
+		rot     = int(random[0]&0x0f) % len(rotated)
+	)
+
+	b64 := make([]byte, 0, len(rotated))
+	b64 = append(b64, rotated[len(rotated)-rot:]...)
+	b64 = append(b64, rotated[:len(rotated)-rot]...)
+
+	xored, err := base64.StdEncoding.DecodeString(string(b64))
+	if err != nil {
+		return nil, fmt.Errorf("base64.DecodeString reversed mid payload: %w", err)
+	}
+
+	inner := make([]byte, len(xored))
+	for i := range xored {
+		inner[i] = xored[i] ^ random[i%len(random)]
+	}
+
+	plaintext, err := aesECBDecrypt(xeapiStaticKey, inner)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt B inner layer: %w", err)
+	}
+	return plaintext, nil
+}
+
+func decryptXeapiR(encryptedR string) (string, string, error) {
+	if encryptedR == "" {
+		return "", "", errors.New("xeapi R is empty")
+	}
+
+	ciphertext, err := base64.StdEncoding.DecodeString(encryptedR)
+	if err != nil {
+		return "", "", fmt.Errorf("base64.DecodeString R: %w", err)
+	}
+
+	plaintext, err := aesECBDecrypt(xeapiStaticKey, ciphertext)
+	if err != nil {
+		return "", "", fmt.Errorf("decrypt R: %w", err)
+	}
+
+	version, sessionID, ok := strings.Cut(string(plaintext), "|")
+	if !ok || strings.TrimSpace(version) == "" || strings.Contains(sessionID, "|") {
+		return "", "", errors.New("invalid R plaintext format")
+	}
+	return version, sessionID, nil
 }
 
 func encryptS(dynamicKey []byte, publicKey XeapiPublicKeyState, os string) ([]byte, error) {

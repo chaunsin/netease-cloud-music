@@ -24,9 +24,9 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
 
-func closeAPIClient(ctx context.Context, client *api.Client) {
+func closeAPIClient(ctx context.Context, client *api.Client, l *log.Logger) {
 	if err := client.Close(ctx); err != nil {
-		log.Errorf("close API client: %v", err)
+		l.Errorf("close API client: %v", err)
 	}
 }
 

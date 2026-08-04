@@ -20,8 +20,12 @@ lint:
 	golangci-lint run -c .golangci.yaml ./...
 
 .PHONY: test
-test:
+test: test-qinglong
 	go test -v ./...
+
+.PHONY: test-qinglong
+test-qinglong:
+	bash script/qinglong/tests/install_test.sh
 
 .PHONY: test-live
 test-live:

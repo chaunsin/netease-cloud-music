@@ -66,7 +66,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer closeAPIClient(ctx, cli)
+	defer closeAPIClient(ctx, cli, c.l)
 
 	request := weapi.New(cli)
 
@@ -133,7 +133,7 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 			return fmt.Errorf("QrcodeCheck: %w", checkErr)
 		}
 
-		log.Debugf("QrcodeCheck code=%d", resp.Code)
+		c.l.Debugf("QrcodeCheck code=%d", resp.Code)
 
 		switch resp.Code {
 		case 800: // 二维码不存在、已过期、用户取消授权
@@ -153,7 +153,7 @@ ok:
 
 	if removeErr := os.Remove(file); removeErr != nil {
 		if !os.IsNotExist(removeErr) {
-			log.Infof("remove qrcode file: %s", removeErr)
+			c.l.Infof("remove qrcode file: %s", removeErr)
 		}
 	}
 

@@ -39,7 +39,7 @@ func TestProxyValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			proxy := NewProxy(&Root{}, nil)
+			proxy := NewProxy(&Root{})
 			if tt.mutate != nil {
 				tt.mutate(&proxy.opts)
 			}
@@ -74,7 +74,7 @@ func TestProxyValidateCustomCA(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	proxy := NewProxy(&Root{}, nil)
+	proxy := NewProxy(&Root{})
 	proxy.opts.CACertPath = certPath
 
 	proxy.opts.CAKeyPath = keyPath
@@ -85,7 +85,7 @@ func TestProxyValidateCustomCA(t *testing.T) {
 
 func TestProxyCAPaths(t *testing.T) {
 	home := t.TempDir()
-	proxy := NewProxy(&Root{Opts: RootOpts{Home: home}}, nil)
+	proxy := NewProxy(&Root{Opts: RootOpts{Home: home}})
 
 	certPath, keyPath := proxy.caPaths()
 	if want := filepath.Join(home, ".ncmctl", "proxy", "ca.crt"); certPath != want {
@@ -106,7 +106,7 @@ func TestProxyCAPaths(t *testing.T) {
 }
 
 func TestProxyRejectsArguments(t *testing.T) {
-	proxy := NewProxy(&Root{}, nil)
+	proxy := NewProxy(&Root{})
 	if err := proxy.cmd.Args(proxy.cmd, []string{"unexpected"}); err == nil {
 		t.Fatal("expected positional argument to be rejected")
 	}

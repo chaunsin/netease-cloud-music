@@ -23,7 +23,9 @@ Execution order:
 1. Cobra parses persistent flags (`--debug`, `--config`, and `--home`).
 2. `PersistentPreRunE` loads and validates runtime configuration, applies CLI overrides, and initializes the logger. Load `references/configuration.md` through the skill routing table when changing this step.
 3. The selected command validates arguments and runs its operation.
-4. On a successful command path, `PersistentPostRunE` closes the logger. Cobra skips post-run hooks when `RunE` returns an error, so critical cleanup cannot rely on this hook.
+4. `Root.Execute` closes the logger after Cobra returns, including command-error paths. Keep critical root cleanup outside `PersistentPostRunE`, because Cobra skips post-run hooks when `RunE` returns an error.
+
+`Root` owns address-stable logger storage before registering the command tree. Constructors receive that address, and `PersistentPreRunE` initializes the same storage after configuration and CLI overrides are final. Command methods log through their direct `c.l` field; do not copy a nil logger during construction, add package-level fallbacks, or reach through nested `root` fields to find the active logger. `log.Default` remains an alias for lower-level packages that still use package-level logging.
 
 ## Command map
 
@@ -71,7 +73,7 @@ cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 if err != nil {
 	return fmt.Errorf("NewClient: %w", err)
 }
-defer closeAPIClient(ctx, cli)
+defer closeAPIClient(ctx, cli, c.l)
 
 request := weapi.New(cli)
 ```
@@ -121,7 +123,11 @@ The flag is retained for compatibility but tag writing is not implemented. Do no
 
 ### `crypto decrypt`
 
-Direct request decryption currently supports EAPI. WEAPI cannot be decrypted without its random client key, and the direct Linux/API branches are not implemented. Do not advertise accepted `--kind` strings as implemented decrypt capabilities.
+Direct input defaults to an EAPI request or an XEAPI response; HAR input defaults to both request and response. A direct XEAPI request must be a URL-encoded `B/S/R` form selected with `--target request`. Decrypt `R` unconditionally with the static key, decrypt `B` only with the explicitly supplied dynamic/session key, and preserve `S` without claiming it is recoverable: doing so requires the request's X25519 private key.
+
+Keep dynamic/session keys explicit. Do not infer them from HAR response headers or persisted `xeapi.yaml`, and never log the value. A missing or incorrect key, incomplete request fields, or malformed XEAPI form is a per-request partial failure: retain recoverable `R` metadata, write the complete JSON, continue HAR response and later-entry processing, then return a non-zero aggregate error. Parse only the side selected by `--target`; HAR structure and response-decryption failures remain fail-fast.
+
+Ciphertext in JSON must remain byte-recoverable. Preserve direct hex/base64 input in that representation, encode raw direct bytes and HAR response bytes as Base64, and set `ciphertextEncoding` on every populated `ciphertext` field. WEAPI still cannot be decrypted without its random client key, and the direct Linux/API branches are not implemented. Do not advertise accepted `--kind` strings as implemented capabilities in both subcommands.
 
 ### Credential flags
 

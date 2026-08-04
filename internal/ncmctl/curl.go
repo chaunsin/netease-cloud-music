@@ -107,7 +107,7 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer closeAPIClient(ctx, cli)
+	defer closeAPIClient(ctx, cli, c.l)
 
 	ctx, cancel := context.WithTimeout(ctx, c.opts.Timeout)
 	defer cancel()
@@ -138,7 +138,7 @@ func (c *Curl) execute(ctx context.Context, args []string) error {
 		return fmt.Errorf("method %s args length %d invalid", c.opts.Method, n)
 	}
 
-	log.Debugf("method: %+v", methodName)
+	c.l.Debugf("method: %+v", methodName)
 
 	var (
 		t        = methodName.Func.Type()

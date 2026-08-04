@@ -162,7 +162,7 @@ func (c *loginCookieCmd) execute(ctx context.Context, args []string) error {
 		return fmt.Errorf("format is not support: %v", c.format)
 	}
 
-	log.Debugf("cookie login input: format=%q file=%t positional=%t", c.format, c.File != "", content != "")
+	c.l.Debugf("cookie login input: format=%q file=%t positional=%t", c.format, c.File != "", content != "")
 
 	data := []byte(content)
 
@@ -213,7 +213,7 @@ func (c *loginCookieCmd) execute(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer closeAPIClient(ctx, cli)
+	defer closeAPIClient(ctx, cli, c.l)
 
 	cli.SetCookies(u, cookies)
 

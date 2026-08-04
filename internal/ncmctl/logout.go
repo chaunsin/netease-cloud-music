@@ -78,7 +78,7 @@ func (c *Logout) execute(ctx context.Context, _ []string) error {
 	closeOnReturn := true
 	defer func() {
 		if closeOnReturn {
-			closeAPIClient(ctx, cli)
+			closeAPIClient(ctx, cli, c.l)
 		}
 	}()
 

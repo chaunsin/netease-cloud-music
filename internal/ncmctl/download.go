@@ -159,7 +159,7 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer closeAPIClient(ctx, cli)
+	defer closeAPIClient(ctx, cli, c.l)
 
 	request := weapi.New(cli)
 
@@ -172,7 +172,7 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 	defer func() {
 		refresh, refreshErr := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
 		if refreshErr != nil || refresh.Code != 200 {
-			log.Warnf("TokenRefresh resp:%+v err: %s", refresh, refreshErr)
+			c.l.Warnf("TokenRefresh resp:%+v err: %s", refresh, refreshErr)
 		}
 	}()
 
@@ -214,7 +214,7 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 
 			if err := c.download(ctx, cli, request, song, pool); err != nil {
 				failed.Add(1)
-				log.Errorf("download %s err: %v", song.String(), err)
+				c.l.Errorf("download %s err: %v", song.String(), err)
 				// c.cmd.Printf("download %s err: %v\n", song.String(), err)
 				return
 			}
@@ -227,7 +227,7 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 	return nil
 }
 
-func fetchSongDetails(ctx context.Context, request *weapi.Api, ids []int64) ([]Music, error) {
+func (c *Download) fetchSongDetails(ctx context.Context, request *weapi.Api, ids []int64) ([]Music, error) {
 	pages, err := utils.SplitSlice(ids, 500)
 	if err != nil {
 		return nil, fmt.Errorf("split song IDs: %w", err)
@@ -251,7 +251,7 @@ func fetchSongDetails(ctx context.Context, request *weapi.Api, ids []int64) ([]M
 		}
 
 		if len(resp.Songs) == 0 {
-			log.Warnf("SongDetail Songs is empty")
+			c.l.Warnf("SongDetail Songs is empty")
 			continue
 		}
 
@@ -303,7 +303,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 				tmp = append(tmp, id)
 			}
 
-			songs, err := fetchSongDetails(ctx, request, tmp)
+			songs, err := c.fetchSongDetails(ctx, request, tmp)
 			if err != nil {
 				return nil, err
 			}
@@ -329,7 +329,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 					}
 
 					if len(artist.Songs) == 0 {
-						log.Warnf("ArtistSongs(%v) songs is empty", id)
+						c.l.Warnf("ArtistSongs(%v) songs is empty", id)
 						break
 					}
 
@@ -369,7 +369,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 				}
 
 				if len(album.Songs) == 0 {
-					log.Warnf("Album(%v) Songs is empty", id)
+					c.l.Warnf("Album(%v) Songs is empty", id)
 					continue
 				}
 
@@ -404,7 +404,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 				}
 
 				if playlist.Playlist.TrackIds == nil {
-					log.Warnf("PlaylistDetail(%v) Tracks is nil", id)
+					c.l.Warnf("PlaylistDetail(%v) Tracks is nil", id)
 					continue
 				}
 
@@ -419,7 +419,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 					tmp = append(tmp, v.Id)
 				}
 
-				songs, err := fetchSongDetails(ctx, request, tmp)
+				songs, err := c.fetchSongDetails(ctx, request, tmp)
 				if err != nil {
 					return nil, err
 				}
@@ -463,7 +463,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	}
 
 	quality, level, ok := qualityResp.Data.FindBetter(types.Level(c.opts.Level))
-	log.Debugf("SongMusicQuality(%v) quality level=%s info=%+v", songId, types.LevelString[level], quality)
+	c.l.Debugf("SongMusicQuality(%v) quality level=%s info=%+v", songId, types.LevelString[level], quality)
 
 	if !ok && c.opts.Strict {
 		return fmt.Errorf("SongMusicQuality(%v) not support %v", songId, types.Level(c.opts.Level))
@@ -492,7 +492,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	// 	default:
 	// 		msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
 	// 	}
-	// 	log.Warnf("资源已下架或无版权(%v) detail: %+v", songId, downResp)
+	// 	c.l.Warnf("资源已下架或无版权(%v) detail: %+v", songId, downResp)
 	// 	return msg
 	// }
 
@@ -521,7 +521,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	// 	default:
 	// 		msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
 	// 	}
-	// 	log.Warnf("资源已下架或无版权(%v) detail: %+v", songId, downResp)
+	// 	c.l.Warnf("资源已下架或无版权(%v) detail: %+v", songId, downResp)
 	// 	return msg
 	// }
 
@@ -558,7 +558,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 			msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, ret.Code)
 		}
 
-		log.Warnf("资源已下架或无版权(%v) code=%v message=%v", songId, ret.Code, ret.Message)
+		c.l.Warnf("资源已下架或无版权(%v) code=%v message=%v", songId, ret.Code, ret.Message)
 		return msg
 	}
 
@@ -588,14 +588,14 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	if c.root.Opts.Debug {
 		dump, err := httputil.DumpResponse(resp, false)
 		if err != nil {
-			log.Debugf("DumpResponse err: %s", err)
+			c.l.Debugf("DumpResponse err: %s", err)
 		} else {
-			log.Debugf("Download DumpResponse: %s", dump)
+			c.l.Debugf("Download DumpResponse: %s", dump)
 		}
 	}
 
 	size := resp.ContentLength
-	log.Debugf("id=%v status=%d downloadUrl=%v wantLevel=%v-%v realLevel=%v-%v encodeType=%v type=%v size=%vM,%vKB free=%v tempFile=%s outDir=%s",
+	c.l.Debugf("id=%v status=%d downloadUrl=%v wantLevel=%v-%v realLevel=%v-%v encodeType=%v type=%v size=%vM,%vKB free=%v tempFile=%s outDir=%s",
 		drd.Id, resp.StatusCode, drd.Url, c.opts.Level, quality.Br, drd.Level, drd.Br, drd.EncodeType, drd.Type, size/utils.MB, size, types.Free(drd.Fee), file.Name(), dest)
 
 	// 校验md5文件完整性
@@ -626,7 +626,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	}
 	// 显示关闭文件避免Windows系统无法重命名错误: The process cannot access the file because it is being used by another process
 	if err := file.Close(); err != nil {
-		log.Errorf("close %s file err: %s", file.Name(), err)
+		c.l.Errorf("close %s file err: %s", file.Name(), err)
 		_ = os.Remove(file.Name())
 	}
 

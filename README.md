@@ -61,7 +61,7 @@
 
 #### 🛠️ 调试工具
 
-- [X] 🔐 `crypto` 子命令 - 本地加密 WEAPI/EAPI/Linux API 参数；直接解密当前仅支持 EAPI
+- [X] 🔐 `crypto` 子命令 - 本地加密 WEAPI/EAPI/Linux API 参数；解密 EAPI 请求及 XEAPI 请求/响应
 - [X] 🌐 `curl` 子命令 - 按导出的 Go 方法名调用 API wrapper；是否需要登录及是否修改账号取决于具体接口
   - [ ] 支持动态链接请求
 - [X] 🔎 `proxy` 子命令 - 监控网易云音乐 HTTP(S) 接口请求与响应
@@ -88,7 +88,7 @@
 | `eapi` | 请求加密；缺失 `e_r` / `header` 时分别发送 `true` / `"{}"`；`e_r=false` 时解析明文 JSON，`e_r=true` 时解密原始二进制响应，`x-aeapi=true` 时再透明展开解密后的 gzip 内容；非 200 响应按相同规则处理后以 `api.APIError` 返回状态码 |
 | `api` | 不加密；通用请求参数序列化尚未完成 |
 | `linux` | Linux API 的请求/响应加解密，暂无高级 endpoint wrapper |
-| `xeapi` | 底层 Aegis/XEAPI 封装，暂无独立 endpoint wrapper，CLI `curl -k` 也不支持；默认 POST 路径只有本地测试验证 |
+| `xeapi` | 底层 Aegis/XEAPI 封装，暂无独立 endpoint wrapper，CLI `curl -k` 也不支持；`crypto decrypt` 可离线解密响应，并在显式提供 dynamic/session key 时解密请求 `B`，但不解密 `S`；默认 POST 路径只有本地测试验证 |
 
 > 💡 **提示：** XEAPI 的研究背景见 [docs/xeapi.md](docs/xeapi.md)，实际行为以源码和外部协议证据一起验证。如需新增接口可提
 > [Issue](https://github.com/chaunsin/netease-cloud-music/issues)。
@@ -150,6 +150,8 @@ cd netease-cloud-music && make build-image
 
 详见 👉 [青龙脚本安装指南](docs/qinglong.md)
 
+青龙安装脚本只以 GitHub Releases 为发布源，默认依次尝试 3 个可配置代理并最终回退 GitHub；使用 `NCMCTL_QINGLONG_GITHUB_PROXIES` 覆盖代理列表或设置为空以仅使用直连。候选文件通过 SHA-256 和版本校验后才会安装，且不会把已有的较新 SemVer 版本降级。
+
 ---
 
 ## 🤖 AI 助手技能
@@ -207,10 +209,12 @@ cp -r skills/ncmctl ~/.codex/skills/
 | `ncmctl download <id-or-url> [id-or-url...]` | 是 | 下载歌曲、专辑、歌手或歌单，并在 MD5 校验后写入本地文件 |
 | `ncmctl cloud <file-or-directory>` | 是 | 上传一个本地音乐文件或递归扫描一个目录，修改账号云盘 |
 | `ncmctl ncm <input> [input...]` | 否 | 本地解密一个或多个 `.ncm` 文件/目录；使用 `--output` 指定输出目录 |
-| `ncmctl crypto <encrypt-or-decrypt>` | 否 | 本地调试旧版 API 加密格式；直接请求解密当前仅支持 EAPI |
+| `ncmctl crypto <encrypt-or-decrypt>` | 否 | 本地调试 API 加密格式；支持 EAPI 请求及 XEAPI 请求/响应解密，XEAPI 加密暂未开放 |
 | `ncmctl curl [method]` | 取决于接口 | 按导出的 Go API 方法名发起真实请求，登录要求和副作用由所选接口决定 |
 | `ncmctl proxy [flags]` | 否 | 启动 HTTP(S) 代理并管理本地 CA，默认脱敏捕获网易相关流量 |
 | `ncmctl completion <shell>` | 否 | 将 bash、fish、PowerShell 或 zsh 补全脚本写到标准输出 |
+
+`crypto decrypt` 的 JSON 会用 `ciphertextEncoding` 标明密文表示方式；原始二进制输入和 HAR 响应以 Base64 保存，避免密文字节在 JSON UTF-8 转换中损坏。XEAPI 请求缺少 key、字段不完整或表单畸形时会输出 `partial` 结果并以非零状态退出，但 HAR 中可处理的响应和后续条目仍会继续解密。
 
 全局 `--debug` 会启用详细日志，包括未经代理脱敏器处理的 API 请求/响应头和正文，其中可能包含 Cookie、Token 和账号数据。仅在受控环境中短时启用，并将 stderr、滚动日志和重定向输出按敏感数据保护。
 

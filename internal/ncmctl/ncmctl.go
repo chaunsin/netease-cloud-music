@@ -4,6 +4,7 @@
 package ncmctl
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,7 +29,7 @@ type Root struct {
 	Cfg  *config.Config
 	Opts RootOpts
 	cmd  *cobra.Command
-	l    *log.Logger
+	l    log.Logger
 }
 
 func New() *Root {
@@ -83,31 +84,31 @@ func New() *Root {
 			c.Cfg.Network.Debug = true
 		}
 
-		// init logger
-		c.l = log.New(c.Cfg.Log)
-		log.Default = c.l
-		log.Debugf("[config] init home=%s path=%s log=%+v network=%+v", home, cfgPath, c.Cfg.Log, c.Cfg.Network)
+		if err := c.l.Close(); err != nil {
+			return fmt.Errorf("close previous logger: %w", err)
+		}
+
+		// Keep the address stable for commands registered before configuration is loaded.
+		c.l = *log.New(c.Cfg.Log)
+		log.Default = &c.l
+		c.l.Debugf("[config] init home=%s path=%s log=%+v network=%+v", home, cfgPath, c.Cfg.Log, c.Cfg.Network)
 		return nil
 	}
-	c.cmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
-		return c.l.Close()
-	}
-
 	c.addFlags()
 
 	// add sub commands
-	c.Add(NewCrypto(c, c.l).Command())
-	c.Add(NewLogin(c, c.l).Command())
-	c.Add(NewLogout(c, c.l).Command())
-	c.Add(NewPartner(c, c.l).Command())
-	c.Add(NewCurl(c, c.l).Command())
-	c.Add(NewProxy(c, c.l).Command())
-	c.Add(NewCloud(c, c.l).Command())
-	c.Add(NewTask(c, c.l).Command())
-	c.Add(NewScrobble(c, c.l).Command())
-	c.Add(NewSignIn(c, c.l).Command())
-	c.Add(NewNCM(c, c.l).Command())
-	c.Add(NewDownload(c, c.l).Command())
+	c.Add(NewCrypto(c, &c.l).Command())
+	c.Add(NewLogin(c, &c.l).Command())
+	c.Add(NewLogout(c, &c.l).Command())
+	c.Add(NewPartner(c, &c.l).Command())
+	c.Add(NewCurl(c, &c.l).Command())
+	c.Add(NewProxy(c).Command())
+	c.Add(NewCloud(c, &c.l).Command())
+	c.Add(NewTask(c, &c.l).Command())
+	c.Add(NewScrobble(c, &c.l).Command())
+	c.Add(NewSignIn(c, &c.l).Command())
+	c.Add(NewNCM(c, &c.l).Command())
+	c.Add(NewDownload(c, &c.l).Command())
 	return c
 }
 
@@ -121,10 +122,22 @@ func (c *Root) Add(command ...*cobra.Command) {
 }
 
 func (c *Root) Execute() {
-	if err := c.cmd.Execute(); err != nil {
+	if err := runWithCleanup(c.cmd.Execute, func() error {
+		return c.l.Close()
+	}); err != nil {
 		c.cmd.PrintErrln(err)
 		os.Exit(1)
 	}
+}
+
+func runWithCleanup(run, cleanup func() error) (err error) {
+	defer func() {
+		if cleanupErr := cleanup(); cleanupErr != nil {
+			err = errors.Join(err, fmt.Errorf("cleanup: %w", cleanupErr))
+		}
+	}()
+
+	return run()
 }
 
 func (c *Root) addFlags() {

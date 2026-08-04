@@ -21,7 +21,6 @@ import (
 
 	"github.com/chaunsin/netease-cloud-music/config"
 	proxyserver "github.com/chaunsin/netease-cloud-music/internal/proxy"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
 
@@ -40,13 +39,11 @@ type Proxy struct {
 	root *Root
 	cmd  *cobra.Command
 	opts ProxyOpts
-	l    *log.Logger
 }
 
-func NewProxy(root *Root, l *log.Logger) *Proxy {
+func NewProxy(root *Root) *Proxy {
 	c := &Proxy{
 		root: root,
-		l:    l,
 		cmd: &cobra.Command{
 			Use:   "proxy",
 			Short: "Monitor NetEase Cloud Music HTTP(S) API traffic",

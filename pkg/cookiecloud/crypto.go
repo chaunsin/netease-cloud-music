@@ -77,7 +77,7 @@ func Decrypt(password, ciphertext string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("AesDecryptCBC: %w", err)
 	}
-	return crypto.Pkcs7UnPadding(decrypted)
+	return crypto.Pkcs7UnPadding(decrypted, block.BlockSize())
 }
 
 // Encrypt encrypts the plaintext using the password.

@@ -101,7 +101,7 @@ func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer closeAPIClient(ctx, cli)
+	defer closeAPIClient(ctx, cli, c.l)
 
 	cfg := cookiecloud.Config{
 		ApiUrl:  c.server,

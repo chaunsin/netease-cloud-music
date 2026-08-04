@@ -14,29 +14,27 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
 
 type cryptoCmd struct {
 	root *Crypto
 	cmd  *cobra.Command
-	l    *log.Logger
 
 	url string
 }
 
-func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
+func encrypt(root *Crypto) *cobra.Command {
 	c := &cryptoCmd{
 		root: root,
-		l:    l,
 	}
 	c.cmd = &cobra.Command{
 		Use:   "encrypt <json-or-file>",
 		Short: "Encrypt a JSON request payload",
 		Long: "Encrypt a JSON object supplied directly or read from a file. Select WEAPI, EAPI, " +
 			"or Linux API with --kind. EAPI also requires --url because the request route is part " +
-			"of its digest. The formatted result is printed to stdout unless --output is set.",
+			"of its digest. XEAPI encryption is not exposed by this command. The formatted result " +
+			"is printed to stdout unless --output is set.",
 		Example: "  ncmctl crypto encrypt --kind weapi '{\"key\":\"value\"}'\n" +
 			"  ncmctl crypto encrypt --kind eapi --url /eapi/v3/song/detail request.json\n" +
 			"  ncmctl crypto encrypt --kind linux request.json --output encrypted.json",
@@ -55,12 +53,16 @@ func (c *cryptoCmd) addFlags() {
 
 func (c *cryptoCmd) execute(_ context.Context, args []string) error {
 	var (
-		opts  = c.root.opts
+		opts  = c.root
 		input string
 	)
 
 	if len(args) == 0 {
 		return errors.New("nothing was entered")
+	}
+
+	if opts.Kind == "xeapi" {
+		return errors.New("XEAPI encryption is not implemented by ncmctl crypto encrypt")
 	}
 
 	input = args[0]

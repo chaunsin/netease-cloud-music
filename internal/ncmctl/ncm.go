@@ -95,7 +95,7 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 		return errors.New("no input file or the file does not meet the conditions")
 	}
 
-	log.Debugf("filelist: %+v", fileList)
+	c.l.Debugf("filelist: %+v", fileList)
 
 	if err := os.MkdirAll(c.opts.Output, 0o755); err != nil { //nolint:gosec // User-selected media output is intentionally world-readable.
 		return fmt.Errorf("mkdir: %w", err)
@@ -119,13 +119,13 @@ func (c *NCM) execute(ctx context.Context, input []string) error {
 				if x := recover(); x != nil {
 					stack := string(debug.Stack())
 					c.cmd.Printf("decode fail [%s]: %v, stack: %v\n", file, x, stack)
-					log.Errorf("decode fail [%s]: %v, stack:%v", file, x, stack)
+					c.l.Errorf("decode fail [%s]: %v, stack:%v", file, x, stack)
 				}
 			}()
 
 			if err := c.decode(file); err != nil {
 				c.cmd.Printf("decode[%s]: %v\n", file, err)
-				log.Errorf("decode[%s]: %v", file, err)
+				c.l.Errorf("decode[%s]: %v", file, err)
 				return
 			}
 
@@ -212,7 +212,7 @@ func (c *NCM) decode(filename string) error {
 	}
 	defer func() {
 		if closeErr := _ncm.Close(); closeErr != nil {
-			log.Errorf("close ncm file: %v", closeErr)
+			c.l.Errorf("close ncm file: %v", closeErr)
 		}
 	}()
 
@@ -245,7 +245,7 @@ func (c *NCM) decode(filename string) error {
 	}
 	defer tmp.Close()
 
-	log.Debugf("tempdir: %s", tmp.Name())
+	c.l.Debugf("tempdir: %s", tmp.Name())
 
 	if err := _ncm.DecodeMusic(tmp); err != nil {
 		_ = os.Remove(tmp.Name())
@@ -265,7 +265,7 @@ func (c *NCM) decode(filename string) error {
 	}
 	// 显示关闭文件避免Windows系统无法重命名错误:The process cannot access the file because it is being used by another process
 	if err := tmp.Close(); err != nil {
-		log.Errorf("close %s file err: %s", tmp.Name(), err)
+		c.l.Errorf("close %s file err: %s", tmp.Name(), err)
 		_ = os.Remove(tmp.Name())
 	}
 

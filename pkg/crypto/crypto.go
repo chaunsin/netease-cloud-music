@@ -159,7 +159,7 @@ func aesDecrypt(cipherText, key, iv, mode, encode string) ([]byte, error) {
 		return nil, fmt.Errorf("mode: %w", err)
 	}
 
-	text, err = Pkcs7UnPadding(text)
+	text, err = Pkcs7UnPadding(text, block.BlockSize())
 	if err != nil {
 		return nil, fmt.Errorf("Pkcs7UnPadding: %w", err)
 	}
@@ -189,7 +189,7 @@ func aesECBDecrypt(key, ciphertext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Pkcs7UnPadding(decrypted)
+	return Pkcs7UnPadding(decrypted, block.BlockSize())
 }
 
 // AesEncryptCBC 加密.
@@ -282,14 +282,32 @@ func Pkcs7Padding(data []byte, blockSize int) ([]byte, error) {
 	return append(data, bytes.Repeat([]byte{byte(padding)}, padding)...), nil
 }
 
-// Pkcs7UnPadding 去码.
-func Pkcs7UnPadding(data []byte) ([]byte, error) {
+// Pkcs7UnPadding removes a PKCS#7 padding suffix. Supplying blockSize enables
+// strict validation against the cipher's block size; omitting it preserves the
+// legacy behavior.
+func Pkcs7UnPadding(data []byte, blockSize ...int) ([]byte, error) {
+	if len(blockSize) > 1 {
+		return nil, errors.New("pkcs7: expected at most one block size")
+	}
+
+	maxPadding := len(data)
+	if len(blockSize) > 0 {
+		maxPadding = blockSize[0]
+		if maxPadding <= 0 || maxPadding > 255 {
+			return nil, errors.New("pkcs7: invalid block size")
+		}
+
+		if len(data)%maxPadding != 0 {
+			return nil, errors.New("pkcs7: input length is not a multiple of the block size")
+		}
+	}
+
 	if len(data) == 0 {
 		return nil, errors.New("pkcs7: empty input data")
 	}
 
 	padding := int(data[len(data)-1])
-	if padding < 1 || padding > len(data) {
+	if padding < 1 || padding > maxPadding {
 		return nil, errors.New("pkcs7: invalid padding size")
 	}
 
@@ -427,7 +445,7 @@ func CacheKeyDecrypt(data string) (string, error) {
 		return "", fmt.Errorf("AesDecryptECB: %w", err)
 	}
 
-	plaintext, err := Pkcs7UnPadding(decrypted)
+	plaintext, err := Pkcs7UnPadding(decrypted, block.BlockSize())
 	if err != nil {
 		return "", fmt.Errorf("Pkcs7UnPadding: %w", err)
 	}

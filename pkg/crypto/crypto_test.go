@@ -4,6 +4,8 @@
 package crypto
 
 import (
+	"bytes"
+	"crypto/aes"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -12,6 +14,37 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPkcs7UnPaddingRejectsOversizedAESPadding(t *testing.T) {
+	data := append(make([]byte, 15), bytes.Repeat([]byte{17}, 17)...)
+
+	_, err := Pkcs7UnPadding(data, aes.BlockSize)
+	require.ErrorContains(t, err, "invalid padding size")
+}
+
+func TestPkcs7UnPaddingRejectsMultipleBlockSizes(t *testing.T) {
+	_, err := Pkcs7UnPadding([]byte{1}, 1, aes.BlockSize)
+	require.ErrorContains(t, err, "at most one block size")
+}
+
+func TestPkcs7UnPaddingPreservesNonAESBlockSizes(t *testing.T) {
+	plaintext := []byte("1234567")
+
+	for _, blockSize := range []int{8, 32} {
+		t.Run(fmt.Sprintf("block_%d", blockSize), func(t *testing.T) {
+			padded, err := Pkcs7Padding(plaintext, blockSize)
+			require.NoError(t, err)
+
+			legacy, err := Pkcs7UnPadding(padded)
+			require.NoError(t, err)
+			assert.Equal(t, plaintext, legacy)
+
+			strict, err := Pkcs7UnPadding(padded, blockSize)
+			require.NoError(t, err)
+			assert.Equal(t, plaintext, strict)
+		})
+	}
+}
 
 func TestGenerateRandomKey(t *testing.T) {
 	text, err := randomKey()
@@ -420,17 +453,19 @@ func TestIssue174CapturedXeapiVectors(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, xeapiStaticKey, staticKeyFromIssue)
 
-	capturedR, err := base64.StdEncoding.DecodeString("6uMm/2V2SqT96D2FtoKGgFHzKX+TP+dChrWGTsVtcjBpuNxqLTfwHTEO8RThwA7e")
+	capturedR, err := XeapiDecryptRequest(XeapiEncryptedRequest{
+		R: "6uMm/2V2SqT96D2FtoKGgFHzKX+TP+dChrWGTsVtcjBpuNxqLTfwHTEO8RThwA7e",
+	}, nil)
 	require.NoError(t, err)
-	capturedRPlaintext, err := aesECBDecrypt(xeapiStaticKey, capturedR)
-	require.NoError(t, err)
-	assert.Equal(t, "1000000000000|01c3a3532a884dd2a583228d6f335211", string(capturedRPlaintext))
+	assert.Equal(t, "1000000000000", capturedR.PublicKeyVersion)
+	assert.Equal(t, "01c3a3532a884dd2a583228d6f335211", capturedR.SessionID)
+	assert.Nil(t, capturedR.Plaintext)
 
-	noSessionR, err := base64.StdEncoding.DecodeString("3LCoCTuHo/mDfZ1x3PtHsQ==")
+	noSessionR, err := XeapiDecryptRequest(XeapiEncryptedRequest{R: "3LCoCTuHo/mDfZ1x3PtHsQ=="}, nil)
 	require.NoError(t, err)
-	noSessionRPlaintext, err := aesECBDecrypt(xeapiStaticKey, noSessionR)
-	require.NoError(t, err)
-	assert.Equal(t, "1000000000000|", string(noSessionRPlaintext))
+	assert.Equal(t, "1000000000000", noSessionR.PublicKeyVersion)
+	assert.Empty(t, noSessionR.SessionID)
+	assert.Nil(t, noSessionR.Plaintext)
 
 	responseBody, err := hex.DecodeString("BCC6C3A838364F78C6613EF403862326D0CB333FB97328516FB0C72CD7DB1B8E6AA3B102FBE7296AB0DB9EA5C46AD12B")
 	require.NoError(t, err)

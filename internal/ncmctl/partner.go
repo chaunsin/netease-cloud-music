@@ -143,7 +143,7 @@ func (c *Partner) do(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer closeAPIClient(ctx, cli)
+	defer closeAPIClient(ctx, cli, c.l)
 
 	// 判断是否需要登录
 	request := weapi.New(cli)
@@ -194,7 +194,7 @@ func (c *Partner) do(ctx context.Context) error {
 		if work.Completed {
 			baseNum++
 
-			log.Warnf("task completed: %+v\n", work)
+			c.l.Warnf("task completed: %+v\n", work)
 			continue
 		}
 
@@ -224,7 +224,7 @@ func (c *Partner) do(ctx context.Context) error {
 		case 200:
 			// ok
 		default:
-			log.Errorf("PartnerExtraReport(%+v) err: %+v\n", reportReq, resp)
+			c.l.Errorf("PartnerExtraReport(%+v) err: %+v\n", reportReq, resp)
 			continue
 		}
 
@@ -271,7 +271,7 @@ func (c *Partner) do(ctx context.Context) error {
 			baseNum++
 			// 当前任务歌曲已完成评
 		default:
-			log.Errorf("PartnerEvaluate(%+v) err: %+v\n", req, resp)
+			c.l.Errorf("PartnerEvaluate(%+v) err: %+v\n", req, resp)
 			// return fmt.Errorf("PartnerEvaluate: %v", resp.Message)
 		}
 	}
@@ -305,7 +305,7 @@ func (c *Partner) do(ctx context.Context) error {
 			if work.Completed {
 				extNum++
 
-				log.Warnf("extra task completed: %+v\n", work)
+				c.l.Warnf("extra task completed: %+v\n", work)
 				continue
 			}
 
@@ -339,7 +339,7 @@ func (c *Partner) do(ctx context.Context) error {
 			case 200:
 				// ok
 			default:
-				log.Errorf("PartnerExtraReport(%+v) err: %+v\n", req, resp)
+				c.l.Errorf("PartnerExtraReport(%+v) err: %+v\n", req, resp)
 				continue
 			}
 
@@ -386,7 +386,7 @@ func (c *Partner) do(ctx context.Context) error {
 				extNum++
 				// 当前任务歌曲已完成评
 			default:
-				log.Errorf("PartnerEvaluate(%+v) err: %+v\n", req, resp)
+				c.l.Errorf("PartnerEvaluate(%+v) err: %+v\n", req, resp)
 				// return fmt.Errorf("PartnerEvaluate: %v", resp.Message)
 			}
 		}
@@ -398,7 +398,7 @@ end:
 	refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
 
 	if err != nil || refresh.Code != 200 {
-		log.Warnf("TokenRefresh resp:%+v err: %s", refresh, err)
+		c.l.Warnf("TokenRefresh resp:%+v err: %s", refresh, err)
 	}
 	return nil
 }

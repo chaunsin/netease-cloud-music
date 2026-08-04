@@ -154,6 +154,14 @@ func TestNilLoggerDropsMessages(t *testing.T) {
 	Info("ignored default message")
 }
 
+func TestZeroLoggerDropsMessages(t *testing.T) {
+	t.Parallel()
+
+	var logger Logger
+	logger.Debugf("ignored zero-value message")
+	assert.NoError(t, logger.Close())
+}
+
 func TestSetLevel(t *testing.T) {
 	logger, filename := newTestLogger(t, "warn")
 

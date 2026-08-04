@@ -5,6 +5,7 @@ package ncmctl
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
 	"os"
@@ -74,9 +75,9 @@ func TestCommandHelpContract(t *testing.T) {
 		{path: []string{"download"}, use: "download <id-or-url> [id-or-url...]", longContains: "MD5 verification", exampleContains: "--level hires"},
 		{path: []string{"cloud"}, use: "cloud <file-or-directory>", longContains: "500 MB", exampleContains: "--minsize"},
 		{path: []string{"ncm"}, use: "ncm <input> [input...]", longContains: "Every positional argument", exampleContains: "--output"},
-		{path: []string{"crypto"}, use: "crypto", longContains: "decryption currently supports EAPI only", exampleContains: "crypto encrypt"},
+		{path: []string{"crypto"}, use: "crypto", longContains: "XEAPI requests and responses", exampleContains: "crypto encrypt"},
 		{path: []string{"crypto", "encrypt"}, use: "encrypt <json-or-file>", longContains: "EAPI also requires --url", exampleContains: "request.json"},
-		{path: []string{"crypto", "decrypt"}, use: "decrypt <ciphertext-or-har>", longContains: "Direct WEAPI", exampleContains: "--kind eapi"},
+		{path: []string{"crypto", "decrypt"}, use: "decrypt <ciphertext-or-har>", longContains: "X25519 private key", exampleContains: "--kind xeapi"},
 		{path: []string{"curl"}, use: "curl [method]", longContains: "not the system curl", exampleContains: "GetUserInfo"},
 		{path: []string{"proxy"}, use: "proxy", longContains: "never modifies a trust store", exampleContains: "--ca-cert"},
 	}
@@ -166,9 +167,12 @@ func TestCommandFlagDescriptionsExplainConstraints(t *testing.T) {
 		{path: []string{"download"}, flag: "tag", contains: "not implemented"},
 		{path: []string{"cloud"}, flag: "parallel", contains: "1-10"},
 		{path: []string{"ncm"}, flag: "tag", contains: "written by default"},
-		{path: []string{"crypto"}, flag: "kind", contains: "decrypt supports eapi only"},
+		{path: []string{"crypto"}, flag: "kind", contains: "support differs by subcommand"},
 		{path: []string{"crypto", "encrypt"}, flag: "url", contains: "required"},
 		{path: []string{"crypto", "decrypt"}, flag: "encode", contains: "string, hex, or base64"},
+		{path: []string{"crypto", "decrypt"}, flag: "target", contains: "both is HAR-only"},
+		{path: []string{"crypto", "decrypt"}, flag: "dynamic-key", contains: "sensitive"},
+		{path: []string{"crypto", "decrypt"}, flag: "dynamic-key-encode", contains: "string, hex, or base64"},
 		{path: []string{"curl"}, flag: "method", contains: "not an HTTP verb"},
 		{path: []string{"proxy"}, flag: "max-body", contains: "forwarding is unaffected"},
 	}
@@ -196,9 +200,7 @@ func TestRootPreRunSetsNetworkRuntimeHome(t *testing.T) {
 	previousLogger := projectlog.Default
 
 	t.Cleanup(func() {
-		if root.l != nil {
-			require.NoError(t, root.l.Close())
-		}
+		require.NoError(t, root.l.Close())
 
 		projectlog.Default = previousLogger
 	})
@@ -212,6 +214,30 @@ func TestRootPreRunSetsNetworkRuntimeHome(t *testing.T) {
 	assert.Equal(t, filepath.Join(home, ".ncmctl", "cookie.json"), root.Cfg.Network.Cookie.Filepath)
 }
 
+func TestRunWithCleanupRunsAfterCommandError(t *testing.T) {
+	runErr := errors.New("command failed")
+	cleanupErr := errors.New("close failed")
+
+	var (
+		steps        []string
+		cleanupCalls int
+	)
+
+	err := runWithCleanup(func() error {
+		steps = append(steps, "run")
+		return runErr
+	}, func() error {
+		steps = append(steps, "cleanup")
+		cleanupCalls++
+		return cleanupErr
+	})
+
+	assert.Equal(t, []string{"run", "cleanup"}, steps)
+	assert.Equal(t, 1, cleanupCalls)
+	require.ErrorIs(t, err, runErr)
+	require.ErrorIs(t, err, cleanupErr)
+}
+
 func TestPartnerPropagatesCommandErrors(t *testing.T) {
 	t.Parallel()
 
@@ -220,16 +246,14 @@ func TestPartnerPropagatesCommandErrors(t *testing.T) {
 	require.NotNil(t, command.RunE)
 }
 
-func TestScheduledCommandClearsProcessArguments(t *testing.T) {
+func TestScheduledCommandClearsProcessArgumentsAndUsesInjectedLogger(t *testing.T) {
+	logFile := filepath.Join(t.TempDir(), "test.log")
 	logger := projectlog.New(&projectlog.Config{
 		Level:  "info",
-		Rotate: lumberjack.Logger{Filename: filepath.Join(t.TempDir(), "test.log")},
+		Rotate: lumberjack.Logger{Filename: logFile},
 	})
-	previous := projectlog.Default
-	projectlog.Default = logger
 
 	t.Cleanup(func() {
-		projectlog.Default = previous
 		_ = logger.Close()
 	})
 
@@ -242,19 +266,32 @@ func TestScheduledCommandClearsProcessArguments(t *testing.T) {
 			return nil
 		},
 	}
-	task := &Task{cmd: &cobra.Command{}}
+	command.SetArgs([]string{"sensitive-placeholder"})
+
+	job := cron.New()
+	task := &Task{cmd: &cobra.Command{}, l: logger}
 
 	err := task.registerScheduledCommand(
 		context.Background(),
-		cron.New(),
+		job,
 		"scheduled",
 		"0 0 * * *",
 		"schedule error",
 		fakeScheduledCommand{cmd: command},
 	)
 	require.NoError(t, err)
-	require.NoError(t, command.ExecuteContext(context.Background()))
+
+	entries := job.Entries()
+	require.Len(t, entries, 1)
+	entries[0].Job.Run()
+
 	assert.True(t, executed)
+
+	output, err := os.ReadFile(logFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(output), "[scheduled] task register")
+	assert.Contains(t, string(output), "[scheduled] task start")
+	assert.Contains(t, string(output), "[scheduled] execute success")
 }
 
 func TestCloudRejectsZeroParallelism(t *testing.T) {

@@ -74,7 +74,7 @@ func (c *SignIn) execute(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer closeAPIClient(ctx, cli)
+	defer closeAPIClient(ctx, cli, c.l)
 
 	request := weapi.New(cli)
 
@@ -111,14 +111,14 @@ func (c *SignIn) execute(ctx context.Context) error {
 				continue
 			}
 
-			log.Debugf("天数=%v,奖励内容=%v,id=%v,extId=%v,status=%v",
+			c.l.Debugf("天数=%v,奖励内容=%v,id=%v,extId=%v,status=%v",
 				v.SignDay, v.BaseGrant.Name, v.BaseLotteryId, v.ExtraLotteryId, v.BaseLotteryStatus)
 			// 领取奖励
 			reply, lotteryErr := request.YunBeiSignLottery(ctx, &weapi.YunBeiSignLotteryReq{
 				UserLotteryId: strconv.FormatInt(v.BaseLotteryId, 10),
 			})
 			if lotteryErr != nil {
-				log.Errorf("YunBeiSignLottery(%v): %s", v.BaseLotteryId, lotteryErr)
+				c.l.Errorf("YunBeiSignLottery(%v): %s", v.BaseLotteryId, lotteryErr)
 			}
 
 			if reply.Data {
@@ -144,11 +144,11 @@ func (c *SignIn) execute(ctx context.Context) error {
 				DepositCode: strconv.FormatInt(v.DepositCode, 10),
 			})
 			if finishErr != nil {
-				log.Errorf("YunBeiTaskFinish(%v): %s", v.UserTaskId, finishErr)
+				c.l.Errorf("YunBeiTaskFinish(%v): %s", v.UserTaskId, finishErr)
 			}
 
 			if reply.Code != 200 {
-				log.Errorf("YunBeiTaskFinish(%v) detail:%+v", v.UserTaskId, reply)
+				c.l.Errorf("YunBeiTaskFinish(%v) detail:%+v", v.UserTaskId, reply)
 			} else {
 				c.cmd.Printf("云贝 [%s] 任务完成获得云贝数量 %v\n", v.TaskName, v.TaskPoint)
 			}
@@ -204,7 +204,7 @@ func (c *SignIn) execute(ctx context.Context) error {
 	// 刷新token过期时间
 	refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
 	if err != nil || refresh.Code != 200 {
-		log.Warnf("TokenRefresh resp:%+v err: %s", refresh, err)
+		c.l.Warnf("TokenRefresh resp:%+v err: %s", refresh, err)
 	}
 	return nil
 }

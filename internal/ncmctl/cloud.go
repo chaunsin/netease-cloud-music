@@ -232,7 +232,7 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 	}
 
 	fileList = slices.Compact(fileList)
-	c.l.Debugf("Ready to upload list: %v", fileList)
+	c.l.Debugf("Ready to upload %d file(s)", len(fileList))
 
 	total := int64(len(fileList))
 	defer func() {
@@ -249,7 +249,7 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer closeAPIClient(ctx, cli)
+	defer closeAPIClient(ctx, cli, c.l)
 
 	request := weapi.New(cli)
 
@@ -285,7 +285,7 @@ func (c *Cloud) execute(ctx context.Context, input []string) error {
 			if err := c.upload(ctx, request, filename, bar); err != nil {
 				fail.Add(1)
 				c.cmd.Printf("%s upload failed: %s", filepath.Base(filename), err)
-				log.Errorf("upload(%s): %s", filename, err)
+				c.l.Errorf("upload(%s): %s", filepath.Base(filename), err)
 			}
 		}(v)
 	}
@@ -301,6 +301,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 	// 1.读取文件
 	var (
 		ext     = filepath.Ext(filename)
+		name    = filepath.Base(filename)
 		bitrate = "999000" // Pending: 另外bitrate值有何影响？
 	)
 
@@ -357,7 +358,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 	allocReq := weapi.CloudTokenAllocReq{
 		Bucket:     "", // jd-musicrep-privatecloud-audio-public
 		Ext:        ext,
-		Filename:   filepath.Base(filename),
+		Filename:   name,
 		Local:      "false",
 		NosProduct: "3",
 		Type:       "audio",
@@ -377,7 +378,8 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 
 	// 4.上传文件
 	if resp.NeedUpload {
-		c.l.Infof("[%s] need upload", filename)
+		c.l.Infof("[%s] need upload", name)
+
 		uploadReq := weapi.CloudUploadReq{
 			Bucket:      allocResp.Bucket,
 			ObjectKey:   allocResp.ObjectKey,
@@ -408,7 +410,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		Md5:        md5,
 		SongId:     resp.SongId,
 		Filename:   stat.Name(),
-		Song:       utils.Ternary(metadata.Title() != "", metadata.Title(), filepath.Base(filename)),
+		Song:       utils.Ternary(metadata.Title() != "", metadata.Title(), name),
 		Album:      utils.Ternary(metadata.Album() != "", metadata.Album(), "未知专辑"),
 		Artist:     utils.Ternary(metadata.Artist() != "", metadata.Artist(), "未知艺术家"),
 		Bitrate:    bitrate,
@@ -472,13 +474,13 @@ retry:
 			bar.Add64(fileSize)
 		}
 
-		log.Debugf("上传成功: %s", filename)
+		c.l.Debugf("上传成功: %s", name)
 	case 201:
 		if !resp.NeedUpload {
 			bar.Add64(fileSize)
 		}
 
-		log.Debugf("重复上传: %s", filename)
+		c.l.Debugf("重复上传: %s", name)
 	default:
 		return fmt.Errorf("CloudPublish: %+v", publishResp)
 	}

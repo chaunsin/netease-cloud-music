@@ -16,13 +16,11 @@ import (
 type Login struct {
 	root *Root
 	cmd  *cobra.Command
-	l    *log.Logger
 }
 
 func NewLogin(root *Root, l *log.Logger) *Login {
 	c := &Login{
 		root: root,
-		l:    l,
 		cmd: &cobra.Command{
 			Use:   "login",
 			Short: "Authenticate with NetEase Cloud Music",

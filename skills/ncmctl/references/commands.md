@@ -225,7 +225,7 @@ Tags are written by default for supported MP3 and FLAC output. Directory travers
 
 ## crypto
 
-Inspect legacy API encryption formats locally. This is a debugging tool, not an authentication bypass.
+Inspect supported API encryption formats locally. This is a debugging tool, not an authentication bypass.
 
 ```bash
 # Encrypt a JSON string or a file containing one JSON object
@@ -236,32 +236,50 @@ ncmctl crypto encrypt --kind linux '{"method":"POST"}'
 ncmctl crypto encrypt --kind weapi request.json \
   --output encrypted.json
 
-# Direct EAPI request decryption
+# Direct EAPI request decryption (the default EAPI target)
 ncmctl crypto decrypt --kind eapi --encode hex 'CIPHERTEXT'
 
-# EAPI-focused HAR processing; restrict the path for mixed captures
-ncmctl crypto decrypt --url '/eapi/*' capture.har
+# Direct XEAPI response decryption (the default XEAPI target)
+ncmctl crypto decrypt --kind xeapi --encode hex 'CIPHERTEXT'
+
+# Direct XEAPI request form; B decrypts only with the explicit dynamic/session key
+ncmctl crypto decrypt --kind xeapi --target request \
+  --dynamic-key-encode hex \
+  --dynamic-key 00112233445566778899aabbccddeeff \
+  'B=...&S=...&R=...'
+
+# HAR defaults to request and response; restrict the path for mixed captures
+ncmctl crypto decrypt --url '/xeapi/*' capture.har
 ```
 
 Parent flags:
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `-k, --kind` | `weapi` | Accepted encryption mode: `weapi`, `eapi`, or `linux` |
+| `-k, --kind` | `weapi` | Payload mode: `weapi`, `eapi`, `xeapi`, or `linux`; support differs by subcommand |
 | `-o, --output` | stdout | Write JSON output to this file |
 
-`encrypt` adds `-u, --url`, which is required for EAPI because the route participates in the digest.
+`encrypt` adds `-u, --url`, which is required for EAPI because the route participates in the digest. XEAPI encryption exists in the Go library but is deliberately not exposed by this command.
 
 `decrypt` adds:
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `-e, --encode` | `hex` | Ciphertext encoding: `string`, `hex`, or `base64` |
+| `-e, --encode` | `hex` | Direct response or EAPI ciphertext encoding: `string`, `hex`, or `base64` |
 | `-u, --url` | `*` | Path glob used while selecting HAR entries |
+| `--target` | `auto` | `auto`, `request`, `response`, or `both`; direct input does not allow `both` |
+| `--dynamic-key` | empty | Explicit XEAPI dynamic/session key used to decrypt request `B` |
+| `--dynamic-key-encode` | `string` | Dynamic key encoding: `string`, `hex`, or `base64` |
 
-Current limitation: direct request decryption is implemented for EAPI. WEAPI requires the unavailable random client key; direct Linux and plain-API decrypt branches are not implemented. `--kind` being accepted by the parent command does not imply decrypt support.
+For direct input, `auto` selects an EAPI request or an XEAPI response. Select `--target request` for a URL-encoded XEAPI `B/S/R` form. `R` always yields the public-key version and session ID when valid. `B` additionally needs the exact dynamic/session key; without it, the command writes a `partial` JSON result and exits non-zero. `S` is preserved in `request.params` but cannot be decrypted without the corresponding X25519 private key. The decrypted request is the complete XEAPI envelope; an envelope `body` remains Base64 text.
 
-HAR files and decrypted output can contain credentials and personal data. Store and share them as secrets.
+For HAR input, `auto` selects both request and response. XEAPI is detected from the `/xeapi/` path, and request fields can come from HAR form parameters or the form body. Only the side selected by `--target` is parsed. A request-side failure, including a malformed form or missing field, is recorded in `request.error`; recoverable `R` metadata is retained, remaining responses and entries are still processed, the complete JSON is written, and the command then exits non-zero. HAR structure and response-decryption errors still fail immediately.
+
+Each populated `request.ciphertext` or `response.ciphertext` has a matching `ciphertextEncoding`. Direct hex and Base64 input keeps its representation after surrounding whitespace is removed. Raw `string` input and HAR response bytes are emitted as Base64 so arbitrary binary ciphertext can be reconstructed without JSON UTF-8 replacement.
+
+WEAPI request decryption still requires its unavailable random client key; direct Linux and plain-API decrypt branches are not implemented. `--kind` being accepted by the parent command does not imply support in both subcommands.
+
+HAR files, dynamic/session keys, and decrypted output can contain credentials and personal data. The key is never inferred from HAR response headers or `xeapi.yaml`, and ncmctl does not log its value. Because `--dynamic-key` is a command-line flag, the shell history and process list may still expose it; use only a controlled environment and do not persist or share command output casually.
 
 ## curl
 

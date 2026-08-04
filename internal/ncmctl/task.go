@@ -163,7 +163,7 @@ func (c *Task) validate() error {
 func (c *Task) registerScheduledCommand(ctx context.Context, job *cron.Cron, name, schedule, cronError string, command scheduledCommand) error {
 	label := "[" + name + "]"
 	c.cmd.Println(label + " task register")
-	log.Infof("%s task register", label)
+	c.l.Infof("%s task register", label)
 
 	command.Command().DisableFlagParsing = true
 	command.Command().SetArgs([]string{})
@@ -173,20 +173,20 @@ func (c *Task) registerScheduledCommand(ctx context.Context, job *cron.Cron, nam
 	}
 
 	id, err := job.AddFunc(schedule, func() {
-		log.Infof("%s task start", label)
+		c.l.Infof("%s task start", label)
 
 		if err := command.Command().ExecuteContext(ctx); err != nil {
-			log.Errorf(label+" execute err: %s", err)
+			c.l.Errorf(label+" execute err: %s", err)
 			return
 		}
 
-		log.Infof("%s execute success", label)
+		c.l.Infof("%s execute success", label)
 	})
 	if err != nil {
 		return fmt.Errorf("%s: %w", cronError, err)
 	}
 
-	log.Infof(label+" next execute: %s", job.Entry(id).Schedule.Next(time.Now()))
+	c.l.Infof(label+" next execute: %s", job.Entry(id).Schedule.Next(time.Now()))
 	return nil
 }
 
@@ -195,7 +195,7 @@ func (c *Task) execute(ctx context.Context, _ []string) error {
 		return fmt.Errorf("validate: %w", err)
 	}
 
-	log.Debugf("task args: %+v", c.opts)
+	c.l.Debugf("task args: %+v", c.opts)
 
 	local, err := time.LoadLocation(c.opts.Location)
 	if err != nil {
@@ -206,7 +206,7 @@ func (c *Task) execute(ctx context.Context, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer closeAPIClient(ctx, cli)
+	defer closeAPIClient(ctx, cli, c.l)
 
 	request := weapi.New(cli)
 	if request.NeedLogin(ctx) {

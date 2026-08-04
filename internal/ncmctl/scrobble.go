@@ -82,7 +82,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer closeAPIClient(ctx, cli)
+	defer closeAPIClient(ctx, cli, c.l)
 
 	request := weapi.New(cli)
 
@@ -117,7 +117,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	defer func() {
 		refresh, refreshErr := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
 		if refreshErr != nil || refresh.Code != 200 {
-			log.Warnf("TokenRefresh resp:%+v err: %s", refresh, refreshErr)
+			c.l.Warnf("TokenRefresh resp:%+v err: %s", refresh, refreshErr)
 		}
 	}()
 
@@ -128,7 +128,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 	}
 	defer func() {
 		if closeErr := db.Close(ctx); closeErr != nil {
-			log.Errorf("close database: %v", closeErr)
+			c.l.Errorf("close database: %v", closeErr)
 		}
 	}()
 
@@ -165,11 +165,11 @@ func (c *Scrobble) execute(ctx context.Context) error {
 		return fmt.Errorf("neverHeardSongs: %w", err)
 	}
 
-	log.Debugf("ready execute num(%d)", len(list))
+	c.l.Debugf("ready execute num(%d)", len(list))
 
 	var total int
 	defer func() {
-		log.Debugf("scrobble success: %d", total)
+		c.l.Debugf("scrobble success: %d", total)
 		bar.Finish()
 	}()
 
@@ -200,24 +200,24 @@ func (c *Scrobble) execute(ctx context.Context) error {
 
 		resp, err := request.WebLog(ctx, req)
 		if err != nil {
-			log.Errorf("[scrobble] WebLog: %s", err)
+			c.l.Errorf("[scrobble] WebLog: %s", err)
 			continue
 		}
 
 		if resp.Code != 200 {
-			log.Errorf("[scrobble] WebLog err: %+v\n", resp)
+			c.l.Errorf("[scrobble] WebLog err: %+v\n", resp)
 			time.Sleep(time.Second)
 			continue
 		}
 
 		if resp.Code == 200 {
 			if err := db.Set(ctx, scrobbleRecordKey(uid, v.SongsId), strconv.FormatInt(time.Now().UnixMilli(), 10)); err != nil {
-				log.Warnf("[scrobble] set %v record err: %s", v.SongsId, err)
+				c.l.Warnf("[scrobble] set %v record err: %s", v.SongsId, err)
 			}
 
 			_, err := db.Increment(ctx, scrobbleTodayNumKey(uid), 1, expire)
 			if err != nil {
-				log.Warnf("[scrobble] set %v record err: %s", v.SongsId, err)
+				c.l.Warnf("[scrobble] set %v record err: %s", v.SongsId, err)
 			}
 
 			total++
@@ -270,7 +270,7 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api, db d
 		}
 
 		if len(info.Playlist.TrackIds) == 0 {
-			log.Warnf("PlaylistDetail(%v) is empty", list.Id)
+			c.l.Warnf("PlaylistDetail(%v) is empty", list.Id)
 			continue
 		}
 
@@ -297,7 +297,7 @@ func (c *Scrobble) neverHeardSongs(ctx context.Context, request *weapi.Api, db d
 		}
 
 		if int64(len(req)) >= num {
-			log.Debugf("SongDetailReqList num(%d)", len(req))
+			c.l.Debugf("SongDetailReqList num(%d)", len(req))
 			break
 		}
 	}
