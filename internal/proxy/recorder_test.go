@@ -505,3 +505,67 @@ func TestRecorderDoesNotApplyLaterXeapiSessionToQueuedRequest(t *testing.T) {
 		t.Fatalf("queued request used a session learned from its later response: %s", output)
 	}
 }
+
+func TestRecorderRedactsXeapiSessionID(t *testing.T) {
+	const (
+		sessionID = "sensitive-session-12345"
+	)
+
+	t.Run("redacted when showSensitive is false", func(t *testing.T) {
+		var buf bytes.Buffer
+
+		r := newRecorder(&buf, 1024, false)
+		defer r.Close()
+
+		sid := sessionID
+		decoded := decodeResult{
+			protocol:  protocolXEAPI,
+			status:    decodeStatusDecrypted,
+			sessionID: &sid,
+		}
+
+		state := &captureState{
+			session:       1,
+			started:       time.Now(),
+			requestMethod: "POST",
+		}
+
+		r.writeRequestBlock(state, &decoded, "")
+
+		out := buf.String()
+		if !strings.Contains(out, "xeapi-session-id: [REDACTED]") {
+			t.Fatalf("expected xeapi-session-id to be redacted, got: %s", out)
+		}
+
+		if strings.Contains(out, sessionID) {
+			t.Fatalf("sensitive sessionID leaked in output: %s", out)
+		}
+	})
+
+	t.Run("exposed when showSensitive is true", func(t *testing.T) {
+		var buf bytes.Buffer
+
+		r := newRecorder(&buf, 1024, true)
+		defer r.Close()
+
+		sid := sessionID
+		decoded := decodeResult{
+			protocol:  protocolXEAPI,
+			status:    decodeStatusDecrypted,
+			sessionID: &sid,
+		}
+
+		state := &captureState{
+			session:       1,
+			started:       time.Now(),
+			requestMethod: "POST",
+		}
+
+		r.writeRequestBlock(state, &decoded, "")
+
+		out := buf.String()
+		if !strings.Contains(out, "xeapi-session-id: "+sessionID) {
+			t.Fatalf("expected raw sessionID when showSensitive is true, got: %s", out)
+		}
+	})
+}

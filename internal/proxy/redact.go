@@ -86,13 +86,15 @@ func redactHeaders(header http.Header, showSensitive bool) http.Header {
 	redacted := make(http.Header, len(header))
 	for key, values := range header {
 		copied := append([]string(nil), values...)
-		if !showSensitive && sensitiveKey(key) {
+
+		if !showSensitive {
+			isSensitive := sensitiveKey(key)
 			for i := range copied {
-				copied[i] = redactedValue
-			}
-		} else if !showSensitive {
-			for i := range copied {
-				copied[i] = redactJSONString(copied[i], false)
+				if isSensitive {
+					copied[i] = redactedValue
+				} else {
+					copied[i] = redactJSONString(copied[i], false)
+				}
 			}
 		}
 

@@ -724,22 +724,11 @@ func decodeResponse(request *decodeResult, header http.Header, body []byte, maxB
 
 		plaintext, gzipDecoded, encoding, err := decryptEAPIResponse(body, maxBodyBytes)
 		if err == nil {
-			result.status = decodeStatusDecrypted
-			result.responseEncrypted = true
-			display := formatBody(header, plaintext, showSensitive, maxBodyBytes)
-			result.body = display.body
-
-			result.detail = appendDetail("eapi encrypted response decrypted ("+encoding+")", display.detail)
-			if gzipDecoded {
-				result.detail += "; inner gzip decoded"
-			}
+			result.setDecryptedResponse(header, plaintext, showSensitive, maxBodyBytes, "eapi encrypted response decrypted ("+encoding+")", gzipDecoded)
 			return result
 		}
 
-		result.status = decodeStatusFailed
-		display := formatBody(header, body, showSensitive, maxBodyBytes)
-		result.body = display.body
-		result.detail = appendDetail(responseFailureDetail(request, "eapi response decrypt: "+err.Error()), display.detail)
+		result.setFailedResponse(request, header, body, showSensitive, maxBodyBytes, "eapi response decrypt: "+err.Error())
 		return result
 	case protocolWEAPI:
 		result.status = decodeStatusUnsupported
@@ -750,22 +739,11 @@ func decodeResponse(request *decodeResult, header http.Header, body []byte, maxB
 	case protocolXEAPI:
 		plaintext, gzipDecoded, err := decryptXEAPIResponse(body, maxBodyBytes)
 		if err == nil {
-			result.status = decodeStatusDecrypted
-			result.responseEncrypted = true
-			display := formatBody(header, plaintext, showSensitive, maxBodyBytes)
-			result.body = display.body
-
-			result.detail = appendDetail("xeapi binary response decrypted", display.detail)
-			if gzipDecoded {
-				result.detail += "; inner gzip decoded"
-			}
+			result.setDecryptedResponse(header, plaintext, showSensitive, maxBodyBytes, "xeapi binary response decrypted", gzipDecoded)
 			return result
 		}
 
-		result.status = decodeStatusFailed
-		display := formatBody(header, body, showSensitive, maxBodyBytes)
-		result.body = display.body
-		result.detail = appendDetail(responseFailureDetail(request, "xeapi response decrypt: "+err.Error()), display.detail)
+		result.setFailedResponse(request, header, body, showSensitive, maxBodyBytes, "xeapi response decrypt: "+err.Error())
 		return result
 	case protocolLinux:
 		if !request.responseEncrypted {
@@ -778,18 +756,11 @@ func decodeResponse(request *decodeResult, header http.Header, body []byte, maxB
 
 		plaintext, err := ncmcrypto.LinuxApiDecrypt(strings.TrimSpace(string(body)))
 		if err == nil {
-			result.status = decodeStatusDecrypted
-			result.responseEncrypted = true
-			display := formatBody(header, plaintext, showSensitive, maxBodyBytes)
-			result.body = display.body
-			result.detail = appendDetail("linux encrypted response decrypted", display.detail)
+			result.setDecryptedResponse(header, plaintext, showSensitive, maxBodyBytes, "linux encrypted response decrypted", false)
 			return result
 		}
 
-		result.status = decodeStatusFailed
-		display := formatBody(header, body, showSensitive, maxBodyBytes)
-		result.body = display.body
-		result.detail = appendDetail(responseFailureDetail(request, "linux response decrypt: "+err.Error()), display.detail)
+		result.setFailedResponse(request, header, body, showSensitive, maxBodyBytes, "linux response decrypt: "+err.Error())
 		return result
 	default:
 		display := formatBody(header, body, showSensitive, maxBodyBytes)
@@ -798,6 +769,25 @@ func decodeResponse(request *decodeResult, header http.Header, body []byte, maxB
 		result.detail = appendDetail("response body is not JSON", display.detail)
 		return result
 	}
+}
+
+func (r *decodeResult) setDecryptedResponse(header http.Header, plaintext []byte, showSensitive bool, maxBodyBytes int64, detail string, gzipDecoded bool) {
+	r.status = decodeStatusDecrypted
+	r.responseEncrypted = true
+	display := formatBody(header, plaintext, showSensitive, maxBodyBytes)
+	r.body = display.body
+
+	r.detail = appendDetail(detail, display.detail)
+	if gzipDecoded {
+		r.detail += "; inner gzip decoded"
+	}
+}
+
+func (r *decodeResult) setFailedResponse(request *decodeResult, header http.Header, body []byte, showSensitive bool, maxBodyBytes int64, failure string) {
+	r.status = decodeStatusFailed
+	display := formatBody(header, body, showSensitive, maxBodyBytes)
+	r.body = display.body
+	r.detail = appendDetail(responseFailureDetail(request, failure), display.detail)
 }
 
 func decryptXEAPIResponse(body []byte, maxBodyBytes int64) ([]byte, bool, error) {
@@ -810,12 +800,9 @@ func decryptXEAPIResponse(body []byte, maxBodyBytes int64) ([]byte, bool, error)
 		return nil, false, err
 	}
 
-	gzipDecoded := len(plaintext) >= 2 && plaintext[0] == 0x1f && plaintext[1] == 0x8b
-	if gzipDecoded {
-		plaintext, err = gunzipLimited(plaintext, maxBodyBytes)
-		if err != nil {
-			return nil, false, fmt.Errorf("inner gzip: %w", err)
-		}
+	plaintext, gzipDecoded, err := tryGunzip(plaintext, maxBodyBytes)
+	if err != nil {
+		return nil, false, err
 	}
 
 	if !json.Valid(plaintext) {
@@ -845,22 +832,25 @@ func decryptEAPIResponse(body []byte, maxBodyBytes int64) ([]byte, bool, string,
 		return nil, false, "", err
 	}
 
-	if len(plaintext) >= 2 && plaintext[0] == 0x1f && plaintext[1] == 0x8b {
-		plaintext, err = gunzipLimited(plaintext, maxBodyBytes)
-		if err != nil {
-			return nil, false, "", fmt.Errorf("inner gzip: %w", err)
-		}
-
-		return plaintext, true, encoding, nil
+	plaintext, gzipDecoded, err := tryGunzip(plaintext, maxBodyBytes)
+	if err != nil {
+		return nil, false, "", err
 	}
-	return plaintext, false, encoding, nil
+	return plaintext, gzipDecoded, encoding, nil
+}
+
+func tryGunzip(plaintext []byte, maxBodyBytes int64) ([]byte, bool, error) {
+	if len(plaintext) >= 2 && plaintext[0] == 0x1f && plaintext[1] == 0x8b {
+		decompressed, err := gunzipLimited(plaintext, maxBodyBytes)
+		if err != nil {
+			return nil, false, fmt.Errorf("inner gzip: %w", err)
+		}
+		return decompressed, true, nil
+	}
+	return plaintext, false, nil
 }
 
 func gunzipLimited(data []byte, limit int64) ([]byte, error) {
-	if limit <= 0 {
-		return nil, errors.New("decoded body limit must be greater than zero")
-	}
-
 	reader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err

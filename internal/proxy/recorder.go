@@ -478,27 +478,16 @@ func (r *recorder) writeBody(block *bytes.Buffer, snapshot *bodySnapshot, body [
 		return
 	}
 
-	printable, encoding, truncated := terminalBody(body, r.maxBodyBytes)
-	if encoding != "" {
-		fmt.Fprintf(block, "[%s]\n", encoding)
-	}
-
-	block.WriteString(printable)
-
-	if !strings.HasSuffix(printable, "\n") {
-		block.WriteByte('\n')
-	}
-
-	if truncated {
-		fmt.Fprintln(block, "<formatted output truncated>")
-	}
+	r.writeTerminalContent(block, body, "<formatted output truncated>")
 }
 
 func (r *recorder) writeSection(block *bytes.Buffer, name string, body []byte) {
-	printable, encoding, truncated := terminalBody(body, r.maxBodyBytes)
-
 	fmt.Fprintf(block, "%s:\n", escapeLogField(name))
+	r.writeTerminalContent(block, body, fmt.Sprintf("<%s output truncated>", escapeLogField(name)))
+}
 
+func (r *recorder) writeTerminalContent(block *bytes.Buffer, body []byte, truncatedNotice string) {
+	printable, encoding, truncated := terminalBody(body, r.maxBodyBytes)
 	if encoding != "" {
 		fmt.Fprintf(block, "[%s]\n", encoding)
 	}
@@ -510,7 +499,7 @@ func (r *recorder) writeSection(block *bytes.Buffer, name string, body []byte) {
 	}
 
 	if truncated {
-		fmt.Fprintf(block, "<%s output truncated>\n", escapeLogField(name))
+		fmt.Fprintln(block, truncatedNotice)
 	}
 }
 

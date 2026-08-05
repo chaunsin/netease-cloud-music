@@ -167,12 +167,10 @@ func bodyOmissionReason(contentType, path string) string {
 }
 
 func isAPIPath(path string) bool {
-	path = strings.ToLower(path)
-	return strings.HasPrefix(path, "/api/") ||
-		strings.HasPrefix(path, "/weapi/") ||
-		strings.HasPrefix(path, "/eapi/") ||
-		strings.HasPrefix(path, "/xeapi/") ||
-		path == "/batch"
+	if strings.EqualFold(path, "/batch") || strings.HasPrefix(strings.ToLower(path), "/batch/") {
+		return true
+	}
+	return classifyProtocol(path) != protocolGeneric
 }
 
 func snapshotDetail(snapshot *bodySnapshot) string {
