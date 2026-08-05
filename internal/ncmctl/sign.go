@@ -8,10 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/eapi"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 )
@@ -33,9 +36,10 @@ func NewSignIn(root *Root, l *log.Logger) *SignIn {
 		l:    l,
 		cmd: &cobra.Command{
 			Use:   "sign",
-			Short: "Run YunBei and eligible VIP daily sign-in actions",
-			Long: "Perform the YunBei sign-in and eligible VIP sign-in actions once. Login is " +
-				"required. --automatic also claims available YunBei and VIP rewards, which performs " +
+			Short: "Run YunBei and VIP daily sign-in actions",
+			Long: "Perform the YunBei and VIP sign-in actions once. Login is required; VIP sign-in " +
+				"does not require an active VIP entitlement. --automatic also claims available YunBei " +
+				"and eligible VIP rewards, which performs " +
 				"additional account actions and may increase risk-control exposure.",
 			Example: "  ncmctl sign\n" +
 				"  ncmctl sign --automatic",
@@ -58,7 +62,7 @@ func (c *SignIn) Command() *cobra.Command {
 }
 
 func (c *SignIn) addFlags() {
-	c.cmd.Flags().BoolVarP(&c.opts.Automatic, "automatic", "a", false, "claim available YunBei and VIP rewards after sign-in")
+	c.cmd.Flags().BoolVarP(&c.opts.Automatic, "automatic", "a", false, "claim available YunBei and eligible VIP rewards after sign-in")
 }
 
 func (c *SignIn) validate() error {
@@ -83,7 +87,15 @@ func (c *SignIn) execute(ctx context.Context) error {
 		return errors.New("need login")
 	}
 
-	// 执行云贝签到
+	if err := c.executeYunBeiSign(ctx, request); err != nil {
+		return err
+	}
+
+	return c.executeVipSign(ctx, request, eapi.New(cli), time.Now().UnixMilli())
+}
+
+// executeYunBeiSign 执行云贝签到.
+func (c *SignIn) executeYunBeiSign(ctx context.Context, request *weapi.Api) error {
 	resp, err := request.YunBeiSignIn(ctx, &weapi.YunBeiSignInReq{})
 	if err != nil {
 		return fmt.Errorf("YunBeiSignIn: %w", err)
@@ -155,56 +167,135 @@ func (c *SignIn) execute(ctx context.Context) error {
 		}
 	}
 
-	// 查询vip权益
-	vip, err := request.VipGrowPoint(ctx, &weapi.VipGrowPointReq{})
+	return nil
+}
+
+// executeVipSign 执行VIP签到.
+func (c *SignIn) executeVipSign(ctx context.Context, weapiRequest *weapi.Api, eapiRequest *eapi.Api, signDayTime int64) error {
+	vip, err := weapiRequest.VipGrowPoint(ctx, &weapi.VipGrowPointReq{})
 	if err != nil {
 		return fmt.Errorf("VipGrowPoint: %w", err)
 	}
 
 	if vip.Code != 200 {
-		return fmt.Errorf("VipGrowPoint: %+v", vip)
+		return fmt.Errorf("VipGrowPoint: code=%d message=%q", vip.Code, vip.Message)
 	}
 
-	if vip.Data.UserLevel.LatestVipStatus != 1 {
-		c.cmd.Printf("暂无会员权益: %v\n", vip.Data.UserLevel.LatestVipStatus)
-		return nil
+	// VIP entitlement gates growth rewards only; Music Sign is available without it.
+	hasVipEntitlement := vip.Data.UserLevel.LatestVipStatus == 1
+	if !hasVipEntitlement {
+		c.cmd.Println("VIP 权益: 暂无, 仅执行乐签")
 	}
 
-	if vip.Data.UserLevel.MaxLevel {
-		c.cmd.Println("vip等级已达到最大值")
-		return nil
+	maxLevel := vip.Data.UserLevel.MaxLevel
+	if maxLevel {
+		c.cmd.Println("VIP 等级: 已满级")
 	}
 
-	// 黑胶乐签
-	vipSign, err := request.VipTaskSign(ctx, &weapi.VipTaskSignReq{IsNew: ""}) // 使用isNew=1?
+	vipSign, err := eapiRequest.VipTaskSign(ctx, &eapi.VipTaskSignReq{})
 	if err != nil {
 		return fmt.Errorf("VipTaskSign: %w", err)
 	}
 
-	if vipSign.Data {
-		c.cmd.Println("vip乐签成功")
-	} else {
-		c.cmd.Printf("vip乐签失败: %+v", vipSign)
+	if vipSign.Code != 200 {
+		return fmt.Errorf("VipTaskSign: code=%d message=%q", vipSign.Code, vipSign.Message)
 	}
 
-	// 领取当前时刻所有可领得成长值
-	if c.opts.Automatic {
-		reward, rewardErr := request.VipRewardGetAll(ctx, &weapi.VipRewardGetAllReq{})
+	if vipSign.Data {
+		c.cmd.Println("黑胶乐签: 成功")
+	} else if message := strings.TrimSpace(vipSign.Message); message != "" {
+		c.cmd.Printf("黑胶乐签: %s\n", message)
+	} else {
+		c.cmd.Println("黑胶乐签: 本次未完成")
+	}
+
+	// The desktop client refreshes the detail and both card variants after signing.
+	detail, err := eapiRequest.VipCheckinHistoryDetail(ctx, &eapi.VipCheckinHistoryDetailReq{
+		SignDayTime: strconv.FormatInt(signDayTime, 10),
+		Type:        "1",
+	})
+	if err != nil {
+		return fmt.Errorf("VipCheckinHistoryDetail after VipTaskSign: %w", err)
+	}
+
+	if detail.Code != 200 {
+		return fmt.Errorf("VipCheckinHistoryDetail after VipTaskSign: code=%d message=%q", detail.Code, detail.Message)
+	}
+
+	// TDDO: 每次请求的歌曲都不一样原因,官方每次都是一样得和type=2有关.
+	if detail.Data.SongInfo != nil {
+		songName := strings.TrimSpace(detail.Data.SongInfo.SongName)
+		artistName := strings.TrimSpace(detail.Data.SongInfo.ArtistName)
+
+		switch {
+		case songName != "" && artistName != "":
+			c.cmd.Printf("  今日歌曲: %s - %s\n", songName, artistName)
+		case songName != "":
+			c.cmd.Printf("  今日歌曲: %s\n", songName)
+		case artistName != "":
+			c.cmd.Printf("  今日歌手: %s\n", artistName)
+		}
+	}
+
+	var monthCard eapi.VipMinideskMusicSignPCData
+
+	for _, typ := range []int{0, 1} {
+		card, cardErr := eapiRequest.VipMinideskMusicSignPC(ctx, &eapi.VipMinideskMusicSignPCReq{Type: typ})
+		if cardErr != nil {
+			return fmt.Errorf("VipMinideskMusicSignPC(type=%d) after VipTaskSign: %w", typ, cardErr)
+		}
+
+		if card.Code != 200 {
+			return fmt.Errorf(
+				"VipMinideskMusicSignPC(type=%d) after VipTaskSign: code=%d message=%q",
+				typ,
+				card.Code,
+				card.Message,
+			)
+		}
+
+		if typ == 1 {
+			monthCard = card.Data
+		}
+	}
+
+	monthTitle := "本月黑胶乐签"
+	if monthCard.Text != nil && strings.TrimSpace(*monthCard.Text) != "" {
+		monthTitle = strings.TrimSpace(*monthCard.Text)
+	}
+
+	monthTip := strings.TrimSpace(monthCard.SubText)
+
+	switch {
+	case detail.Data.MonthCheckInTotalDay > 0 && monthTip != "":
+		c.cmd.Printf("  %s: 已签 %d 天, %s\n", monthTitle, detail.Data.MonthCheckInTotalDay, monthTip)
+	case detail.Data.MonthCheckInTotalDay > 0:
+		c.cmd.Printf("  %s: 已签 %d 天\n", monthTitle, detail.Data.MonthCheckInTotalDay)
+	case monthTip != "":
+		c.cmd.Printf("  %s:%s\n", monthTitle, monthTip)
+	}
+
+	if c.opts.Automatic && hasVipEntitlement && !maxLevel {
+		reward, rewardErr := weapiRequest.VipRewardGetAll(ctx, &weapi.VipRewardGetAllReq{})
 		if rewardErr != nil {
 			return fmt.Errorf("VipRewardGetAll: %w", rewardErr)
 		}
 
 		if reward.Data.Result {
-			c.cmd.Println("vip成长值领取成功")
+			c.cmd.Println("VIP 成长值: 领取成功")
+		} else if message := strings.TrimSpace(reward.Message); message != "" {
+			c.cmd.Printf("VIP 成长值: %s\n", message)
 		} else {
-			c.cmd.Printf("vip成长值领取失败: %+v", reward)
+			c.cmd.Println("VIP 成长值: 未领取")
 		}
 	}
 
 	// 刷新token过期时间
-	refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
-	if err != nil || refresh.Code != 200 {
-		c.l.Warnf("TokenRefresh resp:%+v err: %s", refresh, err)
+	refresh, refreshErr := weapiRequest.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
+	if refreshErr != nil {
+		c.l.Warnf("TokenRefresh: %v", refreshErr)
+	} else if refresh.Code != 200 {
+		c.l.Warnf("TokenRefresh: code=%d message=%q", refresh.Code, refresh.Message)
 	}
 	return nil
 }

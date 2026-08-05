@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -22,7 +23,8 @@ func TestRedactHeadersDoesNotMutateInput(t *testing.T) {
 		"X-Custom-Token":      {"token-secret"},
 		"Content-Type":        {"application/json"},
 		"X-Unrelated-Headers": {"visible"},
-		"Location":            {"https://music.163.com/redirect?token=location-secret&name=song"},
+		"Location":            {"https://music.163.com/redirect/token=location-path-secret?token=location-secret&name=song#access_token=location-fragment-secret"},
+		"Content-Location":    {"https://music.163.com/download/token%3Dcontent-location-secret"},
 		"Referer":             {"https://music.163.com/page?Signature=referer-secret"},
 	}
 
@@ -37,8 +39,8 @@ func TestRedactHeadersDoesNotMutateInput(t *testing.T) {
 		t.Fatalf("non-sensitive headers changed: %#v", redacted)
 	}
 
-	for _, secret := range []string{"location-secret", "referer-secret"} {
-		if strings.Contains(redacted.Get("Location")+redacted.Get("Referer"), secret) {
+	for _, secret := range []string{"location-secret", "location-path-secret", "location-fragment-secret", "content-location-secret", "referer-secret"} {
+		if strings.Contains(redacted.Get("Location")+redacted.Get("Content-Location")+redacted.Get("Referer"), secret) {
 			t.Fatalf("URL-valued header leaked %q: %#v", secret, redacted)
 		}
 	}
@@ -56,7 +58,7 @@ func TestRedactHeadersDoesNotMutateInput(t *testing.T) {
 func TestRedactURLAndNestedJSONQuery(t *testing.T) {
 	u := mustURL(
 		t,
-		`https://username:password@music.163.com/api/test?phone=18800001111&Signature=signed-secret&NOSAccessKeyId=access-secret&api_key=api-secret&payload=%7B%22access_token%22%3A%22secret%22%2C%22name%22%3A%22song%22%7D&name=song`,
+		`https://username:password@music.163.com/api/token=path-secret?phone=18800001111&Signature=signed-secret&NOSAccessKeyId=access-secret&api_key=api-secret&payload=%7B%22access_token%22%3A%22secret%22%2C%22name%22%3A%22song%22%7D&name=song#access_token=fragment-secret`,
 	)
 
 	redactedRaw := redactURL(u, false)
@@ -92,12 +94,200 @@ func TestRedactURLAndNestedJSONQuery(t *testing.T) {
 		t.Fatalf("redacted URL retained a password marker: %s", redactedURL)
 	}
 
+	for _, secret := range []string{"path-secret", "fragment-secret"} {
+		if strings.Contains(redactedRaw, secret) {
+			t.Fatalf("URL path or fragment leaked %q: %s", secret, redactedRaw)
+		}
+	}
+
 	if u.Query().Get("phone") != "18800001111" {
 		t.Fatal("input URL was mutated")
 	}
 
-	if visible := redactURL(u, true); !strings.Contains(visible, "18800001111") || !strings.Contains(visible, "username:password") {
+	if visible := redactURL(u, true); !strings.Contains(visible, "18800001111") || !strings.Contains(visible, "username:password") ||
+		!strings.Contains(visible, "path-secret") || !strings.Contains(visible, "fragment-secret") {
 		t.Fatalf("showSensitive did not bypass redaction: %s", visible)
+	}
+}
+
+func TestParseQueryForCaptureEmptyQueryIgnoresParameterLimit(t *testing.T) {
+	t.Setenv("GODEBUG", "urlmaxqueryparams=1")
+
+	capture := parseQueryForCapture("")
+	if capture.parseErr != nil || len(capture.parsed) != 0 || len(capture.display) != 0 || capture.responseEncrypted {
+		t.Fatalf("empty query produced synthetic capture state: %+v", capture)
+	}
+}
+
+func TestParseQueryForCapturePreservesMalformedFieldPositions(t *testing.T) {
+	capture := parseQueryForCapture("id=first&id=bad;secret&id=last")
+	if capture.parseErr == nil {
+		t.Fatal("malformed query did not report an error")
+	}
+
+	if got, want := capture.parsed["id"], []string{"first", "last"}; !slices.Equal(got, want) {
+		t.Fatalf("parsed id values = %#v, want %#v", got, want)
+	}
+
+	if got, want := capture.display["id"], []string{"first", redactedValue, "last"}; !slices.Equal(got, want) {
+		t.Fatalf("display id values = %#v, want %#v", got, want)
+	}
+}
+
+func TestParseQueryForCaptureRedactsUnsafeKeys(t *testing.T) {
+	for _, rawQuery := range []string{
+		"name=song&bad%FF=private-secret&e%FF_r=true",
+		"name=song&bad=%zz&e%FF_r=true",
+	} {
+		capture := parseQueryForCapture(rawQuery)
+		if capture.display.Get("name") != "song" || capture.display.Get(redactedValue) != redactedValue {
+			t.Fatalf("unsafe query key was not redacted safely: %#v", capture.display)
+		}
+
+		if strings.Contains(capture.display.Encode(), "private-secret") {
+			t.Fatalf("unsafe query key exposed its value: %s", capture.display.Encode())
+		}
+
+		if capture.responseEncrypted {
+			t.Fatalf("unsafe query key was trusted as e_r: %+v", capture)
+		}
+	}
+}
+
+func TestParseQueryForCaptureWholeQueryError(t *testing.T) {
+	t.Setenv("GODEBUG", "urlmaxqueryparams=2")
+
+	if _, err := url.ParseQuery("name=song&e_r=true&id=1"); err == nil {
+		t.Skip("this Go toolchain does not enforce urlmaxqueryparams")
+	}
+
+	tests := []struct {
+		name              string
+		rawQuery          string
+		responseEncrypted bool
+	}{
+		{name: "valid fields", rawQuery: "name=song&e_r=true&id=1", responseEncrypted: true},
+		{name: "malformed fields", rawQuery: "name=%zz&note=%zz&id=%zz"},
+		{name: "empty fields", rawQuery: "&&"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			capture := parseQueryForCapture(tt.rawQuery)
+			if capture.parseErr == nil || capture.display.Get(redactedValue) != redactedValue || len(capture.display) != 1 {
+				t.Fatalf("whole-query failure was not represented safely: %+v", capture)
+			}
+
+			if capture.responseEncrypted != tt.responseEncrypted {
+				t.Fatalf("responseEncrypted = %t, want %t", capture.responseEncrypted, tt.responseEncrypted)
+			}
+		})
+	}
+}
+
+func TestMalformedURLQueryFailsClosedWithoutDroppingFields(t *testing.T) {
+	u := &url.URL{
+		Scheme:   "https",
+		Host:     "music.163.com",
+		Path:     "/api/test",
+		RawQuery: "name=song&note=private-secret;token=hidden-secret&bad%zz=key-secret&phone=18800001111",
+	}
+
+	redactedRaw := redactURL(u, false)
+
+	redactedURL, err := url.Parse(redactedRaw)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query := redactedURL.Query()
+	if query.Get("name") != "song" {
+		t.Fatalf("safe query value changed: %q", query.Get("name"))
+	}
+
+	for _, key := range []string{"note", "phone", redactedValue} {
+		if got := query.Get(key); got != redactedValue {
+			t.Fatalf("%s = %q, want %q", key, got, redactedValue)
+		}
+	}
+
+	for _, secret := range []string{"private-secret", "hidden-secret", "key-secret", "18800001111"} {
+		if strings.Contains(redactedRaw, secret) {
+			t.Fatalf("malformed URL query leaked %q: %s", secret, redactedRaw)
+		}
+	}
+
+	result := decodeRequest(http.MethodGet, u, nil, nil)
+	if !json.Valid(result.query) {
+		t.Fatalf("formatted malformed query is invalid JSON: %s", result.query)
+	}
+
+	decoded, err := decodeJSON(result.query)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	formatted, ok := decoded.(map[string]any)
+	if !ok || formatted["name"] != "song" {
+		t.Fatalf("formatted malformed query lost safe fields: %s", result.query)
+	}
+
+	for _, key := range []string{"note", "phone", redactedValue} {
+		if formatted[key] != redactedValue {
+			t.Fatalf("formatted %s = %#v, want %q", key, formatted[key], redactedValue)
+		}
+	}
+
+	for _, secret := range []string{"private-secret", "hidden-secret", "key-secret", "18800001111"} {
+		if strings.Contains(string(result.query), secret) {
+			t.Fatalf("formatted malformed query leaked %q: %s", secret, result.query)
+		}
+	}
+
+	if visible := redactURL(u, true); visible != u.String() {
+		t.Fatalf("showSensitive changed malformed raw query: %q", visible)
+	}
+
+	if u.RawQuery != "name=song&note=private-secret;token=hidden-secret&bad%zz=key-secret&phone=18800001111" {
+		t.Fatal("input URL was mutated")
+	}
+}
+
+func TestMalformedURLStringFailsClosed(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           string
+		wantPlaceholder string
+	}{
+		{
+			name:            "malformed query field",
+			input:           `{"redirect":"https://username:password@music.163.com/api?note=private-secret%zz"}`,
+			wantPlaceholder: url.QueryEscape(redactedValue),
+		},
+		{
+			name:            "URL parse failure",
+			input:           `{"redirect":"https://username:password@music.163.com/%zz?note=private-secret"}`,
+			wantPlaceholder: unsafeTextPlaceholder,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			formatted, _, err := formatJSONLimited([]byte(tt.input), false, 1024)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, secret := range []string{"username", "password", "private-secret"} {
+				if strings.Contains(string(formatted), secret) {
+					t.Fatalf("malformed URL string leaked %q: %s", secret, formatted)
+				}
+			}
+
+			if !strings.Contains(string(formatted), tt.wantPlaceholder) {
+				t.Fatalf("malformed URL string did not retain a safe placeholder: %s", formatted)
+			}
+		})
 	}
 }
 
@@ -169,7 +359,7 @@ func TestFormatValuesForDisplayPreservesFormSemantics(t *testing.T) {
 	html := strings.Repeat("<", 64)
 
 	formatted, meta, err := formatValuesForDisplay(url.Values{
-		"e_r":   {"true"},
+		"e_r":   {"true", "true"},
 		"empty": {},
 		"html":  {html},
 		"ids":   {"1", "2"},
@@ -198,9 +388,10 @@ func TestFormatValuesForDisplayPreservesFormSemantics(t *testing.T) {
 	}
 
 	empty, emptyOK := value["empty"].([]any)
+	encryptedEntries, encryptedOK := value["e_r"].([]any)
 
 	ids, idsOK := value["ids"].([]any)
-	if !emptyOK || !idsOK || len(empty) != 0 || len(ids) != 2 {
+	if !emptyOK || !encryptedOK || !idsOK || len(empty) != 0 || len(encryptedEntries) != 2 || len(ids) != 2 {
 		t.Fatalf("multi-value fields changed: %#v", value)
 	}
 
@@ -237,7 +428,29 @@ func TestFormatValuesForDisplayFailsClosedOnInvalidUTF8(t *testing.T) {
 		t.Fatalf("invalid form body did not fail closed: %#v", display)
 	}
 
-	visible, _, err := formatValuesForDisplay(values, true, 1024)
+	invalidKey := string(append([]byte("bad"), 0xff))
+	values = url.Values{invalidKey: {"private-key-value"}}
+
+	formatted, _, err = formatValuesForDisplay(values, false, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !json.Valid(formatted) || strings.Contains(string(formatted), "private-key-value") || !strings.Contains(string(formatted), redactedValue) {
+		t.Fatalf("invalid form key did not redact its value: %q", formatted)
+	}
+
+	display = formatBody(
+		http.Header{"Content-Type": {"application/x-www-form-urlencoded"}},
+		[]byte("bad%FF=private-key-value"),
+		false,
+		1024,
+	)
+	if !display.structured || !json.Valid(display.body) || strings.Contains(string(display.body), "private-key-value") || !strings.Contains(string(display.body), redactedValue) {
+		t.Fatalf("invalid form body key did not fail closed: %#v", display)
+	}
+
+	visible, _, err := formatValuesForDisplay(url.Values{"note": {invalid}}, true, 1024)
 	if err != nil || !json.Valid(visible) || !strings.Contains(string(visible), "private-value") {
 		t.Fatalf("show-sensitive invalid value was not safely encoded: body=%q err=%v", visible, err)
 	}

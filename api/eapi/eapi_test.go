@@ -106,6 +106,7 @@ func TestEAPIRequestTypesEmbedCommon(t *testing.T) {
 		VipSignInfoReq{},
 		VipGrowPointReq{},
 		VipCheckinHistoryDetailReq{},
+		VipMinideskMusicSignPCReq{},
 		VipRewardGetAllReq{},
 		VipWelfareListReq{},
 		VipBenefitCategoryListReq{},

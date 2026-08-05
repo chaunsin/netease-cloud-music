@@ -115,7 +115,17 @@ func redactURL(u *url.URL, showSensitive bool) string {
 			copyURL.User = url.User(redactedValue)
 		}
 
-		query := copyURL.Query()
+		if redactedPath := string(redactText([]byte(copyURL.Path), false)); redactedPath != copyURL.Path {
+			copyURL.Path = redactedPath
+			copyURL.RawPath = ""
+		}
+
+		if redactedFragment := string(redactText([]byte(copyURL.Fragment), false)); redactedFragment != copyURL.Fragment {
+			copyURL.Fragment = redactedFragment
+			copyURL.RawFragment = ""
+		}
+
+		query := parseQueryForCapture(copyURL.RawQuery).display
 		for key, entries := range query {
 			for i, entry := range entries {
 				if sensitiveKey(key) || (xeapi && strings.EqualFold(key, "R")) {
@@ -130,6 +140,152 @@ func redactURL(u *url.URL, showSensitive bool) string {
 		copyURL.RawQuery = query.Encode()
 	}
 	return copyURL.String()
+}
+
+type queryCapture struct {
+	parsed            url.Values
+	display           url.Values
+	parseErr          error
+	responseEncrypted bool
+}
+
+// parseQueryForCapture keeps synthetic placeholders out of protocol parsing.
+func parseQueryForCapture(rawQuery string) queryCapture {
+	if rawQuery == "" {
+		return queryCapture{parsed: make(url.Values), display: make(url.Values)}
+	}
+
+	parsed, err := url.ParseQuery(rawQuery)
+
+	capture := queryCapture{
+		parsed:            parsed,
+		parseErr:          err,
+		responseEncrypted: valuesRequestEncrypted(parsed),
+	}
+	if err == nil {
+		capture.display = redactUnsafeValueKeys(cloneURLValues(parsed))
+		return capture
+	}
+
+	capture.display = make(url.Values)
+	seen := make(map[string]int, len(parsed))
+	// Go 1.26 does not expose a sentinel for its pre-parse parameter limit.
+	wholeQueryError := err.Error() == "number of URL query parameters exceeded limit"
+	unsafeKey := false
+
+	for field := range strings.SplitSeq(rawQuery, "&") {
+		if field == "" {
+			continue
+		}
+
+		rawKey, rawValue, _ := strings.Cut(field, "=")
+		key, keyErr := url.QueryUnescape(rawKey)
+		value, valueErr := url.QueryUnescape(rawValue)
+
+		valid := !strings.Contains(field, ";") && keyErr == nil && valueErr == nil
+		if !valid {
+			if wholeQueryError {
+				continue
+			}
+
+			if keyErr != nil || !utf8.ValidString(key) {
+				key = redactedValue
+				unsafeKey = true
+			}
+
+			capture.display.Add(key, redactedValue)
+			continue
+		}
+
+		if isResponseEncryptedHint(key, value) {
+			capture.responseEncrypted = true
+		}
+
+		if wholeQueryError {
+			continue
+		}
+
+		index := seen[key]
+
+		entries := parsed[key]
+		if index >= len(entries) || entries[index] != value {
+			// A whole-query error returns no partial values; do not bypass it.
+			wholeQueryError = true
+			continue
+		}
+
+		seen[key] = index + 1
+
+		if !utf8.ValidString(key) {
+			capture.display.Add(redactedValue, redactedValue)
+
+			unsafeKey = true
+		} else {
+			capture.display.Add(key, value)
+		}
+	}
+
+	if !wholeQueryError {
+		for key, entries := range parsed {
+			if seen[key] != len(entries) {
+				wholeQueryError = true
+				break
+			}
+		}
+	}
+
+	if wholeQueryError {
+		capture.display = url.Values{redactedValue: {redactedValue}}
+	} else if unsafeKey {
+		for i := range capture.display[redactedValue] {
+			capture.display[redactedValue][i] = redactedValue
+		}
+	}
+	return capture
+}
+
+func cloneURLValues(values url.Values) url.Values {
+	cloned := make(url.Values, len(values))
+	for key, entries := range values {
+		cloned[key] = append([]string(nil), entries...)
+	}
+	return cloned
+}
+
+func redactUnsafeValueKeys(values url.Values) url.Values {
+	unsafeEntries := 0
+
+	for key, entries := range values {
+		if !utf8.ValidString(key) {
+			unsafeEntries += max(len(entries), 1)
+		}
+	}
+
+	if unsafeEntries == 0 {
+		return values
+	}
+
+	redacted := make(url.Values, len(values))
+	for key, entries := range values {
+		if !utf8.ValidString(key) {
+			continue
+		}
+
+		if key == redactedValue {
+			unsafeEntries += max(len(entries), 1)
+			continue
+		}
+
+		redacted[key] = entries
+	}
+
+	redactedEntries := make([]string, unsafeEntries)
+	for i := range redactedEntries {
+		redactedEntries[i] = redactedValue
+	}
+
+	redacted[redactedValue] = redactedEntries
+	return redacted
 }
 
 // formatJSONLimited streams JSON tokens into a bounded output buffer. It never
@@ -237,6 +393,10 @@ func formatValuesForDisplay(values url.Values, showSensitive bool, limit int64) 
 		return nil, jsonDisplayMeta{}, err
 	}
 
+	if !showSensitive {
+		values = redactUnsafeValueKeys(values)
+	}
+
 	formatter := valuesDisplayFormatter{
 		output:        output,
 		showSensitive: showSensitive,
@@ -306,14 +466,17 @@ func (f *valuesDisplayFormatter) writeEntries(key string, entries []string, dept
 		return writeJSONString(f.output, redactedValue)
 	}
 
+	for _, entry := range entries {
+		if isResponseEncryptedHint(key, entry) {
+			f.meta.requestEncrypted = true
+			break
+		}
+	}
+
 	switch len(entries) {
 	case 0:
 		return f.output.writeString("[]")
 	case 1:
-		if normalizeKey(key) == "er" && truthy(entries[0]) {
-			f.meta.requestEncrypted = true
-		}
-
 		if strings.EqualFold(key, "url") {
 			f.meta.rootURL = entries[0]
 		}
@@ -394,7 +557,7 @@ func (f *jsonDisplayFormatter) writeValue(key string, depth int, rootURL bool) e
 		return writeJSONString(f.output, redactedValue)
 	}
 
-	if normalizeKey(key) == "er" && truthy(token) {
+	if isResponseEncryptedHint(key, token) {
 		f.meta.requestEncrypted = true
 	}
 
@@ -682,6 +845,10 @@ func redactJSONStringWithMeta(value string, showSensitive bool) (string, jsonDis
 		return value, jsonDisplayMeta{}
 	}
 
+	if value == redactedValue {
+		return value, jsonDisplayMeta{}
+	}
+
 	if !utf8.ValidString(value) {
 		return unsafeTextPlaceholder, jsonDisplayMeta{}
 	}
@@ -706,9 +873,13 @@ func redactJSONStringWithMeta(value string, showSensitive bool) (string, jsonDis
 		return before + string(formatted) + after, meta
 	}
 
-	if strings.ContainsAny(trimmed, "?@") {
+	if strings.ContainsAny(trimmed, "?@#") || strings.Contains(trimmed, "://") {
 		parsed, err := url.Parse(trimmed)
-		if err == nil && (parsed.RawQuery != "" || parsed.User != nil) {
+		if err != nil {
+			return unsafeTextPlaceholder, jsonDisplayMeta{}
+		}
+
+		if parsed.RawQuery != "" || parsed.User != nil || parsed.Fragment != "" || parsed.IsAbs() {
 			redacted := redactURL(parsed, false)
 
 			before, after, ok := strings.Cut(value, trimmed)
@@ -847,17 +1018,17 @@ func normalizeKey(key string) string {
 
 func valuesRequestEncrypted(values url.Values) bool {
 	for key, entries := range values {
-		if normalizeKey(key) != "er" {
-			continue
-		}
-
 		for _, entry := range entries {
-			if truthy(entry) {
+			if isResponseEncryptedHint(key, entry) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func isResponseEncryptedHint(key string, value any) bool {
+	return utf8.ValidString(key) && normalizeKey(key) == "er" && truthy(value)
 }
 
 func truthy(value any) bool {

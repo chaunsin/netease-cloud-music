@@ -78,7 +78,7 @@ ncmctl task --scrobble \
 | `--sign.cron` | `0 10 * * *` | Sign schedule |
 | `--partner.cron` | `0 18 * * *` | Partner schedule |
 | `--scrobble.cron` | `0 18 * * *` | Scrobble schedule |
-| `--sign.automatic` | false | Claim eligible sign/VIP rewards; increased account risk |
+| `--sign.automatic` | false | Claim available sign rewards and eligible VIP rewards; increased account risk |
 | `--partner.star` | `3,4` | Base evaluation score choices, each 1-5 |
 | `--partner.extStar` | `2,3,4` | Extra evaluation score choices, each 1-5 |
 | `--partner.extNum` | `random` | Extra evaluation count: `random` (2-7) or 0-15 |
@@ -89,7 +89,7 @@ Schedules use standard five-field cron syntax. Press Ctrl+C or send SIGTERM to s
 
 ## sign
 
-Run YunBei and eligible VIP sign-in actions once. Login is required.
+Run YunBei and VIP sign-in actions once. Login is required; VIP sign-in does not require an active VIP entitlement.
 
 ```bash
 ncmctl sign
@@ -98,7 +98,7 @@ ncmctl sign --automatic
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `-a, --automatic` | false | Claim available YunBei and VIP rewards in addition to sign-in |
+| `-a, --automatic` | false | Claim available YunBei and eligible VIP rewards in addition to sign-in |
 
 Automatic reward handling performs more account actions and may increase risk-control exposure.
 
@@ -359,9 +359,9 @@ XEAPI startup state is always explicit. `--home` does not make `proxy` discover 
 Behavior and limitations:
 
 - Only NetEase-related target domains are captured or MITM'd; other traffic is forwarded without capture.
-- Structured content is formatted and recursively redacted by default. Binary, media, multipart, invalid UTF-8, unsafe unstructured bodies, and every request body with an unknown content length (including finite chunked requests) are summarized.
+- Structured content is formatted and recursively redacted by default. A malformed URL query field retains its safely decoded name when possible and uses `[REDACTED]` for its value instead of disappearing; if the parser rejects the whole query, a generic placeholder is shown instead of an empty query. Binary, media, multipart, invalid UTF-8, unsafe unstructured bodies, and every request body with an unknown content length (including finite chunked requests) are summarized.
 - Display truncation, decompression, parsing, or redaction failure does not change forwarded bytes.
-- EAPI, Linux API, and plain API payloads are decoded when possible.
+- EAPI, Linux API, and plain API payloads are decoded when possible; a recovered Linux target URL supplies the logical API path and query shown in the request block.
 - A passive proxy cannot recover WEAPI's random request key; WEAPI requests remain `unsupported`.
 - For XEAPI, valid `R` exposes the public-key version and session ID, `S` is only validated as a Base64 X25519/GCM frame, and `B` is decrypted only when that session ID matches a known key. The logical method, `/api/...` path, query, content type, and Base64 inner body are then restored and recursively redacted. A missing/unknown key, conflicting values for one `B/S/R` field across duplicates or sources, or another recoverable-field failure is `partial`; an invalid `R` in a complete capture is `failed`; an omitted, truncated, or failed body observation is `partial` rather than a claim that the real request was malformed.
 - XEAPI responses are `plaintext` only when the captured bytes are valid JSON. Otherwise only raw-binary traditional EAPI AES-ECB ciphertext is accepted, with bounded inner-gzip expansion; ASCII hex is not guessed. Empty responses are not `plaintext`, and incomplete response observations are `partial`. Non-200 responses follow the same observation path. A newly learned key applies only to subsequent requests and does not retroactively decrypt an earlier request whose `R` carried an empty session ID.

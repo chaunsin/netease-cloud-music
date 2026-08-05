@@ -82,6 +82,21 @@ func TestDecodeEAPIRequestGolden(t *testing.T) {
 	}
 }
 
+func TestMalformedQueryPlaceholderDoesNotOverrideEAPIBody(t *testing.T) {
+	u := mustURL(t, "https://interface.music.163.com/eapi/music/partner/work/evaluate?params=%zz")
+	body := []byte(url.Values{"params": {eapiRequestGolden}}.Encode())
+	header := http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}
+
+	result := decodeRequest(http.MethodPost, u, header, body)
+	if result.status != decodeStatusDecrypted || !strings.Contains(result.detail, "digest verified") {
+		t.Fatalf("malformed display query overrode the valid EAPI body: %+v", result)
+	}
+
+	if !bytes.Contains(result.query, []byte(redactedValue)) {
+		t.Fatalf("malformed query field was not represented safely: %s", result.query)
+	}
+}
+
 func TestParseEAPIEnvelopeUsesFirstAndLastSeparator(t *testing.T) {
 	apiPath := "/api/test"
 	payload := `{"value":"left-36cd479b6b5-right"}`
@@ -172,8 +187,8 @@ func TestDecodeRequestOnlyReportsEmptyBodyForBodyMethods(t *testing.T) {
 func TestDecodeLinuxRequestAndResponse(t *testing.T) {
 	payload := map[string]any{
 		"method": "POST",
-		"url":    "https://music.163.com/api/song/detail",
-		"params": map[string]any{"ids": "[123]", "e_r": true, "phone": "18800001111"},
+		"url":    "https://music.163.com/api/song/detail?id=12345&e_r=true&token=query-secret",
+		"params": map[string]any{"ids": "[123]", "phone": "18800001111"},
 	}
 
 	encrypted, err := ncmcrypto.LinuxApiEncrypt(payload)
@@ -184,17 +199,35 @@ func TestDecodeLinuxRequestAndResponse(t *testing.T) {
 	body := []byte(url.Values{"eparams": {encrypted["eparams"]}}.Encode())
 	header := http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}
 
-	request := decodeRequest(http.MethodPost, mustURL(t, "https://music.163.com/api/linux/forward"), header, body)
+	request := decodeRequest(http.MethodPost, mustURL(t, "https://music.163.com/api/linux/forward?eparams=%zz&transport=outer"), header, body)
 	if request.status != decodeStatusDecrypted || request.apiPath != "/api/song/detail" {
 		t.Fatalf("unexpected linux request: %+v", request)
 	}
 
-	if !request.responseEncrypted {
-		t.Fatal("nested e_r=true was not detected")
+	logicalQuery, err := decodeJSON(request.query)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	if strings.Contains(string(request.body), "18800001111") {
-		t.Fatalf("phone leaked: %s", request.body)
+	query, ok := logicalQuery.(map[string]any)
+	if !ok || query["id"] != "12345" || query["e_r"] != "true" || query["token"] != redactedValue {
+		t.Fatalf("linux logical query was not restored safely: %s", request.query)
+	}
+
+	if _, ok := query["transport"]; ok {
+		t.Fatalf("linux transport query leaked into logical query: %s", request.query)
+	}
+
+	if !request.responseEncrypted {
+		t.Fatal("logical e_r=true was not detected")
+	}
+
+	if strings.Contains(string(request.body), "18800001111") || strings.Contains(string(request.body), "query-secret") {
+		t.Fatalf("linux request leaked sensitive URL or body data: %s", request.body)
+	}
+
+	if !strings.Contains(string(request.body), url.QueryEscape(redactedValue)) {
+		t.Fatalf("linux request URL did not retain a redacted value placeholder: %s", request.body)
 	}
 
 	responseCipher, err := ncmcrypto.LinuxApiEncrypt(map[string]any{"code": 200, "token": "secret"})
@@ -816,6 +849,51 @@ func TestDecodeXEAPIRequestRedactsOuterRBySource(t *testing.T) {
 	}
 }
 
+func TestFormatXEAPIOuterBodyRejectsInvalidUTF8JSON(t *testing.T) {
+	body := []byte(`{"R":"outer-secret","bad`)
+	body = append(body, 0xff)
+	body = append(body, []byte(`":"private-value"}`)...)
+	header := http.Header{"Content-Type": {"application/json"}}
+
+	hidden := formatXEAPIOuterBody(header, body, false, 1024)
+	if hidden.structured || bytes.Contains(hidden.body, []byte("private-value")) || !bytes.Contains(hidden.body, []byte(unsafeBodyPlaceholderReason)) {
+		t.Fatalf("invalid UTF-8 XEAPI JSON did not fail closed: %+v", hidden)
+	}
+
+	visible := formatXEAPIOuterBody(header, body, true, 1024)
+	if !bytes.Equal(visible.body, body) {
+		t.Fatalf("--show-sensitive changed invalid UTF-8 XEAPI JSON: %q", visible.body)
+	}
+}
+
+func TestMalformedXEAPIQueryDoesNotBecomeSyntheticParameter(t *testing.T) {
+	params := encryptXEAPIRequestForProxy(t, &ncmcrypto.XeapiEncryptRequest{
+		URI: "/api/test?name=song",
+	}, ncmcrypto.XeapiSession{ID: "session-id", Key: "0123456789abcdef"})
+
+	result := decodeRequestLimitedWithXeapiSessions(
+		http.MethodPost,
+		mustURL(t, "https://interface.music.163.com/xeapi/test?R=%zz"),
+		http.Header{"Content-Type": {"application/x-www-form-urlencoded"}},
+		[]byte(params.Encode()),
+		false,
+		1<<20,
+		xeapiTestCache(),
+	)
+
+	if result.status != decodeStatusPartial || result.apiPath != "/api/test" {
+		t.Fatalf("malformed transport query blocked XEAPI body recovery: %+v", result)
+	}
+
+	if !strings.Contains(result.detail, "transport query is invalid") || strings.Contains(result.detail, "ambiguous") {
+		t.Fatalf("malformed transport query produced the wrong diagnostic: %q", result.detail)
+	}
+
+	if !bytes.Contains(result.query, []byte(`"name": "song"`)) {
+		t.Fatalf("logical query was not restored from the valid body: %s", result.query)
+	}
+}
+
 func TestDecodeXEAPIRequestRedactsLogicalMetadata(t *testing.T) {
 	const (
 		sessionID         = "session-id"
@@ -855,6 +933,54 @@ func TestDecodeXEAPIRequestRedactsLogicalMetadata(t *testing.T) {
 	visible := decode(true)
 	if visible.status != decodeStatusDecrypted || !strings.Contains(visible.logicalContentType, contentTypeSecret) || !bytes.Contains(visible.query, []byte(logicalRSecret)) {
 		t.Fatalf("--show-sensitive did not retain logical metadata: %+v", visible)
+	}
+}
+
+func TestDecodeXEAPIRequestRetainsMalformedLogicalQuery(t *testing.T) {
+	params := encryptXEAPIRequestForProxy(t, &ncmcrypto.XeapiEncryptRequest{
+		URI:         "/api/test?name=song&note=private-secret;token=hidden-secret",
+		ContentType: "application/json",
+		Body:        []byte(`{"name":"visible","token":"body-secret"}`),
+	}, ncmcrypto.XeapiSession{ID: "session-id", Key: "0123456789abcdef"})
+
+	result := decodeRequestLimitedWithXeapiSessions(
+		http.MethodPost,
+		mustURL(t, "https://interface.music.163.com/xeapi/test"),
+		http.Header{"Content-Type": {"application/x-www-form-urlencoded"}},
+		[]byte(params.Encode()),
+		false,
+		1<<20,
+		xeapiTestCache(),
+	)
+
+	if result.status != decodeStatusPartial || !strings.Contains(result.detail, "query string is invalid") {
+		t.Fatalf("malformed logical query did not remain partial: %+v", result)
+	}
+
+	decoded, err := decodeJSON(result.query)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, ok := decoded.(map[string]any)
+	if !ok || query["name"] != "song" || query["note"] != redactedValue || query["e_r"] != "true" {
+		t.Fatalf("malformed logical query lost safe fields: %s", result.query)
+	}
+
+	for _, secret := range []string{"private-secret", "hidden-secret"} {
+		if bytes.Contains(result.query, []byte(secret)) {
+			t.Fatalf("malformed logical query exposed %q: %s", secret, result.query)
+		}
+	}
+
+	body, err := decodeJSON(result.body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	object, ok := body.(map[string]any)
+	if !ok || object["name"] != "visible" || object["token"] != redactedValue {
+		t.Fatalf("malformed logical query blocked independent body recovery: %s", result.body)
 	}
 }
 

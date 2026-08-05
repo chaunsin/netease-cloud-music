@@ -46,7 +46,7 @@ Prebuilt binaries are published on the project's GitHub Releases page.
 | `login` | No | Phone/SMS, password, Cookie, CookieCloud, or QR login |
 | `logout` | Existing session | Log out, remove the default Cookie and XEAPI state, and optionally remove the anonymous token |
 | `task` | Yes | Run sign, partner, and/or scrobble on cron schedules |
-| `sign` | Yes | Run YunBei and eligible VIP daily sign-in actions once |
+| `sign` | Yes | Run YunBei and VIP daily sign-in actions; VIP sign-in needs no active entitlement |
 | `partner` | Yes | Submit music-partner evaluations once |
 | `scrobble` | Yes | Submit play logs, up to 300 per day |
 | `download` | Yes | Download songs, albums, artists, or playlists |

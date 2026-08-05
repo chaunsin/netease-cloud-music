@@ -173,6 +173,44 @@ func TestRecorderEscapesMetadataAndRawControlBodies(t *testing.T) {
 	}
 }
 
+func TestRecorderRedactsBodyMetadata(t *testing.T) {
+	const (
+		contentTypeSecret     = "content-type-secret"
+		contentEncodingSecret = "content-encoding-secret"
+	)
+
+	snapshot := bodySnapshot{
+		raw:           []byte(`{}`),
+		contentType:   "application/json; token=" + contentTypeSecret,
+		contentEncode: "gzip; secret=" + contentEncodingSecret,
+	}
+	render := func(showSensitive bool) string {
+		var block bytes.Buffer
+
+		testRecorder := recorder{maxBodyBytes: 1024, showSensitive: showSensitive}
+		testRecorder.writeBody(&block, &snapshot, snapshot.raw)
+		return block.String()
+	}
+
+	hidden := render(false)
+	for _, secret := range []string{contentTypeSecret, contentEncodingSecret} {
+		if strings.Contains(hidden, secret) {
+			t.Fatalf("body metadata exposed %q: %s", secret, hidden)
+		}
+	}
+
+	if strings.Count(hidden, redactedValue) != 2 {
+		t.Fatalf("body metadata did not retain redaction markers: %s", hidden)
+	}
+
+	visible := render(true)
+	for _, secret := range []string{contentTypeSecret, contentEncodingSecret} {
+		if !strings.Contains(visible, secret) {
+			t.Fatalf("--show-sensitive omitted body metadata %q: %s", secret, visible)
+		}
+	}
+}
+
 func TestWriteHeadersPreservesNonCanonicalValues(t *testing.T) {
 	var output bytes.Buffer
 	writeHeaders(&output, http.Header{
@@ -394,7 +432,7 @@ func TestRecorderRedactsXEAPIRAndLogicalMetadata(t *testing.T) {
 		}
 	}
 
-	if strings.Count(hidden, "&R=") < 3 || !strings.Contains(hidden, "[REDACTED") {
+	if got := strings.Count(hidden, "R="+url.QueryEscape(redactedValue)); got != 3 {
 		t.Fatalf("REQUEST/RESPONSE/RESPONSE_ERROR URLs were not all redacted: %s", hidden)
 	}
 
@@ -406,6 +444,33 @@ func TestRecorderRedactsXEAPIRAndLogicalMetadata(t *testing.T) {
 	for _, original := range []string{sessionID, contentTypeSecret, logicalRSecret} {
 		if !strings.Contains(visible, original) {
 			t.Fatalf("--show-sensitive did not retain %q: %s", original, visible)
+		}
+	}
+}
+
+func TestRedactURLPreservesMalformedXEAPIFields(t *testing.T) {
+	requestURL := &url.URL{
+		Scheme:   "https",
+		Host:     "music.163.com",
+		Path:     "/xeapi/test",
+		RawQuery: "R=session-secret;extra=hidden-secret&name=song",
+	}
+
+	redactedRaw := redactURL(requestURL, false)
+
+	redactedURL, err := url.Parse(redactedRaw)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query := redactedURL.Query()
+	if query.Get("R") != redactedValue || query.Get("name") != "song" {
+		t.Fatalf("malformed XEAPI query was not retained safely: %s", redactedRaw)
+	}
+
+	for _, secret := range []string{"session-secret", "hidden-secret"} {
+		if strings.Contains(redactedRaw, secret) {
+			t.Fatalf("malformed XEAPI URL leaked %q: %s", secret, redactedRaw)
 		}
 	}
 }

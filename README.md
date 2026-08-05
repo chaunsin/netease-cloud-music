@@ -33,14 +33,14 @@
 
 #### 📋 每日任务
 
-- [X] 🎯 一键完成每日任务（音乐合伙人、云贝签到、VIP 签到、刷歌 300 首）
+- [X] 🎯 一键完成每日任务（音乐合伙人、云贝签到、黑胶乐签、刷歌 300 首）
 - [X] 💰 云贝签到（支持自动领取签到奖励）
 - [X] 🎤 "音乐合伙人"自动测评
   - 5 首基础歌曲 + 2~7 首随机额外歌曲测评（不包含"歌曲推荐"测评）
   - 📢 2025 年 3
     月 [公告](https://music.163.com/#/event?id=30336457500&uid=7872690377) | [规则](https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3)
 - [X] 🎧 每日刷歌 300 首（支持去重功能）
-- [X] 💎 VIP 每日签到
+- [X] 💎 黑胶乐签（无需有效 VIP 权益）
 
 #### ☁️ 云盘功能
 
@@ -203,7 +203,7 @@ cp -r skills/ncmctl ~/.codex/skills/
 | `ncmctl login <method>` | 否 | 通过手机、Cookie、CookieCloud 或二维码登录，并持久化 Cookie |
 | `ncmctl logout [--clear-anonymous-token]` | 已有会话 | 调用远端退出接口并删除默认 Cookie 与 XEAPI 状态；可选删除匿名 token |
 | `ncmctl task [flags]` | 是 | 按 cron 长期调度 `sign`、`partner`、`scrobble`；无选择器时调度全部任务 |
-| `ncmctl sign [flags]` | 是 | 立即执行一次云贝及符合条件的 VIP 签到 |
+| `ncmctl sign [flags]` | 是 | 立即执行一次云贝签到及黑胶乐签；黑胶乐签无需有效 VIP 权益 |
 | `ncmctl partner [flags]` | 是 | 立即上报播放并提交音乐合伙人测评，会修改账号状态 |
 | `ncmctl scrobble [flags]` | 是 | 提交播放日志并在本地去重，封号风险较高 |
 | `ncmctl download <id-or-url> [id-or-url...]` | 是 | 下载歌曲、专辑、歌手或歌单，并在 MD5 校验后写入本地文件 |
@@ -366,7 +366,7 @@ ncmctl task
 
 |     任务     | 说明                |
 | :----------: | :------------------ |
-|   `sign`   | 云贝签到 + VIP 签到 |
+|   `sign`   | 云贝签到 + 黑胶乐签 |
 | `partner` | 音乐合伙人          |
 | `scrobble` | 刷歌 300 首         |
 
@@ -475,7 +475,7 @@ ncmctl ncm '/path/to/ncm/files' -o ./output -p 10
 
 ### 🌐 六、HTTP(S) 接口监控代理
 
-`proxy` 子命令用于调试自己设备上的网易云音乐流量。它只记录网易相关域名，其他 HTTP(S) 流量正常转发但不会输出。请求和响应会使用同一会话 ID 分块打印到终端，默认对 Cookie、Token、手机号、邮箱、设备标识和密码等敏感字段脱敏；无法安全结构化脱敏的正文只输出摘要。
+`proxy` 子命令用于调试自己设备上的网易云音乐流量。它只记录网易相关域名，其他 HTTP(S) 流量正常转发但不会输出。请求和响应会使用同一会话 ID 分块打印到终端，默认对 Cookie、Token、手机号、邮箱、设备标识和密码等敏感字段脱敏；无法安全解析的 URL Query 字段会保留可识别的字段名并用 `[REDACTED]` 占位，若解析器拒绝整个 Query 则输出通用占位而不是静默清空，无法安全结构化脱敏的正文只输出摘要。Linux API 解密出的目标 URL 会提供日志中的逻辑路径和 Query。
 
 ```shell
 # 默认只监听本机 127.0.0.1:9000

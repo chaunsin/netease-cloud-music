@@ -49,7 +49,7 @@ func newRequestRecord(requestURL *url.URL) (*requestRecord, decodeResult) {
 	}
 	if requestURL != nil {
 		// Preserve the response-encryption hint if overload drops full decoding.
-		result.responseEncrypted = valuesRequestEncrypted(requestURL.Query())
+		result.responseEncrypted = parseQueryForCapture(requestURL.RawQuery).responseEncrypted
 	}
 
 	switch result.protocol {
@@ -286,7 +286,7 @@ func (r *recorder) recordResponseError(state *captureState, responseErr error) {
 		return
 	}
 
-	recordError := func(request decodeResult) {
+	recordError := func(_ decodeResult) {
 		r.submit(func() {
 			message := "response unavailable"
 			if responseErr != nil {
@@ -299,7 +299,7 @@ func (r *recorder) recordResponseError(state *captureState, responseErr error) {
 				state.session,
 				time.Since(state.started).Round(time.Millisecond),
 			)
-			fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactCaptureURL(state.requestURL, request.protocol, r.showSensitive)))
+			fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactURL(state.requestURL, r.showSensitive)))
 			fmt.Fprintf(&block, "error: %s\n", escapeLogField(r.redactDiagnostic(message)))
 			r.writeBlock(block.Bytes())
 		})
@@ -333,7 +333,7 @@ func (r *recorder) writeRequestBlock(state *captureState, decoded *decodeResult,
 	var block bytes.Buffer
 	fmt.Fprintf(&block, "[%s] #%06d REQUEST protocol=%s decode=%s\n",
 		time.Now().Format(time.RFC3339Nano), state.session, decoded.protocol, decoded.status)
-	fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactCaptureURL(state.requestURL, decoded.protocol, r.showSensitive)))
+	fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactURL(state.requestURL, r.showSensitive)))
 
 	if decoded.responseEncrypted {
 		fmt.Fprintln(&block, "response-encrypted: true")
@@ -396,7 +396,7 @@ func (r *recorder) writeResponseBlock(state *captureState, response *http.Respon
 		decoded.protocol,
 		decoded.status,
 	)
-	fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactCaptureURL(state.requestURL, decoded.protocol, r.showSensitive)))
+	fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactURL(state.requestURL, r.showSensitive)))
 	writeHeaders(&block, response.Header, r.showSensitive)
 	r.writeBody(&block, &state.responseBody, decoded.body)
 
@@ -413,16 +413,6 @@ func (r *recorder) redactDiagnostic(value string) string {
 
 func (r *recorder) metadataField(value string) string {
 	return escapeLogField(r.redactDiagnostic(value))
-}
-
-func redactCaptureURL(requestURL *url.URL, requestProtocol protocol, showSensitive bool) string {
-	if requestProtocol != protocolXEAPI || showSensitive || requestURL == nil {
-		return redactURL(requestURL, showSensitive)
-	}
-
-	redacted := cloneURL(requestURL)
-	redacted.RawQuery = redactXEAPIRValues(redacted.Query()).Encode()
-	return redactURL(redacted, false)
 }
 
 func (r *recorder) bodyForDisplay(snapshot *bodySnapshot) ([]byte, string) {
@@ -456,10 +446,10 @@ func (r *recorder) writeBody(block *bytes.Buffer, snapshot *bodySnapshot, body [
 	}
 
 	fmt.Fprintf(block, "body: content-type=%q content-length=%d captured=%d",
-		escapeLogField(contentType), snapshot.contentLength, len(snapshot.raw))
+		r.metadataField(contentType), snapshot.contentLength, len(snapshot.raw))
 
 	if snapshot.contentEncode != "" {
-		fmt.Fprintf(block, " content-encoding=%q", escapeLogField(snapshot.contentEncode))
+		fmt.Fprintf(block, " content-encoding=%q", r.metadataField(snapshot.contentEncode))
 	}
 
 	if snapshot.truncated {

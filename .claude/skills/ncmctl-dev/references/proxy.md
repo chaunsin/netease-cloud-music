@@ -63,6 +63,10 @@ For XEAPI responses, valid JSON is `plaintext`; an empty body is not plaintext. 
 
 Redact recursively by default across URLs, headers, forms, JSON, nested JSON strings, diagnostics, recovered metadata, and protocol output. For XEAPI, redact every outer `R` copy because its static-key plaintext contains the session ID. If structured redaction cannot be proven safe, emit a bounded placeholder or summary. Invalid UTF-8 and malformed unstructured bodies must fail closed.
 
+Do not use `url.URL.Query()` for capture formatting because it silently discards malformed fields. Preserve any safely decoded field name and replace an unparseable value with `[REDACTED]`; if the name is also unsafe, replace both name and value.
+
+Keep display placeholders out of protocol parsing, parameter precedence, and conflict detection. The `go.mod` language baseline is Go 1.25.0, whose original standard library has no `ParseQuery` parameter-count limit; the limit was added in Go 1.26 and backported to Go 1.25.6. A toolchain with that limit may reject a whole query before parsing fields. Represent the whole-query failure with a bounded placeholder instead of treating it as a malformed field or bypassing the limit.
+
 Only explicit `ShowSensitive` or `--show-sensitive` may expose raw sensitive values. Keep even that mode bounded, and never add secrets to debug logs or test fixtures.
 
 ## Output and backpressure

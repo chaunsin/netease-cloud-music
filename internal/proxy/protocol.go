@@ -97,20 +97,20 @@ func decodeRequestLimitedWithXeapiSessions(method string, u *url.URL, header htt
 		maxBodyBytes = defaultJSONDisplayLimit
 	}
 
-	query := u.Query()
+	query := parseQueryForCapture(u.RawQuery)
 	result := decodeResult{
 		protocol:          classifyProtocol(u.Path),
 		status:            decodeStatusPlaintext,
 		apiPath:           u.Path,
-		query:             formatQuery(query, showSensitive, maxBodyBytes),
-		responseEncrypted: valuesRequestEncrypted(query),
+		query:             formatQuery(query.display, showSensitive, maxBodyBytes),
+		responseEncrypted: query.responseEncrypted,
 	}
 
 	switch result.protocol {
 	case protocolEAPI:
-		return decodeEAPIRequest(&result, query, header, body, showSensitive, maxBodyBytes)
+		return decodeEAPIRequest(&result, query.parsed, header, body, showSensitive, maxBodyBytes)
 	case protocolLinux:
-		return decodeLinuxRequest(&result, query, header, body, showSensitive, maxBodyBytes)
+		return decodeLinuxRequest(&result, query.parsed, header, body, showSensitive, maxBodyBytes)
 	case protocolWEAPI:
 		result.status = decodeStatusUnsupported
 		result.detail = "weapi request decryption unsupported: the random AES key cannot be recovered"
@@ -279,17 +279,26 @@ func (parameters *xeapiRequestParameters) named(name string) *observedRequestPar
 	}
 }
 
-func decodeXEAPIRequest(base *decodeResult, query url.Values, header http.Header, body []byte, showSensitive bool, maxBodyBytes int64, sessions xeapiSessionLookup) decodeResult {
+func decodeXEAPIRequest(
+	base *decodeResult,
+	query queryCapture,
+	header http.Header,
+	body []byte,
+	showSensitive bool,
+	maxBodyBytes int64,
+	sessions xeapiSessionLookup,
+) decodeResult {
+	// XEAPI is complete only after every recoverable outer and logical field succeeds.
 	base.status = decodeStatusPartial
 	base.responseEncrypted = true
-	base.query = formatXEAPIQuery(query, showSensitive, maxBodyBytes)
+	base.query = formatXEAPIQuery(query.display, showSensitive, maxBodyBytes)
 
 	outer := formatXEAPIOuterBody(header, body, showSensitive, maxBodyBytes)
 	base.body = outer.body
 	base.responseEncrypted = base.responseEncrypted || outer.meta.requestEncrypted
 	base.detail = outer.detail
 
-	parameters := collectXEAPIRequestParameters(query, header, body)
+	parameters := collectXEAPIRequestParameters(query.parsed, header, body)
 	if parameters.r.ambiguous {
 		result := failedRequestFallback(base, header, body, showSensitive, maxBodyBytes, "xeapi R field is ambiguous")
 		result.status = decodeStatusPartial
@@ -318,9 +327,12 @@ func decodeXEAPIRequest(base *decodeResult, query url.Values, header http.Header
 
 	var (
 		dynamicKey = []byte(nil)
-		complete   = true
+		complete   = query.parseErr == nil
 		details    = []string{"xeapi R decrypted"}
 	)
+	if query.parseErr != nil {
+		details = append(details, "xeapi transport query is invalid: "+query.parseErr.Error())
+	}
 
 	switch {
 	case metadata.SessionID == "":
@@ -451,29 +463,30 @@ func applyXEAPIEnvelope(result *decodeResult, plaintext []byte, showSensitive bo
 
 	result.logicalContentType = redactDecodedMetadata(contentType, showSensitive)
 
-	logicalQuery, err := url.ParseQuery(envelope.QueryString)
-	if err != nil {
-		return fmt.Errorf("query string is invalid: %w", err)
-	}
-
-	result.query = formatXEAPIQuery(logicalQuery, showSensitive, maxBodyBytes)
+	logicalQuery := parseQueryForCapture(envelope.QueryString)
+	result.query = formatXEAPIQuery(logicalQuery.display, showSensitive, maxBodyBytes)
 	result.responseEncrypted = true
+
+	var queryErr error
+	if logicalQuery.parseErr != nil {
+		queryErr = fmt.Errorf("query string is invalid: %w", logicalQuery.parseErr)
+	}
 
 	if envelope.Body == nil {
 		result.body = []byte{}
-		return nil
+		return queryErr
 	}
 
 	innerBody, err := base64.StdEncoding.Strict().DecodeString(*envelope.Body)
 	if err != nil {
-		return fmt.Errorf("body base64 is invalid: %w", err)
+		return errors.Join(queryErr, fmt.Errorf("body base64 is invalid: %w", err))
 	}
 
 	display := formatBody(http.Header{"Content-Type": {contentType}}, innerBody, showSensitive, maxBodyBytes)
 	result.body = display.body
 	result.responseEncrypted = result.responseEncrypted || display.meta.requestEncrypted
 	result.detail = appendDetail(result.detail, display.detail)
-	return nil
+	return queryErr
 }
 
 func logicalXEAPIPath(transportPath string, showSensitive bool) (string, error) {
@@ -519,9 +532,8 @@ func formatXEAPIOuterBody(header http.Header, body []byte, showSensitive bool, m
 }
 
 func redactXEAPIRValues(values url.Values) url.Values {
-	redacted := make(url.Values, len(values))
-	for name, entries := range values {
-		redacted[name] = append([]string(nil), entries...)
+	redacted := cloneURLValues(values)
+	for name := range redacted {
 		if strings.EqualFold(name, "R") {
 			for i := range redacted[name] {
 				redacted[name][i] = redactedValue
@@ -533,7 +545,7 @@ func redactXEAPIRValues(values url.Values) url.Values {
 
 func redactXEAPIJSONR(body []byte) ([]byte, bool) {
 	trimmed := bytes.TrimSpace(body)
-	if len(trimmed) == 0 || trimmed[0] != '{' || !json.Valid(trimmed) {
+	if len(trimmed) == 0 || trimmed[0] != '{' || !utf8.Valid(trimmed) || !json.Valid(trimmed) {
 		return nil, false
 	}
 
@@ -649,7 +661,11 @@ func decodeLinuxRequest(base *decodeResult, query url.Values, header http.Header
 	if requestURL := meta.rootURL; requestURL != "" {
 		if parsed, parseErr := url.Parse(requestURL); parseErr == nil && parsed.Path != "" {
 			if safePath, safeErr := sanitizeEAPIPath(parsed.EscapedPath(), showSensitive); safeErr == nil {
+				logicalQuery := parseQueryForCapture(parsed.RawQuery)
+
 				base.apiPath = safePath
+				base.query = formatQuery(logicalQuery.display, showSensitive, maxBodyBytes)
+				base.responseEncrypted = base.responseEncrypted || logicalQuery.responseEncrypted
 			}
 		}
 	}
