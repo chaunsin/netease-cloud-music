@@ -289,10 +289,10 @@ func TestCryptoDecryptXeapiDirectRequestRejectsMalformedS(t *testing.T) {
 		value   string
 		wantErr string
 	}{
-		{name: "invalid base64", value: "%%%", wantErr: "decode base64"},
+		{name: "invalid base64", value: "%%%", wantErr: "base64.DecodeString S"},
 		{
 			name:    "truncated frame",
-			value:   base64.StdEncoding.EncodeToString(make([]byte, xeapiSFixedFrameSize)),
+			value:   base64.StdEncoding.EncodeToString(make([]byte, 32+12+16)),
 			wantErr: "frame is too short",
 		},
 	}

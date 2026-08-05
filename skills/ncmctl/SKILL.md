@@ -87,7 +87,7 @@ For custom configuration, copy the full schema from `config/config.yaml`, edit i
 ## Safety boundaries
 
 - **Account risk:** `scrobble`, partner evaluation, automatic reward claims, and other automation can trigger NetEase risk control. Scrobble has a particularly high ban risk.
-- **Credentials:** Cookie values, `MUSIC_U`, phone passwords, CookieCloud UUID/passwords, and XEAPI dynamic/session keys are secrets. Phone-password, CookieCloud, and XEAPI key inputs are flags; they do not provide a hidden prompt or dedicated environment variable.
+- **Credentials:** Cookie values, `MUSIC_U`, phone passwords, CookieCloud UUID/passwords, and XEAPI dynamic/session keys are secrets. Phone-password, CookieCloud, and XEAPI key inputs are flags; they do not provide a hidden prompt or dedicated environment variable. In particular, `proxy --xeapi-session-key` is visible in shell history and process arguments.
 - **TLS verification:** The current NetEase API and CookieCloud clients disable server-certificate verification. HTTPS traffic is encrypted but the peer identity is not authenticated; use only a trusted network path and CookieCloud server.
 - **State files:** Cookies, XEAPI session state, and anonymous tokens are sensitive. ncmctl creates its managed state files with restrictive permissions on POSIX, but backups, exported Cookies, and user-provided `header.yaml` files remain the user's responsibility. Prefer `login cookie -f` over placing a Cookie string directly in shell history.
 - **Cookie import persistence:** Cookie and CookieCloud imports enter the configured persistent jar before account validation. A failed validation can still write those values during immediate, periodic, or final flush.
@@ -128,9 +128,12 @@ The historical `ncm --tag` flag is inverted: tags are written by default, and pa
 ```bash
 ncmctl proxy
 ncmctl proxy > capture.log
+ncmctl proxy --xeapi-state-file ~/.ncmctl/xeapi.yaml
 ```
 
 Configure the client to use `127.0.0.1:9000` for HTTP and HTTPS, then trust `<home>/.ncmctl/proxy/ca.crt`. The proxy never modifies the system trust store automatically.
+
+XEAPI session state is opt-in at startup: `proxy` does not discover `<home>/.ncmctl/xeapi.yaml` unless `--xeapi-state-file` names it. It can also accept a paired `--xeapi-session-id` / `--xeapi-session-key`; the ID is at most 1024 bytes and the key is raw ASCII of 16, 24, or 32 bytes. During capture, valid session response headers are learned in memory for later requests and are not written back. Requests without a matching key remain `partial`; `S` is only structurally validated because the proxy has neither side's X25519 private key.
 
 Use `ncmctl --debug proxy` to correlate the CONNECT target with ClientHello SNI, the generated certificate SANs, and hostname-match results. Matching identities followed by a client handshake alert narrow the remaining causes to client trust policy or certificate pinning; the alert alone cannot distinguish them.
 

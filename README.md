@@ -88,7 +88,7 @@
 | `eapi` | 请求加密；缺失 `e_r` / `header` 时分别发送 `true` / `"{}"`；`e_r=false` 时解析明文 JSON，`e_r=true` 时解密原始二进制响应，`x-aeapi=true` 时再透明展开解密后的 gzip 内容；非 200 响应按相同规则处理后以 `api.APIError` 返回状态码 |
 | `api` | 不加密；通用请求参数序列化尚未完成 |
 | `linux` | Linux API 的请求/响应加解密，暂无高级 endpoint wrapper |
-| `xeapi` | 底层 Aegis/XEAPI 封装，暂无独立 endpoint wrapper，CLI `curl -k` 也不支持；`crypto decrypt` 可离线解密响应，并在显式提供 dynamic/session key 时解密请求 `B`，但不解密 `S`；默认 POST 路径只有本地测试验证 |
+| `xeapi` | 底层 Aegis/XEAPI 封装，暂无独立 endpoint wrapper，CLI `curl -k` 也不支持；`crypto decrypt` 可离线解密响应，并在显式提供 dynamic/session key 时解密请求 `B`；`S` 只严格验证外层帧而不解密；默认 POST 路径只有本地测试验证 |
 
 > 💡 **提示：** XEAPI 的研究背景见 [docs/xeapi.md](docs/xeapi.md)，实际行为以源码和外部协议证据一起验证。如需新增接口可提
 > [Issue](https://github.com/chaunsin/netease-cloud-music/issues)。
@@ -492,6 +492,13 @@ ncmctl proxy --ca-cert ./ca.crt --ca-key ./ca.key
 
 # 改变生成 CA 和运行数据的根目录
 ncmctl --home /srv/ncmctl proxy
+
+# 显式使用已有 xeapi.yaml 中的 session 作为启动种子
+ncmctl proxy --xeapi-state-file ~/.ncmctl/xeapi.yaml
+
+# 或直接提供一组 session；key 按原始 ASCII 使用，不解析十六进制
+ncmctl proxy --xeapi-session-id SESSION_ID \
+  --xeapi-session-key '0123456789abcdef'
 ```
 
 首次启动会生成用户专属 CA：
@@ -508,14 +515,20 @@ ncmctl --home /srv/ncmctl proxy
 | `--ca-key` | 自动生成 | 已有 CA 私钥路径，必须与 `--ca-cert` 同时使用 |
 | `--max-body` | `1MB` | 单个请求或响应最多打印的正文大小，不影响真实转发 |
 | `--show-sensitive` | `false` | 关闭脱敏并打印凭据等敏感值，请谨慎使用 |
+| `--xeapi-session-id` | 空 | 最多 1024 字节的 XEAPI session ID，必须与 `--xeapi-session-key` 同时提供 |
+| `--xeapi-session-key` | 空 | 16/24/32 字节原始 ASCII key；可能暴露在 shell history 和进程参数中 |
+| `--xeapi-state-file` | 空 | 显式读取 canonical `xeapi.yaml`，只导入完整的 `session.id/key` |
 | 全局 `--debug` | `false` | 打印代理内部连接诊断 |
+
+代理不会因全局 `--home` 自动读取 `<home>/.ncmctl/xeapi.yaml`。显式状态文件必须是普通文件且不超过 1 MiB；公钥字段缺失或过期不影响导入 session。文件种子先加载，命令行种子覆盖同 ID；运行期间完整有效的 `X-Encr-Ssid` / `X-Encr-Sskey` 响应头会再次覆盖同 ID。不同 ID 会并存于最多 256 项的进程内缓存，每个 ID 最多 1024 字节，退出时不写回文件。
 
 > ⚠️ **安全与兼容性说明：**
 >
 > - `0.0.0.0` 会向局域网开放无认证代理，只应在可信网络和防火墙保护下临时使用。
 > - HTTPS 监控依赖客户端信任生成的 CA；证书固定、Android 用户 CA 限制、QUIC/HTTP3 或绕过系统代理的连接可能无法捕获。
 > - 首版按 CONNECT/Host 域名筛选目标；客户端若以 IP 地址作为 CONNECT 目标，即使 TLS SNI 是网易域名，也可能只会透明转发而不记录。
-> - WEAPI 的随机请求密钥和新版 XEAPI 的会话密钥无法由被动代理完整还原，程序会标记为不支持并打印脱敏后的原始字段；EAPI、Linux API 和明文 API 会尽可能解析。
+> - WEAPI 的随机请求密钥无法由被动代理恢复，仍标记为 `unsupported`。XEAPI 会始终尝试恢复 `R` 元数据并验证 `S` 帧；只有命中启动种子或此前响应头学习到的同 ID session key 时才解密 `B`，否则标记为 `partial`。完整抓取中 `R` 缺失或不可解时标记为 `failed`；同一 `B/S/R` 在重复项或不同来源中出现冲突值，以及被省略、截断或读取失败的抓取，只标记为 `partial`。默认输出会隐藏所有外层 `R` 副本，避免从公开静态 key 还原已脱敏的 session ID。
+> - XEAPI 响应接受真实明文 JSON，或按原始二进制传统 EAPI AES-ECB 格式解密；不会猜测 ASCII hex。空响应不会标为 `plaintext`，响应抓取不完整时标为 `partial`。新响应下发的 session 只用于后续请求，不追溯解密此前 session ID 为空的请求。
 > - 音视频、图片、multipart 以及所有未知正文长度的请求（包括有限的 chunked 请求）只打印摘要；当前不解析 WebSocket 帧。
 > - 输出端被慢终端、FIFO 或磁盘阻塞时，代理会优先保持真实流量可用；有界记录队列满时会输出 `CAPTURE_DROPPED` 标记，表示部分捕获块未写出。
 

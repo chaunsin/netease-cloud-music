@@ -56,7 +56,8 @@ func newRequestRecord(requestURL *url.URL) (*requestRecord, decodeResult) {
 	case protocolWEAPI:
 		result.status = decodeStatusUnsupported
 	case protocolXEAPI:
-		result.status = decodeStatusUnsupported
+		result.status = decodeStatusPartial
+		result.responseEncrypted = true
 	case protocolAPI, protocolEAPI, protocolLinux, protocolGeneric:
 		// These protocols keep the default plaintext status until full decoding runs.
 	}
@@ -120,8 +121,10 @@ func (record *requestRecord) onComplete(callback func(decodeResult)) {
 
 type recorder struct {
 	out           io.Writer
+	diagnosticOut io.Writer
 	maxBodyBytes  int64
 	showSensitive bool
+	xeapiSessions *xeapiSessionCache
 
 	submitMu   sync.Mutex
 	tasks      chan func()
@@ -132,14 +135,24 @@ type recorder struct {
 }
 
 func newRecorder(out io.Writer, maxBodyBytes int64, showSensitive bool) *recorder {
+	return newRecorderWithXeapiSessions(out, io.Discard, maxBodyBytes, showSensitive, nil)
+}
+
+func newRecorderWithXeapiSessions(out, diagnosticOut io.Writer, maxBodyBytes int64, showSensitive bool, sessions *xeapiSessionCache) *recorder {
 	if maxBodyBytes <= 0 {
 		maxBodyBytes = defaultJSONDisplayLimit
 	}
 
+	if diagnosticOut == nil {
+		diagnosticOut = io.Discard
+	}
+
 	r := &recorder{
 		out:           out,
+		diagnosticOut: diagnosticOut,
 		maxBodyBytes:  maxBodyBytes,
 		showSensitive: showSensitive,
+		xeapiSessions: sessions,
 		tasks:         make(chan func(), recorderQueueCapacity),
 		workerDone:    make(chan struct{}),
 	}
@@ -222,7 +235,13 @@ func (r *recorder) finishRequest(record *requestRecord, state *captureState) {
 	provisional := state.requestDecoded
 	if !r.submit(func() {
 		body, captureDetail := r.bodyForDisplay(&state.requestBody)
-		decoded := decodeRequestLimited(state.requestMethod, state.requestURL, state.requestHeader, body, r.showSensitive, r.maxBodyBytes)
+
+		decoded := decodeRequestLimitedWithXeapiSessions(state.requestMethod, state.requestURL, state.requestHeader, body, r.showSensitive, r.maxBodyBytes, state.requestSessions)
+		if decoded.protocol == protocolXEAPI && (state.requestBody.requestObservationIncomplete() || captureDetail != "") {
+			decoded.status = decodeStatusPartial
+			decoded.detail = appendDetail(decoded.detail, "XEAPI request observation is incomplete")
+		}
+
 		detail := joinDetails(decoded.detail, captureDetail, snapshotDetail(&state.requestBody))
 		r.writeRequestBlock(state, &decoded, detail)
 		// Complete only after the request block is emitted so response records
@@ -243,7 +262,13 @@ func (r *recorder) recordResponse(state *captureState, response *http.Response) 
 	recordResponse := func(request decodeResult) {
 		r.submit(func() {
 			body, captureDetail := r.bodyForDisplay(&state.responseBody)
+
 			decoded := decodeResponse(&request, metadata.Header, body, r.maxBodyBytes, r.showSensitive)
+			if decoded.protocol == protocolXEAPI && (state.responseBody.requestObservationIncomplete() || captureDetail != "") {
+				decoded.status = decodeStatusPartial
+				decoded.detail = appendDetail(decoded.detail, "XEAPI response observation is incomplete")
+			}
+
 			detail := joinDetails(decoded.detail, captureDetail, snapshotDetail(&state.responseBody))
 			r.writeResponseBlock(state, metadata, &decoded, detail)
 		})
@@ -261,7 +286,7 @@ func (r *recorder) recordResponseError(state *captureState, responseErr error) {
 		return
 	}
 
-	recordError := func(_ decodeResult) {
+	recordError := func(request decodeResult) {
 		r.submit(func() {
 			message := "response unavailable"
 			if responseErr != nil {
@@ -274,7 +299,7 @@ func (r *recorder) recordResponseError(state *captureState, responseErr error) {
 				state.session,
 				time.Since(state.started).Round(time.Millisecond),
 			)
-			fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactURL(state.requestURL, r.showSensitive)))
+			fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactCaptureURL(state.requestURL, request.protocol, r.showSensitive)))
 			fmt.Fprintf(&block, "error: %s\n", escapeLogField(r.redactDiagnostic(message)))
 			r.writeBlock(block.Bytes())
 		})
@@ -287,18 +312,64 @@ func (r *recorder) recordResponseError(state *captureState, responseErr error) {
 	recordError(state.requestDecoded)
 }
 
+func (r *recorder) recordXeapiSessionHeaderError(session int64, headerErr error) {
+	if r == nil || headerErr == nil {
+		return
+	}
+
+	// Internal diagnostics remain redacted even when capture output is sensitive.
+	detail := string(redactDiagnostic([]byte(headerErr.Error()), false))
+
+	r.submit(func() {
+		var block bytes.Buffer
+		fmt.Fprintf(&block, "[%s] #%06d XEAPI_SESSION_HEADERS_IGNORED\n",
+			time.Now().Format(time.RFC3339Nano), session)
+		fmt.Fprintf(&block, "detail: %s\n", escapeLogField(detail))
+		_, _ = r.diagnosticOut.Write(block.Bytes())
+	})
+}
+
 func (r *recorder) writeRequestBlock(state *captureState, decoded *decodeResult, detail string) {
 	var block bytes.Buffer
 	fmt.Fprintf(&block, "[%s] #%06d REQUEST protocol=%s decode=%s\n",
 		time.Now().Format(time.RFC3339Nano), state.session, decoded.protocol, decoded.status)
-	fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactURL(state.requestURL, r.showSensitive)))
+	fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactCaptureURL(state.requestURL, decoded.protocol, r.showSensitive)))
 
 	if decoded.responseEncrypted {
 		fmt.Fprintln(&block, "response-encrypted: true")
 	}
 
 	if decoded.apiPath != "" && (state.requestURL == nil || decoded.apiPath != state.requestURL.Path) {
-		fmt.Fprintf(&block, "api-path: %s\n", escapeLogField(decoded.apiPath))
+		fmt.Fprintf(&block, "api-path: %s\n", r.metadataField(decoded.apiPath))
+	}
+
+	if decoded.logicalMethod != "" {
+		fmt.Fprintf(&block, "logical-method: %s\n", r.metadataField(decoded.logicalMethod))
+	}
+
+	if decoded.logicalContentType != "" {
+		fmt.Fprintf(&block, "logical-content-type: %s\n", r.metadataField(decoded.logicalContentType))
+	}
+
+	if decoded.keyVersion != "" {
+		fmt.Fprintf(&block, "xeapi-key-version: %s\n", r.metadataField(decoded.keyVersion))
+	}
+
+	if decoded.sessionID != nil {
+		sessionID := *decoded.sessionID
+		if sessionID != "" && !r.showSensitive {
+			sessionID = redactedValue
+		}
+
+		fmt.Fprintf(&block, "xeapi-session-id: %s\n", r.metadataField(sessionID))
+	}
+
+	if decoded.keySource != "" {
+		fmt.Fprintf(&block, "xeapi-session-key-source: %s\n", r.metadataField(decoded.keySource))
+	}
+
+	if decoded.sFrameValid {
+		fmt.Fprintln(&block, "xeapi-s-frame: validated-not-decrypted")
 	}
 
 	if len(decoded.query) > 0 {
@@ -325,7 +396,7 @@ func (r *recorder) writeResponseBlock(state *captureState, response *http.Respon
 		decoded.protocol,
 		decoded.status,
 	)
-	fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactURL(state.requestURL, r.showSensitive)))
+	fmt.Fprintf(&block, "%s %s\n", escapeLogField(state.requestMethod), escapeLogField(redactCaptureURL(state.requestURL, decoded.protocol, r.showSensitive)))
 	writeHeaders(&block, response.Header, r.showSensitive)
 	r.writeBody(&block, &state.responseBody, decoded.body)
 
@@ -338,6 +409,20 @@ func (r *recorder) writeResponseBlock(state *captureState, response *http.Respon
 
 func (r *recorder) redactDiagnostic(value string) string {
 	return string(redactDiagnostic([]byte(value), r.showSensitive))
+}
+
+func (r *recorder) metadataField(value string) string {
+	return escapeLogField(r.redactDiagnostic(value))
+}
+
+func redactCaptureURL(requestURL *url.URL, requestProtocol protocol, showSensitive bool) string {
+	if requestProtocol != protocolXEAPI || showSensitive || requestURL == nil {
+		return redactURL(requestURL, showSensitive)
+	}
+
+	redacted := cloneURL(requestURL)
+	redacted.RawQuery = redactXEAPIRValues(redacted.Query()).Encode()
+	return redactURL(redacted, false)
 }
 
 func (r *recorder) bodyForDisplay(snapshot *bodySnapshot) ([]byte, string) {

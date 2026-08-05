@@ -247,7 +247,7 @@ func TestSensitiveKeyVariants(t *testing.T) {
 	sensitive := []string{
 		"Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie", "csrf_token",
 		"password", "accessToken", "refresh-token", "MUSIC_U", "MUSIC_A", "MUSIC_R_U", "MUSIC_R_A", "MUSIC_A_T", "cellphone",
-		"phoneNumber", "mobile", "Signature", "NOSAccessKeyId", "api_key", "X-Encr-Sskey",
+		"phoneNumber", "mobile", "Signature", "NOSAccessKeyId", "api_key", "X-Encr-Sskey", "X-Encr-Ssid", "sessionId",
 		"email", "deviceId", "device_identifier", "imei", "imsi", "captcha", "verification_code", "smsCode",
 	}
 	for _, key := range sensitive {
@@ -366,5 +366,49 @@ func TestRedactDiagnosticURLs(t *testing.T) {
 
 	if visible := string(redactDiagnostic(input, true)); visible != string(input) {
 		t.Fatalf("showSensitive changed diagnostic: %s", visible)
+	}
+}
+
+func TestDiagnosticWriterRedactsXEAPIOuterR(t *testing.T) {
+	const (
+		xeapiRUpper = "xeapi-r-upper-secret"
+		xeapiRLower = "xeapi-r-lower-secret"
+		genericR    = "generic-r-visible"
+	)
+
+	input := []byte(
+		"Got request GET https://music.163.com/xeapi/song/detail?B=outer-b&R=" + xeapiRUpper + "&r=" + xeapiRLower + "&S=outer-s\n" +
+			"Got request GET https://music.163.com/api/song/detail?R=" + genericR + "&name=song\n",
+	)
+
+	var hidden bytes.Buffer
+
+	written, err := (&diagnosticWriter{out: &hidden}).Write(input)
+	if err != nil || written != len(input) {
+		t.Fatalf("write diagnostic = %d, %v", written, err)
+	}
+
+	redacted := hidden.String()
+	for _, secret := range []string{xeapiRUpper, xeapiRLower} {
+		if strings.Contains(redacted, secret) {
+			t.Fatalf("default diagnostic leaked XEAPI R %q: %s", secret, redacted)
+		}
+	}
+
+	for _, safe := range []string{"B=outer-b", "S=outer-s", "R=" + genericR, "name=song"} {
+		if !strings.Contains(redacted, safe) {
+			t.Fatalf("default diagnostic changed non-sensitive value %q: %s", safe, redacted)
+		}
+	}
+
+	if strings.Count(redacted, url.QueryEscape(redactedValue)) != 2 {
+		t.Fatalf("XEAPI R values were not precisely redacted: %s", redacted)
+	}
+
+	var visible bytes.Buffer
+
+	written, err = (&diagnosticWriter{out: &visible, showSensitive: true}).Write(input)
+	if err != nil || written != len(input) || !bytes.Equal(visible.Bytes(), input) {
+		t.Fatalf("showSensitive diagnostic = %d, %v, %q", written, err, visible.String())
 	}
 }

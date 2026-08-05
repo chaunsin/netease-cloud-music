@@ -21,15 +21,16 @@ import (
 )
 
 type captureState struct {
-	session        int64
-	started        time.Time
-	requestMethod  string
-	requestURL     *url.URL
-	requestHeader  http.Header
-	requestBody    bodySnapshot
-	requestDecoded decodeResult
-	requestRecord  *requestRecord
-	requestOnce    sync.Once
+	session         int64
+	started         time.Time
+	requestMethod   string
+	requestURL      *url.URL
+	requestHeader   http.Header
+	requestBody     bodySnapshot
+	requestDecoded  decodeResult
+	requestRecord   *requestRecord
+	requestSessions xeapiSessionLookup
+	requestOnce     sync.Once
 
 	responseBody     bodySnapshot
 	responseCaptured bool
@@ -62,7 +63,9 @@ func Run(ctx context.Context, rawConfig *Config) error {
 
 	tracked := newTrackedListener(listener, defaultConnectHandshakeTimeout)
 
-	recorder := newRecorder(cfg.Out, cfg.MaxBodyBytes, cfg.ShowSensitive)
+	xeapiSessions := newXeapiSessionCache(cfg.XeapiSessions)
+
+	recorder := newRecorderWithXeapiSessions(cfg.Out, cfg.ErrOut, cfg.MaxBodyBytes, cfg.ShowSensitive, xeapiSessions)
 	defer recorder.Close()
 
 	proxyServer, transport := newProxyServer(&cfg, matcher, ca, recorder, tracked)
@@ -209,6 +212,12 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 
 		proxyCtx.RoundTripper = goproxy.RoundTripperFunc(func(outbound *http.Request, _ *goproxy.ProxyCtx) (*http.Response, error) {
 			response, roundTripErr := transport.RoundTrip(outbound)
+			if response != nil && outbound.URL != nil && classifyProtocol(outbound.URL.Path) == protocolXEAPI {
+				if learnErr := recorder.xeapiSessions.learnResponseHeaders(response.Header); learnErr != nil {
+					recorder.recordXeapiSessionHeaderError(state.session, learnErr)
+				}
+			}
+
 			if roundTripErr != nil {
 				if response != nil && response.Body != nil {
 					_ = response.Body.Close()
@@ -285,7 +294,12 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 
 func prepareRequestCapture(state *captureState, request *http.Request, limit int64, recorder *recorder) {
 	state.requestBody = newBodySnapshot(request.Header, request.ContentLength)
+
 	state.requestRecord, state.requestDecoded = newRequestRecord(state.requestURL)
+	if state.requestDecoded.protocol == protocolXEAPI {
+		state.requestSessions = recorder.xeapiSessions.snapshot()
+	}
+
 	finish := func(snapshot bodySnapshot) {
 		state.requestBody = snapshot
 		state.requestOnce.Do(func() {

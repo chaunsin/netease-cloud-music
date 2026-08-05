@@ -287,7 +287,7 @@ func TestXeapiEncryptIssue174GoldenBody(t *testing.T) {
 	got, err := XeapiEncrypt(&req, XeapiPublicKeyState{
 		PublicKey:      "3m5wN9om11qRESjEV+5EoFf9qLEylO6gyThMbl1XxEk=",
 		Version:        "1000000000000",
-		NextUpdateTime: 1803882269000,
+		NextUpdateTime: 0,
 		SK:             "8PZfbIFA1779944463972",
 	}, XeapiSession{})
 	require.NoError(t, err)
@@ -297,11 +297,12 @@ func TestXeapiEncryptIssue174GoldenBody(t *testing.T) {
 		"R": "3LCoCTuHo/mDfZ1x3PtHsQ==",
 	}, got)
 
-	decrypted, err := XeapiDecryptRequest(XeapiEncryptedRequest{B: got["B"], R: got["R"]}, dynamicKey)
+	decrypted, err := XeapiDecryptRequest(XeapiEncryptedRequest{B: got["B"], S: got["S"], R: got["R"]}, dynamicKey)
 	require.NoError(t, err)
 	assert.Equal(t, "1000000000000", decrypted.PublicKeyVersion)
 	assert.Empty(t, decrypted.SessionID)
 	assert.JSONEq(t, `{"body":"","queryString":"e_r=true"}`, string(decrypted.Plaintext))
+	assert.True(t, decrypted.SFrameValid)
 }
 
 func TestXeapiEncrypt(t *testing.T) {
@@ -338,7 +339,7 @@ func TestXeapiEncrypt(t *testing.T) {
 	assert.NotEqual(t, withSession["R"], withoutSession["R"])
 
 	decrypted, err := XeapiDecryptRequest(
-		XeapiEncryptedRequest{B: withSession["B"], R: withSession["R"]},
+		XeapiEncryptedRequest{B: withSession["B"], S: withSession["S"], R: withSession["R"]},
 		[]byte("0123456789abcdef"),
 	)
 	require.NoError(t, err)
@@ -432,6 +433,9 @@ func TestXeapiDecryptRequestRejectsMalformedInput(t *testing.T) {
 		{name: "short mid payload", req: XeapiEncryptedRequest{B: shortMid, R: validR}, key: dynamicKey, wantErr: "mid payload too short"},
 		{name: "invalid mid base64", req: XeapiEncryptedRequest{B: invalidMidBase64, R: validR}, key: dynamicKey, wantErr: "reversed mid payload"},
 		{name: "invalid inner padding", req: XeapiEncryptedRequest{B: invalidInner, R: validR}, key: dynamicKey, wantErr: "decrypt B inner layer"},
+		{name: "invalid B without key", req: XeapiEncryptedRequest{B: "AA==", R: validR}, wantErr: "validate B"},
+		{name: "invalid S base64", req: XeapiEncryptedRequest{S: "%%%", R: validR}, wantErr: "base64.DecodeString S"},
+		{name: "short S frame", req: XeapiEncryptedRequest{S: base64.StdEncoding.EncodeToString(make([]byte, 60)), R: validR}, wantErr: "frame is too short"},
 	}
 
 	for _, tt := range tests {
@@ -445,6 +449,33 @@ func TestXeapiDecryptRequestRejectsMalformedInput(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestXeapiDecryptRequestRetainsBWhenSIsInvalid(t *testing.T) {
+	dynamicKey, err := hex.DecodeString("00112233445566778899aabbccddeeff")
+	require.NoError(t, err)
+
+	result, err := XeapiDecryptRequest(XeapiEncryptedRequest{
+		B: "J5+3SnVyE16Pm4720e7gA3mgIZ1L4axkB6jte8X079wgjs3SU+IK7AANKKdewVLtBIJw5y5LtyhCcJ3FZm4u2LOfXnKdOC0VKIfVgX/lWloAZX6hQGVaRHgnR3BdQi+t",
+		S: "%%%",
+		R: "3LCoCTuHo/mDfZ1x3PtHsQ==",
+	}, dynamicKey)
+	require.ErrorContains(t, err, "validate S")
+	assert.JSONEq(t, `{"body":"","queryString":"e_r=true"}`, string(result.Plaintext))
+	assert.False(t, result.SFrameValid)
+}
+
+func TestXeapiDecryptRequestKeepsMissingSAsCallerPolicy(t *testing.T) {
+	dynamicKey, err := hex.DecodeString("00112233445566778899aabbccddeeff")
+	require.NoError(t, err)
+
+	result, err := XeapiDecryptRequest(XeapiEncryptedRequest{
+		B: "J5+3SnVyE16Pm4720e7gA3mgIZ1L4axkB6jte8X079wgjs3SU+IK7AANKKdewVLtBIJw5y5LtyhCcJ3FZm4u2LOfXnKdOC0VKIfVgX/lWloAZX6hQGVaRHgnR3BdQi+t",
+		R: "3LCoCTuHo/mDfZ1x3PtHsQ==",
+	}, dynamicKey)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"body":"","queryString":"e_r=true"}`, string(result.Plaintext))
+	assert.False(t, result.SFrameValid)
 }
 
 func TestXeapiDecrypt(t *testing.T) {

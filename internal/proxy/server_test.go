@@ -29,6 +29,8 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/stretchr/testify/require"
+
+	ncmcrypto "github.com/chaunsin/netease-cloud-music/pkg/crypto"
 )
 
 func TestHTTPProxyCapturesAndRedactsWithoutChangingTraffic(t *testing.T) {
@@ -84,6 +86,127 @@ func TestHTTPProxyCapturesAndRedactsWithoutChangingTraffic(t *testing.T) {
 	for _, secret := range []string{"request-secret", "response-secret", "query-secret", "auth-secret", "cookie-secret"} {
 		require.NotContains(t, logOutput, secret)
 	}
+}
+
+func TestHTTPProxyLearnsXeapiSessionBeforeForwardingResponse(t *testing.T) {
+	const (
+		sessionID  = "runtime-session"
+		sessionKey = "0123456789abcdef"
+	)
+
+	responseBody := []byte("opaque-upstream-response")
+	receivedBody := make(chan []byte, 1)
+	receivedHeader := make(chan string, 1)
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/xeapi/bootstrap":
+			w.Header().Set("X-Encr-Ssid", sessionID)
+			w.Header().Set("X-Encr-Sskey", sessionKey)
+			w.Header().Set("X-Bootstrap", "preserved")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = io.WriteString(w, "not-an-encrypted-response")
+		case "/xeapi/song/detail":
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				t.Errorf("read request: %v", err)
+				return
+			}
+
+			receivedBody <- body
+
+			receivedHeader <- req.Header.Get("X-Preserve")
+
+			w.Header().Set("X-Response-Preserve", "yes")
+			w.WriteHeader(http.StatusTeapot)
+			_, _ = w.Write(responseBody)
+		default:
+			http.NotFound(w, req)
+		}
+	}))
+	t.Cleanup(origin.Close)
+
+	proxy := newXeapiTestProxy(t)
+	defer proxy.close()
+
+	client := newProxyClient(t, proxy.url, nil, false)
+
+	bootstrap, err := client.Get(origin.URL + "/xeapi/bootstrap")
+	require.NoError(t, err)
+
+	learnedKey, source, ok := proxy.sessions.lookup(sessionID)
+	require.True(t, ok)
+	require.Equal(t, []byte(sessionKey), learnedKey)
+	require.Equal(t, xeapiSessionSourceResponseHeader, source)
+
+	bootstrapBody, err := io.ReadAll(bootstrap.Body)
+	require.NoError(t, err)
+	require.NoError(t, bootstrap.Body.Close())
+	require.Equal(t, http.StatusServiceUnavailable, bootstrap.StatusCode)
+	require.Equal(t, "preserved", bootstrap.Header.Get("X-Bootstrap"))
+	require.Equal(t, sessionID, bootstrap.Header.Get("X-Encr-Ssid"))
+	require.Equal(t, sessionKey, bootstrap.Header.Get("X-Encr-Sskey"))
+	require.Equal(t, []byte("not-an-encrypted-response"), bootstrapBody)
+
+	params := encryptXEAPIRequestForProxy(t, &ncmcrypto.XeapiEncryptRequest{
+		URI:         "/api/song/detail?id=1",
+		ContentType: "application/json",
+		Body:        []byte(`{"token":"request-secret","id":1}`),
+	}, ncmcrypto.XeapiSession{ID: sessionID, Key: sessionKey})
+	forwardedBody := []byte(params.Encode())
+	request, err := http.NewRequest(http.MethodPost, origin.URL+"/xeapi/song/detail", bytes.NewReader(forwardedBody))
+	require.NoError(t, err)
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("X-Preserve", "yes")
+
+	response, err := client.Do(request)
+	require.NoError(t, err)
+	gotResponseBody, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	require.Equal(t, http.StatusTeapot, response.StatusCode)
+	require.Equal(t, "yes", response.Header.Get("X-Response-Preserve"))
+	require.Equal(t, responseBody, gotResponseBody)
+	require.Equal(t, forwardedBody, <-receivedBody)
+	require.Equal(t, "yes", <-receivedHeader)
+
+	requireOutputContains(t, proxy.output, "REQUEST protocol=xeapi decode=decrypted")
+	requireOutputContains(t, proxy.output, "api-path: /api/song/detail")
+	require.NotContains(t, proxy.output.String(), sessionKey)
+	require.NotContains(t, proxy.output.String(), "request-secret")
+	require.NotContains(t, proxy.diagnostics.String(), sessionKey)
+}
+
+func TestXeapiSessionLearningDoesNotDependOnRecorderQueue(t *testing.T) {
+	const (
+		sessionID  = "runtime-session"
+		sessionKey = "0123456789abcdef"
+	)
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("X-Encr-Ssid", sessionID)
+		w.Header().Set("X-Encr-Sskey", sessionKey)
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = io.WriteString(w, "broken")
+	}))
+	t.Cleanup(origin.Close)
+
+	proxy := newXeapiTestProxy(t)
+	proxy.recorder.CloseWithTimeout(time.Second)
+
+	defer proxy.close()
+
+	client := newProxyClient(t, proxy.url, nil, false)
+	response, err := client.Get(origin.URL + "/xeapi/bootstrap")
+	require.NoError(t, err)
+	_, err = io.Copy(io.Discard, response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	require.Equal(t, http.StatusBadGateway, response.StatusCode)
+
+	key, source, ok := proxy.sessions.lookup(sessionID)
+	require.True(t, ok)
+	require.Equal(t, []byte(sessionKey), key)
+	require.Equal(t, xeapiSessionSourceResponseHeader, source)
 }
 
 func TestHTTPSMITMRequiresAndUsesGeneratedCA(t *testing.T) {
@@ -1150,6 +1273,51 @@ func newTestProxy(t *testing.T, domains []string, maxBodyBytes int64) (*url.URL,
 	t.Helper()
 	proxyURL, ca, output, _, upstreamTransport := newTestProxyWithDebug(t, domains, maxBodyBytes, false)
 	return proxyURL, ca, output, upstreamTransport
+}
+
+type xeapiTestProxyHarness struct {
+	url               *url.URL
+	sessions          *xeapiSessionCache
+	output            *lockedBuffer
+	diagnostics       *lockedBuffer
+	recorder          *recorder
+	server            *httptest.Server
+	upstreamTransport *http.Transport
+}
+
+func newXeapiTestProxy(t *testing.T) *xeapiTestProxyHarness {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "proxy")
+	ca, _, err := loadOrCreateCA(filepath.Join(dir, "ca.crt"), filepath.Join(dir, "ca.key"), false)
+	require.NoError(t, err)
+	matcher, err := newHostMatcher([]string{"127.0.0.1"})
+	require.NoError(t, err)
+
+	output := &lockedBuffer{}
+	diagnostics := &lockedBuffer{}
+	sessions := newXeapiSessionCache(nil)
+	recorder := newRecorderWithXeapiSessions(output, diagnostics, 1<<20, false, sessions)
+	cfg := Config{MaxBodyBytes: 1 << 20, Out: output, ErrOut: diagnostics}
+	proxyServer, upstreamTransport := newProxyServer(&cfg, matcher, ca, recorder, nil)
+	server := httptest.NewServer(proxyServer)
+	proxyURL, err := url.Parse(server.URL)
+	require.NoError(t, err)
+
+	return &xeapiTestProxyHarness{
+		url:               proxyURL,
+		sessions:          sessions,
+		output:            output,
+		diagnostics:       diagnostics,
+		recorder:          recorder,
+		server:            server,
+		upstreamTransport: upstreamTransport,
+	}
+}
+
+func (h *xeapiTestProxyHarness) close() {
+	h.server.Close()
+	h.upstreamTransport.CloseIdleConnections()
+	h.recorder.Close()
 }
 
 func newTestProxyWithDebug(t *testing.T, domains []string, maxBodyBytes int64, debug bool) (*url.URL, *tls.Certificate, *lockedBuffer, *lockedBuffer, *http.Transport) {

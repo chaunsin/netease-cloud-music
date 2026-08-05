@@ -37,6 +37,7 @@ type Config struct {
 	Out                  io.Writer
 	ErrOut               io.Writer
 	ShutdownTimeout      time.Duration
+	XeapiSessions        []XeapiSessionSeed
 }
 
 func normalizeConfig(input *Config) (Config, error) {
@@ -99,6 +100,13 @@ func normalizeConfig(input *Config) (Config, error) {
 
 	if err := validateListenAddress(cfg.ListenAddr, true); err != nil {
 		return Config{}, err
+	}
+
+	cfg.XeapiSessions = append([]XeapiSessionSeed(nil), input.XeapiSessions...)
+	for i := range cfg.XeapiSessions {
+		if err := cfg.XeapiSessions[i].Validate(); err != nil {
+			return Config{}, fmt.Errorf("xeapi session seed %d: %w", i+1, err)
+		}
 	}
 
 	cfg.CACertPath = filepath.Clean(cfg.CACertPath)

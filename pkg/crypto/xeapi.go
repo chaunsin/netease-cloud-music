@@ -131,10 +131,10 @@ type XeapiEncryptRequest struct {
 	UID         string
 }
 
-// XeapiEncryptedRequest contains the request fields that can be decrypted
-// without either side's X25519 private key. S is intentionally excluded.
+// XeapiEncryptedRequest contains the three encrypted XEAPI request fields.
 type XeapiEncryptedRequest struct {
 	B string
+	S string
 	R string
 }
 
@@ -144,6 +144,7 @@ type XeapiDecryptedRequest struct {
 	PublicKeyVersion string
 	SessionID        string
 	Plaintext        []byte
+	SFrameValid      bool
 }
 
 type xeapiPlaintextEnvelope struct {
@@ -172,9 +173,10 @@ func XeapiDecrypt(body []byte) ([]byte, error) {
 }
 
 // XeapiDecryptRequest decrypts R with the known static key and optionally B
-// with a caller-supplied dynamic or session key. If R succeeds but B fails,
-// the returned result retains the R metadata alongside the non-nil error. S
-// requires an X25519 private key and is outside this API's recoverable boundary.
+// with a caller-supplied dynamic or session key. A present S is validated as a
+// strict Base64 X25519/GCM frame, but cannot be decrypted without either side's
+// X25519 private key. If R succeeds but B or S fails, the returned result keeps
+// every independently recovered field alongside the non-nil error.
 func XeapiDecryptRequest(req XeapiEncryptedRequest, dynamicKey []byte) (XeapiDecryptedRequest, error) {
 	version, sessionID, err := decryptXeapiR(req.R)
 	if err != nil {
@@ -185,17 +187,30 @@ func XeapiDecryptRequest(req XeapiEncryptedRequest, dynamicKey []byte) (XeapiDec
 		PublicKeyVersion: version,
 		SessionID:        sessionID,
 	}
-	if len(dynamicKey) == 0 {
-		return result, nil
+
+	var decryptErrs []error
+
+	if len(dynamicKey) > 0 {
+		plaintext, decryptErr := decryptXeapiB(req.B, dynamicKey)
+		if decryptErr != nil {
+			decryptErrs = append(decryptErrs, fmt.Errorf("decrypt B: %w", decryptErr))
+		} else {
+			result.Plaintext = plaintext
+		}
+	} else if req.B != "" {
+		if _, validateErr := decodeXeapiBFrame(req.B); validateErr != nil {
+			decryptErrs = append(decryptErrs, fmt.Errorf("validate B: %w", validateErr))
+		}
 	}
 
-	plaintext, err := decryptXeapiB(req.B, dynamicKey)
-	if err != nil {
-		return result, fmt.Errorf("decrypt B: %w", err)
+	if req.S != "" {
+		if validateErr := validateXeapiS(req.S); validateErr != nil {
+			decryptErrs = append(decryptErrs, fmt.Errorf("validate S: %w", validateErr))
+		} else {
+			result.SFrameValid = true
+		}
 	}
-
-	result.Plaintext = plaintext
-	return result, nil
+	return result, errors.Join(decryptErrs...)
 }
 
 // XeapiEncrypt 将原始 API 请求加密并封装为 xeapi 的 B/S/R 表单参数。
@@ -407,7 +422,11 @@ func formValues(data any) (url.Values, error) {
 	case map[string][]string:
 		return maps.Clone(url.Values(v)), nil
 	case map[string]string:
-		return stringMapFormValues(v), nil
+		values := make(url.Values, len(v))
+		for key, value := range v {
+			values.Set(key, value)
+		}
+		return values, nil
 	case string:
 		return url.ParseQuery(v)
 	case []byte:
@@ -415,14 +434,6 @@ func formValues(data any) (url.Values, error) {
 	default:
 		return jsonFormValues(v)
 	}
-}
-
-func stringMapFormValues(src map[string]string) url.Values {
-	values := make(url.Values, len(src))
-	for key, value := range src {
-		values.Set(key, value)
-	}
-	return values
 }
 
 func jsonFormValues(data any) (url.Values, error) {
@@ -504,13 +515,9 @@ func midTransform(ciphertext []byte) ([]byte, error) {
 }
 
 func decryptXeapiB(encryptedB string, dynamicKey []byte) ([]byte, error) {
-	if encryptedB == "" {
-		return nil, errors.New("xeapi B is empty")
-	}
-
-	ciphertext, err := base64.StdEncoding.DecodeString(encryptedB)
+	ciphertext, err := decodeXeapiBBase64(encryptedB)
 	if err != nil {
-		return nil, fmt.Errorf("base64.DecodeString B: %w", err)
+		return nil, err
 	}
 
 	mid, err := aesECBDecrypt(dynamicKey, ciphertext)
@@ -532,7 +539,7 @@ func decryptXeapiB(encryptedB string, dynamicKey []byte) ([]byte, error) {
 	b64 = append(b64, rotated[len(rotated)-rot:]...)
 	b64 = append(b64, rotated[:len(rotated)-rot]...)
 
-	xored, err := base64.StdEncoding.DecodeString(string(b64))
+	xored, err := base64.StdEncoding.Strict().DecodeString(string(b64))
 	if err != nil {
 		return nil, fmt.Errorf("base64.DecodeString reversed mid payload: %w", err)
 	}
@@ -549,12 +556,36 @@ func decryptXeapiB(encryptedB string, dynamicKey []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
+func decodeXeapiBFrame(encryptedB string) ([]byte, error) {
+	ciphertext, err := decodeXeapiBBase64(encryptedB)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ciphertext) == 0 || len(ciphertext)%aes.BlockSize != 0 {
+		return nil, fmt.Errorf("b ciphertext length %d is not a positive AES block multiple", len(ciphertext))
+	}
+	return ciphertext, nil
+}
+
+func decodeXeapiBBase64(encryptedB string) ([]byte, error) {
+	if encryptedB == "" {
+		return nil, errors.New("xeapi B is empty")
+	}
+
+	ciphertext, err := base64.StdEncoding.Strict().DecodeString(encryptedB)
+	if err != nil {
+		return nil, fmt.Errorf("base64.DecodeString B: %w", err)
+	}
+	return ciphertext, nil
+}
+
 func decryptXeapiR(encryptedR string) (string, string, error) {
 	if encryptedR == "" {
 		return "", "", errors.New("xeapi R is empty")
 	}
 
-	ciphertext, err := base64.StdEncoding.DecodeString(encryptedR)
+	ciphertext, err := base64.StdEncoding.Strict().DecodeString(encryptedR)
 	if err != nil {
 		return "", "", fmt.Errorf("base64.DecodeString R: %w", err)
 	}
@@ -569,6 +600,19 @@ func decryptXeapiR(encryptedR string) (string, string, error) {
 		return "", "", errors.New("invalid R plaintext format")
 	}
 	return version, sessionID, nil
+}
+
+func validateXeapiS(encryptedS string) error {
+	frame, err := base64.StdEncoding.Strict().DecodeString(encryptedS)
+	if err != nil {
+		return fmt.Errorf("base64.DecodeString S: %w", err)
+	}
+
+	const fixedFrameSize = 32 + 12 + 16 // X25519 public key, GCM nonce, and tag.
+	if len(frame) <= fixedFrameSize {
+		return fmt.Errorf("frame is too short: got %d bytes, want more than %d", len(frame), fixedFrameSize)
+	}
+	return nil
 }
 
 func encryptS(dynamicKey []byte, publicKey XeapiPublicKeyState, os string) ([]byte, error) {

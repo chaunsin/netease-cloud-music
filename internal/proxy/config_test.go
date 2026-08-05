@@ -50,6 +50,27 @@ func TestNormalizeConfigRejectsUnboundedBodyLimit(t *testing.T) {
 	require.Equal(t, int64(math.MaxInt64-1), config.MaxBodyBytes)
 }
 
+func TestNormalizeConfigValidatesAndCopiesXeapiSeeds(t *testing.T) {
+	seeds := []XeapiSessionSeed{{
+		ID: "session", Key: "0123456789abcdef", Source: XeapiSessionSourceCommandLine,
+	}}
+	config, err := normalizeConfig(&Config{XeapiSessions: seeds})
+	require.NoError(t, err)
+
+	seeds[0].Key = "changed-by-caller"
+	require.Equal(t, "0123456789abcdef", config.XeapiSessions[0].Key)
+
+	_, err = normalizeConfig(&Config{XeapiSessions: []XeapiSessionSeed{{
+		ID: "session", Key: "short", Source: XeapiSessionSourceCommandLine,
+	}}})
+	require.ErrorContains(t, err, "session key length is invalid")
+
+	_, err = normalizeConfig(&Config{XeapiSessions: []XeapiSessionSeed{{
+		ID: "session", Key: "0123456789abcdef",
+	}}})
+	require.ErrorContains(t, err, "unknown source")
+}
+
 func TestIsLoopbackListenAddress(t *testing.T) {
 	t.Parallel()
 

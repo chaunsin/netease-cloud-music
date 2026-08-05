@@ -6,7 +6,9 @@ package proxy
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"mime"
@@ -36,6 +38,7 @@ type decodeStatus string
 const (
 	decodeStatusPlaintext   decodeStatus = "plaintext"
 	decodeStatusDecrypted   decodeStatus = "decrypted"
+	decodeStatusPartial     decodeStatus = "partial"
 	decodeStatusUnsupported decodeStatus = "unsupported"
 	decodeStatusFailed      decodeStatus = "failed"
 	decodeStatusRaw         decodeStatus = "raw"
@@ -44,13 +47,19 @@ const (
 // decodeResult keeps protocol decoding separate from request forwarding. Its body
 // and query fields are log copies and must never be written back to the HTTP flow.
 type decodeResult struct {
-	protocol          protocol
-	status            decodeStatus
-	body              []byte
-	query             []byte
-	apiPath           string
-	detail            string
-	responseEncrypted bool
+	protocol           protocol
+	status             decodeStatus
+	body               []byte
+	query              []byte
+	apiPath            string
+	logicalMethod      string
+	logicalContentType string
+	keyVersion         string
+	sessionID          *string
+	keySource          string
+	sFrameValid        bool
+	detail             string
+	responseEncrypted  bool
 }
 
 const eapiSeparator = "-36cd479b6b5-"
@@ -79,7 +88,7 @@ func classifyProtocol(requestPath string) protocol {
 	}
 }
 
-func decodeRequestLimited(method string, u *url.URL, header http.Header, body []byte, showSensitive bool, maxBodyBytes int64) decodeResult {
+func decodeRequestLimitedWithXeapiSessions(method string, u *url.URL, header http.Header, body []byte, showSensitive bool, maxBodyBytes int64, sessions xeapiSessionLookup) decodeResult {
 	if u == nil {
 		u = &url.URL{}
 	}
@@ -106,8 +115,7 @@ func decodeRequestLimited(method string, u *url.URL, header http.Header, body []
 		result.status = decodeStatusUnsupported
 		result.detail = "weapi request decryption unsupported: the random AES key cannot be recovered"
 	case protocolXEAPI:
-		result.status = decodeStatusUnsupported
-		result.detail = "xeapi request decryption unsupported: the session key is unavailable"
+		return decodeXEAPIRequest(&result, query, header, body, showSensitive, maxBodyBytes, sessions)
 	case protocolAPI, protocolGeneric:
 		// Plain API and generic requests do not require protocol-specific decoding.
 	}
@@ -161,6 +169,397 @@ func decodeEAPIRequest(base *decodeResult, query url.Values, header http.Header,
 	base.detail = "eapi request decrypted; envelope digest verified"
 	base.responseEncrypted = base.responseEncrypted || meta.requestEncrypted
 	return *base
+}
+
+type xeapiRequestEnvelope struct {
+	Body        *string `json:"body"`
+	Method      string  `json:"method"`
+	ContentType string  `json:"contentType"`
+	QueryString string  `json:"queryString"`
+}
+
+type observedRequestParameter struct {
+	value     string
+	present   bool
+	ambiguous bool
+}
+
+func (parameter *observedRequestParameter) add(value string, valid bool) {
+	if !parameter.present {
+		parameter.value = value
+		parameter.present = true
+		parameter.ambiguous = !valid
+		return
+	}
+
+	if !valid || parameter.value != value {
+		parameter.ambiguous = true
+	}
+}
+
+type xeapiRequestParameters struct {
+	b observedRequestParameter
+	s observedRequestParameter
+	r observedRequestParameter
+}
+
+func collectXEAPIRequestParameters(query url.Values, header http.Header, body []byte) xeapiRequestParameters {
+	var parameters xeapiRequestParameters
+	parameters.addValues(query)
+
+	if values, ok := parseForm(header, body); ok {
+		parameters.addValues(values)
+	} else {
+		parameters.addJSON(body)
+	}
+	return parameters
+}
+
+func (parameters *xeapiRequestParameters) addValues(values url.Values) {
+	for name, entries := range values {
+		parameter := parameters.named(name)
+		if parameter == nil {
+			continue
+		}
+
+		for _, entry := range entries {
+			parameter.add(entry, true)
+		}
+	}
+}
+
+func (parameters *xeapiRequestParameters) addJSON(body []byte) {
+	if !json.Valid(body) {
+		return
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	token, err := decoder.Token()
+
+	object, ok := token.(json.Delim)
+	if err != nil || !ok || object != '{' {
+		return
+	}
+
+	for decoder.More() {
+		nameToken, tokenErr := decoder.Token()
+
+		name, nameOK := nameToken.(string)
+		if tokenErr != nil || !nameOK {
+			return
+		}
+
+		var raw json.RawMessage
+		if err := decoder.Decode(&raw); err != nil {
+			return
+		}
+
+		parameter := parameters.named(name)
+		if parameter == nil {
+			continue
+		}
+
+		var value string
+
+		valueErr := json.Unmarshal(raw, &value)
+		parameter.add(value, valueErr == nil)
+	}
+}
+
+func (parameters *xeapiRequestParameters) named(name string) *observedRequestParameter {
+	switch {
+	case strings.EqualFold(name, "B"):
+		return &parameters.b
+	case strings.EqualFold(name, "S"):
+		return &parameters.s
+	case strings.EqualFold(name, "R"):
+		return &parameters.r
+	default:
+		return nil
+	}
+}
+
+func decodeXEAPIRequest(base *decodeResult, query url.Values, header http.Header, body []byte, showSensitive bool, maxBodyBytes int64, sessions xeapiSessionLookup) decodeResult {
+	base.status = decodeStatusPartial
+	base.responseEncrypted = true
+	base.query = formatXEAPIQuery(query, showSensitive, maxBodyBytes)
+
+	outer := formatXEAPIOuterBody(header, body, showSensitive, maxBodyBytes)
+	base.body = outer.body
+	base.responseEncrypted = base.responseEncrypted || outer.meta.requestEncrypted
+	base.detail = outer.detail
+
+	parameters := collectXEAPIRequestParameters(query, header, body)
+	if parameters.r.ambiguous {
+		result := failedRequestFallback(base, header, body, showSensitive, maxBodyBytes, "xeapi R field is ambiguous")
+		result.status = decodeStatusPartial
+		return result
+	}
+
+	encryptedR, hasR := parameters.r.value, parameters.r.present
+	if !hasR || strings.TrimSpace(encryptedR) == "" {
+		return failedRequestFallback(base, header, body, showSensitive, maxBodyBytes, "xeapi R field is missing")
+	}
+
+	metadata, err := ncmcrypto.XeapiDecryptRequest(ncmcrypto.XeapiEncryptedRequest{R: encryptedR}, nil)
+	if err != nil {
+		return failedRequestFallback(base, header, body, showSensitive, maxBodyBytes, "xeapi R decrypt: "+err.Error())
+	}
+
+	base.keyVersion = redactDecodedMetadata(metadata.PublicKeyVersion, showSensitive)
+
+	displaySessionID := metadata.SessionID
+	if displaySessionID != "" && !showSensitive {
+		displaySessionID = redactedValue
+	}
+
+	base.sessionID = &displaySessionID
+	base.keySource = "unavailable"
+
+	var (
+		dynamicKey = []byte(nil)
+		complete   = true
+		details    = []string{"xeapi R decrypted"}
+	)
+
+	switch {
+	case metadata.SessionID == "":
+		complete = false
+
+		details = append(details, "session ID is empty; session key unavailable")
+	case sessions != nil:
+		key, source, ok := sessions.lookup(metadata.SessionID)
+		if ok {
+			dynamicKey = key
+			base.keySource = source
+			details = append(details, "session key matched source="+source)
+		} else {
+			complete = false
+
+			details = append(details, "session key unavailable for recovered session ID")
+		}
+	default:
+		complete = false
+
+		details = append(details, "session key unavailable for recovered session ID")
+	}
+
+	encryptedB, hasB := parameters.b.value, parameters.b.present && !parameters.b.ambiguous
+	switch {
+	case parameters.b.ambiguous:
+		encryptedB = ""
+		complete = false
+
+		details = append(details, "xeapi B field is ambiguous")
+	case !hasB || strings.TrimSpace(encryptedB) == "":
+		complete = false
+
+		details = append(details, "xeapi B field is missing")
+	}
+
+	encryptedS, hasS := parameters.s.value, parameters.s.present && !parameters.s.ambiguous
+	switch {
+	case parameters.s.ambiguous:
+		encryptedS = ""
+		complete = false
+
+		details = append(details, "xeapi S field is ambiguous")
+	case !hasS || strings.TrimSpace(encryptedS) == "":
+		complete = false
+
+		details = append(details, "xeapi S field is missing")
+	}
+
+	decryptKey := dynamicKey
+	if !hasB || strings.TrimSpace(encryptedB) == "" {
+		decryptKey = nil
+	}
+
+	request, decryptErr := ncmcrypto.XeapiDecryptRequest(ncmcrypto.XeapiEncryptedRequest{
+		B: encryptedB,
+		S: encryptedS,
+		R: encryptedR,
+	}, decryptKey)
+	base.sFrameValid = request.SFrameValid
+
+	if decryptErr != nil {
+		complete = false
+
+		details = append(details, "xeapi recoverable field failed: "+decryptErr.Error())
+	}
+
+	if hasS && request.SFrameValid {
+		details = append(details, "S frame validated but not decrypted because X25519 private material is unavailable")
+	}
+
+	if len(request.Plaintext) > 0 {
+		if envelopeErr := applyXEAPIEnvelope(base, request.Plaintext, showSensitive, maxBodyBytes); envelopeErr != nil {
+			complete = false
+
+			details = append(details, "xeapi envelope: "+envelopeErr.Error())
+		} else {
+			details = append(details, "xeapi B decrypted and logical request restored")
+		}
+	} else if len(dynamicKey) > 0 && hasB {
+		complete = false
+	}
+
+	base.detail = joinDetails(append([]string{base.detail}, details...)...)
+	if complete {
+		base.status = decodeStatusDecrypted
+	}
+	return *base
+}
+
+func applyXEAPIEnvelope(result *decodeResult, plaintext []byte, showSensitive bool, maxBodyBytes int64) error {
+	trimmed := bytes.TrimSpace(plaintext)
+	if len(trimmed) == 0 || trimmed[0] != '{' || !json.Valid(trimmed) {
+		return errors.New("plaintext is not a valid JSON object")
+	}
+
+	var envelope xeapiRequestEnvelope
+	if err := json.Unmarshal(trimmed, &envelope); err != nil {
+		return fmt.Errorf("decode JSON: %w", err)
+	}
+
+	logicalPath, err := logicalXEAPIPath(result.apiPath, showSensitive)
+	if err != nil {
+		return err
+	}
+
+	result.apiPath = logicalPath
+
+	method := strings.ToUpper(strings.TrimSpace(envelope.Method))
+	if method == "" {
+		method = http.MethodPost
+	}
+
+	if _, methodErr := http.NewRequest(method, "/", http.NoBody); methodErr != nil {
+		return fmt.Errorf("method is invalid: %w", methodErr)
+	}
+
+	result.logicalMethod = redactDecodedMetadata(method, showSensitive)
+
+	contentType := strings.TrimSpace(envelope.ContentType)
+	if contentType == "" {
+		contentType = "application/x-www-form-urlencoded;charset=utf-8"
+	}
+
+	if _, _, contentTypeErr := mime.ParseMediaType(contentType); contentTypeErr != nil {
+		return fmt.Errorf("content type is invalid: %w", contentTypeErr)
+	}
+
+	result.logicalContentType = redactDecodedMetadata(contentType, showSensitive)
+
+	logicalQuery, err := url.ParseQuery(envelope.QueryString)
+	if err != nil {
+		return fmt.Errorf("query string is invalid: %w", err)
+	}
+
+	result.query = formatXEAPIQuery(logicalQuery, showSensitive, maxBodyBytes)
+	result.responseEncrypted = true
+
+	if envelope.Body == nil {
+		result.body = []byte{}
+		return nil
+	}
+
+	innerBody, err := base64.StdEncoding.Strict().DecodeString(*envelope.Body)
+	if err != nil {
+		return fmt.Errorf("body base64 is invalid: %w", err)
+	}
+
+	display := formatBody(http.Header{"Content-Type": {contentType}}, innerBody, showSensitive, maxBodyBytes)
+	result.body = display.body
+	result.responseEncrypted = result.responseEncrypted || display.meta.requestEncrypted
+	result.detail = appendDetail(result.detail, display.detail)
+	return nil
+}
+
+func logicalXEAPIPath(transportPath string, showSensitive bool) (string, error) {
+	lower := strings.ToLower(transportPath)
+
+	var logical string
+
+	switch {
+	case lower == "/xeapi":
+		logical = "/api"
+	case strings.HasPrefix(lower, "/xeapi/"):
+		logical = "/api/" + transportPath[len("/xeapi/"):]
+	default:
+		return "", errors.New("transport path does not start with /xeapi")
+	}
+	return sanitizeEAPIPath(logical, showSensitive)
+}
+
+func redactDecodedMetadata(value string, showSensitive bool) string {
+	return string(redactDiagnostic([]byte(value), showSensitive))
+}
+
+func formatXEAPIQuery(values url.Values, showSensitive bool, maxBodyBytes int64) []byte {
+	if showSensitive {
+		return formatQuery(values, true, maxBodyBytes)
+	}
+	return formatQuery(redactXEAPIRValues(values), false, maxBodyBytes)
+}
+
+func formatXEAPIOuterBody(header http.Header, body []byte, showSensitive bool, maxBodyBytes int64) bodyDisplay {
+	if showSensitive || len(body) == 0 {
+		return formatBody(header, body, showSensitive, maxBodyBytes)
+	}
+
+	if redacted, ok := redactXEAPIJSONR(body); ok {
+		return formatBody(header, redacted, false, maxBodyBytes)
+	}
+
+	if values, ok := parseForm(header, body); ok {
+		return formatBody(header, []byte(redactXEAPIRValues(values).Encode()), false, maxBodyBytes)
+	}
+	return formatBody(header, body, false, maxBodyBytes)
+}
+
+func redactXEAPIRValues(values url.Values) url.Values {
+	redacted := make(url.Values, len(values))
+	for name, entries := range values {
+		redacted[name] = append([]string(nil), entries...)
+		if strings.EqualFold(name, "R") {
+			for i := range redacted[name] {
+				redacted[name][i] = redactedValue
+			}
+		}
+	}
+	return redacted
+}
+
+func redactXEAPIJSONR(body []byte) ([]byte, bool) {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 || trimmed[0] != '{' || !json.Valid(trimmed) {
+		return nil, false
+	}
+
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(trimmed, &object); err != nil {
+		return nil, false
+	}
+
+	redacted := false
+
+	for name := range object {
+		if strings.EqualFold(name, "R") {
+			object[name] = json.RawMessage(`"[REDACTED]"`)
+			redacted = true
+		}
+	}
+
+	if !redacted {
+		return body, true
+	}
+
+	encoded, err := json.Marshal(object)
+	if err != nil {
+		return nil, false
+	}
+	return encoded, true
 }
 
 func parseEAPIEnvelope(plaintext []byte) (string, []byte, error) {
@@ -259,7 +658,12 @@ func decodeLinuxRequest(base *decodeResult, query url.Values, header http.Header
 
 func failedRequestFallback(base *decodeResult, header http.Header, body []byte, showSensitive bool, maxBodyBytes int64, detail string) decodeResult {
 	base.status = decodeStatusFailed
+
 	display := formatBody(header, body, showSensitive, maxBodyBytes)
+	if base.protocol == protocolXEAPI {
+		display = formatXEAPIOuterBody(header, body, showSensitive, maxBodyBytes)
+	}
+
 	base.responseEncrypted = base.responseEncrypted || display.meta.requestEncrypted
 
 	base.detail = appendDetail(detail, display.detail)
@@ -286,7 +690,19 @@ func decodeResponse(request *decodeResult, header http.Header, body []byte, maxB
 	}
 	if len(body) == 0 {
 		result.body = []byte{}
-		result.detail = "empty response body"
+		if request.protocol == protocolXEAPI {
+			result.status = decodeStatusFailed
+			result.detail = "empty XEAPI response body is neither plaintext JSON nor binary ciphertext"
+		} else {
+			result.detail = "empty response body"
+		}
+		return result
+	}
+
+	if request.protocol == protocolXEAPI && json.Valid(body) {
+		display := formatBody(header, body, showSensitive, maxBodyBytes)
+		result.body = display.body
+		result.detail = appendDetail("plaintext JSON response", display.detail)
 		return result
 	}
 
@@ -325,14 +741,31 @@ func decodeResponse(request *decodeResult, header http.Header, body []byte, maxB
 		result.body = display.body
 		result.detail = appendDetail(responseFailureDetail(request, "eapi response decrypt: "+err.Error()), display.detail)
 		return result
-	case protocolWEAPI, protocolXEAPI:
-		// WEAPI/XEAPI use per-request or session secrets that a passive proxy
-		// cannot recover. Treat non-JSON responses as opaque instead of trying
-		// the unrelated static EAPI key and reporting a misleading failure.
+	case protocolWEAPI:
 		result.status = decodeStatusUnsupported
 		display := formatBody(header, body, showSensitive, maxBodyBytes)
 		result.body = display.body
 		result.detail = appendDetail(string(request.protocol)+" response is not JSON; passive response decryption unsupported", display.detail)
+		return result
+	case protocolXEAPI:
+		plaintext, gzipDecoded, err := decryptXEAPIResponse(body, maxBodyBytes)
+		if err == nil {
+			result.status = decodeStatusDecrypted
+			result.responseEncrypted = true
+			display := formatBody(header, plaintext, showSensitive, maxBodyBytes)
+			result.body = display.body
+
+			result.detail = appendDetail("xeapi binary response decrypted", display.detail)
+			if gzipDecoded {
+				result.detail += "; inner gzip decoded"
+			}
+			return result
+		}
+
+		result.status = decodeStatusFailed
+		display := formatBody(header, body, showSensitive, maxBodyBytes)
+		result.body = display.body
+		result.detail = appendDetail(responseFailureDetail(request, "xeapi response decrypt: "+err.Error()), display.detail)
 		return result
 	case protocolLinux:
 		if !request.responseEncrypted {
@@ -365,6 +798,30 @@ func decodeResponse(request *decodeResult, header http.Header, body []byte, maxB
 		result.detail = appendDetail("response body is not JSON", display.detail)
 		return result
 	}
+}
+
+func decryptXEAPIResponse(body []byte, maxBodyBytes int64) ([]byte, bool, error) {
+	if isHex(body) {
+		return nil, false, errors.New("ASCII-hex XEAPI responses are unsupported")
+	}
+
+	plaintext, err := ncmcrypto.EApiDecrypt(string(body), "")
+	if err != nil {
+		return nil, false, err
+	}
+
+	gzipDecoded := len(plaintext) >= 2 && plaintext[0] == 0x1f && plaintext[1] == 0x8b
+	if gzipDecoded {
+		plaintext, err = gunzipLimited(plaintext, maxBodyBytes)
+		if err != nil {
+			return nil, false, fmt.Errorf("inner gzip: %w", err)
+		}
+	}
+
+	if !json.Valid(plaintext) {
+		return nil, false, errors.New("decrypted XEAPI response is not valid JSON")
+	}
+	return plaintext, gzipDecoded, nil
 }
 
 func decryptEAPIResponse(body []byte, maxBodyBytes int64) ([]byte, bool, string, error) {
@@ -598,6 +1055,10 @@ func isHex(data []byte) bool {
 }
 
 func appendDetail(existing, detail string) string {
+	if detail == "" {
+		return existing
+	}
+
 	if existing == "" {
 		return detail
 	}

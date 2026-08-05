@@ -271,7 +271,7 @@ Parent flags:
 | `--dynamic-key` | empty | Explicit XEAPI dynamic/session key used to decrypt request `B` |
 | `--dynamic-key-encode` | `string` | Dynamic key encoding: `string`, `hex`, or `base64` |
 
-For direct input, `auto` selects an EAPI request or an XEAPI response. Select `--target request` for a URL-encoded XEAPI `B/S/R` form. `R` always yields the public-key version and session ID when valid. `B` additionally needs the exact dynamic/session key; without it, the command writes a `partial` JSON result and exits non-zero. `S` is preserved in `request.params` but cannot be decrypted without the corresponding X25519 private key. The decrypted request is the complete XEAPI envelope; an envelope `body` remains Base64 text.
+For direct input, `auto` selects an EAPI request or an XEAPI response. Select `--target request` for a URL-encoded XEAPI `B/S/R` form. `R` always yields the public-key version and session ID when valid. `B` additionally needs the exact dynamic/session key; without it, the command writes a `partial` JSON result and exits non-zero. `S` is preserved in `request.params` and its strict Base64 X25519/GCM frame shape is validated, but it cannot be decrypted without the corresponding X25519 private key. The decrypted request is the complete XEAPI envelope; an envelope `body` remains Base64 text.
 
 For HAR input, `auto` selects both request and response. XEAPI is detected from the `/xeapi/` path, and request fields can come from HAR form parameters or the form body. Only the side selected by `--target` is parsed. A request-side failure, including a malformed form or missing field, is recorded in `request.error`; recoverable `R` metadata is retained, remaining responses and entries are still processed, the complete JSON is written, and the command then exits non-zero. HAR structure and response-decryption errors still fail immediately.
 
@@ -325,6 +325,13 @@ ncmctl --home /srv/ncmctl proxy
 
 # Larger display limit and no redaction: sensitive output
 ncmctl proxy --max-body 4MB --show-sensitive
+
+# Explicitly seed XEAPI decryption from canonical persisted state
+ncmctl proxy --xeapi-state-file ~/.ncmctl/xeapi.yaml
+
+# Or provide one raw-ASCII session pair (visible in process arguments/history)
+ncmctl proxy --xeapi-session-id SESSION_ID \
+  --xeapi-session-key '0123456789abcdef'
 ```
 
 | Flag | Default | Description |
@@ -334,6 +341,9 @@ ncmctl proxy --max-body 4MB --show-sensitive
 | `--ca-key` | generated path | Existing CA private key; requires `--ca-cert` |
 | `--max-body` | `1MB` | Per-request/response display limit; forwarding is not truncated |
 | `--show-sensitive` | false | Disable credential and personal-data redaction |
+| `--xeapi-session-id` | empty | XEAPI session ID of at most 1024 bytes; requires `--xeapi-session-key` |
+| `--xeapi-session-key` | empty | Raw ASCII AES key of 16, 24, or 32 bytes; never hex-decoded |
+| `--xeapi-state-file` | empty | Explicit canonical `xeapi.yaml` used only to seed the in-memory session cache |
 
 With no CA flags, ncmctl creates and reuses:
 
@@ -344,18 +354,25 @@ Install and trust only `ca.crt` on the client device. The command prints its pat
 
 The global `--debug` flag adds `TLS_DIAGNOSTIC` records for targeted HTTPS connections. Records with the same session show the CONNECT target, ClientHello SNI, generated DNS/IP SANs, and `cert_matches_connect` / `cert_matches_sni` results. If SNI and both certificate checks match but the client still rejects the handshake, investigate client CA trust policy or certificate pinning; the TLS alert cannot distinguish those causes by itself.
 
+XEAPI startup state is always explicit. `--home` does not make `proxy` discover `<home>/.ncmctl/xeapi.yaml`. A named state file must be a regular YAML file no larger than 1 MiB and contain a complete `session.id` / `session.key`; its public-key section may be absent or expired. Session IDs are limited to 1024 bytes. State-file seeds load first, command-line seeds override the same ID, and different IDs coexist. During capture, each complete valid `X-Encr-Ssid` / `X-Encr-Sskey` response pair replaces the same ID before the response is returned to the client, regardless of HTTP status, body capture, decryption, or output-queue state. The most recently updated 256 sessions remain in memory only and are never written back.
+
 Behavior and limitations:
 
 - Only NetEase-related target domains are captured or MITM'd; other traffic is forwarded without capture.
 - Structured content is formatted and recursively redacted by default. Binary, media, multipart, invalid UTF-8, unsafe unstructured bodies, and every request body with an unknown content length (including finite chunked requests) are summarized.
 - Display truncation, decompression, parsing, or redaction failure does not change forwarded bytes.
 - EAPI, Linux API, and plain API payloads are decoded when possible.
-- A passive proxy cannot recover WEAPI's random request key or modern XEAPI session keys; those request fields are marked `unsupported`, not presented as plaintext.
+- A passive proxy cannot recover WEAPI's random request key; WEAPI requests remain `unsupported`.
+- For XEAPI, valid `R` exposes the public-key version and session ID, `S` is only validated as a Base64 X25519/GCM frame, and `B` is decrypted only when that session ID matches a known key. The logical method, `/api/...` path, query, content type, and Base64 inner body are then restored and recursively redacted. A missing/unknown key, conflicting values for one `B/S/R` field across duplicates or sources, or another recoverable-field failure is `partial`; an invalid `R` in a complete capture is `failed`; an omitted, truncated, or failed body observation is `partial` rather than a claim that the real request was malformed.
+- XEAPI responses are `plaintext` only when the captured bytes are valid JSON. Otherwise only raw-binary traditional EAPI AES-ECB ciphertext is accepted, with bounded inner-gzip expansion; ASCII hex is not guessed. Empty responses are not `plaintext`, and incomplete response observations are `partial`. Non-200 responses follow the same observation path. A newly learned key applies only to subsequent requests and does not retroactively decrypt an earlier request whose `R` carried an empty session ID.
+- Session IDs, every outer `R` copy, and `X-Encr-Ssid` / `X-Encr-Sskey` headers are redacted by default. Only `--show-sensitive` exposes sensitive capture fields; startup diagnostics and internal errors never print a session key.
 - Certificate pinning, Android user-CA restrictions, QUIC/HTTP3, proxy bypass, WebSocket frames, and CONNECT requests addressed only by IP can prevent complete capture.
 - Capture output uses a bounded queue. If stdout blocks, `CAPTURE_DROPPED` reports omitted capture blocks rather than delaying real traffic.
 - `--listen 0.0.0.0:9000` exposes an unauthenticated proxy. Use it only temporarily on a trusted network.
 
 Press Ctrl+C or send SIGTERM to start bounded shutdown. The command does not wait indefinitely for blocked capture output; a writer that never returns can leave its recorder worker blocked after the proxy command exits.
+
+These proxy-only state sources do not change `crypto decrypt`: that command still reads neither persisted XEAPI state nor HAR response session headers and requires its own explicit `--dynamic-key` for request `B`.
 
 ## completion
 

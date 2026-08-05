@@ -56,6 +56,9 @@ XEAPI spans `api/api.go`, `api/options.go`, `api/xeapi.go`, and `pkg/crypto/xeap
 - Refresh expired or absent public-key state and apply `X-Encr-Ssid` and `X-Encr-Sskey` response updates under the same state-machine discipline.
 - Set the XEAPI user agent and `X-Client-Enc-State: ENCRYPTED`.
 - Keep the XEAPI identity in `Headers.XEAPI` (`appver`, `os`, and `User-Agent`); do not leak those defaults into other modes.
+- `XeapiDecryptRequest` always recovers `R`, optionally decrypts `B` with a raw 16/24/32-byte dynamic/session key, and strictly validates a present `S` as a Base64 frame containing a 32-byte X25519 public key, 12-byte GCM nonce, tag, and non-empty ciphertext. Missing `S` remains a caller policy decision; neither the crypto API nor proxy may claim to decrypt it without the relevant private key.
+
+The active API client and passive proxy use different session state machines. `api.Client` considers optimistic key/request revisions when applying response headers to its single active state. The proxy retains up to 256 session IDs of at most 1024 bytes each for concurrent and in-flight observations, accepts only explicit startup seeds, learns valid response pairs before returning the response, and never persists learned values. `crypto decrypt` remains independent and does not read either state source automatically.
 
 Do not change URL rewriting, key refresh, session updates, locking, headers, or response decryption in isolation. Read the current-status table and only the relevant research section in `docs/xeapi.md` before archived notes.
 

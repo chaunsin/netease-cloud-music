@@ -52,10 +52,16 @@ Classify API, WEAPI, EAPI, Linux API, XEAPI, and generic traffic without writing
 
 - EAPI and Linux decoding must verify their actual envelopes and report malformed input as failed observation.
 - Passive WEAPI request decryption is `unsupported` because the random AES key is unavailable.
-- Passive XEAPI request decryption is `unsupported` because the session key is unavailable.
+- Passive XEAPI decoding recovers `R`, validates the outer `S` X25519/GCM frame without claiming to decrypt it, and decrypts `B` only when `R` names a session in the shared cache. Restore the logical method, `/api/...` path, query, content type, and Base64 inner body before recursive redaction.
 - Never label ciphertext, a guessed value, or a local round-trip result as observed plaintext.
 
-Redact recursively by default across URLs, headers, forms, JSON, nested JSON strings, diagnostics, and protocol output. If structured redaction cannot be proven safe, emit a bounded placeholder or summary. Invalid UTF-8 and malformed unstructured bodies must fail closed.
+The XEAPI cache is process-local, concurrency-safe, update-ordered, capped at 256 entries with session IDs of at most 1024 bytes, and never persisted. Startup seeds retain their `state-file` or `command-line` source; later complete valid `X-Encr-Ssid` / `X-Encr-Sskey` response headers replace the same ID while other IDs remain available for concurrent in-flight traffic. Learn headers synchronously in the transport immediately after they arrive and before returning the response. Header learning must not depend on HTTP status, body capture/decryption, recorder submission, or output queue capacity. Invalid pairs produce value-free diagnostics and never replace an existing entry. Repeated identical header pairs may refresh eviction order but must not rebuild an unchanged snapshot.
+
+XEAPI requests are `decrypted` only when `B/R/S` are unambiguous and valid and the session key matches. Preserve recovered metadata and report `partial` when one field has conflicting values across duplicates or sources, the session is empty/unknown, a recoverable field fails, or capture omission/truncation/read failure makes the observation incomplete. Identical duplicates are safe to accept. Use `failed` for an invalid/missing `R` only when the request copy is complete. A response-learned key applies to later requests; do not retry an earlier empty-session request.
+
+For XEAPI responses, valid JSON is `plaintext`; an empty body is not plaintext. Otherwise attempt only raw-binary traditional EAPI AES-ECB decryption and bounded inner-gzip expansion, including for non-200 responses. Any omitted, truncated, read-failed, or content-decoding-failed response observation is `partial`, regardless of what its captured prefix resembles. Do not add speculative ASCII-hex compatibility. Provisional XEAPI request records must default `responseEncrypted` to true so dropped request output cannot prevent independent response decryption.
+
+Redact recursively by default across URLs, headers, forms, JSON, nested JSON strings, diagnostics, recovered metadata, and protocol output. For XEAPI, redact every outer `R` copy because its static-key plaintext contains the session ID. If structured redaction cannot be proven safe, emit a bounded placeholder or summary. Invalid UTF-8 and malformed unstructured bodies must fail closed.
 
 Only explicit `ShowSensitive` or `--show-sensitive` may expose raw sensitive values. Keep even that mode bounded, and never add secrets to debug logs or test fixtures.
 

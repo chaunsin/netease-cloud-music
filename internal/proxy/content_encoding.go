@@ -97,7 +97,7 @@ func readLimited(reader io.Reader, limit int64) ([]byte, bool, error) {
 		return nil, false, errors.New("decoded body limit must be greater than zero")
 	}
 
-	data, err := io.ReadAll(&io.LimitedReader{R: reader, N: limit})
+	data, err := io.ReadAll(io.LimitReader(reader, limit))
 	if err != nil {
 		return nil, false, err
 	}

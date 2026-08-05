@@ -32,7 +32,7 @@ var (
 	errJSONDepth        = errors.New("JSON nesting exceeds the display depth limit")
 	errJSONInputLimit   = errors.New("JSON input exceeds the display limit")
 
-	sensitiveTextKey = `(?:authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|password|passwd|pwd|credential|credentials|secret|signature|music(?:[_-]?(?:r[_-]?)?[ua]|[_-]?a[_-]?t)|phone|phone[_-]?number|cellphone|mobile|email|imei|imsi|device[-_ ]?(?:id|identifier)|captcha|verification[-_ ]?code|sms[-_ ]?code|[a-z0-9_.-]*(?:token|csrf|secret|access[-_]?key|api[-_]?key|session[-_]?key|sskey)[a-z0-9_.-]*)`
+	sensitiveTextKey = `(?:authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|password|passwd|pwd|credential|credentials|secret|signature|music(?:[_-]?(?:r[_-]?)?[ua]|[_-]?a[_-]?t)|phone|phone[_-]?number|cellphone|mobile|email|imei|imsi|device[-_ ]?(?:id|identifier)|captcha|verification[-_ ]?code|sms[-_ ]?code|[a-z0-9_.-]*(?:token|csrf|secret|access[-_]?key|api[-_]?key|session[-_]?(?:id|key)|ssid|sskey)[a-z0-9_.-]*)`
 	sensitiveLine    = regexp.MustCompile(`(?im)^(\s*` + sensitiveTextKey + `\s*:\s*).*$`)
 	sensitiveInline  = regexp.MustCompile(`(?i)\b(` + sensitiveTextKey + `)\b(\s*[:=]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s&;,\r\n]+)`)
 	diagnosticURL    = regexp.MustCompile(`(?i)https?://\S+`)
@@ -108,6 +108,7 @@ func redactURL(u *url.URL, showSensitive bool) string {
 
 	copyURL := *u
 	if !showSensitive {
+		xeapi := classifyProtocol(copyURL.Path) == protocolXEAPI
 		if copyURL.User != nil {
 			copyURL.User = url.User(redactedValue)
 		}
@@ -115,7 +116,7 @@ func redactURL(u *url.URL, showSensitive bool) string {
 		query := copyURL.Query()
 		for key, entries := range query {
 			for i, entry := range entries {
-				if sensitiveKey(key) {
+				if sensitiveKey(key) || (xeapi && strings.EqualFold(key, "R")) {
 					entries[i] = redactedValue
 					continue
 				}
@@ -822,7 +823,9 @@ func sensitiveKey(key string) bool {
 		strings.Contains(normalized, "signature") ||
 		strings.Contains(normalized, "accesskey") ||
 		strings.Contains(normalized, "apikey") ||
+		strings.Contains(normalized, "sessionid") ||
 		strings.Contains(normalized, "sessionkey") ||
+		strings.Contains(normalized, "ssid") ||
 		strings.Contains(normalized, "sskey") ||
 		strings.HasSuffix(normalized, "cookie")
 }

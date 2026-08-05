@@ -33,7 +33,6 @@ const (
 	decryptTargetBoth     = "both"
 
 	eapiEnvelopeDelimiter = "-36cd479b6b5-"
-	xeapiSFixedFrameSize  = 32 + 12 + 16
 )
 
 type decryptCmd struct {
@@ -58,9 +57,10 @@ func decrypt(root *Crypto, l *log.Logger) *cobra.Command {
 		Use:   "decrypt <ciphertext-or-har>",
 		Short: "Decrypt EAPI or XEAPI payloads and HAR files",
 		Long: "Decrypt direct EAPI requests, XEAPI requests or responses, and matching HAR entries. " +
-			"XEAPI request B needs its dynamic key; R is always decoded, while S cannot be decrypted " +
-			"without an X25519 private key. Raw direct bytes and HAR response ciphertext are emitted as " +
-			"Base64 with their encoding recorded. Restrict mixed HAR captures with --url. Inputs, dynamic " +
+			"XEAPI request B needs its dynamic key; R is always decoded, while the S frame is validated " +
+			"but cannot be decrypted without an X25519 private key. Raw direct bytes and HAR response " +
+			"ciphertext are emitted as Base64 with their encoding recorded. Restrict mixed HAR captures " +
+			"with --url. Inputs, dynamic " +
 			"keys, and output may contain secrets.",
 		Example: "  ncmctl crypto decrypt --kind eapi --encode hex 'CIPHERTEXT'\n" +
 			"  ncmctl crypto decrypt --kind xeapi --encode hex 'CIPHERTEXT'\n" +
@@ -359,6 +359,7 @@ func (c *decryptCmd) decryptReq(p *Payload, dynamicKey []byte) error {
 
 		result, decryptErr := crypto.XeapiDecryptRequest(crypto.XeapiEncryptedRequest{
 			B: p.Request.Params["B"],
+			S: p.Request.Params["S"],
 			R: p.Request.Params["R"],
 		}, decryptKey)
 		if result.PublicKeyVersion != "" {
@@ -375,16 +376,16 @@ func (c *decryptCmd) decryptReq(p *Payload, dynamicKey []byte) error {
 			requestErrs = append(requestErrs, errors.New("XEAPI request parameter B is missing"))
 		}
 
-		if encryptedS := p.Request.Params["S"]; encryptedS == "" {
+		if p.Request.Params["S"] == "" {
 			requestErrs = append(requestErrs, errors.New("XEAPI request parameter S is missing"))
-		} else if err := validateXeapiS(encryptedS); err != nil {
-			requestErrs = append(requestErrs, fmt.Errorf("XEAPI request parameter S is invalid: %w", err))
 		}
 
-		if decryptErr == nil && p.Request.Params["B"] != "" {
+		if p.Request.Params["B"] != "" {
 			switch {
 			case len(dynamicKey) == 0:
 				requestErrs = append(requestErrs, errors.New("dynamic key is required to decrypt XEAPI B"))
+			case len(result.Plaintext) == 0 && decryptErr != nil:
+				// The decrypt error above already identifies the malformed B field.
 			case !json.Valid(result.Plaintext):
 				requestErrs = append(requestErrs, errors.New("XEAPI request envelope is not valid JSON"))
 			default:
@@ -724,18 +725,6 @@ func validateDynamicKey(key []byte) error {
 	default:
 		return fmt.Errorf("dynamic key must decode to 16, 24, or 32 bytes; got %d", len(key))
 	}
-}
-
-func validateXeapiS(value string) error {
-	frame, err := base64.StdEncoding.Strict().DecodeString(value)
-	if err != nil {
-		return fmt.Errorf("decode base64: %w", err)
-	}
-
-	if len(frame) <= xeapiSFixedFrameSize {
-		return fmt.Errorf("frame is too short: got %d bytes, want more than %d", len(frame), xeapiSFixedFrameSize)
-	}
-	return nil
 }
 
 func isMatch(pattern, text string) (bool, error) {

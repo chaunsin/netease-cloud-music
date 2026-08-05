@@ -123,11 +123,17 @@ The flag is retained for compatibility but tag writing is not implemented. Do no
 
 ### `crypto decrypt`
 
-Direct input defaults to an EAPI request or an XEAPI response; HAR input defaults to both request and response. A direct XEAPI request must be a URL-encoded `B/S/R` form selected with `--target request`. Decrypt `R` unconditionally with the static key, decrypt `B` only with the explicitly supplied dynamic/session key, and preserve `S` without claiming it is recoverable: doing so requires the request's X25519 private key.
+Direct input defaults to an EAPI request or an XEAPI response; HAR input defaults to both request and response. A direct XEAPI request must be a URL-encoded `B/S/R` form selected with `--target request`. Decrypt `R` unconditionally with the static key, decrypt `B` only with the explicitly supplied dynamic/session key, and strictly validate the outer `S` frame while preserving it without claiming it is recoverable: decryption requires the request's X25519 private key.
 
 Keep dynamic/session keys explicit. Do not infer them from HAR response headers or persisted `xeapi.yaml`, and never log the value. A missing or incorrect key, incomplete request fields, or malformed XEAPI form is a per-request partial failure: retain recoverable `R` metadata, write the complete JSON, continue HAR response and later-entry processing, then return a non-zero aggregate error. Parse only the side selected by `--target`; HAR structure and response-decryption failures remain fail-fast.
 
 Ciphertext in JSON must remain byte-recoverable. Preserve direct hex/base64 input in that representation, encode raw direct bytes and HAR response bytes as Base64, and set `ciphertextEncoding` on every populated `ciphertext` field. WEAPI still cannot be decrypted without its random client key, and the direct Linux/API branches are not implemented. Do not advertise accepted `--kind` strings as implemented capabilities in both subcommands.
+
+### `proxy` XEAPI session sources
+
+`proxy --xeapi-session-id` and `--xeapi-session-key` are a required pair. Limit the ID to 1024 bytes. Treat the key as raw ASCII bytes, require an AES length of 16, 24, or 32, never infer hex encoding, and keep the help warning that flags are visible in shell history and process arguments. `--xeapi-state-file` reads only an explicitly named regular canonical YAML file, bounded to 1 MiB, and requires a complete `session.id/key`; missing or expired public-key state is irrelevant to passive decryption. Do not discover the global-home `xeapi.yaml` implicitly.
+
+Pass state-file seeds before command-line seeds so the latter replaces the same ID while different IDs coexist. Runtime response-header learning supersedes both and remains in memory only. Every explicit source validates independently; a valid flag pair must not hide an invalid file or vice versa. Do not print keys in startup output, validation errors, or diagnostics. These rules are proxy-specific and must not weaken the explicit-key-only contract of `crypto decrypt`.
 
 ### Credential flags
 

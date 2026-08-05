@@ -15,14 +15,19 @@
 | 业务请求 | 传输层使用 POST form 携带 `B`/`S`/`R` | 无论 envelope 中的原始 method 为何，外层均固定 POST `B`/`S`/`R` | `httptest` 覆盖 GET/PUT envelope 对应的 POST 传输，不代表线上兼容 |
 | XEAPI + GET/PUT | 原始 method 放入加密 envelope，传输仍为 POST | `api.Client.Request` 保留原始 method 参与加密并固定使用 POST 发送 | envelope 单元测试及离线传输测试已覆盖 |
 | URL 改写 | envelope 保留 `/api/`，传输改为 `/xeapi/`，query 进入 envelope | `rewriteXeapiURL` 按该边界实现 | 有本地单元测试 |
-| 响应与会话 | 传统 EAPI 响应解密，保存 `X-Encr-Ssid` / `X-Encr-Sskey` | `XeapiDecrypt`；仅在 HTTP 200 且解密、JSON 解析成功后，按本地公钥修订号和请求顺序更新完整会话 | 解密向量与离线状态测试已覆盖；线上交互仍未验证 |
-| CLI 离线解密 | `R` 可由静态 key 还原；`B` 还需要当次 dynamic/session key；`S` 需要请求端 X25519 私钥 | `XeapiDecryptRequest` 解 `R` 及可选的 `B`，`crypto decrypt` 支持直输、文件和 HAR；不解 `S`，也不开放 XEAPI CLI 加密 | Issue #174 固定向量、畸形输入及 CLI/HAR 离线测试已覆盖 |
+| 响应与会话 | 传统 EAPI 响应解密，保存 `X-Encr-Ssid` / `X-Encr-Sskey` | `api.Client` 在正文解密、JSON 解析和 HTTP 状态判断前先尝试接收完整响应头会话，再由本地公钥修订号和请求顺序决定是否覆盖；`XeapiDecrypt` 随后处理正文 | 解密向量与离线状态测试已覆盖；线上交互仍未验证 |
+| CLI 离线解密 | `R` 可由静态 key 还原；`B` 还需要当次 dynamic/session key；`S` 需要请求端 X25519 私钥 | `XeapiDecryptRequest` 解 `R` 及可选的 `B`，并严格验证已提供的 `S` 外层帧；`crypto decrypt` 支持直输、文件和 HAR，但不解 `S`，也不开放 XEAPI CLI 加密 | Issue #174 固定向量、畸形输入及 CLI/HAR 离线测试已覆盖 |
+| Proxy 被动观察 | 已知 session key 时可还原 `B`；`R` 独立可解；没有任一方 X25519 私钥时不能解 `S` | `proxy` 接受显式 state-file/flag 种子并从完整响应头自动学习；恢复逻辑 method/path/query/body，响应只接受明文 JSON 或原始二进制传统 EAPI 密文；观察不修改真实流量 | 抓包 `R`/响应向量，以及本文兼容参考实现生成的 synthetic 非空 session `B/S/R` 固定向量，覆盖代理解密链路；缓存/race、畸形输入和本地端到端转发测试已覆盖。synthetic `B/S/R` 固定向量不是抓包，线上交互仍未验证 |
 
 上表是实现状态说明，不是将当前代码反向视为协议正确性证据。修复仅有源码依据或已知缺口的项目前，应先获得抓包或兼容实现的固定向量。
 
 `ncmctl crypto decrypt --kind xeapi` 的直输默认按响应处理；请求需显式选择 `--target request` 并传入 URL-encoded `B/S/R`。未提供 dynamic key、请求字段不完整或表单畸形时，会尽量保留可恢复的 `R` 版本和 session ID，将该请求标为 `partial`，继续处理 HAR 响应及后续条目，写完完整 JSON 后退出非零；HAR 结构和响应解密错误仍快速失败。`--target` 只解析选中的一侧。输出中的每个 `ciphertext` 都由 `ciphertextEncoding` 标明表示方式，原始字节和 HAR 响应统一以 Base64 保存，避免二进制经过 JSON UTF-8 替换而损坏。
 
-dynamic/session key 属于敏感信息，只接受显式参数，不从 HAR 响应头或本地 `xeapi.yaml` 自动读取，也不会记录其值；命令行参数仍可能出现在 shell history 和进程列表中。
+上述显式 key 限制针对 `crypto decrypt`：它不从 HAR 响应头或本地 `xeapi.yaml` 自动读取 dynamic/session key，也不会记录其值。`proxy` 是独立的进程期观察状态机：只有 `--xeapi-state-file` 或成对的 session flags 能提供启动种子，运行中再从完整有效的响应头学习，且不写回文件。命令行 key 仍可能出现在 shell history 和进程列表中。
+
+Proxy 状态文件最多读取 1 MiB，只要求 canonical YAML 中存在完整 `session.id/key`，不要求公钥仍有效；也不会因 `--home` 自动发现状态文件。session ID 最多 1024 字节；同 ID 的优先级为 state file、command line、runtime header，不同 ID 在最多 256 项的最近更新缓存中并存。响应头学习发生在响应交给客户端之前，不依赖状态码、正文、解密或输出队列；新 key 只服务后续请求，不追溯解密此前 `R` 中 session ID 为空的请求。session ID 与响应头默认脱敏，内部诊断不输出 key。
+
+Proxy 默认同时隐藏 URL、form 和 JSON 外层的 `R`，因为公开静态 key 可从中还原 session ID；只有 `--show-sensitive` 会展示这些副本。同一 `B/S/R` 字段出现冲突候选时观察状态为 `partial`，不会静默选择首值。XEAPI 响应只有完整有效 JSON 才是 `plaintext`，空正文是 `failed`，被省略、截断、读取失败或 content decoding 失败的观察副本一律是 `partial`。
 
 公钥刷新中的 `t1`、`t2`、`uid`、`checkToken` 可通过 `Options.XeapiKeyRefresh` 分别注入。本地客户端不会伪造运行时 SDK Token；未提供时 `t1`、`t2`、`uid` 保持空字符串，`checkToken` 省略，且不会拿 `X-antiCheatToken` 替代这些字段。
 

@@ -25,6 +25,10 @@ type bodySnapshot struct {
 	captureErr    error
 }
 
+func (b *bodySnapshot) requestObservationIncomplete() bool {
+	return b != nil && (b.omittedReason != "" || b.captureErr != nil || b.truncated)
+}
+
 func newBodySnapshot(header http.Header, contentLength int64) bodySnapshot {
 	return bodySnapshot{
 		contentType:   header.Get("Content-Type"),

@@ -21,7 +21,7 @@ lint:
 
 .PHONY: test
 test: test-qinglong
-	go test -v ./...
+	go test ./...
 
 .PHONY: test-qinglong
 test-qinglong:
