@@ -8,7 +8,7 @@ require (
 	github.com/bogem/id3v2/v2 v2.1.4
 	github.com/chaunsin/go-har v0.0.0-20250701034644-7438631031b9
 	github.com/cheggaaa/pb/v3 v3.2.0
-	github.com/dgraph-io/badger/v4 v4.9.5
+	github.com/dgraph-io/badger/v4 v4.9.6
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/go-flac/flacpicture/v2 v2.0.2
 	github.com/go-flac/flacvorbis/v2 v2.0.2
