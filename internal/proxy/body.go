@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 chaunsin
+// Copyright (c) 2026 chaunsin
 // SPDX-License-Identifier: MIT
 
 package proxy
@@ -25,15 +25,28 @@ type bodySnapshot struct {
 	captureErr    error
 }
 
-func (b *bodySnapshot) requestObservationIncomplete() bool {
-	return b != nil && (b.omittedReason != "" || b.captureErr != nil || b.truncated)
-}
-
 func newBodySnapshot(header http.Header, contentLength int64) bodySnapshot {
 	return bodySnapshot{
 		contentType:   header.Get("Content-Type"),
 		contentEncode: header.Get("Content-Encoding"),
 		contentLength: contentLength,
+	}
+}
+
+func (b *bodySnapshot) requestObservationIncomplete() bool {
+	return b != nil && (b.omittedReason != "" || b.captureErr != nil || b.truncated)
+}
+
+func (b *bodySnapshot) detail() string {
+	switch {
+	case b.omittedReason != "":
+		return b.omittedReason
+	case b.captureErr != nil:
+		return fmt.Sprintf("body capture failed: %v", b.captureErr)
+	case b.truncated:
+		return "display truncated"
+	default:
+		return ""
 	}
 }
 
@@ -171,17 +184,4 @@ func isAPIPath(path string) bool {
 		return true
 	}
 	return classifyProtocol(path) != protocolGeneric
-}
-
-func snapshotDetail(snapshot *bodySnapshot) string {
-	switch {
-	case snapshot.omittedReason != "":
-		return snapshot.omittedReason
-	case snapshot.captureErr != nil:
-		return fmt.Sprintf("body capture failed: %v", snapshot.captureErr)
-	case snapshot.truncated:
-		return "display truncated"
-	default:
-		return ""
-	}
 }

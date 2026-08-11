@@ -26,7 +26,7 @@ The proxy has no client authentication. Keep the default listener on `127.0.0.1`
 | Surface | Main files |
 | --- | --- |
 | Configuration and host matching | `config.go`, `host.go` |
-| Listener, forwarding, MITM, and shutdown | `server.go`, `tracked_listener.go` |
+| Listener, forwarding, MITM, and shutdown | `server.go`, `connect.go`, `tracked_listener.go` |
 | Bounded body observation and content decoding | `body.go`, `content_encoding.go` |
 | Protocol classification and decryption | `protocol.go` |
 | Recursive redaction and safe formatting | `redact.go` |
@@ -38,7 +38,8 @@ Read the matching tests beside each file before changing a shared helper.
 ## Forwarding and capture
 
 - Match canonical hostnames, including subdomains, and keep the default domain slice immutable to callers.
-- Use `ConnectAccept` for non-target CONNECT traffic and `ConnectMitm` only for matched hosts.
+- Use `ConnectAccept` for non-target hostname CONNECT traffic and `ConnectMitm` for matched hostname targets. For an IP CONNECT, boundedly inspect only enough TLS ClientHello bytes to select a route while concurrently observing the upstream: an exposed configured target SNI may be MITM'd, while upstream-first traffic, a missing or malformed SNI, an ECH case that does not expose the target, a non-target SNI, or non-TLS traffic must replay the exact inspected prefixes and remain a transparent tunnel. Never delay a server-first protocol while waiting for client bytes.
+- When an IP CONNECT is selected for MITM, sign for its SNI but keep every upstream dial pinned to the original CONNECT address. Do not replace HTTPDNS routing with a fresh DNS lookup of the SNI.
 - Capture request bytes while the transport reads them; never pre-read the client body. The current policy omits every body with `ContentLength < 0`, including finite chunked requests, to avoid delaying long-lived streams. Do not relax it without defining response ordering, shutdown, and early-close behavior.
 - Bound every captured body with `MaxBodyBytes`. Record truncation, omission, read, close, or content-decoding failures as observation metadata.
 - Preserve original bodies, headers, encodings, and transport semantics. A capture wrapper must forward reads and closes to the real body on every path.
@@ -73,6 +74,8 @@ Only explicit `ShowSensitive` or `--show-sensitive` may expose raw sensitive val
 
 `recorder` uses a bounded asynchronous queue so a blocked stdout or FIFO cannot backpressure forwarding. Preserve request/response ordering when output can progress, but drop observation tasks when the queue is full and emit `CAPTURE_DROPPED` with the accumulated count later.
 
+Treat an `Out.Write` error or short write as an observation failure: report one bounded, always-redacted `CAPTURE_OUTPUT_ERROR` diagnostic to `ErrOut`, without retrying or affecting forwarded traffic.
+
 Closing the recorder marks it closed and waits only for a bounded interval. Do not turn output draining into an unbounded shutdown wait. If `Out.Write` never returns, the command can finish after the timeout while the recorder worker remains blocked; do not promise unconditional worker-goroutine exit.
 
 ## CA security
@@ -102,4 +105,4 @@ go test ./internal/proxy
 go test -race ./internal/proxy
 ```
 
-Use deterministic readers, writers, channels, fake transports, and local TLS servers. Cover loopback and non-loopback listeners, startup warnings, target and non-target traffic, truncated and malformed bodies, output saturation, cancellation, CA permissions, and cleanup failures without contacting NetEase services or modifying the system trust store.
+Use deterministic readers, writers, channels, fake transports, and local TLS servers. Cover loopback and non-loopback listeners, startup warnings, hostname and IP CONNECT targets, target/non-target/missing SNI routing, upstream-first and exact fallback bytes, tunnel copy errors, WebSocket exit, truncated and malformed bodies, output saturation and write failures, cancellation, CA permissions, and cleanup failures without contacting NetEase services or modifying the system trust store.

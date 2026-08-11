@@ -1,11 +1,10 @@
-// Copyright (c) 2024-2026 chaunsin
+// Copyright (c) 2026 chaunsin
 // SPDX-License-Identifier: MIT
 
 package proxy
 
 import (
 	"errors"
-	"net"
 	"strings"
 )
 
@@ -72,19 +71,4 @@ func (m *hostMatcher) Match(host string) bool {
 		}
 	}
 	return false
-}
-
-func canonicalHostname(host string) string {
-	host = strings.TrimSpace(host)
-	if host == "" {
-		return ""
-	}
-
-	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
-		host = parsedHost
-	} else if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
-		host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
-	}
-
-	return strings.ToLower(strings.TrimRight(host, "."))
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 chaunsin
+// Copyright (c) 2026chaunsin
 // SPDX-License-Identifier: MIT
 
 //go:build !windows

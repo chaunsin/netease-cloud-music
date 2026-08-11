@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 chaunsin
+// Copyright (c) 2026 chaunsin
 // SPDX-License-Identifier: MIT
 
 package proxy
@@ -21,6 +21,8 @@ import (
 
 	ncmcrypto "github.com/chaunsin/netease-cloud-music/pkg/crypto"
 )
+
+const eapiSeparator = "-36cd479b6b5-"
 
 type protocol string
 
@@ -61,8 +63,6 @@ type decodeResult struct {
 	detail             string
 	responseEncrypted  bool
 }
-
-const eapiSeparator = "-36cd479b6b5-"
 
 func classifyProtocol(requestPath string) protocol {
 	p := requestPath
@@ -169,13 +169,6 @@ func decodeEAPIRequest(base *decodeResult, query url.Values, header http.Header,
 	base.detail = "eapi request decrypted; envelope digest verified"
 	base.responseEncrypted = base.responseEncrypted || meta.requestEncrypted
 	return *base
-}
-
-type xeapiRequestEnvelope struct {
-	Body        *string `json:"body"`
-	Method      string  `json:"method"`
-	ContentType string  `json:"contentType"`
-	QueryString string  `json:"queryString"`
 }
 
 type observedRequestParameter struct {
@@ -421,6 +414,13 @@ func decodeXEAPIRequest(
 		base.status = decodeStatusDecrypted
 	}
 	return *base
+}
+
+type xeapiRequestEnvelope struct {
+	Body        *string `json:"body"`
+	Method      string  `json:"method"`
+	ContentType string  `json:"contentType"`
+	QueryString string  `json:"queryString"`
 }
 
 func applyXEAPIEnvelope(result *decodeResult, plaintext []byte, showSensitive bool, maxBodyBytes int64) error {
@@ -803,7 +803,12 @@ func (r *decodeResult) setFailedResponse(request *decodeResult, header http.Head
 	r.status = decodeStatusFailed
 	display := formatBody(header, body, showSensitive, maxBodyBytes)
 	r.body = display.body
-	r.detail = appendDetail(responseFailureDetail(request, failure), display.detail)
+
+	if request.responseEncrypted {
+		failure += "; request declared an encrypted response"
+	}
+
+	r.detail = appendDetail(failure+"; showing raw response", display.detail)
 }
 
 func decryptXEAPIResponse(body []byte, maxBodyBytes int64) ([]byte, bool, error) {
@@ -887,13 +892,6 @@ func gunzipLimited(data []byte, limit int64) ([]byte, error) {
 		return nil, fmt.Errorf("decoded body exceeds %d bytes", limit)
 	}
 	return decoded, nil
-}
-
-func responseFailureDetail(request *decodeResult, failure string) string {
-	if request.responseEncrypted {
-		return failure + "; request declared an encrypted response; showing raw response"
-	}
-	return failure + "; showing raw response"
 }
 
 type bodyDisplay struct {
@@ -1042,22 +1040,6 @@ func methodAllowsBody(method string) bool {
 	default:
 		return false
 	}
-}
-
-func isHex(data []byte) bool {
-	trimmed := bytes.TrimSpace(data)
-	if len(trimmed) == 0 || len(trimmed)%2 != 0 {
-		return false
-	}
-
-	for _, c := range trimmed {
-		if (c < '0' || c > '9') &&
-			(c < 'a' || c > 'f') &&
-			(c < 'A' || c > 'F') {
-			return false
-		}
-	}
-	return true
 }
 
 func appendDetail(existing, detail string) string {

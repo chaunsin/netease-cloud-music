@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 chaunsin
+// Copyright (c) 2026 chaunsin
 // SPDX-License-Identifier: MIT
 
 package proxy
@@ -86,7 +86,7 @@ func loadOrCreateCA(certPath, keyPath string, requirePrivateCAPath bool) (*tls.C
 		return nil, false, err
 	}
 
-	if writeErr := writeExclusive(keyPath, keyPEM, 0o600); writeErr != nil {
+	if writeErr := os.WriteFile(keyPath, keyPEM, 0o600); writeErr != nil {
 		return nil, false, fmt.Errorf("write CA private key: %w", writeErr)
 	}
 
@@ -95,7 +95,7 @@ func loadOrCreateCA(certPath, keyPath string, requirePrivateCAPath bool) (*tls.C
 		return nil, false, fmt.Errorf("secure CA private key: %w", secureErr)
 	}
 
-	if writeErr := writeExclusive(certPath, certPEM, 0o644); writeErr != nil {
+	if writeErr := os.WriteFile(certPath, certPEM, 0o644); writeErr != nil { //nolint:gosec // CA certificates are public and may be world-readable.
 		_ = os.Remove(keyPath)
 		return nil, false, fmt.Errorf("write CA certificate: %w", writeErr)
 	}
@@ -112,17 +112,7 @@ func loadOrCreateCA(certPath, keyPath string, requirePrivateCAPath bool) (*tls.C
 // loadCA validates an existing CA without changing its parent directory. It is
 // also used for explicitly supplied certificate and key files.
 func loadCA(certPath, keyPath string) (*tls.Certificate, error) {
-	certPEM, err := os.ReadFile(certPath)
-	if err != nil {
-		return nil, fmt.Errorf("read CA certificate: %w", err)
-	}
-
-	keyPEM, err := os.ReadFile(keyPath)
-	if err != nil {
-		return nil, fmt.Errorf("read CA private key: %w", err)
-	}
-
-	ca, err := tls.X509KeyPair(certPEM, keyPEM)
+	ca, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("parse CA certificate and private key: %w", err)
 	}
@@ -249,9 +239,11 @@ func pathExists(path string) (bool, error) {
 }
 
 func uniqueParentDirs(paths ...string) []string {
-	dirs := make([]string, 0, len(paths))
+	var (
+		dirs = make([]string, 0, len(paths))
+		seen = make(map[string]struct{}, len(paths))
+	)
 
-	seen := make(map[string]struct{}, len(paths))
 	for _, path := range paths {
 		dir := filepath.Dir(path)
 		if _, ok := seen[dir]; ok {
@@ -280,37 +272,6 @@ func ensurePrivateDir(dir string) error {
 		}
 	}
 	return secureCAPrivateDir(dir)
-}
-
-func writeExclusive(path string, data []byte, mode os.FileMode) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
-	if err != nil {
-		return err
-	}
-
-	succeeded := false
-	defer func() {
-		if !succeeded {
-			_ = os.Remove(path)
-		}
-	}()
-
-	if _, err := f.Write(data); err != nil {
-		_ = f.Close()
-		return err
-	}
-
-	if err := f.Sync(); err != nil {
-		_ = f.Close()
-		return err
-	}
-
-	if err := f.Close(); err != nil {
-		return err
-	}
-
-	succeeded = true
-	return nil
 }
 
 var _ goproxy.CertStorage = (*memoryCertStore)(nil)

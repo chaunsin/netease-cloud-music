@@ -135,7 +135,7 @@ Configure the client to use `127.0.0.1:9000` for HTTP and HTTPS, then trust `<ho
 
 XEAPI session state is opt-in at startup: `proxy` does not discover `<home>/.ncmctl/xeapi.yaml` unless `--xeapi-state-file` names it. It can also accept a paired `--xeapi-session-id` / `--xeapi-session-key`; the ID is at most 1024 bytes and the key is raw ASCII of 16, 24, or 32 bytes. During capture, valid session response headers are learned in memory for later requests and are not written back. Requests without a matching key remain `partial`; `S` is only structurally validated because the proxy has neither side's X25519 private key.
 
-Use `ncmctl --debug proxy` to correlate the CONNECT target with ClientHello SNI, the generated certificate SANs, and hostname-match results. Matching identities followed by a client handshake alert narrow the remaining causes to client trust policy or certificate pinning; the alert alone cannot distinguish them.
+Use `ncmctl --debug proxy` to correlate the CONNECT target with ClientHello SNI, the selected tunnel/MITM action, generated certificate SANs, and hostname-match results. An IP-targeted CONNECT is MITM'd only when its exposed SNI matches a configured NetEase domain and remains pinned to the original IP upstream. CONNECT diagnostics describe the underlying tunnel, not every HTTP request carried by it, so a reused tunnel produces no new `phase=connect` record. Investigate QUIC/HTTP3, direct connections, or another bypass path only after confirming that the underlying connection also had no CONNECT record when it was established.
 
 ## References
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 chaunsin
+// Copyright (c) 2026 chaunsin
 // SPDX-License-Identifier: MIT
 
 package proxy
@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
+	"github.com/elazarl/goproxy"
 	"github.com/stretchr/testify/require"
 
 	ncmcrypto "github.com/chaunsin/netease-cloud-music/pkg/crypto"
@@ -86,6 +87,80 @@ func TestHTTPProxyCapturesAndRedactsWithoutChangingTraffic(t *testing.T) {
 	for _, secret := range []string{"request-secret", "response-secret", "query-secret", "auth-secret", "cookie-secret"} {
 		require.NotContains(t, logOutput, secret)
 	}
+}
+
+func TestHTTPProxyDoesNotCaptureMismatchedAbsoluteTarget(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(writer, "served")
+	}))
+	t.Cleanup(origin.Close)
+	originURL, err := url.Parse(origin.URL)
+	require.NoError(t, err)
+
+	proxyURL, _, output, upstreamTransport := newTestProxy(t, []string{"music.163.com"}, 1<<20)
+	upstreamTransport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+		var dialer net.Dialer
+		return dialer.DialContext(ctx, network, originURL.Host)
+	}
+
+	proxyConn, err := net.Dial("tcp", proxyURL.Host)
+	require.NoError(t, err)
+	_, err = io.WriteString(proxyConn, "GET http://other.example/not-target HTTP/1.1\r\nHost: music.163.com\r\nConnection: close\r\n\r\n")
+	require.NoError(t, err)
+	response, err := http.ReadResponse(bufio.NewReader(proxyConn), &http.Request{Method: http.MethodGet})
+	require.NoError(t, err)
+	_, err = io.Copy(io.Discard, response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	require.NoError(t, proxyConn.Close())
+
+	client := newProxyClient(t, proxyURL, nil, false)
+	response, err = client.Get("http://music.163.com/capture-marker")
+	require.NoError(t, err)
+	_, err = io.Copy(io.Discard, response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+
+	requireOutputContains(t, output, "/capture-marker")
+	require.NotContains(t, output.String(), "/not-target")
+}
+
+func TestCaptureOutputFailureDoesNotChangeForwardedTraffic(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusCreated)
+		_, _ = io.WriteString(writer, "forwarded")
+	}))
+	t.Cleanup(origin.Close)
+
+	dir := filepath.Join(t.TempDir(), "proxy")
+	ca, _, err := loadOrCreateCA(filepath.Join(dir, "ca.crt"), filepath.Join(dir, "ca.key"), false)
+	require.NoError(t, err)
+	matcher, err := newHostMatcher([]string{"127.0.0.1"})
+	require.NoError(t, err)
+
+	diagnostics := &lockedBuffer{}
+	recorder := newRecorderWithXeapiSessions(errorCaptureWriter{err: errors.New("capture unavailable")}, diagnostics, 1<<20, false, nil)
+	t.Cleanup(recorder.Close)
+
+	cfg := Config{MaxBodyBytes: 1 << 20, Out: io.Discard, ErrOut: diagnostics}
+	proxyServer, upstreamTransport := newProxyServer(&cfg, matcher, ca, recorder, nil)
+	t.Cleanup(upstreamTransport.CloseIdleConnections)
+
+	server := httptest.NewServer(proxyServer)
+	t.Cleanup(server.Close)
+	proxyURL, err := url.Parse(server.URL)
+	require.NoError(t, err)
+
+	client := newProxyClient(t, proxyURL, nil, false)
+	response, err := client.Get(origin.URL + "/api/output-error")
+	require.NoError(t, err)
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	require.Equal(t, http.StatusCreated, response.StatusCode)
+	require.Equal(t, "forwarded", string(body))
+	require.True(t, flushRecorder(recorder, time.Second))
+	require.Contains(t, diagnostics.String(), "CAPTURE_OUTPUT_ERROR")
 }
 
 func TestHTTPProxyLearnsXeapiSessionBeforeForwardingResponse(t *testing.T) {
@@ -286,6 +361,133 @@ func TestMITMDebugDiagnostics(t *testing.T) {
 	})
 }
 
+func TestIPConnectUsesTargetSNIForMITM(t *testing.T) {
+	const targetHost = "interface.music.163.com"
+
+	received := make(chan struct {
+		host string
+		path string
+		body string
+	}, 1)
+	proxyURL, ca, output, diagnostics, upstreamTransport := newTestProxyWithDebug(t, []string{"music.163.com"}, 1<<20, true)
+	origin := newTLSServerForHost(t, ca, targetHost, http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			t.Errorf("read IP-targeted request body: %v", err)
+			http.Error(writer, "read request", http.StatusInternalServerError)
+
+			return
+		}
+
+		received <- struct {
+			host string
+			path string
+			body string
+		}{host: request.Host, path: request.URL.Path, body: string(body)}
+
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(writer, `{"code":200}`)
+	}))
+
+	upstreamRoots := x509.NewCertPool()
+	upstreamRoots.AddCert(ca.Leaf)
+	upstreamTransport.TLSClientConfig = &tls.Config{RootCAs: upstreamRoots, MinVersion: tls.VersionTLS12}
+
+	proxyRoots := x509.NewCertPool()
+	proxyRoots.AddCert(ca.Leaf)
+	client := newMITMTestTLSClient(t, proxyURL, origin.Listener.Addr().String(), targetHost, proxyRoots)
+	requestBody := `{"params":"reproduction"}`
+	_, err := fmt.Fprintf(
+		client,
+		"POST /eapi/repro HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s",
+		targetHost,
+		len(requestBody),
+		requestBody,
+	)
+	require.NoError(t, err)
+
+	response, err := http.ReadResponse(bufio.NewReader(client), &http.Request{Method: http.MethodPost})
+	require.NoError(t, err)
+	responseBody, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	require.JSONEq(t, `{"code":200}`, string(responseBody))
+	require.Equal(t, struct {
+		host string
+		path string
+		body string
+	}{host: targetHost, path: "/eapi/repro", body: requestBody}, <-received)
+
+	requireOutputContains(t, output, "REQUEST protocol=eapi")
+	requireOutputContains(t, output, "POST https://"+targetHost+"/eapi/repro")
+	requireOutputContains(t, diagnostics, "action=inspect_sni reason=ip_target")
+	requireOutputContains(t, diagnostics, `sni="`+targetHost+`" action=mitm reason=sni_target`)
+	requireOutputContains(t, diagnostics, "cert_matches_connect=false cert_matches_sni=true")
+}
+
+func TestIPConnectWithNonTargetSNIStaysTunneled(t *testing.T) {
+	const serverName = "other.example"
+
+	proxyURL, ca, output, diagnostics, _ := newTestProxyWithDebug(t, []string{"music.163.com"}, 1<<20, true)
+	origin := newTLSServerForHost(t, ca, serverName, http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(writer, "tunneled")
+	}))
+
+	roots := x509.NewCertPool()
+	roots.AddCert(ca.Leaf)
+	client := newMITMTestTLSClient(t, proxyURL, origin.Listener.Addr().String(), serverName, roots)
+	_, err := fmt.Fprintf(client, "GET /not-target HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", serverName)
+	require.NoError(t, err)
+
+	response, err := http.ReadResponse(bufio.NewReader(client), &http.Request{Method: http.MethodGet})
+	require.NoError(t, err)
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	require.Equal(t, "tunneled", string(body))
+	require.Empty(t, output.String())
+	requireOutputContains(t, diagnostics, `sni="`+serverName+`" action=tunnel reason=sni_not_target`)
+	require.NotContains(t, diagnostics.String(), "signing for "+serverName)
+}
+
+func TestNonTargetHostnameConnectLogsTunnelDecision(t *testing.T) {
+	const (
+		connectTarget = "other.example:443"
+		serverName    = "other.example"
+	)
+
+	proxyURL, ca, output, diagnostics, upstreamTransport := newTestProxyWithDebug(t, []string{"music.163.com"}, 1<<20, true)
+	origin := newTLSServerForHost(t, ca, serverName, http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(writer, "named tunnel")
+	}))
+	dialed := make(chan string, 1)
+	upstreamTransport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		dialed <- address
+
+		var dialer net.Dialer
+
+		return dialer.DialContext(ctx, network, origin.Listener.Addr().String())
+	}
+
+	roots := x509.NewCertPool()
+	roots.AddCert(ca.Leaf)
+	client := newMITMTestTLSClient(t, proxyURL, connectTarget, serverName, roots)
+	_, err := fmt.Fprintf(client, "GET /not-target HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", serverName)
+	require.NoError(t, err)
+
+	response, err := http.ReadResponse(bufio.NewReader(client), &http.Request{Method: http.MethodGet})
+	require.NoError(t, err)
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	require.Equal(t, "named tunnel", string(body))
+	require.Equal(t, connectTarget, <-dialed)
+	require.Empty(t, output.String())
+	requireOutputContains(t, diagnostics, `connect_target="`+connectTarget+`"`)
+	requireOutputContains(t, diagnostics, "action=tunnel reason=target_not_matched")
+}
+
 func TestNonTargetHTTPSIsTunneledWithoutCapture(t *testing.T) {
 	t.Parallel()
 
@@ -294,7 +496,7 @@ func TestNonTargetHTTPSIsTunneledWithoutCapture(t *testing.T) {
 	}))
 	t.Cleanup(origin.Close)
 
-	proxyURL, _, output, _ := newTestProxy(t, []string{"music.163.com"}, 1<<20)
+	proxyURL, _, output, diagnostics, _ := newTestProxyWithDebug(t, []string{"music.163.com"}, 1<<20, true)
 	originRoots := x509.NewCertPool()
 	originRoots.AddCert(origin.Certificate())
 	client := newProxyClient(t, proxyURL, originRoots, false)
@@ -306,6 +508,179 @@ func TestNonTargetHTTPSIsTunneledWithoutCapture(t *testing.T) {
 	require.NoError(t, resp.Body.Close())
 	require.Equal(t, "tunneled", string(body))
 	require.Empty(t, output.String())
+	requireOutputContains(t, diagnostics, "action=inspect_sni reason=ip_target")
+	requireOutputContains(t, diagnostics, `sni="" action=tunnel reason=sni_missing`)
+}
+
+func TestIPConnectWithNonTLSPayloadStaysTunneled(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(writer, "plaintext tunnel")
+	}))
+	t.Cleanup(origin.Close)
+
+	originURL, err := url.Parse(origin.URL)
+	require.NoError(t, err)
+	proxyURL, _, output, diagnostics, _ := newTestProxyWithDebug(t, []string{"music.163.com"}, 1<<20, true)
+	client, err := net.Dial("tcp", proxyURL.Host)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = client.Close() })
+	require.NoError(t, client.SetDeadline(time.Now().Add(5*time.Second)))
+
+	_, err = fmt.Fprintf(client, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", originURL.Host, originURL.Host)
+	require.NoError(t, err)
+
+	reader := bufio.NewReader(client)
+	connectResponse, err := http.ReadResponse(reader, &http.Request{Method: http.MethodConnect})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, connectResponse.StatusCode)
+	require.NoError(t, connectResponse.Body.Close())
+
+	_, err = fmt.Fprintf(client, "GET /plain HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", originURL.Host)
+	require.NoError(t, err)
+	response, err := http.ReadResponse(reader, &http.Request{Method: http.MethodGet})
+	require.NoError(t, err)
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	require.Equal(t, "plaintext tunnel", string(body))
+	require.Empty(t, output.String())
+	requireOutputContains(t, diagnostics, "action=tunnel reason=not_tls_client_hello")
+}
+
+func TestIPConnectForwardsUpstreamFirstPayloadWithoutWaitingForClient(t *testing.T) {
+	origin, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = origin.Close() })
+
+	originDone := make(chan error, 1)
+
+	go func() {
+		conn, acceptErr := origin.Accept()
+		if acceptErr != nil {
+			originDone <- acceptErr
+			return
+		}
+		defer func() { _ = conn.Close() }()
+
+		if _, writeErr := io.WriteString(conn, "220 ready\r\n"); writeErr != nil {
+			originDone <- writeErr
+			return
+		}
+
+		line, readErr := bufio.NewReader(conn).ReadString('\n')
+		if readErr == nil && line != "QUIT\r\n" {
+			readErr = fmt.Errorf("origin received %q, want QUIT", line)
+		}
+
+		originDone <- readErr
+	}()
+
+	proxyURL, _, output, diagnostics, _ := newTestProxyWithDebug(t, []string{"music.163.com"}, 1<<20, true)
+	client, err := net.Dial("tcp", proxyURL.Host)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = client.Close() })
+	require.NoError(t, client.SetDeadline(time.Now().Add(2*time.Second)))
+
+	_, err = fmt.Fprintf(client, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", origin.Addr(), origin.Addr())
+	require.NoError(t, err)
+
+	reader := bufio.NewReader(client)
+	connectResponse, err := http.ReadResponse(reader, &http.Request{Method: http.MethodConnect})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, connectResponse.StatusCode)
+	require.NoError(t, connectResponse.Body.Close())
+
+	line, err := reader.ReadString('\n')
+	require.NoError(t, err)
+	require.Equal(t, "220 ready\r\n", line)
+
+	_, err = io.WriteString(client, "QUIT\r\n")
+	require.NoError(t, err)
+	require.NoError(t, <-originDone)
+	require.Empty(t, output.String())
+	requireOutputContains(t, diagnostics, "action=tunnel reason=upstream_first")
+}
+
+func TestIPConnectTargetSNIWebSocketClosesAfterUpstreamExit(t *testing.T) {
+	const targetHost = "interface.music.163.com"
+
+	originDone := make(chan error, 1)
+	proxyURL, ca, output, _, upstreamTransport := newTestProxyWithDebug(t, []string{"music.163.com"}, 1<<20, true)
+	origin := newTLSServerForHost(t, ca, targetHost, http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		hijacker, ok := writer.(http.Hijacker)
+		if !ok {
+			originDone <- errors.New("origin response writer does not support hijacking")
+			return
+		}
+
+		conn, readWriter, err := hijacker.Hijack()
+		if err != nil {
+			originDone <- err
+			return
+		}
+		defer func() { _ = conn.Close() }()
+
+		_, err = fmt.Fprint(readWriter, "HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Accept: test\r\n\r\n")
+		if err == nil {
+			err = readWriter.Flush()
+		}
+
+		payload := make([]byte, 4)
+		if err == nil {
+			_, err = io.ReadFull(readWriter, payload)
+		}
+
+		if err == nil {
+			_, err = readWriter.Write(payload)
+		}
+
+		if err == nil {
+			err = readWriter.Flush()
+		}
+
+		originDone <- err
+	}))
+
+	upstreamRoots := x509.NewCertPool()
+	upstreamRoots.AddCert(ca.Leaf)
+	upstreamTransport.TLSClientConfig = &tls.Config{RootCAs: upstreamRoots, MinVersion: tls.VersionTLS12}
+	proxyRoots := x509.NewCertPool()
+	proxyRoots.AddCert(ca.Leaf)
+	client := newMITMTestTLSClient(t, proxyURL, origin.Listener.Addr().String(), targetHost, proxyRoots)
+
+	_, err := fmt.Fprintf(
+		client,
+		"GET /socket HTTP/1.1\r\nHost: %s\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+		targetHost,
+	)
+	require.NoError(t, err)
+
+	reader := bufio.NewReader(client)
+	statusLine, err := reader.ReadString('\n')
+	require.NoError(t, err)
+	require.Contains(t, statusLine, "101")
+
+	for {
+		line, readErr := reader.ReadString('\n')
+		require.NoError(t, readErr)
+
+		if line == "\r\n" {
+			break
+		}
+	}
+
+	_, err = client.Write([]byte("ping"))
+	require.NoError(t, err)
+
+	echo := make([]byte, 4)
+	_, err = io.ReadFull(reader, echo)
+	require.NoError(t, err)
+	require.Equal(t, "ping", string(echo))
+	require.NoError(t, <-originDone)
+
+	_, err = reader.ReadByte()
+	require.Error(t, err)
+	requireOutputContains(t, output, "protocol upgrade body omitted")
 }
 
 func TestCaptureLimitDoesNotTruncateForwardedBodies(t *testing.T) {
@@ -1104,6 +1479,171 @@ func TestNonTargetConnectPreservesHalfClose(t *testing.T) {
 	}
 }
 
+func TestCopyTunnelClosesBothConnectionsOnError(t *testing.T) {
+	copyErr := errors.New("copy failed")
+	destination := &halfCloseTestConn{}
+	source := &halfCloseTestConn{readErr: copyErr}
+
+	copyTunnel(destination, source, "upstream", nil)
+
+	require.True(t, destination.closed)
+	require.True(t, source.closed)
+	require.False(t, destination.writeClosed)
+	require.False(t, source.readClosed)
+}
+
+func TestConnectProbeDecision(t *testing.T) {
+	matcher, err := newHostMatcher([]string{"music.163.com"})
+	require.NoError(t, err)
+
+	invalidHello := errors.New("invalid client hello")
+	for _, test := range []struct {
+		name  string
+		probe connectProbeResult
+		want  connectDecision
+	}{
+		{
+			name: "upstream bytes take precedence",
+			probe: connectProbeResult{
+				upstreamPrefix: []byte("220 ready\r\n"),
+				upstreamErr:    errors.New("upstream unavailable"),
+				upstreamFirst:  true,
+				serverName:     "interface.music.163.com",
+				helloErr:       invalidHello,
+			},
+			want: connectDecision{route: connectRouteTunnel, reason: "upstream_first"},
+		},
+		{
+			name:  "upstream completes first",
+			probe: connectProbeResult{upstreamFirst: true, serverName: "interface.music.163.com", helloErr: invalidHello},
+			want:  connectDecision{route: connectRouteTunnel, reason: "upstream_read_failed"},
+		},
+		{
+			name:  "upstream read fails",
+			probe: connectProbeResult{upstreamErr: errors.New("upstream unavailable"), serverName: "interface.music.163.com", helloErr: invalidHello},
+			want:  connectDecision{route: connectRouteTunnel, reason: "upstream_read_failed"},
+		},
+		{
+			name:  "client hello is invalid",
+			probe: connectProbeResult{helloErr: invalidHello, serverName: "interface.music.163.com"},
+			want:  connectDecision{route: connectRouteTunnel, reason: "client_hello_invalid"},
+		},
+		{
+			name:  "SNI is missing",
+			probe: connectProbeResult{},
+			want:  connectDecision{route: connectRouteTunnel, reason: "sni_missing"},
+		},
+		{
+			name:  "SNI is not a target",
+			probe: connectProbeResult{serverName: "other.example"},
+			want:  connectDecision{route: connectRouteTunnel, reason: "sni_not_target"},
+		},
+		{
+			name:  "SNI is a target",
+			probe: connectProbeResult{serverName: "interface.music.163.com"},
+			want:  connectDecision{route: connectRouteMITM, reason: "sni_target"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.want, test.probe.decide(matcher))
+		})
+	}
+}
+
+func TestIPConnectTargetRequiresExplicitPort(t *testing.T) {
+	for _, test := range []struct {
+		target string
+		want   bool
+	}{
+		{target: "127.0.0.1:443", want: true},
+		{target: "127.0.0.1:8443", want: true},
+		{target: "[2001:db8::1]:443", want: true},
+		{target: "127.0.0.1", want: false},
+		{target: "[2001:db8::1]", want: false},
+		{target: "music.163.com:443", want: false},
+	} {
+		t.Run(test.target, func(t *testing.T) {
+			require.Equal(t, test.want, isIPConnectTarget(test.target))
+		})
+	}
+}
+
+func TestPinnedDialerReusesOriginalConnectTarget(t *testing.T) {
+	initial, initialPeer := net.Pipe()
+
+	t.Cleanup(func() {
+		_ = initial.Close()
+		_ = initialPeer.Close()
+	})
+
+	redial, redialPeer := net.Pipe()
+
+	t.Cleanup(func() {
+		_ = redial.Close()
+		_ = redialPeer.Close()
+	})
+
+	const connectTarget = "192.0.2.10:443"
+
+	dialedAddress := ""
+	base := &http.Transport{
+		TLSHandshakeTimeout:   7 * time.Second,
+		IdleConnTimeout:       8 * time.Second,
+		ExpectContinueTimeout: 9 * time.Second,
+		DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
+			dialedAddress = address
+			return redial, nil
+		},
+	}
+	transport, closeUnused := newPinnedTransport(base, connectTarget, "interface.music.163.com", initial)
+	t.Cleanup(transport.CloseIdleConnections)
+	t.Cleanup(closeUnused)
+	require.Equal(t, base.TLSHandshakeTimeout, transport.TLSHandshakeTimeout)
+	require.Equal(t, base.IdleConnTimeout, transport.IdleConnTimeout)
+	require.Equal(t, base.ExpectContinueTimeout, transport.ExpectContinueTimeout)
+
+	connection, err := transport.DialContext(context.Background(), "tcp", "interface.music.163.com:443")
+	require.NoError(t, err)
+	require.Same(t, initial, connection)
+	connection, err = transport.DialContext(context.Background(), "tcp", "interface.music.163.com:443")
+	require.NoError(t, err)
+	require.Same(t, redial, connection)
+	require.Equal(t, connectTarget, dialedAddress)
+}
+
+func TestSNIConnectDialUsesConnectRequestContext(t *testing.T) {
+	requestContext, cancel := context.WithCancel(context.Background())
+	request := httptest.NewRequest(http.MethodConnect, "http://127.0.0.1:443", http.NoBody).WithContext(requestContext)
+	dialStarted := make(chan struct{})
+	handler := &sniConnectHandler{
+		transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				close(dialStarted)
+				<-ctx.Done()
+				return nil, ctx.Err()
+			},
+		},
+	}
+	client := &halfCloseTestConn{}
+	done := make(chan struct{})
+
+	go func() {
+		handler.Handle("127.0.0.1:443", request, client, nil)
+		close(done)
+	}()
+
+	<-dialStarted
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("IP CONNECT dial did not stop when its request context was canceled")
+	}
+
+	require.True(t, client.closed)
+}
+
 func TestMITMHandshakeTimeoutClosesStalledConnect(t *testing.T) {
 	timeout := 100 * time.Millisecond
 	proxyURL, _, _ := newTrackedTestProxy(t, []string{"127.0.0.1"}, timeout)
@@ -1376,6 +1916,20 @@ func newMITMTestTLSClient(t *testing.T, proxyURL *url.URL, connectTarget, server
 	return client
 }
 
+func newTLSServerForHost(t *testing.T, ca *tls.Certificate, host string, handler http.Handler) *httptest.Server {
+	t.Helper()
+
+	certificateProxy := goproxy.NewProxyHttpServer()
+	config, err := goproxy.TLSConfigFromCA(ca)(host, &goproxy.ProxyCtx{Proxy: certificateProxy})
+	require.NoError(t, err)
+
+	server := httptest.NewUnstartedServer(handler)
+	server.TLS = &tls.Config{Certificates: config.Certificates, MinVersion: tls.VersionTLS12}
+	server.StartTLS()
+	t.Cleanup(server.Close)
+	return server
+}
+
 func newTrackedTestProxy(t *testing.T, domains []string, handshakeTimeout time.Duration) (*url.URL, *tls.Certificate, *http.Transport) {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "proxy")
@@ -1548,6 +2102,43 @@ type bufferedTestConn struct {
 func (c *bufferedTestConn) Read(p []byte) (int, error) {
 	return c.reader.Read(p)
 }
+
+type halfCloseTestConn struct {
+	readErr     error
+	closed      bool
+	readClosed  bool
+	writeClosed bool
+}
+
+func (c *halfCloseTestConn) Read([]byte) (int, error) {
+	if c.readErr != nil {
+		return 0, c.readErr
+	}
+	return 0, io.EOF
+}
+
+func (*halfCloseTestConn) Write(p []byte) (int, error) { return len(p), nil }
+
+func (c *halfCloseTestConn) Close() error {
+	c.closed = true
+	return nil
+}
+
+func (c *halfCloseTestConn) CloseRead() error {
+	c.readClosed = true
+	return nil
+}
+
+func (c *halfCloseTestConn) CloseWrite() error {
+	c.writeClosed = true
+	return nil
+}
+
+func (*halfCloseTestConn) LocalAddr() net.Addr              { return &net.TCPAddr{} }
+func (*halfCloseTestConn) RemoteAddr() net.Addr             { return &net.TCPAddr{} }
+func (*halfCloseTestConn) SetDeadline(time.Time) error      { return nil }
+func (*halfCloseTestConn) SetReadDeadline(time.Time) error  { return nil }
+func (*halfCloseTestConn) SetWriteDeadline(time.Time) error { return nil }
 
 type shortWriter struct{}
 

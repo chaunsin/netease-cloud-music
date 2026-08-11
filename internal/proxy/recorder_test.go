@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 chaunsin
+// Copyright (c) 2026 chaunsin
 // SPDX-License-Identifier: MIT
 
 package proxy
@@ -13,6 +13,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/elazarl/goproxy"
+	"github.com/stretchr/testify/require"
 
 	ncmcrypto "github.com/chaunsin/netease-cloud-music/pkg/crypto"
 )
@@ -134,6 +137,53 @@ func TestRecorderQueueDoesNotBlockRequestCapture(t *testing.T) {
 	if !strings.Contains(writer.String(), "CAPTURE_DROPPED") {
 		t.Fatalf("full queue did not produce a dropped-capture marker: %q", writer.String())
 	}
+}
+
+func TestRecorderReportsCaptureOutputFailureOnce(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		writer     io.Writer
+		wantDetail string
+	}{
+		{name: "write error", writer: errorCaptureWriter{err: errors.New("write token=output-secret failed")}, wantDetail: "write token=[REDACTED] failed"},
+		{name: "short write", writer: shortWriter{}, wantDetail: io.ErrShortWrite.Error()},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var diagnostics lockedBuffer
+
+			recorder := newRecorderWithXeapiSessions(tt.writer, &diagnostics, 1024, true, nil)
+
+			t.Cleanup(func() { recorder.CloseWithTimeout(time.Second) })
+
+			requestURL, err := url.Parse("https://music.163.com/api/test")
+			require.NoError(t, err)
+
+			for range 2 {
+				recordTestRequest(recorder, &captureState{
+					requestMethod: http.MethodGet,
+					requestURL:    requestURL,
+					requestHeader: http.Header{},
+					requestBody:   bodySnapshot{},
+				})
+			}
+
+			require.True(t, flushRecorder(recorder, time.Second))
+
+			text := diagnostics.String()
+			require.Contains(t, text, "CAPTURE_OUTPUT_ERROR")
+			require.Contains(t, text, tt.wantDetail)
+			require.NotContains(t, text, "output-secret")
+			require.Equal(t, 1, strings.Count(text, "CAPTURE_OUTPUT_ERROR"))
+		})
+	}
+}
+
+type errorCaptureWriter struct {
+	err error
+}
+
+func (w errorCaptureWriter) Write([]byte) (int, error) {
+	return 0, w.err
 }
 
 func TestRecorderEscapesMetadataAndRawControlBodies(t *testing.T) {
@@ -548,10 +598,9 @@ func TestRecorderDoesNotApplyLaterXeapiSessionToQueuedRequest(t *testing.T) {
 	}
 
 	request := &http.Request{Method: http.MethodGet, URL: requestURL, Header: make(http.Header), Body: http.NoBody}
-	state := &captureState{
-		session: 1, requestMethod: request.Method, requestURL: requestURL, requestHeader: request.Header.Clone(),
-	}
-	prepareRequestCapture(state, request, 1<<20, recorder)
+	proxyCtx := &goproxy.ProxyCtx{Session: 1}
+	state := prepareRequestCapture(proxyCtx, request, 1<<20, recorder)
+	require.Same(t, state, proxyCtx.UserData)
 
 	if err := sessions.learnResponseHeaders(http.Header{
 		"X-Encr-Ssid": {sessionID}, "X-Encr-Sskey": {sessionKey},

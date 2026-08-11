@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 chaunsin
+// Copyright (c) 2026 chaunsin
 // SPDX-License-Identifier: MIT
 
 package proxy
@@ -23,6 +23,7 @@ import (
 const (
 	recorderQueueCapacity = 32
 	recorderCloseTimeout  = 250 * time.Millisecond
+	recorderErrorLimit    = int64(4096)
 )
 
 // requestRecord coordinates request decoding with later response logging. It
@@ -126,12 +127,13 @@ type recorder struct {
 	showSensitive bool
 	xeapiSessions *xeapiSessionCache
 
-	submitMu   sync.Mutex
-	tasks      chan func()
-	workerDone chan struct{}
-	closeOnce  sync.Once
-	closed     bool
-	dropped    atomic.Uint64
+	submitMu     sync.Mutex
+	tasks        chan func()
+	workerDone   chan struct{}
+	closeOnce    sync.Once
+	writeErrOnce sync.Once
+	closed       bool
+	dropped      atomic.Uint64
 }
 
 func newRecorder(out io.Writer, maxBodyBytes int64, showSensitive bool) *recorder {
@@ -195,7 +197,10 @@ func (r *recorder) run() {
 	defer close(r.workerDone)
 
 	for task := range r.tasks {
-		r.writeDroppedNotice()
+		if count := r.dropped.Swap(0); count > 0 {
+			r.writeBlock(fmt.Appendf(nil, "[%s] CAPTURE_DROPPED count=%d reason=output_queue_full\n", time.Now().Format(time.RFC3339Nano), count))
+		}
+
 		task()
 	}
 }
@@ -221,12 +226,6 @@ func (r *recorder) submit(task func()) bool {
 	}
 }
 
-func (r *recorder) writeDroppedNotice() {
-	if count := r.dropped.Swap(0); count > 0 {
-		r.writeBlock(fmt.Appendf(nil, "[%s] CAPTURE_DROPPED count=%d reason=output_queue_full\n", time.Now().Format(time.RFC3339Nano), count))
-	}
-}
-
 func (r *recorder) finishRequest(record *requestRecord, state *captureState) {
 	if record == nil || !record.begin() {
 		return
@@ -242,7 +241,7 @@ func (r *recorder) finishRequest(record *requestRecord, state *captureState) {
 			decoded.detail = appendDetail(decoded.detail, "XEAPI request observation is incomplete")
 		}
 
-		detail := joinDetails(decoded.detail, captureDetail, snapshotDetail(&state.requestBody))
+		detail := joinDetails(decoded.detail, captureDetail, state.requestBody.detail())
 		r.writeRequestBlock(state, &decoded, detail)
 		// Complete only after the request block is emitted so response records
 		// stay ordered whenever stdout is able to make progress.
@@ -269,7 +268,7 @@ func (r *recorder) recordResponse(state *captureState, response *http.Response) 
 				decoded.detail = appendDetail(decoded.detail, "XEAPI response observation is incomplete")
 			}
 
-			detail := joinDetails(decoded.detail, captureDetail, snapshotDetail(&state.responseBody))
+			detail := joinDetails(decoded.detail, captureDetail, state.responseBody.detail())
 			r.writeResponseBlock(state, metadata, &decoded, detail)
 		})
 	}
@@ -373,7 +372,8 @@ func (r *recorder) writeRequestBlock(state *captureState, decoded *decodeResult,
 	}
 
 	if len(decoded.query) > 0 {
-		r.writeSection(&block, "query", decoded.query)
+		fmt.Fprintln(&block, "query:")
+		r.writeTerminalContent(&block, decoded.query, "<query output truncated>")
 	}
 
 	writeHeaders(&block, state.requestHeader, r.showSensitive)
@@ -471,11 +471,6 @@ func (r *recorder) writeBody(block *bytes.Buffer, snapshot *bodySnapshot, body [
 	r.writeTerminalContent(block, body, "<formatted output truncated>")
 }
 
-func (r *recorder) writeSection(block *bytes.Buffer, name string, body []byte) {
-	fmt.Fprintf(block, "%s:\n", escapeLogField(name))
-	r.writeTerminalContent(block, body, fmt.Sprintf("<%s output truncated>", escapeLogField(name)))
-}
-
 func (r *recorder) writeTerminalContent(block *bytes.Buffer, body []byte, truncatedNotice string) {
 	printable, encoding, truncated := terminalBody(body, r.maxBodyBytes)
 	if encoding != "" {
@@ -503,7 +498,38 @@ func (r *recorder) writeBlock(block []byte) {
 		block = append(block, '\n')
 	}
 
-	_, _ = r.out.Write(append(block, '\n'))
+	block = append(block, '\n')
+
+	written, err := r.out.Write(block)
+	if err == nil && written != len(block) {
+		err = io.ErrShortWrite
+	}
+
+	if err != nil {
+		r.reportOutputError(err)
+	}
+}
+
+func (r *recorder) reportOutputError(writeErr error) {
+	if r == nil || writeErr == nil || r.diagnosticOut == nil {
+		return
+	}
+
+	r.writeErrOnce.Do(func() {
+		detail := redactDiagnostic([]byte(writeErr.Error()), false)
+
+		detail, truncated := truncateUTF8Bytes(detail, recorderErrorLimit)
+		if truncated {
+			detail = append(detail, []byte("...")...)
+		}
+
+		_, _ = fmt.Fprintf(
+			r.diagnosticOut,
+			"[%s] CAPTURE_OUTPUT_ERROR error=%s\n",
+			time.Now().Format(time.RFC3339Nano),
+			escapeLogField(string(detail)),
+		)
+	})
 }
 
 func writeHeaders(block *bytes.Buffer, headers http.Header, showSensitive bool) {
@@ -577,9 +603,11 @@ func truncateUTF8Bytes(value []byte, limit int64) ([]byte, bool) {
 }
 
 func joinDetails(details ...string) string {
-	seen := make(map[string]struct{}, len(details))
+	var (
+		seen   = make(map[string]struct{}, len(details))
+		result = make([]string, 0, len(details))
+	)
 
-	result := make([]string, 0, len(details))
 	for _, detail := range details {
 		detail = strings.TrimSpace(detail)
 		if detail == "" {

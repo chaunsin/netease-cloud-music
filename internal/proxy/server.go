@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 chaunsin
+// Copyright (c) 2026 chaunsin
 // SPDX-License-Identifier: MIT
 
 package proxy
@@ -122,9 +122,18 @@ func Run(ctx context.Context, rawConfig *Config) error {
 }
 
 func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, recorder *recorder, tracked *trackedListener) (*goproxy.ProxyHttpServer, *http.Transport) {
+	handshakeTimeout := defaultConnectHandshakeTimeout
+	if tracked != nil && tracked.handshakeTimeout > 0 {
+		handshakeTimeout = tracked.handshakeTimeout
+	}
+
 	target := goproxy.ReqConditionFunc(func(req *http.Request, _ *goproxy.ProxyCtx) bool {
 		if req == nil {
 			return false
+		}
+
+		if metadata := requestConnectMetadata(req); metadata != nil && matcher.Match(metadata.serverName) {
+			return true
 		}
 
 		host := req.Host
@@ -138,13 +147,8 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 		}
 		return matcher.Match(host)
 	})
-	tlsConfig := func(host string, proxyCtx *goproxy.ProxyCtx) (*tls.Config, error) {
-		handshakeTimeout := defaultConnectHandshakeTimeout
-		if tracked != nil && tracked.handshakeTimeout > 0 {
-			handshakeTimeout = tracked.handshakeTimeout
-		}
-
-		config, err := goproxy.TLSConfigFromCA(ca)(host, proxyCtx)
+	tlsConfig := func(certificateHost, connectTarget string, proxyCtx *goproxy.ProxyCtx) (*tls.Config, error) {
+		config, err := goproxy.TLSConfigFromCA(ca)(certificateHost, proxyCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -152,7 +156,7 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 		var observeClientHello func(*tls.ClientHelloInfo, *tls.Config)
 		if cfg.Debug {
 			observeClientHello = func(hello *tls.ClientHelloInfo, selected *tls.Config) {
-				logMITMClientHello(proxyCtx, host, hello, selected)
+				logMITMClientHello(proxyCtx, connectTarget, hello, selected)
 			}
 		}
 		return withMITMHandshakeTimeout(config, handshakeTimeout, observeClientHello), nil
@@ -178,6 +182,17 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 	server.ConnectDial = nil
 	server.ConnectDialWithReq = nil
 	server.CertStore = newMemoryCertStore()
+
+	sniHandler := &sniConnectHandler{
+		debug:            cfg.Debug,
+		matcher:          matcher,
+		proxy:            server,
+		transport:        transport,
+		errorLog:         log.New(&diagnosticWriter{out: cfg.ErrOut, showSensitive: cfg.ShowSensitive}, "proxy mitm: ", log.LstdFlags),
+		tlsConfig:        tlsConfig,
+		handshakeTimeout: handshakeTimeout,
+	}
+
 	server.OnRequest().HandleConnectFunc(func(host string, proxyCtx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
 		if matcher.Match(host) {
 			if cfg.Debug && proxyCtx != nil {
@@ -188,9 +203,27 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 				tracked.armHandshakeDeadline(proxyCtx.Req.RemoteAddr)
 			}
 			return &goproxy.ConnectAction{
-				Action:    goproxy.ConnectMitm,
-				TLSConfig: tlsConfig,
+				Action: goproxy.ConnectMitm,
+				TLSConfig: func(selectedHost string, selectedCtx *goproxy.ProxyCtx) (*tls.Config, error) {
+					return tlsConfig(selectedHost, selectedHost, selectedCtx)
+				},
 			}, host
+		}
+
+		if isIPConnectTarget(host) {
+			if cfg.Debug && proxyCtx != nil {
+				proxyCtx.Logf("[TLS_DIAGNOSTIC] phase=connect connect_target=%q connect_host=%q action=inspect_sni reason=ip_target", host, canonicalHostname(host))
+			}
+			return &goproxy.ConnectAction{
+				Action: goproxy.ConnectHijack,
+				Hijack: func(request *http.Request, client net.Conn, selectedCtx *goproxy.ProxyCtx) {
+					sniHandler.Handle(host, request, client, selectedCtx)
+				},
+			}, host
+		}
+
+		if cfg.Debug && proxyCtx != nil {
+			proxyCtx.Logf("[TLS_DIAGNOSTIC] phase=connect connect_target=%q connect_host=%q action=tunnel reason=target_not_matched", host, canonicalHostname(host))
 		}
 
 		if tracked != nil && proxyCtx != nil && proxyCtx.Req != nil {
@@ -200,18 +233,15 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 	})
 
 	server.OnRequest(target).DoFunc(func(req *http.Request, proxyCtx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-		state := &captureState{
-			session:       proxyCtx.Session,
-			started:       time.Now(),
-			requestMethod: req.Method,
-			requestURL:    cloneURL(req.URL),
-			requestHeader: req.Header.Clone(),
-		}
-		prepareRequestCapture(state, req, cfg.MaxBodyBytes, recorder)
-		proxyCtx.UserData = state
+		state := prepareRequestCapture(proxyCtx, req, cfg.MaxBodyBytes, recorder)
 
 		proxyCtx.RoundTripper = goproxy.RoundTripperFunc(func(outbound *http.Request, _ *goproxy.ProxyCtx) (*http.Response, error) {
-			response, roundTripErr := transport.RoundTrip(outbound)
+			roundTripper := http.RoundTripper(transport)
+			if metadata := requestConnectMetadata(outbound); metadata != nil && metadata.roundTripper != nil {
+				roundTripper = metadata.roundTripper
+			}
+
+			response, roundTripErr := roundTripper.RoundTrip(outbound)
 			if response != nil && outbound.URL != nil && classifyProtocol(outbound.URL.Path) == protocolXEAPI {
 				if learnErr := recorder.xeapiSessions.learnResponseHeaders(response.Header); learnErr != nil {
 					recorder.recordXeapiSessionHeaderError(state.session, learnErr)
@@ -236,9 +266,10 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 			if response != nil {
 				state.responseBody = newBodySnapshot(response.Header, response.ContentLength)
 				state.responseCaptured = true
-				hasBody := response.Body != nil && response.Body != http.NoBody
 
+				hasBody := response.Body != nil && response.Body != http.NoBody
 				omittedReason := bodyOmissionReason(state.responseBody.contentType, state.requestURL.Path)
+
 				switch {
 				case isUpgradeResponse(response):
 					state.responseBody.omittedReason = "protocol upgrade body omitted"
@@ -292,8 +323,16 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 	return server, transport
 }
 
-func prepareRequestCapture(state *captureState, request *http.Request, limit int64, recorder *recorder) {
-	state.requestBody = newBodySnapshot(request.Header, request.ContentLength)
+func prepareRequestCapture(proxyCtx *goproxy.ProxyCtx, request *http.Request, limit int64, recorder *recorder) *captureState {
+	state := &captureState{
+		session:       proxyCtx.Session,
+		started:       time.Now(),
+		requestMethod: request.Method,
+		requestURL:    cloneURL(request.URL),
+		requestHeader: request.Header.Clone(),
+		requestBody:   newBodySnapshot(request.Header, request.ContentLength),
+	}
+	proxyCtx.UserData = state
 
 	state.requestRecord, state.requestDecoded = newRequestRecord(state.requestURL)
 	if state.requestDecoded.protocol == protocolXEAPI {
@@ -309,23 +348,24 @@ func prepareRequestCapture(state *captureState, request *http.Request, limit int
 
 	if request.Body == nil || request.Body == http.NoBody {
 		finish(state.requestBody)
-		return
+		return state
 	}
 
 	if reason := bodyOmissionReason(state.requestBody.contentType, state.requestURL.Path); reason != "" {
 		state.requestBody.omittedReason = reason
 		finish(state.requestBody)
-		return
+		return state
 	}
 
 	if request.ContentLength < 0 {
 		state.requestBody.omittedReason = "unknown-length request body omitted to avoid delaying streaming traffic"
 		finish(state.requestBody)
-		return
+		return state
 	}
 
 	// Capture while the transport forwards the body; never pre-read client data.
 	request.Body = newCaptureReadCloser(request.Body, &state.requestBody, limit, finish)
+	return state
 }
 
 func withMITMHandshakeTimeout(config *tls.Config, timeout time.Duration, observeClientHello func(*tls.ClientHelloInfo, *tls.Config)) *tls.Config {
