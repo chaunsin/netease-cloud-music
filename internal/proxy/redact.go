@@ -35,6 +35,7 @@ var (
 	sensitiveTextKey = `(?:authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|password|passwd|pwd|credential|credentials|secret|signature|music(?:[_-]?(?:r[_-]?)?[ua]|[_-]?a[_-]?t)|phone|phone[_-]?number|cellphone|mobile|email|imei|imsi|device[-_ ]?(?:id|identifier)|captcha|verification[-_ ]?code|sms[-_ ]?code|[a-z0-9_.-]*(?:token|csrf|secret|access[-_]?key|api[-_]?key|session[-_]?(?:id|key)|ssid|sskey)[a-z0-9_.-]*)`
 	sensitiveLine    = regexp.MustCompile(`(?im)^(\s*` + sensitiveTextKey + `\s*:\s*).*$`)
 	sensitiveInline  = regexp.MustCompile(`(?i)\b(` + sensitiveTextKey + `)\b(\s*[:=]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s&;,\r\n]+)`)
+	textKeyValue     = regexp.MustCompile(`(?i)\b([a-z0-9_.-]+)(\s*[:=]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s&;,]+)`)
 	diagnosticURL    = regexp.MustCompile(`(?i)https?://\S+`)
 )
 
@@ -903,6 +904,15 @@ func redactText(value []byte, showSensitive bool) []byte {
 
 	redacted := sensitiveLine.ReplaceAll(value, []byte(`${1}`+redactedValue))
 	redacted = sensitiveInline.ReplaceAll(redacted, []byte(`${1}${2}`+redactedValue))
+	redacted = textKeyValue.ReplaceAllFunc(redacted, func(match []byte) []byte {
+		indices := textKeyValue.FindSubmatchIndex(match)
+		if len(indices) < 6 || !sensitiveKey(string(match[indices[2]:indices[3]])) {
+			return match
+		}
+
+		result := append([]byte(nil), match[:indices[5]]...)
+		return append(result, redactedValue...)
+	})
 	return redacted
 }
 

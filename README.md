@@ -477,6 +477,8 @@ ncmctl ncm '/path/to/ncm/files' -o ./output -p 10
 
 `proxy` 子命令用于调试自己设备上的网易云音乐流量。它只记录网易相关域名；当 CONNECT 目标是 IP 地址时，还会有界检查 TLS ClientHello，按 SNI 判断是否为网易目标。其他 HTTP(S) 流量正常转发但不会输出。请求和响应会使用同一会话 ID 分块打印到终端，默认对 Cookie、Token、手机号、邮箱、设备标识和密码等敏感字段脱敏；无法安全解析的 URL Query 字段会保留可识别的字段名并用 `[REDACTED]` 占位，若解析器拒绝整个 Query 则输出通用占位而不是静默清空，无法安全结构化脱敏的正文只输出摘要。Linux API 解密出的目标 URL 会提供日志中的逻辑路径和 Query。
 
+HTTPS MITM 内层默认支持 HTTP/2：客户端到代理、代理到上游会分别通过 ALPN 协商 `h2` 或 `http/1.1`，任一侧不支持 HTTP/2 时都会在 TLS 握手阶段自动使用 HTTP/1.1。代理监听端本身仍只接收明文 HTTP/1.1 普通请求和 CONNECT，不接受外层 h2/h2c CONNECT。
+
 ```shell
 # 默认只监听本机 127.0.0.1:9000
 ncmctl proxy
@@ -528,6 +530,7 @@ ncmctl proxy --xeapi-session-id SESSION_ID \
 >
 > - `0.0.0.0` 会向局域网开放无认证代理，只应在可信网络和防火墙保护下临时使用。
 > - HTTPS 监控依赖客户端信任生成的 CA；证书固定、Android 用户 CA 限制、QUIC/HTTP3 或绕过系统代理的连接可能无法捕获。
+> - HTTP/2 只用于 CONNECT 后的 MITM 内层；两段 TLS 独立协商协议，不会把已经发送或失败的 HTTP/2 请求按 HTTP/1.1 重放。
 > - IP CONNECT 只有在 ClientHello 暴露的 SNI 命中网易域名且上游未先发送数据时才会 MITM，并始终向原 IP 转发；上游先发、无 SNI、ECH 未暴露目标域名、畸形或非目标 SNI 会原样回放已检查字节并透明转发，因此不会产生捕获块。
 > - WEAPI 的随机请求密钥无法由被动代理恢复，仍标记为 `unsupported`。XEAPI 会始终尝试恢复 `R` 元数据并验证 `S` 帧；只有命中启动种子或此前响应头学习到的同 ID session key 时才解密 `B`，否则标记为 `partial`。完整抓取中 `R` 缺失或不可解时标记为 `failed`；同一 `B/S/R` 在重复项或不同来源中出现冲突值，以及被省略、截断或读取失败的抓取，只标记为 `partial`。默认输出会隐藏所有外层 `R` 副本，避免从公开静态 key 还原已脱敏的 session ID。
 > - XEAPI 响应接受真实明文 JSON，或按原始二进制传统 EAPI AES-ECB 格式解密；不会猜测 ASCII hex。空响应不会标为 `plaintext`，响应抓取不完整时标为 `partial`。新响应下发的 session 只用于后续请求，不追溯解密此前 session ID 为空的请求。

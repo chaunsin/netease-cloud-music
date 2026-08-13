@@ -147,11 +147,13 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 		}
 		return matcher.Match(host)
 	})
-	tlsConfig := func(certificateHost, connectTarget string, proxyCtx *goproxy.ProxyCtx) (*tls.Config, error) {
+	tlsConfig := func(certificateHost, connectTarget string, proxyCtx *goproxy.ProxyCtx, clearHandshakeDeadline func()) (*tls.Config, error) {
 		config, err := goproxy.TLSConfigFromCA(ca)(certificateHost, proxyCtx)
 		if err != nil {
 			return nil, err
 		}
+
+		config.NextProtos = []string{"h2", "http/1.1"}
 
 		var observeClientHello func(*tls.ClientHelloInfo, *tls.Config)
 		if cfg.Debug {
@@ -159,7 +161,7 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 				logMITMClientHello(proxyCtx, connectTarget, hello, selected)
 			}
 		}
-		return withMITMHandshakeTimeout(config, handshakeTimeout, observeClientHello), nil
+		return withMITMHandshakeTimeout(config, handshakeTimeout, observeClientHello, clearHandshakeDeadline), nil
 	}
 
 	transport, ok := http.DefaultTransport.(*http.Transport)
@@ -172,24 +174,28 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 	transport.Proxy = nil
 	transport.TLSClientConfig = nil
 	transport.DisableCompression = true
+	transport.ForceAttemptHTTP2 = true
 
 	server := goproxy.NewProxyHttpServer()
 	server.Verbose = cfg.Debug
 	server.Logger = log.New(&diagnosticWriter{out: cfg.ErrOut, showSensitive: cfg.ShowSensitive}, "goproxy: ", log.LstdFlags)
 	server.KeepAcceptEncoding = true
-	server.AllowHTTP2 = false
+	server.AllowHTTP2 = true
 	server.Tr = transport
 	server.ConnectDial = nil
 	server.ConnectDialWithReq = nil
 	server.CertStore = newMemoryCertStore()
 
 	sniHandler := &sniConnectHandler{
-		debug:            cfg.Debug,
-		matcher:          matcher,
-		proxy:            server,
-		transport:        transport,
-		errorLog:         log.New(&diagnosticWriter{out: cfg.ErrOut, showSensitive: cfg.ShowSensitive}, "proxy mitm: ", log.LstdFlags),
-		tlsConfig:        tlsConfig,
+		debug:     cfg.Debug,
+		matcher:   matcher,
+		proxy:     server,
+		transport: transport,
+		errorLog:  log.New(&diagnosticWriter{out: cfg.ErrOut, showSensitive: cfg.ShowSensitive}, "proxy mitm: ", log.LstdFlags),
+		tlsConfig: func(certificateHost, connectTarget string, proxyCtx *goproxy.ProxyCtx) (*tls.Config, error) {
+			// The IP path clears the deadline synchronously after HandshakeContext succeeds.
+			return tlsConfig(certificateHost, connectTarget, proxyCtx, func() {})
+		},
 		handshakeTimeout: handshakeTimeout,
 	}
 
@@ -199,13 +205,19 @@ func newProxyServer(cfg *Config, matcher *hostMatcher, ca *tls.Certificate, reco
 				proxyCtx.Logf("[TLS_DIAGNOSTIC] phase=connect connect_target=%q connect_host=%q action=mitm", host, canonicalHostname(host))
 			}
 
-			if tracked != nil && proxyCtx != nil && proxyCtx.Req != nil {
-				tracked.armHandshakeDeadline(proxyCtx.Req.RemoteAddr)
+			remoteAddr := ""
+			if proxyCtx != nil && proxyCtx.Req != nil {
+				remoteAddr = proxyCtx.Req.RemoteAddr
+			}
+
+			var clearHandshakeDeadline func()
+			if tracked != nil {
+				clearHandshakeDeadline = tracked.armHandshakeDeadline(remoteAddr)
 			}
 			return &goproxy.ConnectAction{
 				Action: goproxy.ConnectMitm,
 				TLSConfig: func(selectedHost string, selectedCtx *goproxy.ProxyCtx) (*tls.Config, error) {
-					return tlsConfig(selectedHost, selectedHost, selectedCtx)
+					return tlsConfig(selectedHost, selectedHost, selectedCtx, clearHandshakeDeadline)
 				},
 			}, host
 		}
@@ -346,7 +358,7 @@ func prepareRequestCapture(proxyCtx *goproxy.ProxyCtx, request *http.Request, li
 		})
 	}
 
-	if request.Body == nil || request.Body == http.NoBody {
+	if request.Body == nil || request.Body == http.NoBody || request.ContentLength == 0 {
 		finish(state.requestBody)
 		return state
 	}
@@ -368,7 +380,7 @@ func prepareRequestCapture(proxyCtx *goproxy.ProxyCtx, request *http.Request, li
 	return state
 }
 
-func withMITMHandshakeTimeout(config *tls.Config, timeout time.Duration, observeClientHello func(*tls.ClientHelloInfo, *tls.Config)) *tls.Config {
+func withMITMHandshakeTimeout(config *tls.Config, timeout time.Duration, observeClientHello func(*tls.ClientHelloInfo, *tls.Config), clearHandshakeDeadline func()) *tls.Config {
 	if config == nil || timeout <= 0 {
 		return config
 	}
@@ -399,17 +411,14 @@ func withMITMHandshakeTimeout(config *tls.Config, timeout time.Duration, observe
 
 		selected = selected.Clone()
 		selected.GetConfigForClient = nil
-		verifyConnection := selected.VerifyConnection
-		selected.VerifyConnection = func(state tls.ConnectionState) error {
-			if verifyConnection != nil {
-				if err := verifyConnection(state); err != nil {
-					return err
-				}
-			}
 
-			_ = hello.Conn.SetDeadline(time.Time{})
-			return nil
-		}
+		context.AfterFunc(hello.Context(), func() {
+			if clearHandshakeDeadline != nil {
+				clearHandshakeDeadline()
+			} else {
+				_ = hello.Conn.SetDeadline(time.Time{})
+			}
+		})
 		return selected, nil
 	}
 	return base

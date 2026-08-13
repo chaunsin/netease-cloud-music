@@ -30,6 +30,7 @@ import (
 	"github.com/andybalholm/brotli"
 	"github.com/elazarl/goproxy"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/http2"
 
 	ncmcrypto "github.com/chaunsin/netease-cloud-music/pkg/crypto"
 )
@@ -287,7 +288,10 @@ func TestXeapiSessionLearningDoesNotDependOnRecorderQueue(t *testing.T) {
 func TestHTTPSMITMRequiresAndUsesGeneratedCA(t *testing.T) {
 	t.Parallel()
 
+	originProtocol := make(chan string, 1)
 	origin := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		originProtocol <- req.Proto
+
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"code":200}`)
 	}))
@@ -316,8 +320,418 @@ func TestHTTPSMITMRequiresAndUsesGeneratedCA(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, resp.Body.Close())
 	require.JSONEq(t, `{"code":200}`, string(body))
+	require.Equal(t, "HTTP/1.1", resp.Proto)
+	require.Equal(t, "HTTP/1.1", <-originProtocol)
 	requireOutputContains(t, output, "REQUEST protocol=api")
 	requireOutputContains(t, output, "RESPONSE status=200")
+}
+
+func TestHTTPSMITMNegotiatesHTTP2(t *testing.T) {
+	type observedRequest struct {
+		path     string
+		protocol string
+		body     []byte
+	}
+
+	observed := make(chan observedRequest, 2)
+	origin := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Errorf("read HTTP/2 origin request: %v", err)
+			return
+		}
+
+		observed <- observedRequest{path: req.URL.Path, protocol: req.Proto, body: body}
+
+		switch req.URL.Path {
+		case "/api/h2/body":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			_, _ = io.WriteString(w, `{"result":"body-response"}`)
+		case "/api/h2/empty":
+			w.Header().Set("Content-Type", "text/plain")
+			_, _ = io.WriteString(w, "empty-response")
+		default:
+			http.NotFound(w, req)
+		}
+	}))
+	origin.EnableHTTP2 = true
+	require.NoError(t, http2.ConfigureServer(origin.Config, &http2.Server{}))
+	origin.StartTLS()
+	t.Cleanup(origin.Close)
+
+	proxyURL, ca, output, upstreamTransport := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	originRoots := x509.NewCertPool()
+	originRoots.AddCert(origin.Certificate())
+	upstreamTransport.TLSClientConfig = &tls.Config{RootCAs: originRoots, MinVersion: tls.VersionTLS12}
+	require.True(t, upstreamTransport.ForceAttemptHTTP2)
+
+	proxyRoots := x509.NewCertPool()
+	proxyRoots.AddCert(ca.Leaf)
+	client := newHTTP2ProxyClient(t, proxyURL, proxyRoots)
+
+	requestBody := []byte(`{"mode":"h2"}`)
+	request, err := http.NewRequest(http.MethodPost, origin.URL+"/api/h2/body", bytes.NewReader(requestBody))
+	require.NoError(t, err)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := client.Do(request)
+	require.NoError(t, err)
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	require.Equal(t, http.StatusCreated, response.StatusCode)
+	require.Equal(t, "HTTP/2.0", response.Proto)
+	require.JSONEq(t, `{"result":"body-response"}`, string(body))
+
+	emptyResponse, err := client.Get(origin.URL + "/api/h2/empty")
+	require.NoError(t, err)
+	emptyBody, err := io.ReadAll(emptyResponse.Body)
+	require.NoError(t, err)
+	require.NoError(t, emptyResponse.Body.Close())
+	require.Equal(t, "HTTP/2.0", emptyResponse.Proto)
+	require.Equal(t, "empty-response", string(emptyBody))
+
+	requestObservation := <-observed
+	require.Equal(t, "/api/h2/body", requestObservation.path)
+	require.Equal(t, "HTTP/2.0", requestObservation.protocol)
+	require.Equal(t, requestBody, requestObservation.body)
+
+	emptyObservation := <-observed
+	require.Equal(t, "/api/h2/empty", emptyObservation.path)
+	require.Equal(t, "HTTP/2.0", emptyObservation.protocol)
+	require.Empty(t, emptyObservation.body)
+
+	requireOutputContains(t, output, "POST "+origin.URL+"/api/h2/body")
+	requireOutputContains(t, output, "GET "+origin.URL+"/api/h2/empty")
+	requireOutputContains(t, output, `"mode": "h2"`)
+	requireOutputContains(t, output, `"result": "body-response"`)
+	requireOutputContains(t, output, "RESPONSE status=201")
+	require.Eventually(t, func() bool {
+		block, _, found := captureBlockForPath(output.String(), "REQUEST", "/api/h2/empty")
+		return found && strings.Contains(block, "content-length=0 captured=0") && strings.Contains(block, "<empty>")
+	}, 2*time.Second, 10*time.Millisecond)
+}
+
+func TestHTTPSMITMHTTP2UnknownLengthRequestIsForwardedWithoutPreRead(t *testing.T) {
+	firstChunk := bytes.Repeat([]byte("h2-request-stream-"), 32)
+	lastChunk := []byte("h2-tail")
+	firstReceived := make(chan []byte, 1)
+	completeRequest := make(chan []byte, 1)
+	protocol := make(chan string, 1)
+
+	origin := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		protocol <- req.Proto
+
+		prefix := make([]byte, len(firstChunk))
+		if _, err := io.ReadFull(req.Body, prefix); err != nil {
+			firstReceived <- nil
+			return
+		}
+
+		firstReceived <- prefix
+
+		rest, err := io.ReadAll(req.Body)
+		if err != nil {
+			completeRequest <- nil
+			return
+		}
+
+		complete := append(append([]byte(nil), prefix...), rest...)
+		completeRequest <- complete
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"code":200}`)
+	}))
+	origin.EnableHTTP2 = true
+	require.NoError(t, http2.ConfigureServer(origin.Config, &http2.Server{}))
+	origin.StartTLS()
+	t.Cleanup(origin.Close)
+
+	proxyURL, ca, output, upstreamTransport := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	originRoots := x509.NewCertPool()
+	originRoots.AddCert(origin.Certificate())
+	upstreamTransport.TLSClientConfig = &tls.Config{RootCAs: originRoots, MinVersion: tls.VersionTLS12}
+
+	proxyRoots := x509.NewCertPool()
+	proxyRoots.AddCert(ca.Leaf)
+	client := newHTTP2ProxyClient(t, proxyURL, proxyRoots)
+	reader, writer := io.Pipe()
+
+	t.Cleanup(func() { _ = writer.Close() })
+
+	request, err := http.NewRequest(http.MethodPost, origin.URL+"/api/h2/stream", reader)
+	require.NoError(t, err)
+
+	request.ContentLength = -1
+	request.Header.Set("Content-Type", "application/json")
+
+	result := make(chan struct {
+		response *http.Response
+		err      error
+	}, 1)
+	go func() {
+		response, requestErr := client.Do(request) //nolint:bodyclose // The receiver owns and closes the response body.
+		result <- struct {
+			response *http.Response
+			err      error
+		}{response: response, err: requestErr}
+	}()
+
+	_, err = writer.Write(firstChunk)
+	require.NoError(t, err)
+
+	select {
+	case got := <-firstReceived:
+		require.Equal(t, firstChunk, got)
+	case <-time.After(2 * time.Second):
+		t.Fatal("HTTP/2 origin did not receive the first request chunk before EOF")
+	}
+
+	_, err = writer.Write(lastChunk)
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	response := <-result
+	require.NoError(t, response.err)
+	require.Equal(t, "HTTP/2.0", response.response.Proto)
+	_, err = io.Copy(io.Discard, response.response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.response.Body.Close())
+	require.Equal(t, "HTTP/2.0", <-protocol)
+	require.Equal(t, append(firstChunk, lastChunk...), <-completeRequest)
+	requireOutputContains(t, output, "unknown-length request body omitted")
+}
+
+func TestHTTPSMITMHTTP2ClientFallsBackToHTTP1Upstream(t *testing.T) {
+	originProtocol := make(chan string, 1)
+	origin := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		originProtocol <- req.Proto
+
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = io.WriteString(w, "fallback-response")
+	}))
+	t.Cleanup(origin.Close)
+
+	proxyURL, ca, output, upstreamTransport := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	originRoots := x509.NewCertPool()
+	originRoots.AddCert(origin.Certificate())
+	upstreamTransport.TLSClientConfig = &tls.Config{RootCAs: originRoots, MinVersion: tls.VersionTLS12}
+
+	proxyRoots := x509.NewCertPool()
+	proxyRoots.AddCert(ca.Leaf)
+	client := newHTTP2ProxyClient(t, proxyURL, proxyRoots)
+
+	response, err := client.Get(origin.URL + "/api/h2-fallback")
+	require.NoError(t, err)
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	require.Equal(t, "HTTP/2.0", response.Proto)
+	require.Equal(t, "HTTP/1.1", <-originProtocol)
+	require.Equal(t, "fallback-response", string(body))
+	requireOutputContains(t, output, "GET "+origin.URL+"/api/h2-fallback")
+}
+
+func TestHTTPSMITMHTTP1ClientNegotiatesHTTP2Upstream(t *testing.T) {
+	originProtocol := make(chan string, 1)
+	origin := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		originProtocol <- req.Proto
+
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = io.WriteString(w, "h2-upstream-response")
+	}))
+	origin.EnableHTTP2 = true
+	require.NoError(t, http2.ConfigureServer(origin.Config, &http2.Server{}))
+	origin.StartTLS()
+	t.Cleanup(origin.Close)
+
+	proxyURL, ca, output, upstreamTransport := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	originRoots := x509.NewCertPool()
+	originRoots.AddCert(origin.Certificate())
+	upstreamTransport.TLSClientConfig = &tls.Config{RootCAs: originRoots, MinVersion: tls.VersionTLS12}
+
+	proxyRoots := x509.NewCertPool()
+	proxyRoots.AddCert(ca.Leaf)
+	client := newHTTP1ProxyClient(t, proxyURL, proxyRoots)
+
+	response, err := client.Get(origin.URL + "/api/h1-to-h2")
+	require.NoError(t, err)
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	require.Equal(t, "HTTP/1.1", response.Proto)
+	require.Equal(t, "HTTP/2.0", <-originProtocol)
+	require.Equal(t, "h2-upstream-response", string(body))
+	requireOutputContains(t, output, "GET "+origin.URL+"/api/h1-to-h2")
+}
+
+func TestHTTPSMITMHTTP2ConcurrentStreamsKeepCaptureIsolated(t *testing.T) {
+	arrived := make(chan struct{}, 2)
+	release := make(chan struct{})
+
+	type observedRequest struct {
+		path     string
+		protocol string
+		body     []byte
+	}
+
+	observed := make(chan observedRequest, 2)
+
+	var releaseOnce sync.Once
+
+	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
+
+	origin := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if req.URL.Path == "/api/h2/warmup" {
+			_, _ = io.WriteString(w, `{"stream":"warmup"}`)
+			return
+		}
+
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Errorf("read concurrent HTTP/2 request body: %v", err)
+			return
+		}
+
+		observed <- observedRequest{path: req.URL.Path, protocol: req.Proto, body: body}
+
+		arrived <- struct{}{}
+
+		<-release
+
+		switch req.URL.Path {
+		case "/api/h2/one":
+			_, _ = io.WriteString(w, `{"stream":"response-one"}`)
+		case "/api/h2/two":
+			_, _ = io.WriteString(w, `{"stream":"response-two"}`)
+		default:
+			http.NotFound(w, req)
+		}
+	}))
+	origin.EnableHTTP2 = true
+	require.NoError(t, http2.ConfigureServer(origin.Config, &http2.Server{}))
+	origin.StartTLS()
+	t.Cleanup(origin.Close)
+
+	proxyURL, ca, output, upstreamTransport := newTestProxy(t, []string{"127.0.0.1"}, 1<<20)
+	originRoots := x509.NewCertPool()
+	originRoots.AddCert(origin.Certificate())
+	upstreamTransport.TLSClientConfig = &tls.Config{RootCAs: originRoots, MinVersion: tls.VersionTLS12}
+
+	proxyRoots := x509.NewCertPool()
+	proxyRoots.AddCert(ca.Leaf)
+	client := newHTTP2ProxyClient(t, proxyURL, proxyRoots)
+	clientTransport, ok := client.Transport.(*http.Transport)
+	require.True(t, ok)
+
+	clientTransport.MaxConnsPerHost = 1
+
+	warmup, err := client.Get(origin.URL + "/api/h2/warmup")
+	require.NoError(t, err)
+	_, err = io.Copy(io.Discard, warmup.Body)
+	require.NoError(t, err)
+	require.NoError(t, warmup.Body.Close())
+	require.Equal(t, "HTTP/2.0", warmup.Proto)
+
+	type streamResult struct {
+		name     string
+		protocol string
+		body     string
+		err      error
+	}
+
+	results := make(chan streamResult, 2)
+	start := make(chan struct{})
+
+	for _, name := range []string{"one", "two"} {
+		go func(name string) {
+			<-start
+
+			marker := fmt.Appendf(nil, `{"marker":%q}`, name)
+
+			request, requestErr := http.NewRequest(http.MethodPost, origin.URL+"/api/h2/"+name, bytes.NewReader(marker))
+			if requestErr == nil {
+				request.Header.Set("Content-Type", "application/json")
+			}
+
+			response, requestErr := client.Do(request)
+			if requestErr != nil {
+				results <- streamResult{name: name, err: requestErr}
+				return
+			}
+
+			body, readErr := io.ReadAll(response.Body)
+
+			closeErr := response.Body.Close()
+			results <- streamResult{
+				name:     name,
+				protocol: response.Proto,
+				body:     string(body),
+				err:      errors.Join(readErr, closeErr),
+			}
+		}(name)
+	}
+
+	close(start)
+
+	for range 2 {
+		select {
+		case <-arrived:
+		case <-time.After(2 * time.Second):
+			t.Fatal("concurrent HTTP/2 streams did not reach the origin together")
+		}
+	}
+
+	releaseOnce.Do(func() { close(release) })
+
+	for range 2 {
+		result := <-results
+		require.NoError(t, result.err)
+		require.Equal(t, "HTTP/2.0", result.protocol)
+		require.JSONEq(t, fmt.Sprintf(`{"stream":%q}`, "response-"+result.name), result.body)
+	}
+
+	for range 2 {
+		request := <-observed
+		require.Equal(t, "HTTP/2.0", request.protocol)
+		require.Equal(t, fmt.Sprintf(`{"marker":%q}`, strings.TrimPrefix(request.path, "/api/h2/")), string(request.body))
+	}
+
+	for _, name := range []string{"one", "two"} {
+		path := "/api/h2/" + name
+
+		require.Eventually(t, func() bool {
+			_, requestSession, requestFound := captureBlockForPath(output.String(), "REQUEST", path)
+			_, responseSession, responseFound := captureBlockForPath(output.String(), "RESPONSE", path)
+
+			return requestFound && responseFound && requestSession == responseSession
+		}, 2*time.Second, 10*time.Millisecond)
+
+		requestBlock, _, requestFound := captureBlockForPath(output.String(), "REQUEST", path)
+		responseBlock, _, responseFound := captureBlockForPath(output.String(), "RESPONSE", path)
+
+		require.True(t, requestFound)
+		require.True(t, responseFound)
+		require.Contains(t, requestBlock, fmt.Sprintf(`"marker": %q`, name))
+
+		otherName := "one"
+		if name == "one" {
+			otherName = "two"
+		}
+
+		require.NotContains(t, requestBlock, fmt.Sprintf(`"marker": %q`, otherName))
+		require.Contains(t, responseBlock, fmt.Sprintf(`"stream": "response-%s"`, name))
+	}
+
+	_, oneSession, oneFound := captureBlockForPath(output.String(), "REQUEST", "/api/h2/one")
+	_, twoSession, twoFound := captureBlockForPath(output.String(), "REQUEST", "/api/h2/two")
+
+	require.True(t, oneFound)
+	require.True(t, twoFound)
+	require.NotEqual(t, oneSession, twoSession)
 }
 
 func TestMITMDebugDiagnostics(t *testing.T) {
@@ -424,6 +838,97 @@ func TestIPConnectUsesTargetSNIForMITM(t *testing.T) {
 	requireOutputContains(t, diagnostics, "action=inspect_sni reason=ip_target")
 	requireOutputContains(t, diagnostics, `sni="`+targetHost+`" action=mitm reason=sni_target`)
 	requireOutputContains(t, diagnostics, "cert_matches_connect=false cert_matches_sni=true")
+}
+
+func TestIPConnectTargetSNIUsesHTTP2AndPinnedUpstreamDial(t *testing.T) {
+	const targetHost = "interface.music.163.com"
+
+	type observedRequest struct {
+		host               string
+		path               string
+		protocol           string
+		negotiatedProtocol string
+	}
+
+	observed := make(chan observedRequest, 2)
+	proxyURL, ca, output, _, upstreamTransport := newTestProxyWithDebug(t, []string{"music.163.com"}, 1<<20, true)
+	origin := newTLSServerForHostWithHTTP2(t, ca, targetHost, http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		observed <- observedRequest{
+			host:               request.Host,
+			path:               request.URL.Path,
+			protocol:           request.Proto,
+			negotiatedProtocol: request.TLS.NegotiatedProtocol,
+		}
+
+		writer.Header().Set("Content-Type", "text/plain")
+
+		switch request.URL.Path {
+		case "/api/ip-h2/first":
+			_, _ = io.WriteString(writer, "response:/api/ip-h2/first")
+		case "/api/ip-h2/second":
+			_, _ = io.WriteString(writer, "response:/api/ip-h2/second")
+		default:
+			http.NotFound(writer, request)
+		}
+	}))
+
+	upstreamRoots := x509.NewCertPool()
+	upstreamRoots.AddCert(ca.Leaf)
+	upstreamTransport.TLSClientConfig = &tls.Config{RootCAs: upstreamRoots, MinVersion: tls.VersionTLS12}
+
+	dialed := make(chan string, 4)
+	upstreamTransport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		dialed <- address
+
+		var dialer net.Dialer
+
+		return dialer.DialContext(ctx, network, address)
+	}
+
+	connectTarget := origin.Listener.Addr().String()
+	proxyRoots := x509.NewCertPool()
+	proxyRoots.AddCert(ca.Leaf)
+	client := newMITMTestTLSClientWithNextProtos(t, proxyURL, connectTarget, targetHost, proxyRoots, []string{"h2"})
+	require.NoError(t, client.Handshake())
+	require.Equal(t, "h2", client.ConnectionState().NegotiatedProtocol)
+
+	h2Client, err := (&http2.Transport{}).NewClientConn(client)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = h2Client.Close() })
+
+	roundTrip := func(path string) {
+		request, requestErr := http.NewRequest(http.MethodGet, "https://"+targetHost+path, http.NoBody)
+		require.NoError(t, requestErr)
+
+		response, roundTripErr := h2Client.RoundTrip(request)
+		require.NoError(t, roundTripErr)
+
+		body, readErr := io.ReadAll(response.Body)
+		require.NoError(t, readErr)
+		require.NoError(t, response.Body.Close())
+		require.Equal(t, "HTTP/2.0", response.Proto)
+		require.Equal(t, "response:"+path, string(body))
+	}
+
+	roundTrip("/api/ip-h2/first")
+	require.Equal(t, connectTarget, <-dialed)
+
+	// Force the pinned transport to open another upstream connection while the
+	// client keeps using the same HTTP/2 MITM connection.
+	origin.CloseClientConnections()
+	roundTrip("/api/ip-h2/second")
+	require.Equal(t, connectTarget, <-dialed)
+
+	for _, path := range []string{"/api/ip-h2/first", "/api/ip-h2/second"} {
+		got := <-observed
+		require.Equal(t, observedRequest{
+			host:               targetHost,
+			path:               path,
+			protocol:           "HTTP/2.0",
+			negotiatedProtocol: "h2",
+		}, got)
+		requireOutputContains(t, output, "GET https://"+targetHost+path)
+	}
 }
 
 func TestIPConnectWithNonTargetSNIStaysTunneled(t *testing.T) {
@@ -1590,6 +2095,7 @@ func TestPinnedDialerReusesOriginalConnectTarget(t *testing.T) {
 		TLSHandshakeTimeout:   7 * time.Second,
 		IdleConnTimeout:       8 * time.Second,
 		ExpectContinueTimeout: 9 * time.Second,
+		ForceAttemptHTTP2:     true,
 		DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
 			dialedAddress = address
 			return redial, nil
@@ -1601,6 +2107,7 @@ func TestPinnedDialerReusesOriginalConnectTarget(t *testing.T) {
 	require.Equal(t, base.TLSHandshakeTimeout, transport.TLSHandshakeTimeout)
 	require.Equal(t, base.IdleConnTimeout, transport.IdleConnTimeout)
 	require.Equal(t, base.ExpectContinueTimeout, transport.ExpectContinueTimeout)
+	require.Equal(t, base.ForceAttemptHTTP2, transport.ForceAttemptHTTP2)
 
 	connection, err := transport.DialContext(context.Background(), "tcp", "interface.music.163.com:443")
 	require.NoError(t, err)
@@ -1655,6 +2162,7 @@ func TestMITMHandshakeTimeoutClosesStalledConnect(t *testing.T) {
 		{name: "before client hello"},
 		{name: "incomplete client hello", clientHello: []byte{tlsHandshakeRecordType, 0x03, 0x03, 0x00, 0x20}},
 		{name: "non-TLS byte without HTTP headers", clientHello: []byte("X")},
+		{name: "incomplete HTTP/2 preface", clientHello: []byte(http2.ClientPreface[:18])},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			clientConn, err := net.Dial("tcp", proxyURL.Host)
@@ -1724,6 +2232,80 @@ func TestMITMHandshakeTimeoutAfterKeepAliveHTTP(t *testing.T) {
 	_, err = reader.ReadByte()
 	require.Error(t, err)
 	require.Less(t, time.Since(started), 800*time.Millisecond)
+}
+
+func TestMITMHandshakeTimeoutAfterCompleteClientHello(t *testing.T) {
+	for _, version := range []uint16{tls.VersionTLS12, tls.VersionTLS13} {
+		for _, target := range []struct {
+			name      string
+			connect   string
+			ipConnect bool
+		}{
+			{
+				name:    "hostname",
+				connect: "target.test:443",
+			},
+			{
+				name:      "ip with target SNI",
+				ipConnect: true,
+			},
+		} {
+			name := fmt.Sprintf("%s/%s", target.name, tlsVersionName(version))
+			t.Run(name, func(t *testing.T) {
+				timeout := 100 * time.Millisecond
+				proxyURL, _, upstreamTransport := newTrackedTestProxy(t, []string{"target.test"}, timeout)
+
+				connectTarget := target.connect
+				if target.ipConnect {
+					connectTarget = "127.0.0.1:443"
+				}
+
+				upstreamConn, upstreamPeer := net.Pipe()
+				upstreamTransport.DialContext = func(context.Context, string, string) (net.Conn, error) {
+					return upstreamConn, nil
+				}
+
+				t.Cleanup(func() {
+					_ = upstreamConn.Close()
+					_ = upstreamPeer.Close()
+				})
+
+				hello := captureClientHello(t, "target.test", version)
+
+				rawConn, err := net.Dial("tcp", proxyURL.Host)
+				require.NoError(t, err)
+				t.Cleanup(func() { _ = rawConn.Close() })
+
+				_, err = fmt.Fprintf(rawConn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", connectTarget, connectTarget)
+				require.NoError(t, err)
+
+				reader := bufio.NewReader(rawConn)
+				connectResponse, err := http.ReadResponse(reader, &http.Request{Method: http.MethodConnect})
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, connectResponse.StatusCode)
+				require.NoError(t, connectResponse.Body.Close())
+
+				_, err = rawConn.Write(hello)
+				require.NoError(t, err)
+
+				started := time.Now()
+				_ = rawConn.SetReadDeadline(time.Now().Add(time.Second))
+				readDone := make(chan error, 1)
+
+				go func() {
+					_, readErr := io.Copy(io.Discard, reader)
+					readDone <- readErr
+				}()
+
+				select {
+				case <-readDone:
+					require.Less(t, time.Since(started), 800*time.Millisecond)
+				case <-time.After(2 * time.Second):
+					t.Fatal("stalled TLS handshake was not closed")
+				}
+			})
+		}
+	}
 }
 
 func TestMITMHandshakeDeadlineClearsForLongLivedConnection(t *testing.T) {
@@ -1809,6 +2391,119 @@ func TestTrackedConnFindsSplitPlaintextHeaderEnd(t *testing.T) {
 	require.Nil(t, conn.plaintextHeader)
 }
 
+func TestTrackedConnWaitsForCompleteHTTP2Preface(t *testing.T) {
+	client, server := net.Pipe()
+
+	t.Cleanup(func() {
+		_ = client.Close()
+		_ = server.Close()
+	})
+
+	conn := &trackedConn{Conn: server}
+	conn.armHandshakeDeadline(time.Second)
+	conn.observeRead([]byte(http2.ClientPreface[:18]))
+
+	conn.mu.Lock()
+	require.True(t, conn.handshakeDeadlineActive)
+	require.True(t, conn.plaintextPending)
+	require.Equal(t, []byte(http2.ClientPreface[:18]), conn.plaintextHeader)
+	conn.mu.Unlock()
+
+	conn.observeRead([]byte(http2.ClientPreface[18:]))
+
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+
+	require.False(t, conn.handshakeDeadlineActive)
+	require.False(t, conn.plaintextPending)
+	require.Nil(t, conn.plaintextHeader)
+}
+
+func TestTrackedConnClearsDeadlineWhenHTTP2PrefaceDiverges(t *testing.T) {
+	client, server := net.Pipe()
+
+	t.Cleanup(func() {
+		_ = client.Close()
+		_ = server.Close()
+	})
+
+	conn := &trackedConn{Conn: server}
+	conn.armHandshakeDeadline(time.Second)
+	conn.observeRead([]byte(http2.ClientPreface[:18]))
+	conn.observeRead([]byte("X"))
+
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+
+	require.False(t, conn.handshakeDeadlineActive)
+	require.False(t, conn.plaintextPending)
+	require.Nil(t, conn.plaintextHeader)
+}
+
+func TestTrackedConnPreservesHandshakeDeadlineAcrossHijackSetters(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		set  func(*trackedConn) error
+		last func(*deadlineRecordingConn) time.Time
+	}{
+		{
+			name: "deadline",
+			set:  func(conn *trackedConn) error { return conn.SetDeadline(time.Time{}) },
+			last: func(conn *deadlineRecordingConn) time.Time { return conn.deadline },
+		},
+		{
+			name: "read deadline",
+			set:  func(conn *trackedConn) error { return conn.SetReadDeadline(time.Time{}) },
+			last: func(conn *deadlineRecordingConn) time.Time { return conn.readDeadline },
+		},
+		{
+			name: "write deadline",
+			set:  func(conn *trackedConn) error { return conn.SetWriteDeadline(time.Time{}) },
+			last: func(conn *deadlineRecordingConn) time.Time { return conn.writeDeadline },
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			underlying := &deadlineRecordingConn{}
+			conn := &trackedConn{Conn: underlying}
+			conn.armHandshakeDeadline(time.Second)
+
+			preserved := conn.handshakeDeadline
+			require.NoError(t, test.set(conn))
+			require.True(t, test.last(underlying).Equal(preserved))
+
+			conn.clearHandshakeDeadline(0)
+			require.True(t, underlying.deadline.IsZero())
+			require.NoError(t, test.set(conn))
+			require.True(t, test.last(underlying).IsZero())
+		})
+	}
+}
+
+func TestTrackedConnIgnoresLateHandshakeDeadlineClear(t *testing.T) {
+	underlying := &deadlineRecordingConn{}
+	conn := &trackedConn{Conn: underlying}
+
+	firstGeneration := conn.armHandshakeDeadline(time.Second)
+	firstDeadline := conn.handshakeDeadline
+	secondGeneration := conn.armHandshakeDeadline(2 * time.Second)
+	secondDeadline := conn.handshakeDeadline
+
+	require.Greater(t, secondGeneration, firstGeneration)
+	require.NotEqual(t, firstDeadline, secondDeadline)
+
+	conn.clearHandshakeDeadline(firstGeneration)
+	conn.mu.Lock()
+	require.True(t, conn.handshakeDeadlineActive)
+	require.Equal(t, secondDeadline, conn.handshakeDeadline)
+	conn.mu.Unlock()
+
+	conn.clearHandshakeDeadline(secondGeneration)
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+
+	require.False(t, conn.handshakeDeadlineActive)
+}
+
 func newTestProxy(t *testing.T, domains []string, maxBodyBytes int64) (*url.URL, *tls.Certificate, *lockedBuffer, *http.Transport) {
 	t.Helper()
 	proxyURL, ca, output, _, upstreamTransport := newTestProxyWithDebug(t, domains, maxBodyBytes, false)
@@ -1891,6 +2586,11 @@ func newTestProxyWithDebug(t *testing.T, domains []string, maxBodyBytes int64, d
 
 func newMITMTestTLSClient(t *testing.T, proxyURL *url.URL, connectTarget, serverName string, roots *x509.CertPool) *tls.Conn {
 	t.Helper()
+	return newMITMTestTLSClientWithNextProtos(t, proxyURL, connectTarget, serverName, roots, nil)
+}
+
+func newMITMTestTLSClientWithNextProtos(t *testing.T, proxyURL *url.URL, connectTarget, serverName string, roots *x509.CertPool, nextProtos []string) *tls.Conn {
+	t.Helper()
 
 	rawConn, err := net.Dial("tcp", proxyURL.Host)
 	require.NoError(t, err)
@@ -1910,6 +2610,7 @@ func newMITMTestTLSClient(t *testing.T, proxyURL *url.URL, connectTarget, server
 		RootCAs:    roots,
 		ServerName: serverName,
 		MinVersion: tls.VersionTLS12,
+		NextProtos: append([]string(nil), nextProtos...),
 	})
 
 	t.Cleanup(func() { _ = client.Close() })
@@ -1918,12 +2619,28 @@ func newMITMTestTLSClient(t *testing.T, proxyURL *url.URL, connectTarget, server
 
 func newTLSServerForHost(t *testing.T, ca *tls.Certificate, host string, handler http.Handler) *httptest.Server {
 	t.Helper()
+	return newTLSServerForHostWithOptions(t, ca, host, handler, false)
+}
+
+func newTLSServerForHostWithHTTP2(t *testing.T, ca *tls.Certificate, host string, handler http.Handler) *httptest.Server {
+	t.Helper()
+	return newTLSServerForHostWithOptions(t, ca, host, handler, true)
+}
+
+func newTLSServerForHostWithOptions(t *testing.T, ca *tls.Certificate, host string, handler http.Handler, enableHTTP2 bool) *httptest.Server {
+	t.Helper()
 
 	certificateProxy := goproxy.NewProxyHttpServer()
 	config, err := goproxy.TLSConfigFromCA(ca)(host, &goproxy.ProxyCtx{Proxy: certificateProxy})
 	require.NoError(t, err)
 
 	server := httptest.NewUnstartedServer(handler)
+
+	server.EnableHTTP2 = enableHTTP2
+	if enableHTTP2 {
+		require.NoError(t, http2.ConfigureServer(server.Config, &http2.Server{}))
+	}
+
 	server.TLS = &tls.Config{Certificates: config.Certificates, MinVersion: tls.VersionTLS12}
 	server.StartTLS()
 	t.Cleanup(server.Close)
@@ -1995,13 +2712,30 @@ func waitForProxyListener(t *testing.T, address string) {
 
 func newProxyClient(t *testing.T, proxyURL *url.URL, roots *x509.CertPool, disableCompression bool) *http.Client {
 	t.Helper()
+	return newProxyClientWithHTTP2(t, proxyURL, roots, disableCompression, false, nil)
+}
+
+func newHTTP1ProxyClient(t *testing.T, proxyURL *url.URL, roots *x509.CertPool) *http.Client {
+	t.Helper()
+	return newProxyClientWithHTTP2(t, proxyURL, roots, false, false, []string{"http/1.1"})
+}
+
+func newHTTP2ProxyClient(t *testing.T, proxyURL *url.URL, roots *x509.CertPool) *http.Client {
+	t.Helper()
+	return newProxyClientWithHTTP2(t, proxyURL, roots, false, true, []string{"h2", "http/1.1"})
+}
+
+func newProxyClientWithHTTP2(t *testing.T, proxyURL *url.URL, roots *x509.CertPool, disableCompression, forceHTTP2 bool, nextProtos []string) *http.Client {
+	t.Helper()
 
 	transport := &http.Transport{
 		Proxy:              http.ProxyURL(proxyURL),
 		DisableCompression: disableCompression,
+		ForceAttemptHTTP2:  forceHTTP2,
 		TLSClientConfig: &tls.Config{
 			RootCAs:    roots,
 			MinVersion: tls.VersionTLS12,
+			NextProtos: append([]string(nil), nextProtos...),
 		},
 	}
 	t.Cleanup(transport.CloseIdleConnections)
@@ -2074,6 +2808,23 @@ func requireOutputContains(t *testing.T, output *lockedBuffer, substring string)
 	}, 2*time.Second, 10*time.Millisecond)
 }
 
+func captureBlockForPath(output, kind, path string) (string, string, bool) {
+	for block := range strings.SplitSeq(output, "\n\n") {
+		lines := strings.Split(block, "\n")
+		if len(lines) < 2 || !strings.Contains(lines[0], " "+kind+" ") || !strings.Contains(lines[1], path) {
+			continue
+		}
+
+		for field := range strings.FieldsSeq(lines[0]) {
+			if strings.HasPrefix(field, "#") {
+				return block, field, true
+			}
+		}
+	}
+
+	return "", "", false
+}
+
 type lockedBuffer struct {
 	mu     sync.RWMutex
 	buffer bytes.Buffer
@@ -2139,6 +2890,66 @@ func (*halfCloseTestConn) RemoteAddr() net.Addr             { return &net.TCPAdd
 func (*halfCloseTestConn) SetDeadline(time.Time) error      { return nil }
 func (*halfCloseTestConn) SetReadDeadline(time.Time) error  { return nil }
 func (*halfCloseTestConn) SetWriteDeadline(time.Time) error { return nil }
+
+type deadlineRecordingConn struct {
+	halfCloseTestConn
+
+	deadline      time.Time
+	readDeadline  time.Time
+	writeDeadline time.Time
+}
+
+func tlsVersionName(version uint16) string {
+	if version == tls.VersionTLS12 {
+		return "tls12"
+	}
+	return "tls13"
+}
+
+func captureClientHello(t *testing.T, serverName string, version uint16) []byte {
+	t.Helper()
+
+	client, server := net.Pipe()
+	defer func() { _ = client.Close() }()
+	defer func() { _ = server.Close() }()
+
+	go func() {
+		config := &tls.Config{ServerName: serverName, MinVersion: version, MaxVersion: version}
+		_ = tls.Client(client, config).Handshake()
+	}()
+
+	var hello bytes.Buffer
+
+	buf := make([]byte, 4096)
+	for hello.Len() < 5 {
+		n, err := server.Read(buf)
+		require.NoError(t, err)
+		hello.Write(buf[:n])
+	}
+
+	recordLength := int(hello.Bytes()[3])<<8 | int(hello.Bytes()[4])
+	for hello.Len() < 5+recordLength {
+		n, err := server.Read(buf)
+		require.NoError(t, err)
+		hello.Write(buf[:n])
+	}
+	return hello.Bytes()
+}
+
+func (c *deadlineRecordingConn) SetDeadline(deadline time.Time) error {
+	c.deadline = deadline
+	return nil
+}
+
+func (c *deadlineRecordingConn) SetReadDeadline(deadline time.Time) error {
+	c.readDeadline = deadline
+	return nil
+}
+
+func (c *deadlineRecordingConn) SetWriteDeadline(deadline time.Time) error {
+	c.writeDeadline = deadline
+	return nil
+}
 
 type shortWriter struct{}
 

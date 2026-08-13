@@ -10,7 +10,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.1.7
 	github.com/dgraph-io/badger/v4 v4.9.2
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
-	github.com/elazarl/goproxy v1.8.4
+	github.com/elazarl/goproxy v1.9.0
 	github.com/go-flac/flacpicture/v2 v2.0.2
 	github.com/go-flac/flacvorbis/v2 v2.0.2
 	github.com/go-flac/go-flac/v2 v2.0.4
@@ -25,10 +25,10 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	github.com/wneessen/go-mail v0.7.3
-	golang.org/x/crypto v0.41.0
-	golang.org/x/net v0.43.0
+	golang.org/x/crypto v0.48.0
+	golang.org/x/net v0.50.0
 	golang.org/x/sync v0.21.0
-	golang.org/x/sys v0.36.0
+	golang.org/x/sys v0.41.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1
 )

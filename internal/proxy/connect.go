@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/elazarl/goproxy"
+	"golang.org/x/net/http2"
 )
 
 const (
@@ -128,6 +129,8 @@ func (h *sniConnectHandler) handle(ctx context.Context, connectTarget string, cl
 		return
 	}
 
+	_ = tlsClient.SetDeadline(time.Time{})
+
 	h.serveMITM(tlsClient, upstream, connectTarget, probe.serverName, proxyCtx)
 }
 
@@ -178,6 +181,12 @@ func (h *sniConnectHandler) serveMITM(client *tls.Conn, upstream net.Conn, conne
 		if request.URL.Host == "" {
 			request.URL.Host = serverName
 		}
+		// x/net/http2 gives bodyless streams a non-nil empty body. Normalize it
+		// before handing the request to goproxy so the upstream transport does
+		// not infer a phantom request body on the IP-selected path.
+		if request.ContentLength == 0 {
+			request.Body = http.NoBody
+		}
 
 		ctx := context.WithValue(request.Context(), connectRequestMetadataKey{}, metadata)
 		h.proxy.ServeHTTP(writer, request.WithContext(ctx))
@@ -188,6 +197,13 @@ func (h *sniConnectHandler) serveMITM(client *tls.Conn, upstream net.Conn, conne
 		ErrorLog:  h.errorLog,
 		ConnState: listener.connState,
 	}
+	if err := http2.ConfigureServer(server, &http2.Server{}); err != nil {
+		if proxyCtx != nil {
+			proxyCtx.Warnf("Cannot configure HTTP/2 for SNI-selected MITM connection to %s: %v", connectTarget, err)
+		}
+		return
+	}
+
 	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) && proxyCtx != nil {
 		proxyCtx.Warnf("Cannot serve SNI-selected MITM connection to %s: %v", connectTarget, err)
 	}

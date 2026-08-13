@@ -26,6 +26,7 @@ func TestRedactHeadersDoesNotMutateInput(t *testing.T) {
 		"Location":            {"https://music.163.com/redirect/token=location-path-secret?token=location-secret&name=song#access_token=location-fragment-secret"},
 		"Content-Location":    {"https://music.163.com/download/token%3Dcontent-location-secret"},
 		"Referer":             {"https://music.163.com/page?Signature=referer-secret"},
+		"X-Meta":              {"old_password=header-secret safe=visible"},
 	}
 
 	redacted := redactHeaders(header, false)
@@ -37,6 +38,10 @@ func TestRedactHeadersDoesNotMutateInput(t *testing.T) {
 
 	if redacted.Get("Content-Type") != "application/json" || redacted.Get("X-Unrelated-Headers") != "visible" {
 		t.Fatalf("non-sensitive headers changed: %#v", redacted)
+	}
+
+	if meta := redacted.Get("X-Meta"); strings.Contains(meta, "header-secret") || !strings.Contains(meta, "safe=visible") {
+		t.Fatalf("nested header metadata was not safely redacted: %q", meta)
 	}
 
 	for _, secret := range []string{"location-secret", "location-path-secret", "location-fragment-secret", "content-location-secret", "referer-secret"} {
@@ -459,7 +464,7 @@ func TestFormatValuesForDisplayFailsClosedOnInvalidUTF8(t *testing.T) {
 func TestSensitiveKeyVariants(t *testing.T) {
 	sensitive := []string{
 		"Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie", "csrf_token",
-		"password", "accessToken", "refresh-token", "MUSIC_U", "MUSIC_A", "MUSIC_R_U", "MUSIC_R_A", "MUSIC_A_T", "cellphone",
+		"password", "old_password", "userPassword", "password_hash", "accessToken", "refresh-token", "MUSIC_U", "MUSIC_A", "MUSIC_R_U", "MUSIC_R_A", "MUSIC_A_T", "cellphone",
 		"phoneNumber", "mobile", "Signature", "NOSAccessKeyId", "api_key", "X-Encr-Sskey", "X-Encr-Ssid", "sessionId",
 		"email", "deviceId", "device_identifier", "imei", "imsi", "captcha", "verification_code", "smsCode",
 	}
@@ -482,10 +487,14 @@ func TestSensitiveKeyVariants(t *testing.T) {
 }
 
 func TestRedactTextBestEffort(t *testing.T) {
-	input := []byte("Authorization: Bearer top-secret\npassword=hunter2 safe=visible csrf_token: csrf-secret MUSIC_R_U=renewal-cookie-secret\nmessage: keep me")
+	input := []byte(strings.Join([]string{
+		"Authorization: Bearer top-secret",
+		"password=hunter2 old_password=old-secret userPassword=camel-secret password_hash=hash-secret safe=visible csrf_token: csrf-secret MUSIC_R_U=renewal-cookie-secret",
+		"message: keep me",
+	}, "\n"))
 
 	redacted := string(redactText(input, false))
-	for _, secret := range []string{"Bearer top-secret", "hunter2", "csrf-secret", "renewal-cookie-secret"} {
+	for _, secret := range []string{"Bearer top-secret", "hunter2", "old-secret", "camel-secret", "hash-secret", "csrf-secret", "renewal-cookie-secret"} {
 		if strings.Contains(redacted, secret) {
 			t.Fatalf("text leaked %q: %s", secret, redacted)
 		}
