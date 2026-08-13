@@ -1,6 +1,6 @@
 # 🎵 netease-cloud-music
 
-[GoDoc](https://godoc.org/github.com/chaunsin/netease-cloud-music) [Go Report Card](https://goreportcard.com/report/github.com/chaunsin/netease-cloud-music) [ci](https://github.com/chaunsin/netease-cloud-music/actions/workflows/ci.yml) [deploy image](https://github.com/chaunsin/netease-cloud-music/actions/workflows/deploy_image.yml)
+[![GoDoc](https://godoc.org/github.com/chaunsin/netease-cloud-music?status.svg)](https://godoc.org/github.com/chaunsin/netease-cloud-music) [![Go Report Card](https://goreportcard.com/badge/github.com/chaunsin/netease-cloud-music)](https://goreportcard.com/report/github.com/chaunsin/netease-cloud-music) [![ci](https://github.com/chaunsin/netease-cloud-music/actions/workflows/ci.yml/badge.svg)](https://github.com/chaunsin/netease-cloud-music/actions/workflows/ci.yml) [![deploy image](https://github.com/chaunsin/netease-cloud-music/actions/workflows/deploy_image.yml/badge.svg)](https://github.com/chaunsin/netease-cloud-music/actions/workflows/deploy_image.yml)
 
 > 🚀 网易云音乐 Golang API 接口 + 命令行工具套件 + 一键完成每日任务
 
@@ -21,7 +21,7 @@
 
 ## ✨ 功能特性
 
-命令行工具 (ncmctl) 提供一下功能
+命令行工具 (ncmctl) 提供以下功能
 
 ### 🔐 登录方式
 
@@ -118,8 +118,6 @@ cd netease-cloud-music && make build-image
 ### 方式四：青龙面板
 
 详见 👉 [青龙脚本安装指南](docs/qinglong.md)
-
-青龙安装脚本只以 GitHub Releases 为发布源，默认依次尝试 3 个可配置代理并最终回退 GitHub；使用 `NCMCTL_QINGLONG_GITHUB_PROXIES` 覆盖代理列表或设置为空以仅使用直连。候选文件通过 SHA-256 和版本校验后才会安装，且不会把已有的较新 SemVer 版本降级。
 
 ---
 
