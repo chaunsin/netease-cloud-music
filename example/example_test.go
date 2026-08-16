@@ -21,10 +21,10 @@ var (
 )
 
 func TestMain(t *testing.M) {
-	log.Default = log.New(&log.Config{
+	log.SetDefault(log.New(&log.Config{
 		Level:  "info",
 		Stdout: true,
-	})
+	}))
 	cfg := api.Config{
 		Debug:   false,
 		Timeout: 0,

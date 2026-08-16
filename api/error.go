@@ -3,7 +3,13 @@
 
 package api
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrClientClosed is returned when the Cookie transport rejects a request after Close.
+var ErrClientClosed = errors.New("api client is closed")
 
 // APIError reports a failure while handling an API response. StatusCode is the
 // received HTTP status, and Err contains a response-processing error when one

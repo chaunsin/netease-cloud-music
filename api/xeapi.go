@@ -45,17 +45,6 @@ type xeapiRefreshPublicKeyResp struct {
 	Message string `json:"message"`
 }
 
-type xeapiRefreshPublicKeyReq struct {
-	DeviceID          string
-	CurrentKeyVersion string
-	AppVersion        string
-	UserAgent         string
-	OS                string
-	T1                string
-	T2                string
-	UID               string
-}
-
 type xeapiStateResult struct {
 	PublicKeyState crypto.XeapiPublicKeyState `json:"publicKeyState" yaml:"publicKeyState"`
 	Session        crypto.XeapiSession        `json:"session" yaml:"session"`
@@ -231,16 +220,7 @@ func (x *xeapi) xeapiState(ctx context.Context, req *crypto.XeapiEncryptRequest)
 			}, nil
 		}
 
-		refreshed, err := x.refreshPublicKey(ctx, &xeapiRefreshPublicKeyReq{
-			DeviceID:          req.DeviceID,
-			CurrentKeyVersion: currentVersion,
-			AppVersion:        req.AppVersion,
-			UserAgent:         req.UserAgent,
-			OS:                req.OS,
-			T1:                req.T1,
-			T2:                req.T2,
-			UID:               req.UID,
-		})
+		refreshed, err := x.refreshPublicKey(ctx, req, currentVersion)
 		if err != nil {
 			return nil, fmt.Errorf("refreshXeapiPublicKey: %w", err)
 		}
@@ -278,7 +258,7 @@ func (x *xeapi) xeapiState(ctx context.Context, req *crypto.XeapiEncryptRequest)
 	return result, nil
 }
 
-func (x *xeapi) refreshPublicKey(ctx context.Context, req *xeapiRefreshPublicKeyReq) (*crypto.XeapiPublicKeyState, error) {
+func (x *xeapi) refreshPublicKey(ctx context.Context, req *crypto.XeapiEncryptRequest, currentKeyVersion string) (*crypto.XeapiPublicKeyState, error) {
 	nonce, err := generateXeapiNonce()
 	if err != nil {
 		return nil, fmt.Errorf("generateXeapiNonce: %w", err)
@@ -293,7 +273,7 @@ func (x *xeapi) refreshPublicKey(ctx context.Context, req *xeapiRefreshPublicKey
 		timestamp = strconv.FormatInt(time.Now().UnixMilli(), 10)
 		payload   = map[string]any{
 			"appVersion":        req.AppVersion,
-			"currentKeyVersion": req.CurrentKeyVersion,
+			"currentKeyVersion": currentKeyVersion,
 			"deviceId":          req.DeviceID,
 			"e_r":               true,
 			"header":            "{}",

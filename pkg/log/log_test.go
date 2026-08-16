@@ -26,17 +26,17 @@ func newTestLogger(t *testing.T, level string) (*Logger, string) {
 	t.Helper()
 
 	filename := filepath.Join(t.TempDir(), "ncmctl.log")
-	previous := Default
+	previous := GetDefault()
 	logger := New(&Config{
 		App:    "test",
 		Format: "json",
 		Level:  level,
 		Rotate: lumberjack.Logger{Filename: filename},
 	})
-	Default = logger
+	SetDefault(logger)
 
 	t.Cleanup(func() {
-		Default = previous
+		SetDefault(previous)
 
 		if err := logger.Close(); err != nil {
 			t.Errorf("close test logger: %v", err)
@@ -142,11 +142,12 @@ func TestFormattedInstanceMethods(t *testing.T) {
 }
 
 func TestNilLoggerDropsMessages(t *testing.T) {
-	previous := Default
-	Default = nil
+	previous := GetDefault()
+
+	SetDefault(nil)
 
 	t.Cleanup(func() {
-		Default = previous
+		SetDefault(previous)
 	})
 
 	var logger *Logger
@@ -186,12 +187,12 @@ func TestFatalExits(t *testing.T) {
 			os.Exit(3)
 		}
 
-		Default = New(&Config{
+		SetDefault(New(&Config{
 			App:    "test",
 			Format: "json",
 			Level:  "debug",
 			Rotate: lumberjack.Logger{Filename: filename},
-		})
+		}))
 
 		switch mode {
 		case "formatted":

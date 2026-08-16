@@ -113,10 +113,11 @@ const (
 )
 
 type capturedEAPIRequest struct {
-	host    string
-	path    string
-	query   string
-	payload map[string]json.RawMessage
+	host       string
+	path       string
+	signedPath string
+	query      string
+	payload    map[string]json.RawMessage
 }
 
 type recordingEAPIVipTransport struct {
@@ -151,10 +152,11 @@ func (t *recordingEAPIVipTransport) RoundTrip(request *http.Request) (*http.Resp
 	}
 
 	t.requests = append(t.requests, capturedEAPIRequest{
-		host:    request.URL.Host,
-		path:    request.URL.Path,
-		query:   request.URL.RawQuery,
-		payload: payload,
+		host:       request.URL.Host,
+		path:       request.URL.Path,
+		signedPath: parts[0],
+		query:      request.URL.RawQuery,
+		payload:    payload,
 	})
 	responseBody := t.responses[len(t.requests)-1]
 
@@ -207,14 +209,14 @@ func TestEAPIVipMusicSignWireFlow(t *testing.T) {
 		encryptEAPITestResponse(t, []byte(vipCardCompactResponse)),
 		encryptEAPITestResponse(t, []byte(vipCardDetailResponse)),
 	}}
-	client.GetClient().Transport = transport
+	client.SetTransport(transport)
 	request := eapi.New(client)
 
-	sign, err := request.VipTaskSign(context.Background(), &eapi.VipTaskSignReq{})
+	sign, err := request.VipTaskSign(t.Context(), &eapi.VipTaskSignReq{})
 	require.NoError(t, err)
 	assert.True(t, sign.Data)
 
-	history, err := request.VipCheckinHistoryDetail(context.Background(), &eapi.VipCheckinHistoryDetailReq{
+	history, err := request.VipCheckinHistoryDetail(t.Context(), &eapi.VipCheckinHistoryDetailReq{
 		SignDayTime: "1785913200098",
 		Type:        "1",
 	})
@@ -222,13 +224,13 @@ func TestEAPIVipMusicSignWireFlow(t *testing.T) {
 	require.NotNil(t, history.Data.SongInfo)
 	assertVipHistoryResponse(t, history.Code, history.Data.SongInfo.SongName, len(history.Data.MonthCheckInPrizeList))
 
-	compact, err := request.VipMinideskMusicSignPC(context.Background(), &eapi.VipMinideskMusicSignPCReq{Type: 0})
+	compact, err := request.VipMinideskMusicSignPC(t.Context(), &eapi.VipMinideskMusicSignPCReq{Type: 0})
 	require.NoError(t, err)
 	assert.Nil(t, compact.Data.Text)
 	require.Len(t, compact.Data.SignInfoList, 1)
 	assert.Nil(t, compact.Data.SignInfoList[0].SongCoverUrl)
 
-	detail, err := request.VipMinideskMusicSignPC(context.Background(), &eapi.VipMinideskMusicSignPCReq{Type: 1})
+	detail, err := request.VipMinideskMusicSignPC(t.Context(), &eapi.VipMinideskMusicSignPCReq{Type: 1})
 	require.NoError(t, err)
 	require.NotNil(t, detail.Data.Text)
 	assert.Equal(t, "monthly music sign", *detail.Data.Text)
@@ -240,6 +242,12 @@ func TestEAPIVipMusicSignWireFlow(t *testing.T) {
 		"/eapi/vipnewcenter/app/minidesk/music/sign/pc",
 		"/eapi/vipnewcenter/app/minidesk/music/sign/pc",
 	}, eapiRequestPaths(transport.requests))
+	assert.Equal(t, []string{
+		"/api/vip-center-bff/task/sign",
+		"/api/vipnewcenter/app/level/user/checkin/history/detail",
+		"/api/vipnewcenter/app/minidesk/music/sign/pc",
+		"/api/vipnewcenter/app/minidesk/music/sign/pc",
+	}, eapiSignedPaths(transport.requests))
 
 	for _, captured := range transport.requests {
 		assert.Equal(t, "interface.music.163.com", captured.host)
@@ -261,10 +269,10 @@ func TestWEAPIVipMusicSignEndpoints(t *testing.T) {
 		[]byte(vipCardCompactResponse),
 		[]byte(vipCardDetailResponse),
 	}}
-	client.GetClient().Transport = transport
+	client.SetTransport(transport)
 	request := weapi.New(client)
 
-	history, err := request.VipCheckinHistoryDetail(context.Background(), &weapi.VipCheckinHistoryDetailReq{
+	history, err := request.VipCheckinHistoryDetail(t.Context(), &weapi.VipCheckinHistoryDetailReq{
 		SignDayTime: "10785913200098",
 		Type:        "1",
 	})
@@ -272,11 +280,11 @@ func TestWEAPIVipMusicSignEndpoints(t *testing.T) {
 	require.NotNil(t, history.Data.SongInfo)
 	assertVipHistoryResponse(t, int(history.Code), history.Data.SongInfo.SongName, len(history.Data.MonthCheckInPrizeList))
 
-	compact, err := request.VipMinideskMusicSignPC(context.Background(), &weapi.VipMinideskMusicSignPCReq{Type: 0})
+	compact, err := request.VipMinideskMusicSignPC(t.Context(), &weapi.VipMinideskMusicSignPCReq{Type: 0})
 	require.NoError(t, err)
 	assert.Nil(t, compact.Data.Text)
 
-	detail, err := request.VipMinideskMusicSignPC(context.Background(), &weapi.VipMinideskMusicSignPCReq{Type: 1})
+	detail, err := request.VipMinideskMusicSignPC(t.Context(), &weapi.VipMinideskMusicSignPCReq{Type: 1})
 	require.NoError(t, err)
 	require.NotNil(t, detail.Data.Text)
 	assert.Equal(t, "monthly music sign", *detail.Data.Text)
@@ -345,6 +353,14 @@ func eapiRequestPaths(requests []capturedEAPIRequest) []string {
 	paths := make([]string, 0, len(requests))
 	for _, request := range requests {
 		paths = append(paths, request.path)
+	}
+	return paths
+}
+
+func eapiSignedPaths(requests []capturedEAPIRequest) []string {
+	paths := make([]string, 0, len(requests))
+	for _, request := range requests {
+		paths = append(paths, request.signedPath)
 	}
 	return paths
 }

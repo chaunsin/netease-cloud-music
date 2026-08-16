@@ -660,7 +660,7 @@ func TestCryptoDecryptEapiEnvelopeAllowsDelimiterInPayload(t *testing.T) {
 func TestCryptoDecryptUsesConfiguredRootLogger(t *testing.T) {
 	root := New()
 	logger := &root.l
-	previousLogger := projectlog.Default
+	previousLogger := projectlog.GetDefault()
 	closed := false
 
 	t.Cleanup(func() {
@@ -668,7 +668,7 @@ func TestCryptoDecryptUsesConfiguredRootLogger(t *testing.T) {
 			_ = root.l.Close()
 		}
 
-		projectlog.Default = previousLogger
+		projectlog.SetDefault(previousLogger)
 	})
 
 	home := t.TempDir()
@@ -685,7 +685,7 @@ func TestCryptoDecryptUsesConfiguredRootLogger(t *testing.T) {
 	})
 
 	require.NoError(t, root.cmd.Execute())
-	require.Same(t, logger, projectlog.Default)
+	require.Same(t, logger, projectlog.GetDefault())
 
 	var result Payload
 	require.NoError(t, json.Unmarshal(bytes.TrimSpace(output.Bytes()), &result))

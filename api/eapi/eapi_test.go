@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -22,42 +21,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/internal/testutil"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
 	ncmcrypto "github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 )
-
-var (
-	cli *Api
-	ctx = context.TODO()
-)
-
-func TestMain(t *testing.M) {
-	log.Default = log.New(&log.Config{
-		Level:  "debug",
-		Stdout: true,
-	})
-	cfg := &api.Config{
-		Debug:   false,
-		Timeout: 0,
-		Retry:   0,
-		Cookie: cookie.Config{
-			Options:  nil,
-			Filepath: "../../testdata/cookie.json",
-			Interval: 0,
-		},
-	}
-
-	client, err := api.NewClient(cfg, log.Default)
-	if err != nil {
-		panic(err)
-	}
-
-	cli = New(client)
-
-	os.Exit(t.Run())
-}
 
 func TestEAPIRequestTypesEmbedCommon(t *testing.T) {
 	commonType := reflect.TypeFor[types.EApiReqCommon]()
@@ -311,8 +280,27 @@ func newOfflineEAPIClient(t *testing.T, responseBody []byte) (*api.Client, *reco
 	})
 
 	transport := &recordingEAPITransport{responseBody: responseBody}
-	client.GetClient().Transport = transport
+	client.SetTransport(transport)
 	return client, transport
+}
+
+func newLiveEAPI(t *testing.T) *Api {
+	t.Helper()
+	testutil.RequireLiveAPI(t)
+
+	logger := log.New(&log.Config{Level: "debug", Stdout: true})
+	client, err := api.NewClient(&api.Config{
+		Cookie: cookie.Config{
+			Filepath: "../../testdata/cookie.json",
+		},
+	}, logger)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, client.Close(context.Background()))
+		require.NoError(t, logger.Close())
+	})
+	return New(client)
 }
 
 func assertJSONBoolField(t *testing.T, payload map[string]json.RawMessage, name string, want bool) {

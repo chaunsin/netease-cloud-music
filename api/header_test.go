@@ -35,6 +35,32 @@ func TestHeadersValidateRejectsEmptyXeapiIdentity(t *testing.T) {
 	}
 }
 
+func TestHeadersValidateRejectsInvalidCookieInEveryMode(t *testing.T) {
+	tests := []struct {
+		name    string
+		cookies func(*Headers) map[string]string
+	}{
+		{name: "api", cookies: func(headers *Headers) map[string]string { return headers.API.Cookie }},
+		{name: "eapi", cookies: func(headers *Headers) map[string]string { return headers.EAPI.Cookie }},
+		{name: "weapi", cookies: func(headers *Headers) map[string]string { return headers.WEAPI.Cookie }},
+		{name: "xeapi", cookies: func(headers *Headers) map[string]string { return headers.XEAPI.Cookie }},
+		{name: "linuxapi", cookies: func(headers *Headers) map[string]string { return headers.LinuxAPI.Cookie }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			headers := defaultHeaders.clone()
+			secret := "configured-secret;private"
+			tt.cookies(&headers)["unsafe"] = secret
+
+			err := headers.Validate()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.name+`: Cookie "unsafe" is invalid`)
+			assert.NotContains(t, err.Error(), secret)
+		})
+	}
+}
+
 func TestHeadersCloneAndTransactionalLoad(t *testing.T) {
 	original := defaultHeaders.clone()
 	configured := original.clone()

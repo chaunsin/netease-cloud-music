@@ -207,7 +207,7 @@ func newOfflineXeapiClient(t *testing.T) (*api.Client, *recordingXeapiTransport,
 	require.NoError(t, err)
 
 	transport := &recordingXeapiTransport{body: encryptXeapiTestResponse(t, []byte(`{"code":200}`))}
-	client.GetClient().Transport = transport
+	client.SetTransport(transport)
 
 	cleanup := func() {
 		require.NoError(t, client.Close(context.Background()))

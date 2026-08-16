@@ -90,7 +90,7 @@ func New() *Root {
 
 		// Keep the address stable for commands registered before configuration is loaded.
 		c.l = *log.New(c.Cfg.Log)
-		log.Default = &c.l
+		log.SetDefault(&c.l)
 		c.l.Debugf("[config] init home=%s path=%s log=%+v network=%+v", home, cfgPath, c.Cfg.Log, c.Cfg.Network)
 		return nil
 	}

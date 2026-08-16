@@ -25,7 +25,7 @@ Execution order:
 3. The selected command validates arguments and runs its operation.
 4. `Root.Execute` closes the logger after Cobra returns, including command-error paths. Keep critical root cleanup outside `PersistentPostRunE`, because Cobra skips post-run hooks when `RunE` returns an error.
 
-`Root` owns address-stable logger storage before registering the command tree. Constructors receive that address, and `PersistentPreRunE` initializes the same storage after configuration and CLI overrides are final. Command methods log through their direct `c.l` field; do not copy a nil logger during construction, add package-level fallbacks, or reach through nested `root` fields to find the active logger. `log.Default` remains an alias for lower-level packages that still use package-level logging.
+`Root` owns address-stable logger storage before registering the command tree. Constructors receive that address, and `PersistentPreRunE` initializes the same storage after configuration and CLI overrides are final. Command methods log through their direct `c.l` field; do not copy a nil logger during construction, add package-level fallbacks, or reach through nested `root` fields to find the active logger. `log.GetDefault()` remains an alias for lower-level packages that still use package-level logging.
 
 ## Command map
 
@@ -78,7 +78,7 @@ defer closeAPIClient(ctx, cli, c.l)
 request := weapi.New(cli)
 ```
 
-For login-required work, verify authentication before the first account mutation. Add token refresh only where the command's control flow requires it, and make sure early returns do not skip cleanup. `closeAPIClient` triggers the final Cookie export and logs errors returned by `Client.Close`; prefer it over a bare ignored close. The Cookie exporter currently logs its own export failure internally, so do not promise stronger error propagation without changing and testing that contract.
+For login-required work, verify authentication before the first account mutation. Add token refresh only where the command's control flow requires it, and make sure early returns do not skip cleanup. `closeAPIClient` drains the Cookie transport, closes idle connections, triggers the final export, and logs errors returned by `Client.Close`. Prefer it over a bare ignored close. The Cookie exporter currently logs its own export failure internally, so do not promise stronger error propagation without changing and testing that contract.
 
 ## Scheduled tasks
 

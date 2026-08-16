@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -455,7 +456,7 @@ func TestGetDeviceIdReadsXeapiDomain(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	client := &Client{cookie: jar}
+	client := &Client{cookieJar: jar}
 	uri, err := neturl.Parse("https://interface.music.163.com")
 	require.NoError(t, err)
 	client.SetCookies(uri, []*http.Cookie{{Name: "deviceId", Value: "xeapi-device-id"}})
@@ -507,6 +508,33 @@ func TestUpdateXeapiSessionValidatesRevisionOrderingAndKey(t *testing.T) {
 	assert.Equal(t, ncmcrypto.XeapiSession{ID: "newer-session", Key: "0123456789abcdef"}, manager.Session)
 }
 
+func TestUpdateXeapiSessionConcurrentResponsesKeepNewest(t *testing.T) {
+	const requestCount = 64
+
+	manager := xeapi{keyRevision: 1}
+	start := make(chan struct{})
+	results := make(chan error, requestCount)
+
+	for sequence := uint64(1); sequence <= requestCount; sequence++ {
+		go func(sequence uint64) {
+			<-start
+
+			results <- manager.updateSession(
+				xeapiSessionResponse(fmt.Sprintf("session-%d", sequence), "0123456789abcdef"),
+				xeapiRequestRevision{keyRevision: 1, requestSequence: sequence},
+			)
+		}(sequence)
+	}
+
+	close(start)
+
+	for range requestCount {
+		require.NoError(t, <-results)
+	}
+
+	assert.Equal(t, ncmcrypto.XeapiSession{ID: "session-64", Key: "0123456789abcdef"}, manager.Session)
+}
+
 func TestNewClientUsesRuntimeHomeForStateFiles(t *testing.T) {
 	t.Parallel()
 
@@ -545,28 +573,21 @@ func TestNewClientUsesRuntimeHomeForStateFiles(t *testing.T) {
 }
 
 func TestXeapiRequestUsesConfiguredMethodAndResolvedIdentity(t *testing.T) {
-	oldLogger := log.Default
-	log.Default = log.New(nil)
-
-	t.Cleanup(func() {
-		log.Default = oldLogger
-	})
-
 	var (
 		capturedHeader  http.Header
 		capturedCookies map[string]string
 		capturedHost    string
 		capturedMethods []string
 		requestCount    int
-		homeDir         = t.TempDir()
 	)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newOfflineXeapiClient(t)
+	client.SetTransport(testRoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		requestCount++
 
 		capturedMethods = append(capturedMethods, r.Method)
 		capturedHeader = r.Header.Clone()
-		capturedHost = r.Host
+		capturedHost = r.URL.Hostname()
 
 		capturedCookies = make(map[string]string)
 		for _, ck := range r.Cookies() {
@@ -585,29 +606,15 @@ func TestXeapiRequestUsesConfiguredMethodAndResolvedIdentity(t *testing.T) {
 			assert.Empty(t, r.FormValue("R"))
 		}
 
-		_, _ = w.Write(encryptLegacyEapiResponse(t, []byte(`{"code":200}`)))
+		body := encryptLegacyEapiResponse(t, []byte(`{"code":200}`))
+		return &http.Response{
+			StatusCode:    http.StatusOK,
+			Header:        make(http.Header),
+			Body:          io.NopCloser(bytes.NewReader(body)),
+			ContentLength: int64(len(body)),
+			Request:       r,
+		}, nil
 	}))
-	defer server.Close()
-
-	client, err := NewClient(&Config{
-		Timeout: time.Second,
-		HomeDir: homeDir,
-		Cookie: cookie.Config{
-			Filepath: filepath.Join(homeDir, "cookie.json"),
-			Interval: 0,
-		},
-	}, log.Default)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		require.NoError(t, client.Close(context.Background()))
-	})
-
-	client.xeapi.PublicKeyState = ncmcrypto.XeapiPublicKeyState{
-		PublicKey: "3m5wN9om11qRESjEV+5EoFf9qLEylO6gyThMbl1XxEk=",
-		Version:   "1000000000000",
-		SK:        "8PZfbIFA1779944463972",
-	}
 
 	for _, method := range []string{http.MethodPost, http.MethodGet} {
 		opts := NewOptions().SetXEAPI().SetMethod(method)
@@ -618,9 +625,9 @@ func TestXeapiRequestUsesConfiguredMethodAndResolvedIdentity(t *testing.T) {
 
 		var reply map[string]any
 
-		_, err = client.Request(
+		_, err := client.Request(
 			context.Background(),
-			server.URL+"/eapi/song/detail?id=1",
+			"https://interface.music.163.com/eapi/song/detail?id=1",
 			map[string]string{"id": "1"},
 			&reply,
 			opts,
@@ -640,9 +647,229 @@ func TestXeapiRequestUsesConfiguredMethodAndResolvedIdentity(t *testing.T) {
 	assert.Equal(t, "request-device-id", capturedCookies["sDeviceId"])
 	assert.Equal(t, "request-music-u", capturedCookies["MUSIC_U"])
 
-	serverURL, err := neturl.Parse(server.URL)
+	assert.Equal(t, "interface.music.163.com", capturedHost)
+}
+
+func TestXeapiOutsideProtocolCookieDomainKeepsCookieIdentityOutOfBusinessPayload(t *testing.T) {
+	const sessionKey = "0123456789abcdef"
+
+	tests := []struct {
+		name         string
+		setup        func(*Client, *Options)
+		wantCookies  map[string]string
+		wantHeaders  map[string]string
+		callerDevice bool
+	}{
+		{
+			name:        "no identity does not use protocol defaults",
+			setup:       func(*Client, *Options) {},
+			wantCookies: map[string]string{},
+			wantHeaders: map[string]string{},
+		},
+		{
+			name: "URL scoped Jar identity remains available",
+			setup: func(client *Client, _ *Options) {
+				client.SetCookies(mustParseURL(t, "https://example.test/xeapi/song/detail"), []*http.Cookie{
+					{Name: "appver", Value: "jar-appver"},
+					{Name: "deviceId", Value: "jar-device"},
+					{Name: "os", Value: "jar-os"},
+				})
+			},
+			wantCookies: map[string]string{
+				"appver":   "jar-appver",
+				"deviceId": "jar-device",
+				"os":       "jar-os",
+			},
+			wantHeaders: map[string]string{
+				"X-Appver":    "jar-appver",
+				"X-DeviceId":  "jar-device",
+				"X-SDeviceId": "jar-device",
+				"X-Os":        "jar-os",
+			},
+			callerDevice: true,
+		},
+		{
+			name: "Options cookies override protocol defaults",
+			setup: func(_ *Client, opts *Options) {
+				opts.SetCookies(
+					&http.Cookie{Name: "appver", Value: "option-appver"},
+					&http.Cookie{Name: "deviceId", Value: "option-device"},
+					&http.Cookie{Name: "os", Value: "option-os"},
+				)
+			},
+			wantCookies: map[string]string{
+				"appver":   "option-appver",
+				"deviceId": "option-device",
+				"os":       "option-os",
+			},
+			wantHeaders: map[string]string{
+				"X-Appver":    "option-appver",
+				"X-DeviceId":  "option-device",
+				"X-SDeviceId": "option-device",
+				"X-Os":        "option-os",
+			},
+			callerDevice: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newOfflineXeapiClient(t)
+			client.xeapi.Session = ncmcrypto.XeapiSession{ID: "known-session", Key: sessionKey}
+
+			opts := NewOptions().SetXEAPI()
+			tt.setup(client, opts)
+
+			var encrypted ncmcrypto.XeapiEncryptedRequest
+
+			client.SetTransport(testRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+				assert.Equal(t, "example.test", request.URL.Hostname())
+				assert.Equal(t, "/xeapi/song/detail", request.URL.Path)
+				assert.Equal(t, tt.wantCookies, cookieValues(request.Cookies()))
+				assertXEAPIIdentityHeaders(t, request.Header, tt.wantHeaders)
+
+				require.NoError(t, request.ParseForm())
+				encrypted = ncmcrypto.XeapiEncryptedRequest{
+					B: request.Form.Get("B"),
+					S: request.Form.Get("S"),
+					R: request.Form.Get("R"),
+				}
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(bytes.NewReader(encryptLegacyEapiResponse(t, []byte(`{"code":200}`)))),
+					Request:    request,
+				}, nil
+			}))
+
+			payload := map[string]string{"id": "1"}
+			if tt.callerDevice {
+				payload["deviceId"] = "caller-device"
+			}
+
+			var reply map[string]any
+
+			_, err := client.Request(
+				context.Background(),
+				"https://example.test/api/song/detail",
+				payload,
+				&reply,
+				opts,
+			)
+			require.NoError(t, err)
+
+			decrypted, err := ncmcrypto.XeapiDecryptRequest(encrypted, []byte(sessionKey))
+			require.NoError(t, err)
+
+			var envelope struct {
+				Body string `json:"body"`
+			}
+			require.NoError(t, json.Unmarshal(decrypted.Plaintext, &envelope))
+
+			body, err := base64.StdEncoding.DecodeString(envelope.Body)
+			require.NoError(t, err)
+			form, err := neturl.ParseQuery(string(body))
+			require.NoError(t, err)
+
+			if !tt.callerDevice {
+				assert.False(t, form.Has("deviceId"))
+			} else {
+				assert.Equal(t, "caller-device", form.Get("deviceId"))
+			}
+		})
+	}
+}
+
+func TestXeapiRefreshOutsideProtocolCookieDomainKeepsAndroidOSFallback(t *testing.T) {
+	client := newOfflineXeapiClient(t)
+	client.xeapi.PublicKeyState = ncmcrypto.XeapiPublicKeyState{}
+
+	refreshed := ncmcrypto.XeapiPublicKeyState{
+		PublicKey:      "3m5wN9om11qRESjEV+5EoFf9qLEylO6gyThMbl1XxEk=",
+		Version:        "refreshed-key",
+		NextUpdateTime: 4102444800000,
+		SK:             "refreshed-server-key",
+	}
+
+	calls := 0
+
+	client.SetTransport(testRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		calls++
+
+		switch request.URL.Path {
+		case "/eapi/gorilla/anti/crawler/security/key/get":
+			assert.Equal(t, "interface.music.163.com", request.URL.Hostname())
+			assert.Empty(t, request.Cookies())
+
+			payload := decodeEAPIRequestPayload(t, request)
+			assert.Empty(t, payload["appVersion"])
+			assert.Empty(t, payload["deviceId"])
+			assert.Equal(t, "android", payload["os"])
+
+			nonce, ok := payload["nonce"].(string)
+			require.True(t, ok)
+
+			reply, err := json.Marshal(map[string]any{
+				"code": http.StatusOK,
+				"data": map[string]any{
+					"encryptedData": encryptXeapiPublicKeyState(t, refreshed),
+					"signature":     ncmcrypto.XeapiSign("1779955023124", nonce),
+					"timestamp":     int64(1779955023124),
+				},
+			})
+			require.NoError(t, err)
+
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(bytes.NewReader(encryptLegacyEapiResponse(t, gzipPayload(t, reply)))),
+				Request:    request,
+			}, nil
+		case "/xeapi/song/detail":
+			assert.Equal(t, "example.test", request.URL.Hostname())
+			assert.Empty(t, request.Cookies())
+			assertXEAPIIdentityHeaders(t, request.Header, map[string]string{})
+
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(bytes.NewReader(encryptLegacyEapiResponse(t, []byte(`{"code":200}`)))),
+				Request:    request,
+			}, nil
+		default:
+			return nil, errors.New("unexpected XEAPI request path")
+		}
+	}))
+
+	var reply map[string]any
+
+	_, err := client.Request(
+		context.Background(),
+		"https://example.test/api/song/detail",
+		map[string]string{"id": "1"},
+		&reply,
+		NewOptions().SetXEAPI(),
+	)
 	require.NoError(t, err)
-	assert.Equal(t, serverURL.Host, capturedHost)
+	assert.Equal(t, 2, calls)
+}
+
+func assertXEAPIIdentityHeaders(t *testing.T, headers http.Header, want map[string]string) {
+	t.Helper()
+
+	for _, name := range []string{
+		"X-Appver", "X-Buildver", "X-Channel", "X-DeviceId", "X-SDeviceId",
+		"X-Mobilename", "X-Os", "X-Osver", "X-Music-U",
+	} {
+		wantValue, ok := want[name]
+		if !ok {
+			assert.Empty(t, headers.Values(name), "%s should not be sent", name)
+			continue
+		}
+
+		assert.Equal(t, []string{wantValue}, headers.Values(name), name)
+	}
 }
 
 func TestXeapiResponseSessionUpdate(t *testing.T) {

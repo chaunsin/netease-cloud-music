@@ -197,12 +197,12 @@ func TestCommandFlagDescriptionsExplainConstraints(t *testing.T) {
 
 func TestRootPreRunSetsNetworkRuntimeHome(t *testing.T) {
 	root := New()
-	previousLogger := projectlog.Default
+	previousLogger := projectlog.GetDefault()
 
 	t.Cleanup(func() {
 		require.NoError(t, root.l.Close())
 
-		projectlog.Default = previousLogger
+		projectlog.SetDefault(previousLogger)
 	})
 
 	home := t.TempDir()

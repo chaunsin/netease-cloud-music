@@ -259,6 +259,10 @@ func (c *Cookie) importEntries(content map[string]map[string]Entry, now time.Tim
 }
 
 func (c *Cookie) validateEntry(bucket, id string, e *entry) (string, error) {
+	if err := (&http.Cookie{Name: e.Name, Value: e.Value, Quoted: e.Quoted}).Valid(); err != nil {
+		return "", fmt.Errorf("cookie name or value is invalid: %w", err)
+	}
+
 	if e.Domain == "" {
 		return "", errors.New("domain is empty")
 	}

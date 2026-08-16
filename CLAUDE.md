@@ -10,7 +10,7 @@
 
 ## 核心原则
 
-在代码开始编写前你需要遵守以下规则
+**在代码开始编写代码前你需要遵守以下规则:**
 
 1. 这东西真的有必要存在吗？如果只是推测需要，那就直接省略，一句话说明就好。（YAGNI）
 2. **澄清问题**: 当思考过后碰到模糊、不清楚、潜在问题需要澄清提问，而不是忽略或自作主张应交给用户做出选择。
@@ -93,15 +93,6 @@ go test -tags=integration -v -run TestWeapiLoginByQrcode ./example/
 - 并发测试避免依赖时间碰运气；使用 channel、context、fake transport 或 `httptest` 建立可控同步点。
 - 不提交凭据、Cookie、真实手机号、CA 私钥、抓包敏感正文、下载音乐或生成的运行文件。
 - 保留现有 SPDX/版权头格式。注释说明原因、协议约束或不直观的并发行为，不重复代码字面意思。
-
-## 文档与 skill 同步
-
-> 对重要内容更新，保持内容精简，避免膨胀。skills要满足规范，AGENTS.md内容仅做目录导航作用。
-
-- `AGENTS.md -> CLAUDE.md`，`.agents/skills/ncmctl-dev -> ../../.claude/skills/ncmctl-dev`；提交前用 `readlink` 确认链接未被替换成副本。
-- `CLAUDE.md` 维护仓库级开发规则；`.claude/skills/ncmctl-dev` 维护按任务渐进加载的开发流程；`skills/ncmctl` 只面向 ncmctl 安装与使用，不承担仓库开发约定。
-- 用户可见的语法、默认值、输出、错误、持久化位置或安全/副作用边界变化时，同步更新 `README.md` 和 `skills/ncmctl`。开发流程、调用约定或协议不变量变化时更新开发 skill；只修正本任务直接影响的文档，范围外漂移只报告。
-- 文档中的命令必须能由当前 Cobra help、Makefile、`go.mod` 或源码验证；不要记录尚未实现的交互、环境变量、退出码或协议能力。
 
 ## 完成检查
 

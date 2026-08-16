@@ -436,7 +436,8 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 			return nil, fmt.Errorf("splitFile: %w", err)
 		}
 
-		resp, err = a.client.Upload(ctx, http.MethodPost, _addr, headers, bytes.NewReader(partData), &reply, req.ProgressBar)
+		opts := api.NewOptions().SetMethod(http.MethodPost).SetHeaders(headers)
+		resp, err = a.client.Upload(ctx, _addr, bytes.NewReader(partData), &reply, opts, req.ProgressBar)
 		log.Debugf("upload addr: %s chunk %d/%d, offset: %d, complete: %v, resp: %+v",
 			addr, i+1, chunks, start, complete, reply.ErrCode)
 

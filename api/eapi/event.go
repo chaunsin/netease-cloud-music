@@ -242,9 +242,10 @@ func (a *Api) uploadEventImage(ctx context.Context, filePath, uploadNode string,
 			"X-Nos-Token":  tokenReply.Result.Token,
 			"Content-Type": utils.DetectContentType(data, ext),
 		}
+		opts = api.NewOptions().SetMethod(http.MethodPut).SetHeaders(headers)
 	)
 
-	reply, err := a.client.Upload(ctx, http.MethodPut, uploadURL, headers, bytes.NewReader(data), nil, nil) // resp 暂时为空后续补充
+	reply, err := a.client.Upload(ctx, uploadURL, bytes.NewReader(data), nil, opts, nil) // resp 暂时为空后续补充
 	if err != nil {
 		return nil, fmt.Errorf("upload file: %w", err)
 	}

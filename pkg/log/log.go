@@ -18,7 +18,6 @@ import (
 )
 
 var (
-	Default       = New(&defaultConfig)
 	hostname, _   = os.Hostname()
 	defaultConfig = Config{
 		App:    hostname,
@@ -34,7 +33,23 @@ var (
 			Compress:   true,
 		},
 	}
+	_default atomic.Pointer[Logger]
 )
+
+func init() {
+	SetDefault(New(&defaultConfig))
+}
+
+// GetDefault returns the process-wide logger used by package-level helpers.
+// It replaces direct access to the former Default variable.
+func GetDefault() *Logger {
+	return _default.Load()
+}
+
+// SetDefault replaces the process-wide logger used by package-level helpers.
+func SetDefault(l *Logger) {
+	_default.Store(l)
+}
 
 type Config struct {
 	App    string            `json:"app,omitempty" yaml:"app"`
@@ -242,43 +257,43 @@ func (l *Logger) log(ctx context.Context, level slog.Level, msg string, args ...
 }
 
 func Debugf(format string, args ...any) {
-	Default.log(context.Background(), slog.LevelDebug, fmt.Sprintf(format, args...))
+	GetDefault().log(context.Background(), slog.LevelDebug, fmt.Sprintf(format, args...))
 }
 
 func Infof(format string, args ...any) {
-	Default.log(context.Background(), slog.LevelInfo, fmt.Sprintf(format, args...))
+	GetDefault().log(context.Background(), slog.LevelInfo, fmt.Sprintf(format, args...))
 }
 
 func Warnf(format string, args ...any) {
-	Default.log(context.Background(), slog.LevelWarn, fmt.Sprintf(format, args...))
+	GetDefault().log(context.Background(), slog.LevelWarn, fmt.Sprintf(format, args...))
 }
 
 func Errorf(format string, args ...any) {
-	Default.log(context.Background(), slog.LevelError, fmt.Sprintf(format, args...))
+	GetDefault().log(context.Background(), slog.LevelError, fmt.Sprintf(format, args...))
 }
 
 func Fatalf(format string, args ...any) {
-	Default.log(context.Background(), slog.LevelError, fmt.Sprintf(format, args...))
+	GetDefault().log(context.Background(), slog.LevelError, fmt.Sprintf(format, args...))
 	os.Exit(1)
 }
 
 func Debug(msg string, args ...any) {
-	Default.log(context.Background(), slog.LevelDebug, msg, args...)
+	GetDefault().log(context.Background(), slog.LevelDebug, msg, args...)
 }
 
 func Info(msg string, args ...any) {
-	Default.log(context.Background(), slog.LevelInfo, msg, args...)
+	GetDefault().log(context.Background(), slog.LevelInfo, msg, args...)
 }
 
 func Warn(msg string, args ...any) {
-	Default.log(context.Background(), slog.LevelWarn, msg, args...)
+	GetDefault().log(context.Background(), slog.LevelWarn, msg, args...)
 }
 
 func Error(msg string, args ...any) {
-	Default.log(context.Background(), slog.LevelError, msg, args...)
+	GetDefault().log(context.Background(), slog.LevelError, msg, args...)
 }
 
 func Fatal(msg string, args ...any) {
-	Default.log(context.Background(), slog.LevelError, msg, args...)
+	GetDefault().log(context.Background(), slog.LevelError, msg, args...)
 	os.Exit(1)
 }

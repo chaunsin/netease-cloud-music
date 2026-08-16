@@ -5,37 +5,53 @@ package weapi
 
 import (
 	"context"
-	"os"
+	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/internal/testutil"
 	"github.com/chaunsin/netease-cloud-music/pkg/cookie"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 )
 
-var (
-	cli *Api
-	ctx = context.TODO()
-)
+func newLiveWEAPI(t *testing.T) *Api {
+	t.Helper()
+	testutil.RequireLiveAPI(t)
 
-func TestMain(t *testing.M) {
-	log.Default = log.New(&log.Config{
-		Level:  "debug",
-		Stdout: true,
-	})
-
-	cfg := api.Config{
-		Debug:   true,
-		Timeout: 0,
-		Retry:   0,
+	return newTestWEAPI(t, &api.Config{
+		Debug: true,
 		Cookie: cookie.Config{
-			Options:  nil,
 			Filepath: "../../testdata/cookie.json",
-			Interval: 0,
 		},
-	}
-	client := api.New(&cfg)
-	cli = New(client)
+	})
+}
 
-	os.Exit(t.Run())
+func newOfflineWEAPI(t *testing.T) *Api {
+	t.Helper()
+	home := t.TempDir()
+
+	return newTestWEAPI(t, &api.Config{
+		Timeout: time.Second,
+		HomeDir: home,
+		Cookie: cookie.Config{
+			Filepath: filepath.Join(home, "cookie.json"),
+		},
+	})
+}
+
+func newTestWEAPI(t *testing.T, cfg *api.Config) *Api {
+	t.Helper()
+
+	logger := log.New(&log.Config{Level: "error"})
+	client, err := api.NewClient(cfg, logger)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, client.Close(context.Background()))
+		require.NoError(t, logger.Close())
+	})
+	return New(client)
 }

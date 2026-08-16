@@ -143,6 +143,18 @@ func TestPersistentCookieRejectsInvalidEntriesWithoutChangingFile(t *testing.T) 
 		"entry id": func(e entry) (string, string, entry) {
 			return jarKey(e.Domain, publicsuffix.List), "wrong-id", e
 		},
+		"cookie name": func(e entry) (string, string, entry) {
+			e.Name = "invalid name"
+			id := e.id()
+
+			return jarKey(e.Domain, publicsuffix.List), id, e
+		},
+		"cookie value": func(e entry) (string, string, entry) {
+			e.Value += ";private"
+			id := e.id()
+
+			return jarKey(e.Domain, publicsuffix.List), id, e
+		},
 		"canonical domain": func(e entry) (string, string, entry) {
 			e.Domain = "EXAMPLE.COM"
 			id := e.id()

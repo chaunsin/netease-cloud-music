@@ -7,17 +7,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/chaunsin/netease-cloud-music/api/internal/testutil"
 )
 
 func TestYunBeiInSign(t *testing.T) {
-	testutil.RequireLiveAPI(t)
+	cli := newLiveEAPI(t)
 
 	req := YunBeiSignInReq{
 		Type: 1,
 	}
-	got, err := cli.YunBeiSignIn(ctx, &req)
+	got, err := cli.YunBeiSignIn(t.Context(), &req)
 	require.NoError(t, err)
 	t.Logf("YunBeiSignIn: %+v\n", got)
 }

@@ -254,7 +254,7 @@ func newSignFlowClient(t *testing.T, responses [][]byte) (*api.Client, *signFlow
 	})
 
 	transport := &signFlowTransport{responses: responses}
-	client.GetClient().Transport = transport
+	client.SetTransport(transport)
 	return client, transport
 }
 

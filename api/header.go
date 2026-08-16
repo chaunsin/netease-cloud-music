@@ -11,10 +11,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
+
+const defUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034"
 
 // defaultHeaders 由于是手动配置需要满足规范, cookie注意大写,header需要满足 http.CanonicalHeaderKey() 规范。
 // 当前配置的值不能随意修改，以免造成apl中得Request空指针问题。
@@ -148,54 +150,52 @@ type Headers struct {
 }
 
 func (h *Headers) Validate() error {
-	for k := range defaultHeaders.API.Header {
-		if h.API.Header.Get(k) == "" {
-			return fmt.Errorf("api: %v header value required. ", k)
+	sections := []struct {
+		name     string
+		actual   *HeaderItem
+		expected *HeaderItem
+	}{
+		{name: "api", actual: &h.API, expected: &defaultHeaders.API},
+		{name: "eapi", actual: &h.EAPI, expected: &defaultHeaders.EAPI},
+		{name: "weapi", actual: &h.WEAPI, expected: &defaultHeaders.WEAPI},
+		{name: "xeapi", actual: &h.XEAPI, expected: &defaultHeaders.XEAPI},
+		{name: "linuxapi", actual: &h.LinuxAPI, expected: &defaultHeaders.LinuxAPI},
+	}
+
+	for _, sec := range sections {
+		for k := range sec.expected.Header {
+			if sec.actual.Header.Get(k) == "" {
+				return fmt.Errorf("%s: %v header value required. ", sec.name, k)
+			}
+		}
+
+		for k := range sec.expected.Cookie {
+			if sec.actual.GetCookie(k) == "" {
+				return fmt.Errorf("%s: %v cookie value required. ", sec.name, k)
+			}
+		}
+
+		if err := validateHeaderCookies(sec.name, sec.actual.Cookie); err != nil {
+			return err
 		}
 	}
 
-	for k := range defaultHeaders.API.Cookie {
-		if h.API.GetCookie(k) == "" {
-			return fmt.Errorf("api: %v cookie value required. ", k)
-		}
+	return nil
+}
+
+func validateHeaderCookies(mode string, cookies map[string]string) error {
+	names := make([]string, 0, len(cookies))
+	for name := range cookies {
+		names = append(names, name)
 	}
 
-	for k := range defaultHeaders.EAPI.Header {
-		if h.EAPI.Header.Get(k) == "" {
-			return fmt.Errorf("eapi: %v header value required. ", k)
+	slices.Sort(names)
+
+	for _, name := range names {
+		if err := (&http.Cookie{Name: name, Value: cookies[name]}).Valid(); err != nil {
+			return fmt.Errorf("%s: Cookie %q is invalid", mode, name)
 		}
 	}
-
-	for k := range defaultHeaders.WEAPI.Cookie {
-		if h.WEAPI.GetCookie(k) == "" {
-			return fmt.Errorf("weapi: %v cookie value required. ", k)
-		}
-	}
-
-	for k := range defaultHeaders.XEAPI.Header {
-		if h.XEAPI.Header.Get(k) == "" {
-			return fmt.Errorf("xeapi: %v header value required. ", k)
-		}
-	}
-
-	for k := range defaultHeaders.XEAPI.Cookie {
-		if h.XEAPI.GetCookie(k) == "" {
-			return fmt.Errorf("xeapi: %v cookie value required. ", k)
-		}
-	}
-
-	for k := range defaultHeaders.LinuxAPI.Header {
-		if h.LinuxAPI.Header.Get(k) == "" {
-			return fmt.Errorf("linuxapi: %v header value required. ", k)
-		}
-	}
-
-	for k := range defaultHeaders.LinuxAPI.Cookie {
-		if h.LinuxAPI.GetCookie(k) == "" {
-			return fmt.Errorf("linuxapi: %v cookie value required. ", k)
-		}
-	}
-
 	return nil
 }
 
@@ -267,72 +267,4 @@ func (h *Headers) clone() Headers {
 		XEAPI:    h.XEAPI.clone(),
 		LinuxAPI: h.LinuxAPI.clone(),
 	}
-}
-
-// resolveHeaderValue header头加载顺序与优先级:
-// 用户接口传入 > 系统默认.
-func (c *Client) resolveHeaderValue(name string, userHeader http.Header, defVal string) string {
-	// 返回用户传入值
-	var userVal string
-	if userHeader != nil {
-		userVal = userHeader.Get(name)
-	}
-
-	if userVal != "" {
-		return userVal
-	}
-
-	// 返回系统默认
-	return defVal
-}
-
-// resolveRequestCookie 从cookie中加载顺序与优先级:
-// 用户接口传入 > 已写入cookiejar > 系统默认.
-func (c *Client) resolveRequestCookie(name string, userCookie []*http.Cookie, defVal string) *http.Cookie {
-	// 返回用户传入值
-	if len(userCookie) > 0 {
-		for _, ck := range userCookie {
-			if ck == nil {
-				continue
-			}
-
-			val := strings.TrimSpace(ck.Value)
-			if ck.Name == name && val != "" {
-				return ck
-			}
-		}
-	}
-
-	// 从当前cookiejar中获取值.
-	// NOTE: 暂时定位从 https://music.163.com 中获取，其他127.com、126.com等等域名得数据不支持获取。
-	cookieVal, ok := c.Cookie("https://music.163.com", name) // TODO: 存在遗漏问题
-	if ok && cookieVal.Value != "" {
-		return &cookieVal
-	}
-
-	value := strings.TrimSpace(defVal)
-	if value == "" {
-		return nil
-	}
-
-	// 返回系统默认,domain暂时为 music.163.com
-	return &http.Cookie{Name: name, Value: value, Domain: defDomain}
-}
-
-// resolveCookieOrHeaderValue 从header和cookie中获取，先从cookie中获取，然后从header中获取,找到第一个对象后返回.
-// 注意: name区分大小写cookie获取场景.
-func (c *Client) resolveCookieOrHeaderValue(name string, opts *Options, defVal *HeaderItem) string {
-	if opts == nil {
-		if defVal == nil {
-			return ""
-		}
-		return defVal.Get(name)
-	}
-
-	cookie := c.resolveRequestCookie(name, opts.Cookies, defVal.GetCookie(name))
-	if cookie != nil && cookie.Value != "" {
-		return cookie.Value
-	}
-
-	return c.resolveHeaderValue(name, opts.Headers, defVal.GetHeader(name))
 }
