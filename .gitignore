@@ -976,5 +976,9 @@ Temporary Items
 /build/
 note.md
 /.trae/
-/.claude/settings.local.json
 /.codex/environments/
+/.claude/settings.local.json
+/.claude/skills/prd/
+/.claude/skills/prd-to-spec/
+/.agents/skills/prd/
+/.agents/skills/prd-to-spec/

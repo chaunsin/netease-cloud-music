@@ -41,6 +41,7 @@
 | `ncmctl crypto <encrypt-or-decrypt>` | 否     | 调试 API 加解密格式                   |
 | `ncmctl curl [method]`               | 取决于接口 | 调用导出的 Go API wrapper           |
 | `ncmctl proxy [flags]`               | 否     | 启动 HTTP(S) 监控代理                |
+| `ncmctl update [flags]`              | 否     | 从 GitHub Releases 升级并替换本地可执行文件  |
 | `ncmctl completion <shell>`          | 否     | 生成 shell 补全脚本                  |
 
 

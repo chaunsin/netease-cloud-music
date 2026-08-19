@@ -80,6 +80,7 @@ func TestCommandHelpContract(t *testing.T) {
 		{path: []string{"crypto", "decrypt"}, use: "decrypt <ciphertext-or-har>", longContains: "X25519 private key", exampleContains: "--kind xeapi"},
 		{path: []string{"curl"}, use: "curl [method]", longContains: "not the system curl", exampleContains: "GetUserInfo"},
 		{path: []string{"proxy"}, use: "proxy", longContains: "never modifies a trust store", exampleContains: "--ca-cert"},
+		{path: []string{"update"}, use: "update", longContains: "SHA-256", exampleContains: "--proxy"},
 	}
 
 	for _, tt := range tests {
@@ -126,6 +127,7 @@ func TestCommandPositionalArgumentContract(t *testing.T) {
 		{path: []string{"crypto", "decrypt"}, valid: [][]string{{"ciphertext"}}, invalid: [][]string{{}, {"one", "two"}}},
 		{path: []string{"curl"}, valid: [][]string{{}, {"GetUserInfo"}}, invalid: [][]string{{"one", "two"}}},
 		{path: []string{"proxy"}, valid: [][]string{{}}, invalid: [][]string{{"extra"}}},
+		{path: []string{"update"}, valid: [][]string{{}}, invalid: [][]string{{"extra"}}},
 	}
 
 	for _, tt := range tests {
@@ -175,6 +177,7 @@ func TestCommandFlagDescriptionsExplainConstraints(t *testing.T) {
 		{path: []string{"crypto", "decrypt"}, flag: "dynamic-key-encode", contains: "string, hex, or base64"},
 		{path: []string{"curl"}, flag: "method", contains: "not an HTTP verb"},
 		{path: []string{"proxy"}, flag: "max-body", contains: "forwarding is unaffected"},
+		{path: []string{"update"}, flag: "proxy", contains: "space-separated"},
 	}
 
 	for _, tt := range tests {
