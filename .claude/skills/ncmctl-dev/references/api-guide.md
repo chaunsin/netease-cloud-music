@@ -1,266 +1,179 @@
-# API Development Guide
+# API Client and Endpoint Development
 
-## Table of Contents
+Use this reference for endpoint wrappers, `api.Client`, request options, auxiliary HTTP clients, and transport security.
+
+## Contents
 
 - [Architecture](#architecture)
-- [API Client Core](#api-client-core)
-- [Adding a New API Endpoint](#adding-a-new-api-endpoint)
-- [Encryption Details](#encryption-details)
-- [Cookie Management](#cookie-management)
-- [Configuration System](#configuration-system)
-- [Database Layer](#database-layer)
-- [Error Handling Patterns](#error-handling-patterns)
+- [Constructing a client](#constructing-a-client)
+- [Adding an endpoint](#adding-an-endpoint)
+- [Request options](#request-options)
+- [Transport security](#transport-security)
+- [Error handling](#error-handling)
+- [Testing strategy](#testing-strategy)
 
 ## Architecture
 
-```
-┌──────────────┐     ┌─────────────┐     ┌──────────────┐
-│  CLI Layer   │────▶│  API Layer  │────▶│  NetEase API │
-│ (cobra/cmd)  │     │ (weapi/etc) │     │  (remote)    │
-└──────────────┘     └─────────────┘     └──────────────┘
-                            │
-                     ┌──────┴──────┐
-                     │  api.Client │
-                     │  (core)     │
-                     └──────┬──────┘
-                            │
-              ┌─────────────┼─────────────┐
-              │             │             │
-        ┌─────┴────┐ ┌─────┴────┐ ┌─────┴────┐
-        │  crypto  │ │  cookie  │ │  resty   │
-        │ (encrypt)│ │(persist) │ │ (http)   │
-        └──────────┘ └──────────┘ └──────────┘
+```text
+internal/ncmctl command or external caller
+                  |
+                  v
+api/weapi, api/eapi, api/api, api/linux
+                  |
+                  v
+             api.Client
+       /          |           \
+ pkg/crypto   pkg/cookie   resty/http
+       |
+ api/xeapi.go coordinates XEAPI key and session state
 ```
 
-## API Client Core
+`api.Client` owns transport, retry/timeout settings, the persistent Cookie Jar, crypto-mode dispatch, response decoding, and XEAPI state. Endpoint packages define typed request/response contracts and select options. Load `references/protocols.md` through the skill routing table for wire-format or cryptographic changes.
 
-The `api.Client` in `api/api.go` is the central HTTP client handling:
+## Constructing a client
 
-- Request dispatch via `resty`
-- Automatic parameter encryption/decryption based on `CryptoMode`
-- Cookie jar with periodic disk persistence
-- Response parsing into typed structs
-
-### Creating a Client
+Use `api.NewClient` wherever initialization errors can be returned. `api.New` panics and is retained only for callers or tests that intentionally accept that behavior.
 
 ```go
-cfg := &config.Network{
-    Timeout: 60 * time.Second,
-    Retry:   3,
-    Cookie: config.Cookie{
-        Filepath: "${HOME}/.ncmctl/cookie.json",
-        Interval: 3 * time.Second,
-    },
+cli, err := api.NewClient(networkConfig, logger)
+if err != nil {
+	return fmt.Errorf("create API client: %w", err)
 }
-cli, err := api.NewClient(cfg, logger)
-if err != nil { /* handle */ }
-defer cli.Close(ctx) // ensures cookie flush
+defer func() {
+	if closeErr := cli.Close(ctx); closeErr != nil {
+		logger.Logger().Error("close API client", "error", closeErr)
+	}
+}()
 ```
 
-### Making API Calls
+Inside `internal/ncmctl`, use the existing `closeAPIClient` helper instead of repeating cleanup logic. Load `references/configuration.md` through the skill routing table when changing Cookie configuration or persistence behavior.
 
-```go
-weapiClient := weapi.New(cli)
-resp, err := weapiClient.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
-if err != nil { /* handle */ }
-if resp.Code != 200 { /* handle API error */ }
-```
+`Client` owns Cookie handling through its transport boundary. `GetClient().Jar` is intentionally `nil`; do not assign it or replace `GetClient().Transport`, because either bypasses the supported Cookie ownership model. Tests and advanced callers that need a fake or custom lower transport use `Client.SetTransport(http.RoundTripper)`, which preserves Cookie merge and response writeback; custom transports must honor request context cancellation. `Close(ctx)` immediately closes the Cookie transport entry, then a shared background shutdown waits current `RoundTrip` calls and their Cookie writeback, closes idle connections, and persists XEAPI, anonymous, and Cookie state. A canceled context returns early without stopping that shutdown; a later `Close` waits for the same result. It does not track the complete lifetime of `Request`, `Upload`, or `Download`; callers must finish those before closing the client.
 
-## Adding a New API Endpoint
+## Adding an endpoint
 
-### Step 1: Create the API file
-
-Create a new file in `api/weapi/` (or `api/eapi/`):
+Create the method in the package matching the wire protocol. A WEAPI endpoint follows this shape:
 
 ```go
 package weapi
 
-type MyNewFeatureReq struct {
-    Id string `json:"id"`
+import (
+	"context"
+	"fmt"
+
+	"github.com/chaunsin/netease-cloud-music/api"
+)
+
+type FeatureReq struct {
+	ID string `json:"id"`
 }
 
-type MyNewFeatureResp struct {
-    Code int    `json:"code"`
-    Data string `json:"data"`
+type FeatureResp struct {
+	Code int64 `json:"code"`
+	Data any   `json:"data"`
 }
 
-func (a *Api) MyNewFeature(ctx context.Context, req *MyNewFeatureReq) (*MyNewFeatureResp, error) {
-    var resp MyNewFeatureResp
-    _, err := a.client.Request(ctx, "https://music.163.com/weapi/my/new/feature", req, &resp,
-        api.WithCryptoMode(api.CryptoModeWEAPI),
-    )
-    if err != nil {
-        return nil, fmt.Errorf("MyNewFeature: %w", err)
-    }
-    return &resp, nil
-}
-```
+func (a *Api) Feature(ctx context.Context, req *FeatureReq) (*FeatureResp, error) {
+	var (
+		endpoint = "https://music.163.com/weapi/example/feature"
+		reply    FeatureResp
+		opts     = api.NewOptions()
+	)
 
-### Step 2: Choose the right CryptoMode
-
-| Mode | When to use |
-|------|-------------|
-| `CryptoModeWEAPI` | Web/mini-program endpoints (most common) |
-| `CryptoModeEAPI` | PC/mobile endpoints (uses `/eapi/` prefix) |
-| `CryptoModeLinux` | Linux client endpoints |
-| `CryptoModeAPI` | No encryption needed |
-
-### Step 3: Use in CLI command
-
-```go
-cli, err := api.NewClient(c.root.Cfg.Network, c.l)
-defer cli.Close(ctx)
-request := weapi.New(cli)
-if request.NeedLogin(ctx) { return fmt.Errorf("need login") }
-resp, err := request.MyNewFeature(ctx, &weapi.MyNewFeatureReq{Id: "123"})
-```
-
-## Encryption Details
-
-### weapi Encryption (`pkg/crypto/crypto.go`)
-
-1. Generate random 16-byte `secKey` and `aesKey`
-2. Double-encrypt params with AES-CBC:
-   - First encryption: AES-CBC(aesKey, iv=0102030405060708, plaintext)
-   - Second encryption: AES-CBC(presetKey, iv=0102030405060708, firstResult)
-3. Encrypt `aesKey` with RSA (no padding, reverse bytes)
-4. POST with `params` (encrypted data) and `encSecKey` (encrypted key)
-
-### eapi Encryption
-
-1. AES-ECB encrypt params with eapi key
-2. Add MD5 signature header
-3. Response can be decrypted with `EApiDecrypt()`
-
-### Key Constants
-
-All encryption keys are defined in `pkg/crypto/crypto.go`:
-- `presetKey`: `0CoJUm6Qyw8W8jud`
-- `iv`: `0102030405060708`
-- `publicKey`: RSA public key for weapi
-- `eapiKey`: AES key for eapi
-- `linuxKey`: AES key for linux api
-
-## Cookie Management
-
-### Storage
-
-- Cookie jar in `pkg/cookie/` implements `http.CookieJar`
-- Auto-persisted to JSON file at configurable interval (default 3s)
-- File format: JSON array of cookie entries
-
-### CookieCloud
-
-`pkg/cookiecloud/` provides:
-- Encrypted cookie sync with CookieCloud server
-- AES-GCM decryption of synced data
-- Automatic extraction of NetEase music cookies
-
-### Usage in API Client
-
-```go
-// Set cookies (e.g., after login)
-cli.SetCookies(cookies)
-
-// Get cookies
-cookies := cli.GetCookies()
-
-// Cookie persistence is automatic via interval flush
-// cli.Close(ctx) ensures final flush
-```
-
-## Configuration System
-
-### Config Structure (`config/config.go`)
-
-```go
-type Config struct {
-    Version  string
-    Log      LogConfig
-    Network  NetworkConfig
-    Database DatabaseConfig
+	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+	return &reply, nil
 }
 ```
 
-### Features
+Keep transport failure and business failure separate: the wrapper returns request/decode errors, while a command or service checks `reply.Code` according to that endpoint's contract.
 
-- **Viper-based**: Supports YAML, env vars, flags
-- **Env var override**: Prefix `NCmctl_`, e.g., `NCmctl_Log_Level=debug`
-- **Magic variables**: `${HOME}` replaced at runtime with `config.ReplaceMagicVariables()`
-- **Validation**: `config.Validate()` checks all fields
-- **Defaults**: `config.GetDefault()` returns sensible defaults
+Before inventing a shared response type, search `api/types` and neighboring endpoints. Do not move an endpoint-specific shape into `api/types` solely to shorten one file.
 
-### Default Paths
+## Request options
 
-| Item | Path |
-|------|------|
-| Config | `~/.ncmctl/config.yaml` |
-| Cookie | `~/.ncmctl/cookie.json` |
-| Database | `~/.ncmctl/database/badger/` |
-| Log | `~/.ncmctl/log/ncm.log` |
-
-## Database Layer
-
-### Interface (`pkg/database/database.go`)
+`api.NewOptions()` defaults to POST plus `CryptoModeWEAPI`. Options are mutable setters, not functional options.
 
 ```go
-type Database interface {
-    Get(ctx context.Context, key string) (string, error)
-    Set(ctx context.Context, key, value string) error
-    SetWithTTL(ctx context.Context, key, value string, ttl time.Duration) error
-    Delete(ctx context.Context, key string) error
-    Exists(ctx context.Context, key string) (bool, error)
-    Increment(ctx context.Context, key string, delta int64, ttl time.Duration) (int64, error)
-    Close(ctx context.Context) error
-}
+opts := api.NewOptions().SetCryptoModeEAPI()
+opts.SetMethod(http.MethodPost)
+opts.SetHeader("key", "value")
+opts.SetCookies(cookies...)
 ```
 
-### Badger Implementation (`pkg/database/badger/badger.go`)
+Code that previously assigned the removed `Options.Cookies` field must migrate to `SetCookies`.
 
-- Uses Badger v4 as the storage backend
-- Supports TTL for automatic key expiry
-- Used by scrobble for dedup records and daily counters
+For one logical request, Cookie precedence is `Options.SetCookies > URL-scoped persistent Jar > protocol defaults`. `Options.SetHeader` and `Options.SetHeaders` intentionally ignore `Cookie`; callers must use `SetCookies`. Same-name option Cookies use the last value, and only that value is sent. Invalid option or Jar Cookies fail before transport without exposing their values in the error. The original request Header contains only Options Cookies; Jar, protocol defaults, and frozen identity are added at each `RoundTrip`. After XEAPI URL rewriting, `Request` freezes only the Cookie values used by CSRF, protocol headers, and encrypted identity; ordinary Jar Cookies are read again before every physical send. This keeps protocol identity consistent across retries without modifying the caller's options or business payload. Cookie defaults are only sent to `music.163.com` and its subdomains; redirects otherwise retain the standard `net/http` header-copy behavior while the transport re-evaluates URL-scoped Jar cookies at every hop. As in Go 1.26's `net/http.Client`, a non-empty custom `Host` replaces the URL authority for Cookie Jar lookup, protocol-default scoping, and response writeback; it does not change the transport URL or the route authenticated by EAPI/XEAPI encryption.
 
-### Key Patterns
+Available modes:
 
-```
-scrobble:record:{uid}:{songId}    # Song play record
-scrobble:today:{uid}              # Daily scrobble counter
-```
+| Mode | Endpoint/client use | Current constraint |
+| --- | --- | --- |
+| `CryptoModeWEAPI` | Default Web and mini-program requests | Plain JSON response |
+| `CryptoModeEAPI` | PC and mobile requests | JSON-object payloads receive missing `e_r=true` and `header="{}"`; `e_r` selects plaintext or encrypted responses and `x-aeapi` selects inner gzip compression |
+| `CryptoModeLinux` | Linux-client requests | Uses the Linux request and response path |
+| `CryptoModeAPI` | Plain API requests | The generic layer does not serialize `req` into query or form parameters |
+| `CryptoModeXEAPI` | Stateful Aegis/XEAPI requests | Client coordinates URL rewriting, keys, session headers, and response decryption |
 
-## Error Handling Patterns
+There is no `api.WithCryptoMode`. Select modes with `SetCryptoModeWEAPI`, `SetCryptoModeEAPI`, `SetCryptoModeLinux`, `SetCryptoModeAPI`, or `SetCryptoModeXEAPI`.
 
-### API Response Codes
+`api.Client.Request` currently supports GET and POST. Do not set another verb without implementing its transport branch and tests. Check whether an existing GET endpoint actually serializes the request fields before copying its pattern.
 
-| Code | Meaning |
-|------|---------|
-| 200 | Success |
-| 405 | Already completed (partner) |
-| 703 | Not a music partner |
-| 8821 | Need behavior verification (risk control) |
+For EAPI requests, `Client.Request` normalizes every payload from its final JSON representation, so `map`, struct, and custom `MarshalJSON` inputs follow the same path without field reflection or mutation of the caller's value. Missing `e_r` defaults to `true`; missing, `null`, or empty-string `header` defaults to the JSON string `"{}"`. A non-object payload or an `e_r` value that is not a boolean is rejected before the HTTP request is sent.
 
-### Common Error Patterns
+The generic layer can only observe the wire JSON. A plain `bool` cannot express both an omitted value and an explicit `false`; requests that need that distinction use `*bool` with `omitempty`, as `types.EApiReqCommon` does. Its `SetResponseEncrypted(false)` method selects a plaintext response. This is a source-breaking change from the former `ER bool` and `Header any` fields; migrate struct literals to the setter (or a `*bool`) and a JSON string header.
+
+For an `e_r=false` response, `Client.Request` decodes plaintext JSON. For an `e_r=true` response, it decrypts raw binary ciphertext; when `x-aeapi=true`, the decrypted payload is gzip-compressed and is transparently expanded. ASCII-hex ciphertext and plaintext JSON are not accepted as `e_r=true` response bodies. EAPI response-processing failures return `*api.APIError`, which callers can retrieve with `errors.As`. Its `StatusCode` is the HTTP status, and `Err` contains any decryption, decompression, or JSON-decoding failure. Non-200 responses go through the same response processing before `Client.Request` returns `APIError`.
+
+## Transport security
+
+The current `api.Client`, CookieCloud client, and HTTP alert client all set `tls.Config.InsecureSkipVerify` to `true`. HTTPS connections therefore encrypt traffic but do not authenticate the server certificate. Treat this as a current security defect, not a compatibility requirement:
+
+- Do not describe these connections as peer-authenticated.
+- Do not copy the setting into new clients or tests.
+- Keep credentials and Cookie values out of transport diagnostics.
+- When changing TLS behavior, use local trusted and untrusted TLS servers to cover certificate validation; do not contact live services.
+
+Removing this setting changes runtime behavior and is outside a documentation-only task. Keep the limitation explicit until the implementation and regression coverage change together.
+
+## Error handling
+
+Use contextual wrapping for transport and local failures:
 
 ```go
-// API call with error check
-resp, err := request.SomeMethod(ctx, req)
+resp, err := request.Feature(ctx, req)
 if err != nil {
-    return fmt.Errorf("SomeMethod: %w", err)
+	return fmt.Errorf("Feature: %w", err)
 }
 if resp.Code != 200 {
-    return fmt.Errorf("SomeMethod: %+v", resp)
+	return fmt.Errorf("Feature response: %+v", resp)
 }
-
-// Login check
-if request.NeedLogin(ctx) {
-    return fmt.Errorf("need login")
-}
-
-// Token refresh (always defer after login check)
-defer func() {
-    refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
-    if err != nil || refresh.Code != 200 {
-        log.Warn("TokenRefresh resp:%+v err: %s", refresh, err)
-    }
-}()
 ```
+
+Do not:
+
+- return a non-nil zero-value response for an unimplemented endpoint;
+- convert a transport error into an API business code;
+- log secrets or full encrypted envelopes merely because debug logging is enabled;
+- discard cleanup errors where a helper or deferred logger is available;
+- treat one endpoint's response codes as a repository-wide enum.
+
+## Testing strategy
+
+Prefer deterministic, offline tests:
+
+- `httptest.Server` or a fake `RoundTripper` for methods, request serialization, headers, cookies, retries, and timeouts;
+- inject a fake through `Client.SetTransport`, never by replacing `Client.GetClient().Transport`, when Cookie behavior must remain under test;
+- table tests for endpoint request/response shapes and transport-versus-business errors;
+- malformed HTTP or JSON responses, canceled contexts, and boundary-size cases;
+- injected reader, writer, and closer failures at client transport boundaries;
+- local trusted and untrusted TLS servers for certificate-validation behavior.
+
+Useful focused commands:
+
+```bash
+go test ./api ./pkg/cookiecloud ./pkg/alert/...
+```
+
+The live tests in `api/weapi` and `api/eapi` call `testutil.RequireLiveAPI` and are skipped unless `NCMCTL_RUN_LIVE_TESTS=1`. Some can act on an account, so keep the switch unset in automation and use `make test-live` only deliberately and with explicit authorization.

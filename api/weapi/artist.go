@@ -1,25 +1,5 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package weapi
 
@@ -42,6 +22,7 @@ type ArtistSongsReq struct {
 
 type ArtistSongsResp struct {
 	types.RespCommon[any]
+
 	More  bool                   `json:"more"`
 	Total int64                  `json:"total"`
 	Songs []ArtistSongsRespSongs `json:"songs"`
@@ -49,14 +30,14 @@ type ArtistSongsResp struct {
 
 type ArtistSongsRespSongs struct {
 	Id              int64          `json:"id"`
-	A               interface{}    `json:"a"`
+	A               any            `json:"a"`
 	Al              types.Album    `json:"al"`
 	Alia            []string       `json:"alia"`
 	Ar              []types.Artist `json:"ar"`
 	Cd              string         `json:"cd"`
 	Cf              string         `json:"cf"`
 	Cp              int64          `json:"cp"`
-	Crbt            interface{}    `json:"crbt"`
+	Crbt            any            `json:"crbt"`
 	DjId            int64          `json:"djId"`
 	Dt              int64          `json:"dt"`
 	Fee             int64          `json:"fee"`
@@ -70,46 +51,50 @@ type ArtistSongsRespSongs struct {
 	Mv              int64          `json:"mv"`
 	Name            string         `json:"name"`
 	No              int64          `json:"no"`
-	NoCopyrightRcmd interface{}    `json:"noCopyrightRcmd"`
+	NoCopyrightRcmd any            `json:"noCopyrightRcmd"`
 	Pop             float64        `json:"pop"`
 	Pst             int64          `json:"pst"`
 	Rt              string         `json:"rt"`
-	RtUrl           interface{}    `json:"rtUrl"`
-	RtUrls          []interface{}  `json:"rtUrls"`
+	RtUrl           any            `json:"rtUrl"`
+	RtUrls          []any          `json:"rtUrls"`
 	Rtype           int64          `json:"rtype"`
-	Rurl            interface{}    `json:"rurl"`
-	SongJumpInfo    interface{}    `json:"songJumpInfo"`
+	Rurl            any            `json:"rurl"`
+	SongJumpInfo    any            `json:"songJumpInfo"`
 	St              int64          `json:"st"`
 	T               int64          `json:"t"`
 	V               int64          `json:"v"`
 	Tns             []string       `json:"tns,omitempty"`
 	Privilege       struct {
 		types.Privileges
-		Code    int64       `json:"code"`
-		Message interface{} `json:"message"`
+
+		Code    int64 `json:"code"`
+		Message any   `json:"message"`
 	} `json:"privilege"`
 }
 
 // ArtistSongs 歌手所有歌曲
 // url:
-// needLogin:
+// needLogin:.
 func (a *Api) ArtistSongs(ctx context.Context, req *ArtistSongsReq) (*ArtistSongsResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/v1/artist/songs"
 		reply ArtistSongsResp
 		opts  = api.NewOptions()
 	)
+
 	if req.Order == "" {
 		req.Order = "hot"
 	}
+
 	if req.Limit == 0 {
 		req.Limit = 100
 	}
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

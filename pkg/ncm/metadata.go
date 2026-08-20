@@ -1,25 +1,5 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package ncm
 
@@ -34,30 +14,32 @@ type Artist struct {
 }
 
 func (a *Artist) UnmarshalJSON(data []byte) error {
-	var v []interface{}
+	var v []any
 	if err := json.Unmarshal(data, &v); err != nil {
 		return fmt.Errorf("ncm: parse artist data %v err: %w", string(data), err)
 	}
 
 	if len(v) != 2 {
-		fmt.Printf("ncm: parse artist err,len:%v type:%T value:%+v\n", len(v), v, v)
+		return fmt.Errorf("ncm: artist must contain name and id, got %d values", len(v))
 	}
 
 	var ok bool
+
 	a.Name, ok = v[0].(string)
 	if !ok {
-		fmt.Printf("ncm: parse artist.name err type:%T value:%+v\n", v, v)
+		return fmt.Errorf("ncm: artist name has type %T", v[0])
 	}
+
 	id, ok := v[1].(float64)
 	if !ok {
-		fmt.Printf("ncm: parse artist.id err type:%T value:%+v\n", v, v)
-		return nil
+		return fmt.Errorf("ncm: artist id has type %T", v[1])
 	}
+
 	a.Id = int64(id)
 	return nil
 }
 
-// AlbumPicDocId 解决有的歌曲id为int有的歌曲id为string问题
+// AlbumPicDocId 解决有的歌曲id为int有的歌曲id为string问题.
 type AlbumPicDocId string
 
 func (a *AlbumPicDocId) UnmarshalJSON(data []byte) error {
@@ -65,7 +47,7 @@ func (a *AlbumPicDocId) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MetadataMusic .
+// MetadataMusic describes the music metadata stored in an NCM file.
 type MetadataMusic struct {
 	Id            int64         `json:"musicId"`
 	Name          string        `json:"musicName"`
@@ -77,8 +59,8 @@ type MetadataMusic struct {
 	BitRate       int64         `json:"bitrate"`       //
 	Mp3DocId      string        `json:"mp3DocId"`      // eg: 7caa09bd32c62d0f415e45c0eec3da43
 	MvId          int64         `json:"mvId"`
-	Alias         []interface{} `json:"alias"`
-	TransNames    []interface{} `json:"transNames"`
+	Alias         []any         `json:"alias"`
+	TransNames    []any         `json:"transNames"`
 	Duration      int64         `json:"duration"` // 单位毫秒
 	Format        string        `json:"format"`   // eg: flac
 

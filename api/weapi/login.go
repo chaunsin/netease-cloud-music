@@ -1,55 +1,39 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package weapi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+
+	"github.com/skip2/go-qrcode"
 
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/skip2/go-qrcode"
 )
 
 type QrcodeCreateKeyReq struct {
 	types.ReqCommon
+
 	Type int64 `json:"type"` // 1: 貌似是web端 3: 貌似移动端
 }
 
 type QrcodeCreateKeyResp struct {
 	types.RespCommon[any]
+
 	UniKey string `json:"unikey"`
 }
 
 // QrcodeCreateKey 生成二维码需要得key
 // 常见问题
 // 1. 请求成功了,但是body为空值什么也没有,原因还是参数加密出现了问题。
-// 2. crsftoken 可传可不传个人猜测前端写得通用框架传了.
+// 2. Crsftoken 可传可不传个人猜测前端写得通用框架传了.
 func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*QrcodeCreateKeyResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/login/qrcode/unikey"
@@ -59,8 +43,9 @@ func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*Qr
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -74,6 +59,7 @@ type QrcodeGenerateReq struct {
 
 type QrcodeGenerateResp struct {
 	types.RespCommon[any]
+
 	Qrcode      []byte
 	QrcodePrint string
 }
@@ -81,11 +67,11 @@ type QrcodeGenerateResp struct {
 // QrcodeGenerate 根据 QrcodeCreateKey 接口生成得key生成生成二维码,注意此处不是调用服务接口。
 func (a *Api) QrcodeGenerate(ctx context.Context, req *QrcodeGenerateReq) (*QrcodeGenerateResp, error) {
 	var (
-		content = fmt.Sprintf("https://music.163.com/login?codekey=%s", req.CodeKey)
+		content = "https://music.163.com/login?codekey=" + req.CodeKey
 		reply   QrcodeGenerateResp
 	)
 	if req.Platform == "web" {
-		var did = req.DeviceId
+		did := req.DeviceId
 		if req.DeviceId == "" {
 			if ck, ok := a.client.Cookie("https://music.163.com", "deviceId"); ok {
 				did = ck.Value
@@ -93,17 +79,20 @@ func (a *Api) QrcodeGenerate(ctx context.Context, req *QrcodeGenerateReq) (*Qrco
 				did = utils.GenerateDeviceId()
 			}
 		}
-		content += fmt.Sprintf("&chainId=%s", utils.GenerateChainId(did))
+
+		content += "&chainId=" + utils.GenerateChainId(did)
 	}
 
 	qr, err := qrcode.New(content, req.Level)
 	if err != nil {
 		return nil, err
 	}
+
 	reply.Qrcode, err = qr.PNG(256)
 	if err != nil {
 		return nil, fmt.Errorf("PNG: %w", err)
 	}
+
 	reply.QrcodePrint = qr.ToSmallString(false)
 	// if err := qr.WriteFile(256, "./qrcode.png"); err != nil {
 	// 	return nil, fmt.Errorf("WriteFile: %w", err)
@@ -139,8 +128,9 @@ func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeChec
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -151,6 +141,7 @@ type GetUserInfoReq struct {
 
 type GetUserInfoResp struct {
 	types.RespCommon[any]
+
 	Account *GetUserInfoRespAccount `json:"account"`
 	Profile *GetUserInfoRespProfile `json:"profile"`
 }
@@ -172,43 +163,43 @@ type GetUserInfoRespAccount struct {
 }
 
 type GetUserInfoRespProfile struct {
-	UserId              int64       `json:"userId"`
-	UserType            int64       `json:"userType"`
-	Nickname            string      `json:"nickname"`
-	AvatarImgId         int64       `json:"avatarImgId"`
-	AvatarUrl           string      `json:"avatarUrl"`
-	BackgroundImgId     int64       `json:"backgroundImgId"`
-	BackgroundUrl       string      `json:"backgroundUrl"`
-	Signature           string      `json:"signature"`
-	CreateTime          int64       `json:"createTime"`
-	UserName            string      `json:"userName"`
-	AccountType         int64       `json:"accountType"`
-	ShortUserName       string      `json:"shortUserName"`
-	Birthday            int64       `json:"birthday"`
-	Authority           int64       `json:"authority"`
-	Gender              int64       `json:"gender"`
-	AccountStatus       int64       `json:"accountStatus"`
-	Province            int64       `json:"province"`
-	City                int64       `json:"city"`
-	AuthStatus          int64       `json:"authStatus"`
-	Description         interface{} `json:"description"`
-	DetailDescription   interface{} `json:"detailDescription"`
-	DefaultAvatar       bool        `json:"defaultAvatar"`
-	ExpertTags          interface{} `json:"expertTags"`
-	Experts             interface{} `json:"experts"`
-	DjStatus            int64       `json:"djStatus"`
-	LocationStatus      int64       `json:"locationStatus"`
-	VipType             int64       `json:"vipType"`
-	Followed            bool        `json:"followed"`
-	Mutual              bool        `json:"mutual"`
-	Authenticated       bool        `json:"authenticated"`
-	LastLoginTime       int64       `json:"lastLoginTime"`
-	LastLoginIP         string      `json:"lastLoginIP"`
-	RemarkName          interface{} `json:"remarkName"`
-	ViptypeVersion      int64       `json:"viptypeVersion"`
-	AuthenticationTypes int64       `json:"authenticationTypes"`
-	AvatarDetail        interface{} `json:"avatarDetail"`
-	Anchor              bool        `json:"anchor"`
+	UserId              int64  `json:"userId"`
+	UserType            int64  `json:"userType"`
+	Nickname            string `json:"nickname"`
+	AvatarImgId         int64  `json:"avatarImgId"`
+	AvatarUrl           string `json:"avatarUrl"`
+	BackgroundImgId     int64  `json:"backgroundImgId"`
+	BackgroundUrl       string `json:"backgroundUrl"`
+	Signature           string `json:"signature"`
+	CreateTime          int64  `json:"createTime"`
+	UserName            string `json:"userName"`
+	AccountType         int64  `json:"accountType"`
+	ShortUserName       string `json:"shortUserName"`
+	Birthday            int64  `json:"birthday"`
+	Authority           int64  `json:"authority"`
+	Gender              int64  `json:"gender"`
+	AccountStatus       int64  `json:"accountStatus"`
+	Province            int64  `json:"province"`
+	City                int64  `json:"city"`
+	AuthStatus          int64  `json:"authStatus"`
+	Description         any    `json:"description"`
+	DetailDescription   any    `json:"detailDescription"`
+	DefaultAvatar       bool   `json:"defaultAvatar"`
+	ExpertTags          any    `json:"expertTags"`
+	Experts             any    `json:"experts"`
+	DjStatus            int64  `json:"djStatus"`
+	LocationStatus      int64  `json:"locationStatus"`
+	VipType             int64  `json:"vipType"`
+	Followed            bool   `json:"followed"`
+	Mutual              bool   `json:"mutual"`
+	Authenticated       bool   `json:"authenticated"`
+	LastLoginTime       int64  `json:"lastLoginTime"`
+	LastLoginIP         string `json:"lastLoginIP"`
+	RemarkName          any    `json:"remarkName"`
+	ViptypeVersion      int64  `json:"viptypeVersion"`
+	AuthenticationTypes int64  `json:"authenticationTypes"`
+	AvatarDetail        any    `json:"avatarDetail"`
+	Anchor              bool   `json:"anchor"`
 }
 
 // GetUserInfo 获取用户信息.
@@ -221,8 +212,9 @@ func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInf
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -233,6 +225,7 @@ type TokenRefreshReq struct {
 
 type TokenRefreshResp struct {
 	types.RespCommon[any]
+
 	BizCode string `json:"bizCode"` // 201:貌似刷新成功 400:貌似刷新不成功 504:貌似token已经过期了或者无效了
 }
 
@@ -258,19 +251,24 @@ func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRef
 	// 其中header结构体中得字段X-antiCheatToken也传和checkToken同样之
 
 	// 经测试MUSIC_R_U需要传参,否则会返回bizCode返回400错误
-	// opts.SetHeader("x-anticheattoken", "9ca17ae2e6ffcda170e2e6ee88fb7db79eaf96f0409ab48aa3c54b929e9ab0d670b1ee8891d55fed93fd85b52af0feaec3b92af8f1e1a2e65293eb8c91c45b869a9fa6d45e948997daec44ad9b98a6cc70b59dee9e")
-	// opts.SetCookies(&http.Cookie{Name: "MUSIC_R_U", Value: "00C572559E9EC4370FB21EB2CDFC28BA79632C61958228B75DA68C65488B3719DE982C68ED14E9026C527B9896FC29CF399F86469F18716A44AAC30F6FEF8A40BCD5575D6D311B95ACE21C05E94AF988B7"})
+	// opts.SetHeader("x-anticheattoken",
+	// "9ca17ae2e6ffcda170e2e6ee88fb7db79eaf96f0409ab48aa3c54b929e9ab0d670b1ee8891d55fed93fd85b52af0feaec3b92af8f1e1a2e65293eb8c91c45b869a9fa6d45e948997daec44ad9b98a6cc70b59dee9e")
+	// opts.SetCookies(&http.Cookie{Name: "MUSIC_R_U", Value:
+	// "00C572559E9EC4370FB21EB2CDFC28BA79632C61958228B75DA68C65488B3719DE982C68ED14E9026C527B9896FC29CF399F86469F18716A44AAC30F6FEF8A40BCD5575D6D311B95ACE21C05E94AF988B7"})
 	opts.SetCookies(&http.Cookie{Name: "os", Value: "pc"}) // 解决400问题
+
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type RegisterAnonymousReq struct {
 	types.ReqCommon
+
 	Username string `json:"username"` // 设备id如果为空则设备id为ncmctl
 }
 
@@ -286,19 +284,23 @@ func (a *Api) RegisterAnonymous(ctx context.Context, req *RegisterAnonymousReq) 
 		reply RegisterAnonymousResp
 		opts  = api.NewOptions()
 	)
+
 	if req.Username == "" {
 		req.Username = "ncmctl" // 默认用户名
 	}
+
 	username, err := crypto.Anonymous(req.Username)
 	if err != nil {
-		return nil, fmt.Errorf("Anonymous: %w", err)
+		return nil, fmt.Errorf("anonymous: %w", err)
 	}
+
 	req.Username = username
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -321,17 +323,20 @@ func (a *Api) SendSMS(ctx context.Context, req *SendSMSReq) (*SendSMSResp, error
 		reply SendSMSResp
 		opts  = api.NewOptions()
 	)
+
 	if req.CtCode <= 0 {
 		req.CtCode = 86
 	}
+
 	if req.Secrete == "" {
 		req.Secrete = "music_middleuser_pclogin"
 	}
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -353,14 +358,16 @@ func (a *Api) SMSVerify(ctx context.Context, req *SMSVerifyReq) (*SMSVerifyResp,
 		reply SMSVerifyResp
 		opts  = api.NewOptions()
 	)
+
 	if req.CtCode <= 0 {
 		req.CtCode = 86
 	}
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -375,6 +382,7 @@ type LoginCellphoneReq struct {
 
 type LoginCellphoneResp struct {
 	types.RespCommon[any]
+
 	LoginType int64                        `json:"loginType"`
 	Token     string                       `json:"token"` // MUSIC_U
 	Account   LoginCellphoneRespAccount    `json:"account"`
@@ -401,40 +409,40 @@ type LoginCellphoneRespAccount struct {
 }
 
 type LoginCellphoneRespProfile struct {
-	AvatarUrl                 string      `json:"avatarUrl"`
-	VipType                   int64       `json:"vipType"`
-	AuthStatus                int64       `json:"authStatus"`
-	DjStatus                  int64       `json:"djStatus"`
-	DetailDescription         string      `json:"detailDescription"`
-	Experts                   struct{}    `json:"experts"`
-	ExpertTags                interface{} `json:"expertTags"`
-	AccountStatus             int64       `json:"accountStatus"`
-	Nickname                  string      `json:"nickname"`
-	Birthday                  int64       `json:"birthday"`
-	Gender                    int64       `json:"gender"`
-	Province                  int64       `json:"province"`
-	City                      int64       `json:"city"`
-	AvatarImgId               int64       `json:"avatarImgId"`
-	BackgroundImgId           int64       `json:"backgroundImgId"`
-	UserType                  int64       `json:"userType"`
-	DefaultAvatar             bool        `json:"defaultAvatar"`
-	Mutual                    bool        `json:"mutual"`
-	RemarkName                interface{} `json:"remarkName"`
-	AvatarImgIdStr            string      `json:"avatarImgIdStr"`
-	BackgroundImgIdStr        string      `json:"backgroundImgIdStr"`
-	Followed                  bool        `json:"followed"`
-	BackgroundUrl             string      `json:"backgroundUrl"`
-	Description               string      `json:"description"`
-	UserId                    int64       `json:"userId"`
-	Signature                 string      `json:"signature"`
-	Authority                 int64       `json:"authority"`
-	AvatarImgIdStr1           string      `json:"avatarImgId_str"`
-	Followeds                 int64       `json:"followeds"`
-	Follows                   int64       `json:"follows"`
-	EventCount                int64       `json:"eventCount"`
-	AvatarDetail              interface{} `json:"avatarDetail"`
-	PlaylistCount             int64       `json:"playlistCount"`
-	PlaylistBeSubscribedCount int64       `json:"playlistBeSubscribedCount"`
+	AvatarUrl                 string   `json:"avatarUrl"`
+	VipType                   int64    `json:"vipType"`
+	AuthStatus                int64    `json:"authStatus"`
+	DjStatus                  int64    `json:"djStatus"`
+	DetailDescription         string   `json:"detailDescription"`
+	Experts                   struct{} `json:"experts"`
+	ExpertTags                any      `json:"expertTags"`
+	AccountStatus             int64    `json:"accountStatus"`
+	Nickname                  string   `json:"nickname"`
+	Birthday                  int64    `json:"birthday"`
+	Gender                    int64    `json:"gender"`
+	Province                  int64    `json:"province"`
+	City                      int64    `json:"city"`
+	AvatarImgId               int64    `json:"avatarImgId"`
+	BackgroundImgId           int64    `json:"backgroundImgId"`
+	UserType                  int64    `json:"userType"`
+	DefaultAvatar             bool     `json:"defaultAvatar"`
+	Mutual                    bool     `json:"mutual"`
+	RemarkName                any      `json:"remarkName"`
+	AvatarImgIdStr            string   `json:"avatarImgIdStr"`
+	BackgroundImgIdStr        string   `json:"backgroundImgIdStr"`
+	Followed                  bool     `json:"followed"`
+	BackgroundUrl             string   `json:"backgroundUrl"`
+	Description               string   `json:"description"`
+	UserId                    int64    `json:"userId"`
+	Signature                 string   `json:"signature"`
+	Authority                 int64    `json:"authority"`
+	AvatarImgIdStr1           string   `json:"avatarImgId_str"`
+	Followeds                 int64    `json:"followeds"`
+	Follows                   int64    `json:"follows"`
+	EventCount                int64    `json:"eventCount"`
+	AvatarDetail              any      `json:"avatarDetail"`
+	PlaylistCount             int64    `json:"playlistCount"`
+	PlaylistBeSubscribedCount int64    `json:"playlistBeSubscribedCount"`
 }
 
 type LoginCellphoneRespBindings struct {
@@ -454,32 +462,37 @@ func (a *Api) LoginCellphone(ctx context.Context, req *LoginCellphoneReq) (*Logi
 	var (
 		url    = "https://interface.music.163.com/eapi/w/login/cellphone" // use weapi 出现 8821需要行为验证码验证
 		reply  LoginCellphoneResp
-		opts   = api.NewOptions()
-		params = make(map[string]interface{})
+		opts   = api.NewOptions().SetEAPI()
+		params = make(map[string]any)
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
+
 	if req.Countrycode <= 0 {
 		req.Countrycode = 86
 	}
+
 	if req.Password == "" && req.Captcha == "" {
-		return nil, fmt.Errorf("password or captcha is empty")
+		return nil, errors.New("password or captcha is empty")
 	}
+
 	if req.Password != "" {
 		params["password"] = crypto.HexDigest(req.Password)
 	}
+
 	if req.Captcha != "" {
 		params["captcha"] = req.Captcha
 	}
+
 	params["phone"] = req.Phone
 	params["countrycode"] = req.Countrycode
-	params["remember"] = fmt.Sprintf("%v", req.Remember)
+	params["remember"] = strconv.FormatBool(req.Remember)
 	params["type"] = "1" // 0: 貌似是邮箱登录 1: 手机号登录
 	params["https"] = "true"
 
 	resp, err := a.client.Request(ctx, url, params, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

@@ -1,30 +1,11 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package tag
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -41,7 +22,7 @@ const (
 	audioFormatWav  = "wav"
 )
 
-// Tagger interface for both mp3 and flac
+// Tagger interface for both mp3 and flac.
 type Tagger interface {
 	SetCover(buf []byte, mime string) error
 	SetCoverUrl(coverUrl string) error
@@ -58,6 +39,7 @@ func New(filename, format string) (Tagger, error) {
 		tagger Tagger
 		err    error
 	)
+
 	switch strings.ToLower(format) {
 	case audioFormatMp3:
 		tagger, err = NewMp3(filename)
@@ -65,7 +47,7 @@ func New(filename, format string) (Tagger, error) {
 		tagger, err = NewFlac(filename)
 	case audioFormatWav:
 		// tagger, err = NewWAV(filename)
-		fallthrough
+		err = fmt.Errorf("format: %s is not supportted", format)
 	default:
 		err = fmt.Errorf("format: %s is not supportted", format)
 	}
@@ -75,9 +57,11 @@ func New(filename, format string) (Tagger, error) {
 func NewFromNCM(n *ncm.NCM, filename string) error {
 	mata := n.Metadata()
 	if mata == nil {
-		return fmt.Errorf("ncm.Metadata() is nil")
+		return errors.New("ncm.Metadata() is nil")
 	}
+
 	var data *ncm.MetadataMusic
+
 	switch mata.GetType() {
 	case ncm.MetadataTypeMusic:
 		data = mata.GetMusic()
@@ -92,7 +76,7 @@ func NewFromNCM(n *ncm.NCM, filename string) error {
 		return err
 	}
 
-	var img = new(bytes.Buffer)
+	img := new(bytes.Buffer)
 	if err := n.DecodeCover(img); err != nil {
 		return fmt.Errorf("DecodeCover: %w", err)
 	}
@@ -114,7 +98,7 @@ func SetMetadata(tag Tagger, imgData []byte, meta *ncm.MetadataMusic) error {
 	}
 
 	if len(imgData) > 0 {
-		var mime = ncm.DetectCoverType(imgData).MIME()
+		mime := ncm.DetectCoverType(imgData).MIME()
 		if err := tag.SetCover(imgData, mime); err != nil {
 			return fmt.Errorf("SetCover(%v): %w", mime, err)
 		}
@@ -144,10 +128,11 @@ func SetMetadata(tag Tagger, imgData []byte, meta *ncm.MetadataMusic) error {
 		}
 	}
 
-	var artists = make([]string, 0)
+	artists := make([]string, 0)
 	for _, artist := range meta.Artists {
 		artists = append(artists, artist.Name)
 	}
+
 	if len(artists) > 0 {
 		if err := tag.SetArtist(artists); err != nil {
 			return fmt.Errorf("SetArtist: %w", err)
@@ -157,20 +142,36 @@ func SetMetadata(tag Tagger, imgData []byte, meta *ncm.MetadataMusic) error {
 }
 
 func fetchUrl(url string) ([]byte, error) {
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
+
 	client := http.Client{
 		Timeout: 30 * time.Second,
 	}
+
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
+
 	if res.StatusCode != http.StatusOK {
+		if err := res.Body.Close(); err != nil {
+			return nil, fmt.Errorf("close album pic response: %w", err)
+		}
 		return nil, fmt.Errorf("failed to download album pic: remote returned %d", res.StatusCode)
 	}
-	defer res.Body.Close()
-	return io.ReadAll(res.Body)
+
+	data, readErr := io.ReadAll(res.Body)
+	closeErr := res.Body.Close()
+
+	if readErr != nil {
+		return nil, readErr
+	}
+
+	if closeErr != nil {
+		return nil, fmt.Errorf("close album pic response: %w", closeErr)
+	}
+	return data, nil
 }

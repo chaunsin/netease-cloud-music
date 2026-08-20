@@ -1,0 +1,4 @@
+interface:
+  display_name: "ncmctl Development"
+  short_description: "Develop and validate the ncmctl Go repository"
+  default_prompt: "Use $ncmctl-dev to make a safe, focused change in the ncmctl repository."

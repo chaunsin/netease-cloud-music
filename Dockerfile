@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 chaunsin
+# SPDX-License-Identifier: MIT
+
 # syntax = docker/dockerfile:1
 FROM golang:1.26 AS builder
 

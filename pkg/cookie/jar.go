@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package cookiejar implements an in-memory RFC 6265-compliant http.CookieJar.
+// Package cookie implements an in-memory RFC 6265-compliant http.CookieJar.
 package cookie
 
 import (
@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"sort"
 	"strings"
@@ -93,6 +94,7 @@ func New(o *Options) (*Jar, error) {
 type entry struct {
 	Name       string
 	Value      string
+	Quoted     bool
 	Domain     string
 	Path       string
 	SameSite   string
@@ -119,7 +121,7 @@ func (e *entry) id() string {
 // request to host/path. It is the caller's responsibility to check if the
 // cookie is expired.
 func (e *entry) shouldSend(https bool, host, path string) bool {
-	return e.domainMatch(host) && e.pathMatch(path) && (https || !e.Secure)
+	return e.domainMatch(host) && e.pathMatch(path) && e.secureMatch(https)
 }
 
 // domainMatch checks whether e's Domain allows sending e back to host.
@@ -137,6 +139,7 @@ func (e *entry) pathMatch(requestPath string) bool {
 	if requestPath == e.Path {
 		return true
 	}
+
 	if strings.HasPrefix(requestPath, e.Path) {
 		if e.Path[len(e.Path)-1] == '/' {
 			return true // The "/any/" matches "/any/path" case.
@@ -147,6 +150,29 @@ func (e *entry) pathMatch(requestPath string) bool {
 	return false
 }
 
+// secureMatch checks whether the request origin is secure enough for e.
+func (e *entry) secureMatch(https bool) bool {
+	if !e.Secure || https {
+		return true
+	}
+
+	if isLocalhost(e.Domain) {
+		return true
+	}
+
+	ip, err := netip.ParseAddr(e.Domain)
+	return err == nil && ip.IsLoopback()
+}
+
+func isLocalhost(host string) bool {
+	host = strings.TrimSuffix(host, ".")
+	if idx := strings.LastIndex(host, "."); idx >= 0 {
+		host = host[idx+1:]
+	}
+
+	return ascii.EqualFold(host, "localhost")
+}
+
 // hasDotSuffix reports whether s ends in "."+suffix.
 func hasDotSuffix(s, suffix string) bool {
 	return len(s) > len(suffix) && s[len(s)-len(suffix)-1] == '.' && s[len(s)-len(suffix):] == suffix
@@ -155,19 +181,28 @@ func hasDotSuffix(s, suffix string) bool {
 // Cookies implements the Cookies method of the http.CookieJar interface.
 //
 // It returns an empty slice if the URL's scheme is not HTTP or HTTPS.
-func (j *Jar) Cookies(u *url.URL) (cookies []*http.Cookie) {
+func (j *Jar) Cookies(u *url.URL) []*http.Cookie {
 	return j.cookies(u, time.Now())
 }
 
+// SetCookies implements the SetCookies method of the http.CookieJar interface.
+//
+// It does nothing if the URL's scheme is not HTTP or HTTPS.
+func (j *Jar) SetCookies(u *url.URL, cookies []*http.Cookie) {
+	j.setCookies(u, cookies, time.Now())
+}
+
 // cookies is like Cookies but takes the current time as a parameter.
-func (j *Jar) cookies(u *url.URL, now time.Time) (cookies []*http.Cookie) {
+func (j *Jar) cookies(u *url.URL, now time.Time) []*http.Cookie {
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return cookies
+		return nil
 	}
+
 	host, err := canonicalHost(u.Host)
 	if err != nil {
-		return cookies
+		return nil
 	}
+
 	key := jarKey(host, j.psList)
 
 	j.mu.Lock()
@@ -175,31 +210,39 @@ func (j *Jar) cookies(u *url.URL, now time.Time) (cookies []*http.Cookie) {
 
 	submap := j.entries[key]
 	if submap == nil {
-		return cookies
+		return nil
 	}
 
 	https := u.Scheme == "https"
+
 	path := u.Path
 	if path == "" {
 		path = "/"
 	}
 
 	modified := false
+
 	var selected []entry
-	for id, e := range submap {
+
+	for id := range submap {
+		e := submap[id]
 		if e.Persistent && !e.Expires.After(now) {
 			delete(submap, id)
+
 			modified = true
 			continue
 		}
+
 		if !e.shouldSend(https, host, path) {
 			continue
 		}
+
 		e.LastAccess = now
 		submap[id] = e
 		selected = append(selected, e)
 		modified = true
 	}
+
 	if modified {
 		if len(submap) == 0 {
 			delete(j.entries, key)
@@ -215,23 +258,21 @@ func (j *Jar) cookies(u *url.URL, now time.Time) (cookies []*http.Cookie) {
 		if len(s[i].Path) != len(s[j].Path) {
 			return len(s[i].Path) > len(s[j].Path)
 		}
+
 		if !s[i].Creation.Equal(s[j].Creation) {
 			return s[i].Creation.Before(s[j].Creation)
 		}
 		return s[i].seqNum < s[j].seqNum
 	})
-	for _, e := range selected {
-		cookies = append(cookies, &http.Cookie{Name: e.Name, Value: e.Value})
+
+	var cookies []*http.Cookie
+
+	for i := range selected {
+		e := &selected[i]
+		cookies = append(cookies, &http.Cookie{Name: e.Name, Value: e.Value, Quoted: e.Quoted})
 	}
 
 	return cookies
-}
-
-// SetCookies implements the SetCookies method of the http.CookieJar interface.
-//
-// It does nothing if the URL's scheme is not HTTP or HTTPS.
-func (j *Jar) SetCookies(u *url.URL, cookies []*http.Cookie) {
-	j.setCookies(u, cookies, time.Now())
 }
 
 // setCookies is like SetCookies but takes the current time as parameter.
@@ -239,13 +280,16 @@ func (j *Jar) setCookies(u *url.URL, cookies []*http.Cookie, now time.Time) {
 	if len(cookies) == 0 {
 		return
 	}
+
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return
 	}
+
 	host, err := canonicalHost(u.Host)
 	if err != nil {
 		return
 	}
+
 	key := jarKey(host, j.psList)
 	defPath := defaultPath(u.Path)
 
@@ -255,21 +299,26 @@ func (j *Jar) setCookies(u *url.URL, cookies []*http.Cookie, now time.Time) {
 	submap := j.entries[key]
 
 	modified := false
+
 	for _, cookie := range cookies {
 		e, remove, err := j.newEntry(cookie, now, defPath, host)
 		if err != nil {
 			continue
 		}
+
 		id := e.id()
+
 		if remove {
 			if submap != nil {
 				if _, ok := submap[id]; ok {
 					delete(submap, id)
+
 					modified = true
 				}
 			}
 			continue
 		}
+
 		if submap == nil {
 			submap = make(map[string]entry)
 		}
@@ -282,6 +331,7 @@ func (j *Jar) setCookies(u *url.URL, cookies []*http.Cookie, now time.Time) {
 			e.seqNum = j.nextSeqNum
 			j.nextSeqNum++
 		}
+
 		e.LastAccess = now
 		submap[id] = e
 		modified = true
@@ -308,6 +358,7 @@ func canonicalHost(host string) (string, error) {
 	}
 	// Strip trailing dot from fully qualified domain names.
 	host = strings.TrimSuffix(host, ".")
+
 	encoded, err := toASCII(host)
 	if err != nil {
 		return "", err
@@ -317,13 +368,14 @@ func canonicalHost(host string) (string, error) {
 	return lower, nil
 }
 
-// hasPort reports whether host contains a port number. host may be a host
+// hasPort reports whether host contains a port number. Host may be a host
 // name, an IPv4 or an IPv6 address.
 func hasPort(host string) bool {
 	colons := strings.Count(host, ":")
 	if colons == 0 {
 		return false
 	}
+
 	if colons == 1 {
 		return true
 	}
@@ -347,6 +399,7 @@ func jarKey(host string, psl PublicSuffixList) string {
 		if suffix == host {
 			return host
 		}
+
 		i = len(host) - len(suffix)
 		if i <= 0 || host[i-1] != '.' {
 			// The provided public suffix list psl is broken.
@@ -357,19 +410,25 @@ func jarKey(host string, psl PublicSuffixList) string {
 		// here on, so it is okay if psl.PublicSuffix("www.buggy.psl")
 		// returns "com" as the jar key is generated from host.
 	}
+
 	prevDot := strings.LastIndex(host[:i-1], ".")
 	return host[prevDot+1:]
 }
 
 // isIP reports whether host is an IP address.
 func isIP(host string) bool {
+	if strings.ContainsAny(host, ":%") {
+		// Malformed IPv6-like hosts must not be grouped with ordinary domains.
+		return true
+	}
+
 	return net.ParseIP(host) != nil
 }
 
 // defaultPath returns the directory part of an URL's path according to
 // RFC 6265 section 5.1.4.
 func defaultPath(path string) string {
-	if len(path) == 0 || path[0] != '/' {
+	if path == "" || path[0] != '/' {
 		return "/" // Path is empty or malformed.
 	}
 
@@ -380,16 +439,18 @@ func defaultPath(path string) string {
 	return path[:i] // Path is either of form "/abc/xyz" or "/abc/xyz/".
 }
 
-// newEntry creates an entry from a http.Cookie c. now is the current time and
-// is compared to c.Expires to determine deletion of c. defPath and host are the
+// newEntry creates an entry from a http.Cookie c. Now is the current time and
+// is compared to c.Expires to determine deletion of c. DefPath and host are the
 // default-path and the canonical host name of the URL c was received from.
 //
-// remove records whether the jar should delete this cookie, as it has already
+// Remove records whether the jar should delete this cookie, as it has already
 // expired with respect to now. In this case, e may be incomplete, but it will
 // be valid to call e.id (which depends on e's Name, Domain and Path).
 //
 // A malformed c.Domain will result in an error.
-func (j *Jar) newEntry(c *http.Cookie, now time.Time, defPath, host string) (e entry, remove bool, err error) {
+func (j *Jar) newEntry(c *http.Cookie, now time.Time, defPath, host string) (entry, bool, error) {
+	var e entry
+
 	e.Name = c.Name
 
 	if c.Path == "" || c.Path[0] != '/' {
@@ -398,31 +459,32 @@ func (j *Jar) newEntry(c *http.Cookie, now time.Time, defPath, host string) (e e
 		e.Path = c.Path
 	}
 
-	e.Domain, e.HostOnly, err = j.domainAndType(host, c.Domain)
+	domain, hostOnly, err := j.domainAndType(host, c.Domain)
 	if err != nil {
 		return e, false, err
 	}
 
+	e.Domain = domain
+	e.HostOnly = hostOnly
+
 	// MaxAge takes precedence over Expires.
-	if c.MaxAge < 0 {
+	switch {
+	case c.MaxAge < 0:
 		return e, true, nil
-	} else if c.MaxAge > 0 {
+	case c.MaxAge > 0:
 		e.Expires = now.Add(time.Duration(c.MaxAge) * time.Second)
 		e.Persistent = true
-	} else {
-		if c.Expires.IsZero() {
-			e.Expires = endOfTime
-			e.Persistent = false
-		} else {
-			if !c.Expires.After(now) {
-				return e, true, nil
-			}
-			e.Expires = c.Expires
-			e.Persistent = true
-		}
+	case c.Expires.IsZero():
+		e.Expires = endOfTime
+	case !c.Expires.After(now):
+		return e, true, nil
+	default:
+		e.Expires = c.Expires
+		e.Persistent = true
 	}
 
 	e.Value = c.Value
+	e.Quoted = c.Quoted
 	e.Secure = c.Secure
 	e.HttpOnly = c.HttpOnly
 
@@ -433,6 +495,8 @@ func (j *Jar) newEntry(c *http.Cookie, now time.Time, defPath, host string) (e e
 		e.SameSite = "SameSite=Strict"
 	case http.SameSiteLaxMode:
 		e.SameSite = "SameSite=Lax"
+	case http.SameSiteNoneMode:
+		e.SameSite = "SameSite=None"
 	}
 
 	return e, false, nil
@@ -441,7 +505,6 @@ func (j *Jar) newEntry(c *http.Cookie, now time.Time, defPath, host string) (e e
 var (
 	errIllegalDomain   = errors.New("cookiejar: illegal cookie domain attribute")
 	errMalformedDomain = errors.New("cookiejar: malformed cookie domain attribute")
-	errNoHostname      = errors.New("cookiejar: no host name available (IP only)")
 )
 
 // endOfTime is the time when session (non-persistent) cookies expire.
@@ -466,7 +529,7 @@ func (j *Jar) domainAndType(host, domain string) (string, bool, error) {
 		// dot in the domain-attribute before processing the cookie.
 		//
 		// Most browsers don't do that for IP addresses, only curl
-		// version 7.54) and and IE (version 11) do not reject a
+		// version 7.54) and IE (version 11) do not reject
 		//     Set-Cookie: a=1; domain=.127.0.0.1
 		// This leading dot is optional and serves only as hint for
 		// humans to indicate that a cookie with "domain=.bbc.co.uk"
@@ -497,7 +560,7 @@ func (j *Jar) domainAndType(host, domain string) (string, bool, error) {
 		domain = domain[1:]
 	}
 
-	if len(domain) == 0 || domain[0] == '.' {
+	if domain == "" || domain[0] == '.' {
 		// Received either "Domain=." or "Domain=..some.thing",
 		// both are illegal.
 		return "", false, errMalformedDomain

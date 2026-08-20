@@ -1,22 +1,49 @@
+# Copyright (c) 2024-2026 chaunsin
+# SPDX-License-Identifier: MIT
+
 export IMAGE_VERSION ?= latest
 export IMAGE_NAME?=chaunsin/ncmctl:${IMAGE_VERSION}
 CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 COMMIT_HASH := $(shell git rev-parse --short=7 HEAD)
 BUILD_TIME=$(shell date "+%Y-%m-%d %H:%M:%S%z")
 
-info:
+.PHONY: fmt
+fmt:
+	golangci-lint fmt -c .golangci.yaml ./...
+
+.PHONY: lintfix
+lintfix:
+	golangci-lint run -c .golangci.yaml --fix ./...
+
+.PHONY: lint
+lint:
+	golangci-lint run -c .golangci.yaml ./...
+
+.PHONY: test
+test: test-qinglong
+	go test ./...
+
+.PHONY: test-qinglong
+test-qinglong:
+	bash script/qinglong/tests/install_test.sh
+
+.PHONY: test-live
+test-live:
+	NCMCTL_RUN_LIVE_TESTS=1 go test -count=1 -v ./api/eapi ./api/weapi
+
+.PHONY: install
+install:
+	cd cmd/ncmctl && go install .
+
+.PHONY: buildinfo
+buildinfo:
 	@echo "Current Branch: $(CURRENT_BRANCH)"
 	@echo "Current Commit Hash: $(COMMIT_HASH)"
 	@echo "Current Build Time: $(BUILD_TIME)"
 
-test:
-	#go test -v ./..
-
-build: info
+.PHONY: build
+build: buildinfo
 	go build -ldflags "-X 'main.Version=$(CURRENT_BRANCH)' -X 'main.Commit=${COMMIT_HASH}' -X 'main.BuildTime=${BUILD_TIME}' -s -w" -o ncmctl cmd/ncmctl/main.go
-
-install:
-	cd cmd/ncmctl && go install .
 
 # 构建镜像
 build-image:
@@ -28,9 +55,9 @@ push-image:
 
 # 当使用docker部署时,如果没有登录账号则需要先登录
 login:
-	docker run --rm -it -v ./data:/root chaunsin/ncmctl:$(VERSION) /app/ncmctl login qrcode
+	docker run --rm -it -v ./data:/root chaunsin/ncmctl:$(IMAGE_VERSION) /app/ncmctl login qrcode
 
 # 运行服务，注意挂载的目录和登录挂载的目录要一致
 task:
-	docker run -it -d -v ./data:/root chaunsin/ncmctl:$(VERSION) /app/ncmctl task --sign --scrobble
+	docker run -it -d -v ./data:/root chaunsin/ncmctl:$(IMAGE_VERSION) /app/ncmctl task --sign --scrobble
 	#docker-compose up -d

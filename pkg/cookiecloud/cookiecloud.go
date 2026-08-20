@@ -1,25 +1,5 @@
-// MIT License
-//
-// Copyright (c) 2025 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2025-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package cookiecloud
 
@@ -27,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -58,7 +39,7 @@ type CookieData struct {
 	Value          string  `json:"value"`
 }
 
-func (c CookieData) GetExpired() time.Time {
+func (c *CookieData) GetExpired() time.Time {
 	sec := int64(c.ExpirationDate)                         // 提取整数秒部分
 	nsec := int64((c.ExpirationDate - float64(sec)) * 1e9) // 将小数秒转换为纳秒
 	return time.Unix(sec, nsec)
@@ -76,9 +57,10 @@ type GetResp struct {
 }
 
 type PushReq struct {
+	Cookie
+
 	Uuid     string `json:"uuid"`
 	Password string `json:"password"`
-	Cookie
 }
 
 type PushResp struct {
@@ -122,10 +104,11 @@ func (c *Client) SetHeaders(headers map[string]string) {
 // see: https://github.com/easychen/CookieCloud/blob/master/api/app.js#L46
 func (c *Client) Get(ctx context.Context, req *GetReq) (*GetResp, error) {
 	if req.Uuid == "" {
-		return nil, fmt.Errorf("uuid is required")
+		return nil, errors.New("uuid is required")
 	}
+
 	if req.Password == "" {
-		return nil, fmt.Errorf("password is required")
+		return nil, errors.New("password is required")
 	}
 
 	var (
@@ -134,7 +117,7 @@ func (c *Client) Get(ctx context.Context, req *GetReq) (*GetResp, error) {
 	)
 
 	// 云端解密
-	var method = resty.MethodGet
+	method := resty.MethodGet
 	if req.CloudDecryption {
 		method = resty.MethodPost
 		cli = cli.SetBody(map[string]string{
@@ -142,31 +125,36 @@ func (c *Client) Get(ctx context.Context, req *GetReq) (*GetResp, error) {
 		})
 	}
 
-	var res, err = cli.SetResult(&resp).Execute(method, "/get/"+req.Uuid)
-
+	res, err := cli.SetResult(&resp).Execute(method, "/get/"+req.Uuid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to request server: %v", err)
+		return nil, fmt.Errorf("failed to request server: %w", err)
 	}
+
 	if res.StatusCode() == 404 {
 		return nil, fmt.Errorf("uuid %s not found", req.Uuid)
 	}
+
 	if res.StatusCode() != 200 {
 		return nil, fmt.Errorf("server return status %d body %+v", res.StatusCode(), resp)
 	}
+
 	if req.CloudDecryption {
 		return &resp, nil
 	}
 
 	// 本地解密逻辑
 	keyPassword := Md5String(req.Uuid, "-", req.Password)[:16]
+
 	decrypted, err := Decrypt(keyPassword, resp.Encrypted)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt: %v", err)
+		return nil, fmt.Errorf("failed to decrypt: %w", err)
 	}
+
 	var cookie Cookie
 	if err := json.Unmarshal(decrypted, &cookie); err != nil {
-		return nil, fmt.Errorf("failed to parse decrypted data as json: %v", err)
+		return nil, fmt.Errorf("failed to parse decrypted data as json: %w", err)
 	}
+
 	resp.Cookie = cookie
 	return &resp, nil
 }
@@ -175,17 +163,20 @@ func (c *Client) Get(ctx context.Context, req *GetReq) (*GetResp, error) {
 // see: https://github.com/easychen/CookieCloud/blob/master/api/app.js#L28
 func (c *Client) Push(ctx context.Context, req *PushReq) (*PushResp, error) {
 	if req.Uuid == "" {
-		return nil, fmt.Errorf("uuid is required")
+		return nil, errors.New("uuid is required")
 	}
+
 	if req.Password == "" {
-		return nil, fmt.Errorf("password is required")
+		return nil, errors.New("password is required")
 	}
 
 	data, err := json.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %v", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
+
 	keyPassword := Md5String(req.Uuid, "-", req.Password)[:16]
+
 	encrypted, err := Encrypt(keyPassword, string(data))
 	if err != nil {
 		return nil, fmt.Errorf("Encrypt: %w", err)
@@ -198,10 +189,12 @@ func (c *Client) Push(ctx context.Context, req *PushReq) (*PushResp, error) {
 		}
 		body PushResp
 	)
+
 	res, err := c.cli.R().SetContext(ctx).SetBody(&request).SetResult(&body).Post("/update")
 	if err != nil {
-		return nil, fmt.Errorf("failed to request server: %v", err)
+		return nil, fmt.Errorf("failed to request server: %w", err)
 	}
+
 	if res.StatusCode() != 200 {
 		return nil, fmt.Errorf("server return status %d body %+v", res.StatusCode(), body)
 	}

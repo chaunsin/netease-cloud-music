@@ -15,7 +15,8 @@ func EqualFold(s, t string) bool {
 	if len(s) != len(t) {
 		return false
 	}
-	for i := 0; i < len(s); i++ {
+
+	for i := range len(s) {
 		if lower(s[i]) != lower(t[i]) {
 			return false
 		}
@@ -34,7 +35,7 @@ func lower(b byte) byte {
 // IsPrint returns whether s is ASCII and printable according to
 // https://tools.ietf.org/html/rfc20#section-4.2.
 func IsPrint(s string) bool {
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if s[i] < ' ' || s[i] > '~' {
 			return false
 		}
@@ -44,7 +45,7 @@ func IsPrint(s string) bool {
 
 // Is returns whether s is ASCII.
 func Is(s string) bool {
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if s[i] > unicode.MaxASCII {
 			return false
 		}
@@ -53,7 +54,7 @@ func Is(s string) bool {
 }
 
 // ToLower returns the lowercase version of s if s is ASCII and printable.
-func ToLower(s string) (lower string, ok bool) {
+func ToLower(s string) (string, bool) {
 	if !IsPrint(s) {
 		return "", false
 	}

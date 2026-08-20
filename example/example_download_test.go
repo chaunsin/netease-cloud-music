@@ -1,25 +1,7 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
+
+//go:build integration
 
 package example
 
@@ -68,7 +50,7 @@ func TestDownload(t *testing.T) {
 	// if playResp.Code != 200 {
 	// 	t.Fatalf("SongPlayerV1(%v) err: %+v", songId, playResp)
 	// }
-	// if len(playResp.Data) <= 0 {
+	// if len(playResp.Data) == 0 {
 	// 	t.Fatalf("SongPlayerV1(%v) data is empty", songId)
 	// }
 	// var songDetail = playResp.Data[0]
@@ -76,7 +58,7 @@ func TestDownload(t *testing.T) {
 	// 	t.Logf("id=%v 没有找到%v品质的资源,当前品质为%v\n", songId, types.LevelString[level], types.LevelString[level])
 	// }
 
-	var detailReq = &weapi.SongDetailReq{
+	detailReq := &weapi.SongDetailReq{
 		C: []weapi.SongDetailReqList{{
 			Id: songIdStr,
 			V:  0,
@@ -89,10 +71,10 @@ func TestDownload(t *testing.T) {
 	if detail.Code != 200 {
 		t.Fatalf("SongDetail(%v) err: %+v", songId, detail)
 	}
-	if len(detail.Songs) <= 0 {
+	if len(detail.Songs) == 0 {
 		t.Fatalf("SongDetail(%v) data is empty", songId)
 	}
-	var songDetail = detail.Songs[0]
+	songDetail := detail.Songs[0]
 
 	// 查询音乐支持哪些音质
 	qualityResp, err := request.SongMusicQuality(ctx, &weapi.SongMusicQualityReq{SongId: songIdStr})
@@ -109,7 +91,7 @@ func TestDownload(t *testing.T) {
 	}
 
 	// 获取下载链接地址
-	var downReq = &weapi.SongDownloadUrlReq{
+	downReq := &weapi.SongDownloadUrlReq{
 		Id: songIdStr,
 		Br: fmt.Sprintf("%d", quality.Br),
 	}
@@ -125,7 +107,7 @@ func TestDownload(t *testing.T) {
 		t.Fatalf("资源已下架或无版权(%v) code: %v", songId, downResp.Data.Code)
 	}
 
-	var artistList = make([]string, 0, len(songDetail.Ar))
+	artistList := make([]string, 0, len(songDetail.Ar))
 	for _, ar := range songDetail.Ar {
 		artistList = append(artistList, strings.TrimSpace(ar.Name))
 	}
@@ -140,7 +122,7 @@ func TestDownload(t *testing.T) {
 		drd.Id, drd.Url, dest, tmpDir, tempName, drd.Br, drd.EncodeType, drd.Type)
 
 	// 创建临时文件以及下载目录
-	if err := utils.MkdirIfNotExist(output, 0755); err != nil {
+	if err := utils.MkdirIfNotExist(output, 0o755); err != nil {
 		t.Fatalf("MkdirIfNotExist: %s", err)
 	}
 	file, err := os.CreateTemp(tmpDir, tempName)
@@ -150,7 +132,7 @@ func TestDownload(t *testing.T) {
 	defer file.Close()
 
 	// 下载
-	resp, err := cli.Download(ctx, drd.Url, nil, nil, file, nil)
+	resp, err := cli.Download(ctx, drd.Url, nil, nil, file, nil) //nolint:bodyclose // Download owns and closes the response body.
 	if err != nil {
 		t.Fatalf("download: %s", err)
 	}
@@ -168,7 +150,7 @@ func TestDownload(t *testing.T) {
 	if err := os.Rename(file.Name(), dest); err != nil {
 		t.Fatalf("rename: %s", err)
 	}
-	if err := os.Chmod(dest, 0644); err != nil {
+	if err := os.Chmod(dest, 0o644); err != nil {
 		t.Fatalf("chmod: %s", err)
 	}
 	t.Logf("download success: %s\n", dest)

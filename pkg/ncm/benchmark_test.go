@@ -1,25 +1,5 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package ncm
 
@@ -27,20 +7,26 @@ import (
 	"io"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Benchmark_Open(b *testing.B) {
 	b.ReportAllocs()
-	var ncmName = "./testdata/BOE - 822.ncm"
-	for i := 0; i < b.N; i++ {
+
+	ncmName := "./testdata/BOE - 822.ncm"
+
+	for b.Loop() {
 		func() {
 			file, err := Open(ncmName)
-			defer file.Close()
-			assert.NoError(b, err)
-			assert.NoError(b, file.DecodeCover(io.Discard))
-			assert.NoError(b, file.DecodeMusic(io.Discard))
-			assert.NoError(b, file.DecodeCover(io.Discard))
+
+			require.NoError(b, err)
+			defer func() {
+				require.NoError(b, file.Close())
+			}()
+
+			require.NoError(b, file.DecodeCover(io.Discard))
+			require.NoError(b, file.DecodeMusic(io.Discard))
+			require.NoError(b, file.DecodeCover(io.Discard))
 		}()
 	}
 }

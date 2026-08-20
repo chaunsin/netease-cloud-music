@@ -1,51 +1,31 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package types
 
-// Level 音乐品质级别
+// Level 音乐品质级别.
 type Level string
 
-// 音质从低到高排序(其中jyeffect、sky、杜比、jymaster高低有待确认)
+// 音质从低到高排序(其中jyeffect、sky、杜比、jymaster高低有待确认).
 const (
-	// LevelStandard 标准品质 128000
+	// LevelStandard 标准品质 128000.
 	LevelStandard Level = "standard"
-	// LevelHigher 较高品质 192000
+	// LevelHigher 较高品质 192000.
 	LevelHigher Level = "higher"
-	// LevelExhigh 极高品质 320000
+	// LevelExhigh 极高品质 320000.
 	LevelExhigh Level = "exhigh"
-	// LevelLossless 无损品质
+	// LevelLossless 无损品质.
 	LevelLossless Level = "lossless"
-	// LevelHires Hi-Res品质
+	// LevelHires Hi-Res品质.
 	LevelHires Level = "hires"
-	// LevelJyeffect 高清环绕声品质/高清臻音
+	// LevelJyeffect 高清环绕声品质/高清臻音.
 	LevelJyeffect Level = "jyeffect"
-	// LevelSky 沉浸环绕声品质
+	// LevelSky 沉浸环绕声品质.
 	LevelSky Level = "sky"
-	// LevelJymaster 超清母带品质
+	// LevelJymaster 超清母带品质.
 	LevelJymaster Level = "jymaster"
 	// LevelDolby 杜比 暂时未知
-	// LevelDolby Level = ""
+	// LevelDolby Level = "".
 )
 
 var LevelString = map[Level]string{
@@ -60,7 +40,7 @@ var LevelString = map[Level]string{
 	// LevelDolby: "杜比全景声(Dolby Atmos)",
 }
 
-// Quality 音质信息
+// Quality 音质信息.
 type Quality struct {
 	// Br(Bit Rate) 码率
 	Br int64 `json:"br"`
@@ -96,50 +76,58 @@ type Qualities struct {
 }
 
 // FindBetter 根据指定l获取音质信息,如果找到则返回对应级别得音乐信息并返回true，
-// 如果找不到则降级返回最接近得音质信息，并返回false
+// 如果找不到则降级返回最接近得音质信息，并返回false.
 func (q Qualities) FindBetter(l Level) (*Quality, Level, bool) {
-	var match = true
+	match := true
+
 	switch l {
 	case LevelJymaster:
 		if q.M != nil {
 			return q.M, LevelJymaster, true
 		}
+
 		match = false
 		fallthrough
 	case LevelSky:
 		if q.Sk != nil {
 			return q.Sk, LevelSky, match
 		}
+
 		match = false
 		fallthrough
 	case LevelJyeffect:
 		if q.Je != nil {
 			return q.Je, LevelJyeffect, match
 		}
+
 		match = false
 		fallthrough
 	case LevelHires:
 		if q.Hr != nil {
 			return q.Hr, LevelHires, match
 		}
+
 		match = false
 		fallthrough
 	case LevelLossless:
 		if q.Sq != nil {
 			return q.Sq, LevelLossless, match
 		}
+
 		match = false
 		fallthrough
 	case LevelExhigh:
 		if q.H != nil {
 			return q.H, LevelExhigh, match
 		}
+
 		match = false
 		fallthrough
 	case LevelHigher:
 		if q.M != nil {
 			return q.M, LevelHigher, match
 		}
+
 		match = false
 		fallthrough
 	case LevelStandard:

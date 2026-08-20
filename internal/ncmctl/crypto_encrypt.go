@@ -1,59 +1,44 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package ncmctl
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
 
-	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
-	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
 	"github.com/spf13/cobra"
+
+	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
 
 type cryptoCmd struct {
 	root *Crypto
 	cmd  *cobra.Command
-	l    *log.Logger
 
 	url string
 }
 
-func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
+func encrypt(root *Crypto) *cobra.Command {
 	c := &cryptoCmd{
 		root: root,
-		l:    l,
 	}
 	c.cmd = &cobra.Command{
-		Use:     "encrypt",
-		Short:   "Encrypt data",
-		Example: "  ncmctl crypto encrypt -k weapi -u /eapi/sms/captcha/sent\n  ncmctl crypto encrypt -k weapi '{\"key\":\"value\"}'",
+		Use:   "encrypt <json-or-file>",
+		Short: "Encrypt a JSON request payload",
+		Long: "Encrypt a JSON object supplied directly or read from a file. Select WEAPI, EAPI, " +
+			"or Linux API with --kind. EAPI also requires --url because the request route is part " +
+			"of its digest. XEAPI encryption is not exposed by this command. The formatted result " +
+			"is printed to stdout unless --output is set.",
+		Example: "  ncmctl crypto encrypt --kind weapi '{\"key\":\"value\"}'\n" +
+			"  ncmctl crypto encrypt --kind eapi --url /eapi/v3/song/detail request.json\n" +
+			"  ncmctl crypto encrypt --kind linux request.json --output encrypted.json",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
 		},
@@ -63,47 +48,58 @@ func encrypt(root *Crypto, l *log.Logger) *cobra.Command {
 }
 
 func (c *cryptoCmd) addFlags() {
-	c.cmd.Flags().StringVarP(&c.url, "url", "u", "", "url params value,used closely in 'k=eapi' mode")
+	c.cmd.Flags().StringVarP(&c.url, "url", "u", "", "request route used in the EAPI digest (required for --kind eapi)")
 }
 
 func (c *cryptoCmd) execute(_ context.Context, args []string) error {
 	var (
-		opts  = c.root.opts
+		opts  = c.root
 		input string
 	)
-	if len(args) <= 0 {
-		return fmt.Errorf("nothing was entered")
+
+	if len(args) == 0 {
+		return errors.New("nothing was entered")
 	}
+
+	if opts.Kind == "xeapi" {
+		return errors.New("XEAPI encryption is not implemented by ncmctl crypto encrypt")
+	}
+
 	input = args[0]
 
 	if utils.IsFile(input) {
 		data, err := os.ReadFile(input)
 		if err != nil {
-			return fmt.Errorf("ReadFile: %w", err)
+			return fmt.Errorf("readFile: %w", err)
 		}
+
 		input = string(data)
 	}
 
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := json.Unmarshal([]byte(input), &payload); err != nil {
-		return fmt.Errorf("Unmarshal: %w", err)
+		return fmt.Errorf("unmarshal: %w", err)
 	}
 
 	var data []byte
+
 	switch kind := opts.Kind; kind {
 	case "eapi":
 		{
 			if c.url == "" {
-				return fmt.Errorf("url params is empty")
+				return errors.New("url params is empty")
 			}
+
 			parsed, err := url.Parse(c.url)
 			if err != nil {
 				return fmt.Errorf("parse: %w", err)
 			}
+
 			ciphertext, err := crypto.EApiEncrypt(parsed.Path, payload)
 			if err != nil {
 				return fmt.Errorf("加密失败: %w", err)
 			}
+
 			data, err = json.MarshalIndent(ciphertext, "", "\t")
 			if err != nil {
 				return fmt.Errorf("MarshalIndent: %w", err)
@@ -114,6 +110,7 @@ func (c *cryptoCmd) execute(_ context.Context, args []string) error {
 		if err != nil {
 			return fmt.Errorf("加密失败: %w", err)
 		}
+
 		data, err = json.MarshalIndent(ciphertext, "", "\t")
 		if err != nil {
 			return fmt.Errorf("MarshalIndent: %w", err)
@@ -123,6 +120,7 @@ func (c *cryptoCmd) execute(_ context.Context, args []string) error {
 		if err != nil {
 			return fmt.Errorf("加密失败: %w", err)
 		}
+
 		data, err = json.MarshalIndent(ciphertext, "", "\t")
 		if err != nil {
 			return fmt.Errorf("MarshalIndent: %w", err)

@@ -55,13 +55,13 @@
 
 保存后，点击 `运行`按钮，运行拉库,并注意运行状态及日志，如果拉库成功，会自动添加ncmctl相关的task任务。
 
-`ql`命令使用介绍: https://qinglong.online/guide/user-guide/basic-explanation
+`ql`命令使用介绍: [https://qinglong.online/guide/user-guide/basic-explanation](https://qinglong.online/guide/user-guide/basic-explanation)
 
 ### 2.2 检查定时任务
 
 如果正常，拉库成功后，会自动添加ncmctl相关的task任务。
 
-![qinglong-1.png](images/qinglong-1.png)
+qinglong-1.png
 
 ### 2.3 安装ncmctl
 
@@ -69,7 +69,37 @@
 
 在青龙面板中，`定时任务`页，找到 `ncmctl安装`脚本，并点击 `运行`。需要注意安装是否成功。
 
-![qinglong-3.png](images/qinglong-3.png)
+qinglong-3.png
+
+#### 2.3.1 GitHub Release 下载代理
+
+安装脚本只以 GitHub Releases 中的版本、校验清单和二进制为准。默认依次尝试以下 3 个代理前缀，全部失败后再直连 GitHub：
+
+```shell
+export NCMCTL_QINGLONG_GITHUB_PROXIES="https://ghproxy.net/ https://ghfast.top/ https://gh-proxy.com/"
+```
+
+代理前缀使用空格或换行分隔，且必须为 HTTPS。可在青龙环境变量中覆盖该值；如只想直连 GitHub，可显式设置为空：
+
+```shell
+export NCMCTL_QINGLONG_GITHUB_PROXIES=""
+```
+
+每个 URL 默认只请求一次，失败后立即切换下一个代理，最后回退 GitHub。确需重试同一 URL 时，可设置每个 URL 的最大尝试次数：
+
+```shell
+export NCMCTL_QINGLONG_MAX_ATTEMPTS=2
+```
+
+该值必须为正整数，默认是 `1`。脚本兼容原有的 `MAX_RETRIES`，但新配置应使用带命名空间的变量。增加尝试次数需要 curl 7.52.0 或更高版本；curl 只重试连接失败、超时、HTTP 429 和部分 5xx 等瞬时错误，每次传输仍受对应超时限制，重试总窗口则按该超时与最大尝试次数计算。HTTP 200 但内容错误的页面、无效版本跳转、缺少校验条目、SHA-256 不一致或损坏归档会直接切换代理。
+
+脚本先通过同一条路由获取 GoReleaser 发布的 SHA-256 清单，再下载并强制校验归档；候选程序的版本不匹配时也会切换下一条路由。已安装版本等于或高于 GitHub Release 时脚本会停止，避免过期代理造成降级。SHA-256 校验可以发现传输损坏、错误页面和意外替换，但无法防止同一个恶意代理同时替换校验清单和二进制。公益代理还可能限流、失效或更换所有者；不要关闭 TLS 校验，遇到问题时应更换可信代理或改为直连 GitHub。
+
+最终替换会通过 `/usr/local/bin/.ncmctl.install.lock` 互斥，并在锁内重新读取已安装版本，避免并发任务用较旧候选覆盖刚完成的升级。遇到安装锁时脚本会返回非零状态；只有在确认没有其他安装任务运行后，才能删除异常中断遗留的空锁目录再重试。
+
+> `NCMCTL_QINGLONG_GITHUB_PROXIES` 只影响安装脚本访问 GitHub Release，不会修改青龙订阅或 `ql repo` 使用的仓库地址。拉库代理需要单独配置，参见[常见问题](#31-github访问失败超时等问题)。
+
+
 
 ### 2.4 登录
 
@@ -88,12 +118,8 @@
 # 替换成你自己得手机号
 ncmctl login phone 188xxxx8888
 send sms success
-please input sms captcha: 
-```
-
-3. 根据上述内容提示，输入短信验证码进行登录,成功内容如下
-
-```shell
+please input sms captcha: 1234
+# 根据上述内容提示，输入短信验证码例如 1234 进行登录,成功内容如下
 verify sms success
 login success: &{RespCommon:{Code:200 Message: Msg: Data:<nil>} Account:0xc00036a070 Profile:0xc0005a8180}
 ```
@@ -102,7 +128,9 @@ login success: &{RespCommon:{Code:200 Message: Msg: Data:<nil>} Account:0xc00036
 
 1. 发送短信每日有限制,请不要频繁登录避免风控。
 2. 有时显示 `send sms success`
-   但等了很久依然没有收到短信,可能是短信运营商抽风,可以重新发送短信或者稍后再试。如果尝试多次还是失败，可能账号因某些原因入了黑名单,具体验证方式可以登录网易云网页端走短信登录正规流程看是否能收到短信。
+  但等了很久依然没有收到短信,可能是短信运营商抽风,可以重新发送短信或者稍后再试。如果尝试多次还是失败，可能账号因某些原因入了黑名单,具体验证方式可以登录网易云网页端走短信登录正规流程看是否能收到短信。
+
+
 
 #### 2.4.2 手机号密码登录
 
@@ -155,9 +183,9 @@ cookiecloud还是cookie另一种登录方式,cookiecloud也是浏览器cookie管
 
 cookiecloud详细介绍:
 
-- https://github.com/easychen/CookieCloud/blob/master/README_cn.md 介绍
-- https://juejin.cn/post/7190963442017108027 使用教程
-- https://chromewebstore.google.com/detail/cookiecloud/ffjiejobkoibkjlhjnlgmcnnigeelbdl chrome插件地址
+- [https://github.com/easychen/CookieCloud/blob/master/README_cn.md](https://github.com/easychen/CookieCloud/blob/master/README_cn.md) 介绍
+- [https://juejin.cn/post/7190963442017108027](https://juejin.cn/post/7190963442017108027) 使用教程
+- [https://chromewebstore.google.com/detail/cookiecloud/ffjiejobkoibkjlhjnlgmcnnigeelbdl](https://chromewebstore.google.com/detail/cookiecloud/ffjiejobkoibkjlhjnlgmcnnigeelbdl) chrome插件地址
 
 操作流程:
 
@@ -189,6 +217,8 @@ cookiecloud登录方式跟cookie方式相比会方便很多,不需要手动拷�
 2. 如果登录出现cookie找不到等相关错误,请在浏览器插件中手动同步cookie到云端，或退出网易云账号,重新登录重复上述操作流程。
 3. 如果使用第三方未知安全的cookiecloud服务器,请自行承担风险。
 
+
+
 #### 2.4.4 手机扫码登录
 
 > ⚠️ **Warning:** 网易云风控严重可能随时不支持扫码登录,会出现 `8821 需要行为验证码验证` 错误，如出现则更换别的登录方式.[相关详情](https://github.com/chaunsin/netease-cloud-music/issues/26)
@@ -201,14 +231,13 @@ export NCMCTL_QINGLONG_LOGIN_MODE=qrcode
 
 设置完环境变量,在青龙定时任务中，点击运行 `ncmctl登录`任务，查看运行日志，扫描日志中的二维码进行登录。
 
-![qinglong-2.png](images/qinglong-2.png)
+qinglong-2.png
 
 **提示:** 使用手机登录网易云音乐app进行扫码授权登录，如果不能识别终端打印的二维码可根据终端输出得文件路径提示找到二维码图片进行扫描,或者copy终端输出得
-`qrcode content: https://www.163.com/xxx` 内容自己生成二维码再进行扫描(_粘贴时不要包含 `qrcode content: `
-以及结尾空格_)。扫描有时效性,默认超时时间为5分钟,另外扫码过程中
+`qrcode content: https://www.163.com/xxx` 内容自己生成二维码再进行扫描(*粘贴时不要包含* `qrcode content:` *以及结尾空格*)。扫描有时效性,默认超时时间为5分钟,另外扫码过程中
 **不能退出**!!! 如有问题可重复此流程,为避免被风控不要频繁登录。
 
-在线生成二维码工具: https://www.bejson.com/convert/qrcode/#google_vignette
+在线生成二维码工具: [https://www.bejson.com/convert/qrcode/#google_vignette](https://www.bejson.com/convert/qrcode/#google_vignette)
 
 ### 2.5 定时任务相关环境变量配置
 
@@ -222,30 +251,32 @@ export NCMCTL_QINGLONG_LOGIN_MODE=qrcode
 - `NCMCTL_QINGLONG_PARTNER` 是否开启音乐合伙人 true: 开启(默认) false: 关闭
 
 **提示**:
-如果没有相应的权限，或已经彻底完成得任务，建议关闭不然会有封号的风险,相关问题参考: https://github.com/chaunsin/netease-cloud-music/issues/24
+如果没有相应的权限，或已经彻底完成得任务，建议关闭不然会有封号的风险,相关问题参考: [https://github.com/chaunsin/netease-cloud-music/issues/24](https://github.com/chaunsin/netease-cloud-music/issues/24)
 
 ## 3. 常见问题
 
+
+
 ### 3.1 github访问失败超时等问题
 
-拉库时，受到国内网络限制影响，访问GitHub速度慢或者错误，可在仓库地址前加上代理进行加速访问。
+GitHub 访问包含两条独立链路：
 
-如：
+- 青龙订阅或 `ql repo` 拉取仓库源码：需要在仓库地址前手动添加代理前缀。
+- `ncmctl安装`下载 GitHub Release：由 `NCMCTL_QINGLONG_GITHUB_PROXIES` 控制，参见[安装代理配置](#231-github-release-下载代理)。
+
+拉库代理示例：
 
 ```text
-https://ghproxy.cn/https://github.com/chaunsin/netease-cloud-music.git
-https://ghproxy.cc/https://github.com/chaunsin/netease-cloud-music.git
 https://ghproxy.net/https://github.com/chaunsin/netease-cloud-music.git
-https://github.moeyy.xyz/https://github.com/chaunsin/netease-cloud-music.git
 ```
 
-加速代理地址通常不能保证长期有效，请自行查找或参考以下使用。
+代理地址通常不能保证长期有效。安装失败时先查看日志确认失败节点，再替换代理列表或设置 `NCMCTL_QINGLONG_GITHUB_PROXIES=""` 测试 GitHub 直连；不要通过 `curl -k` 绕过证书错误。所有路由失败时脚本会返回非零状态，并保留原有的 `ncmctl` 二进制。
 
-https://github.com/hunshcn/gh-proxy/issues/116
+可在 [gh-proxy 镜像站点收集](https://github.com/hunshcn/gh-proxy/issues/116) 中查找其他节点，但使用前应自行确认运营者、TLS 证书和可用性，并控制访问频率。
 
 ### 3.2 not found command 错误
 
-通常情况下在首次安装时会出现此问题,原因是没有先执行 `ncmctl安装`任务。先执行此任务然后在尝试登录、一键任务等其他操作做。
+通常情况下在首次安装时会出现此问题,原因是没有先执行 `ncmctl安装`任务。先执行此任务然后在尝试登录、一键任务等其他操作。
 
 如果碰到以下错误：
 

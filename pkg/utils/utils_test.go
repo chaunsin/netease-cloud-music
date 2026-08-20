@@ -1,43 +1,28 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package utils
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseBytes(t *testing.T) {
 	type args struct {
 		input string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -122,6 +107,22 @@ func TestParseBytes(t *testing.T) {
 			want:    MB,
 			wantErr: false,
 		},
+		{
+			name:    "largest byte value",
+			args:    args{input: "9223372036854775807B"},
+			want:    math.MaxInt64,
+			wantErr: false,
+		},
+		{
+			name:    "unit multiplication overflow",
+			args:    args{input: "17592186044417MB"},
+			wantErr: true,
+		},
+		{
+			name:    "byte overflow",
+			args:    args{input: "9223372036854775808"},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -132,16 +133,62 @@ func TestParseBytes(t *testing.T) {
 	}
 }
 
+func TestBaseDir(t *testing.T) {
+	t.Parallel()
+
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+
+	assert.Equal(t, filepath.Join(home, ".ncmctl"), BaseDir())
+	assert.Equal(t, filepath.Join(home, ".ncmctl", "xeapi.yaml"), BaseDir("xeapi.yaml"))
+}
+
+func TestGenerateNVIDMatchesBrowserVector(t *testing.T) {
+	got := GenerateNVID(NVIDInput{
+		DateNowMillis: 1773424950453,
+		MathRandom:    0.123456789,
+		Location:      "https://music.163.com/song?id=1",
+		Referrer:      "https://music.163.com/",
+		ScreenWidth:   1440,
+		ScreenHeight:  900,
+		UserAgent:     "NeteaseMusicDesktop/3.0.12.2443",
+		Cookie:        "foo=你; emoji=😀",
+		ClientWidth:   1280,
+		ClientHeight:  720,
+	})
+
+	assert.Equal(t, "8e80ef6aad7177999b61740eeff9721d", got)
+}
+
+func TestGenerateFakeNVID(t *testing.T) {
+	before := time.Now().UnixMilli()
+	nnid, nuid, err := GenerateFakeNVID()
+	after := time.Now().UnixMilli()
+
+	require.NoError(t, err)
+
+	parts := strings.SplitN(nnid, ",", 2)
+	require.Len(t, parts, 2)
+	assert.Equal(t, nuid, parts[0])
+	assert.Len(t, nuid, 32)
+
+	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, timestamp, before)
+	assert.LessOrEqual(t, timestamp, after)
+}
+
 func TestMd5Hex(t *testing.T) {
 	// var filename = "../../testdata/music/record1.m4a"
-	var filename = "../../testdata/music/Maroon 5 - Animals.flac"
+	filename := "../../testdata/music/Maroon 5 - Animals.flac"
+
 	file, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	md5, err := MD5Hex(file)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Logf("md5:%s", md5)
 	assert.Equal(t, "afc48be2ca7c8afc38fbcb67ed7ff610", md5)
 }
@@ -151,44 +198,37 @@ func TestSplitSlice(t *testing.T) {
 		input     []T
 		chunkSize int
 	}
+
 	type testCase[T any] struct {
 		name    string
 		args    args[T]
 		want    [][]T
 		wantErr assert.ErrorAssertionFunc
 	}
+
 	tests := []testCase[int64]{
 		{
 			name: "ok",
 			args: args[int64]{input: []int64{1, 2, 3, 4, 5, 6, 7, 8}, chunkSize: 3},
 			want: [][]int64{{1, 2, 3}, {4, 5, 6}, {7, 8}},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				if err != nil {
-					return false
-				}
-				return true
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
+				return err == nil
 			},
 		},
 		{
 			name: "chunk>len",
 			args: args[int64]{input: []int64{1, 2, 3}, chunkSize: 4},
 			want: [][]int64{{1, 2, 3}},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				if err != nil {
-					return false
-				}
-				return true
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
+				return err == nil
 			},
 		},
 		{
 			name: "len<=0",
 			args: args[int64]{input: []int64{1, 2, 3}, chunkSize: 0},
 			want: [][]int64{},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				if err != nil {
-					return false
-				}
-				return true
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
+				return err == nil
 			},
 		},
 	}
@@ -198,17 +238,22 @@ func TestSplitSlice(t *testing.T) {
 			if !tt.wantErr(t, err, fmt.Sprintf("SplitSlice(%v, %v)", tt.args.input, tt.args.chunkSize)) {
 				return
 			}
+
 			assert.Equalf(t, tt.want, got, "SplitSlice(%v, %v)", tt.args.input, tt.args.chunkSize)
 		})
 	}
 }
 
 func calculateTime(t *testing.T, zone string) int64 {
+	t.Helper()
+
 	if zone == "" {
 		zone = "Local"
 	}
+
 	l, err := time.LoadLocation(zone)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	now := time.Now().In(l)
 	will := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, l)
 	return int64(will.Sub(now).Seconds())
@@ -218,6 +263,7 @@ func TestTimeUntilMidnight(t *testing.T) {
 	type args struct {
 		timeZone string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -228,33 +274,24 @@ func TestTimeUntilMidnight(t *testing.T) {
 			name: "cst",
 			args: args{timeZone: "Asia/Shanghai"},
 			want: calculateTime(t, "Asia/Shanghai"), // 由于时间获取在方法内部，此处构造的时间和待测试得基本雷同,允许时间误差在1秒之内。
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				if err != nil {
-					return false
-				}
-				return true
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
+				return err == nil
 			},
 		},
 		{
 			name: "local",
 			args: args{timeZone: ""},
 			want: calculateTime(t, ""), // 由于时间获取在方法内部，此处构造的时间和待测试得基本雷同,允许时间误差在1秒之内。
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				if err != nil {
-					return false
-				}
-				return true
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
+				return err == nil
 			},
 		},
 		{
 			name: "UTC",
 			args: args{timeZone: "UTC"},
 			want: calculateTime(t, "UTC"), // 由于时间获取在方法内部，此处构造的时间和待测试得基本雷同,允许时间误差在1秒之内。
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				if err != nil {
-					return false
-				}
-				return true
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
+				return err == nil
 			},
 		},
 	}
@@ -264,6 +301,7 @@ func TestTimeUntilMidnight(t *testing.T) {
 			if !tt.wantErr(t, err, fmt.Sprintf("TimeUntilMidnight(%v)", tt.args.timeZone)) {
 				return
 			}
+
 			assert.Equalf(t, tt.want, int64(got.Seconds()), "TimeUntilMidnight(%v)", tt.args.timeZone)
 		})
 	}
@@ -274,6 +312,7 @@ func TestFilename(t *testing.T) {
 		path string
 		new  string
 	}
+
 	tests := []struct {
 		name string
 		args args
@@ -393,62 +432,74 @@ func TestFilename(t *testing.T) {
 
 func TestIsGzipHeader(t *testing.T) {
 	tests := []struct {
-		name string
-		args []byte
-		want bool
+		name   string
+		data   []byte
+		strict []bool
+		want   bool
 	}{
 		{
-			name: "ok",
-			args: []byte{0x1F, 0x8B, 0x08, 'X', 'X', 'X', 'X'},
+			name: "default accepts gzip magic bytes",
+			data: []byte{0x1F, 0x8B, 0x00, 'X', 'X', 'X', 'X'},
 			want: true,
 		},
 		{
-			name: "invalid",
-			args: []byte{0x1F, 0x8B, 0x00, 'X', 'X', 'X', 'X'},
-			want: false,
-		},
-		{
-			name: "empty",
-			args: []byte{},
-			want: false,
-		},
-		{
-			name: "short",
-			args: []byte{0x1F, 0x8B, 0x08},
+			name: "default accepts two byte magic",
+			data: []byte{0x1F, 0x8B},
 			want: true,
 		},
 		{
-			name: "too short",
-			args: []byte{0x1F, 0x8B},
-			want: false,
+			name:   "explicit non-strict accepts two byte magic",
+			data:   []byte{0x1F, 0x8B},
+			strict: []bool{false},
+			want:   true,
 		},
 		{
-			name: "invalid string",
-			args: []byte("hello gzip"),
+			name:   "strict accepts DEFLATE",
+			data:   []byte{0x1F, 0x8B, 0x08, 'X', 'X', 'X', 'X'},
+			strict: []bool{true},
+			want:   true,
+		},
+		{
+			name:   "strict rejects another compression method",
+			data:   []byte{0x1F, 0x8B, 0x00, 'X', 'X', 'X', 'X'},
+			strict: []bool{true},
+			want:   false,
+		},
+		{
+			name:   "strict rejects two byte magic",
+			data:   []byte{0x1F, 0x8B},
+			strict: []bool{true},
+			want:   false,
+		},
+		{
+			name: "invalid magic",
+			data: []byte("hello gzip"),
 			want: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, IsGzipHeader(tt.args), "IsGzipHeader(%v)", tt.args)
+			assert.Equalf(t, tt.want, IsGzipHeader(tt.data, tt.strict...), "IsGzipHeader(%v, %v)", tt.data, tt.strict)
 		})
 	}
 }
 
 func TestCheckPath(t *testing.T) {
 	// 创建临时文件
-	tempFile, err := os.CreateTemp("", "testfile")
+	tempFile, err := os.CreateTemp(t.TempDir(), "testfile")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
+
 	t.Cleanup(func() {
 		// 删除临时文件
-		if err := os.Remove(tempFile.Name()); err != nil {
-			t.Errorf("Failed to remove temp file: %v", err)
+		if removeErr := os.Remove(tempFile.Name()); removeErr != nil {
+			t.Errorf("Failed to remove temp file: %v", removeErr)
 		}
 	})
 
 	tempFilePath := tempFile.Name()
+
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		t.Fatalf("Failed to get home directory: %v", err)
@@ -466,7 +517,7 @@ func TestCheckPath(t *testing.T) {
 			args:       tempFilePath,
 			wantExists: true,
 			wantIsDir:  false,
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("error: %v", err)
 					return false
@@ -479,7 +530,7 @@ func TestCheckPath(t *testing.T) {
 			args:       homeDir,
 			wantExists: true,
 			wantIsDir:  true,
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("error: %v", err)
 					return false
@@ -492,7 +543,7 @@ func TestCheckPath(t *testing.T) {
 			args:       filepath.Join("~", "nonexistent", "file"),
 			wantExists: false,
 			wantIsDir:  false,
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("error: %v", err)
 					return false
@@ -502,10 +553,10 @@ func TestCheckPath(t *testing.T) {
 		},
 		{
 			name:       "tilde expanded file exists",
-			args:       filepath.Join("~"),
+			args:       "~",
 			wantExists: true,
 			wantIsDir:  true,
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("error: %v", err)
 					return false
@@ -518,10 +569,12 @@ func TestCheckPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotExists, gotIsDir, err := CheckPath(tt.args)
-			fmt.Println(gotExists, gotIsDir, err)
+			t.Log(gotExists, gotIsDir, err)
+
 			if !tt.wantErr(t, err, fmt.Sprintf("CheckPath(%v)", tt.args)) {
 				return
 			}
+
 			assert.Equalf(t, tt.wantExists, gotExists, "CheckPath(%v)", tt.args)
 			assert.Equalf(t, tt.wantIsDir, gotIsDir, "CheckPath(%v)", tt.args)
 		})
@@ -530,7 +583,7 @@ func TestCheckPath(t *testing.T) {
 
 func TestExpandTilde(t *testing.T) {
 	home, err := os.UserHomeDir()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name    string
@@ -542,7 +595,7 @@ func TestExpandTilde(t *testing.T) {
 			name: "~",
 			args: "~",
 			want: home,
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("error: %v", err)
 					return false
@@ -554,7 +607,7 @@ func TestExpandTilde(t *testing.T) {
 			name: "~/",
 			args: "~/",
 			want: home,
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+			wantErr: func(t assert.TestingT, err error, i ...any) bool {
 				if err != nil {
 					t.Errorf("error: %v", err)
 					return false
@@ -569,13 +622,14 @@ func TestExpandTilde(t *testing.T) {
 			if !tt.wantErr(t, err, fmt.Sprintf("ExpandTilde(%v)", tt.args)) {
 				return
 			}
+
 			assert.Equalf(t, tt.want, got, "ExpandTilde(%v)", tt.args)
 		})
 	}
 }
 
 func TestGenerateWNMCID(t *testing.T) {
-	var validate = func(data string) bool {
+	validate := func(data string) bool {
 		parts := strings.Split(data, ".")
 		return len(parts) == 4 &&
 			len(parts[0]) == 6 &&
@@ -616,19 +670,22 @@ func TestGenerateDeviceId(t *testing.T) {
 			t.Logf("GenerateDeviceId(%v) = %s", tt.isLong, got)
 
 			if tt.isLong {
-				// 验证长格式: UUID|UUID (全大写)
+				// 验证长格式: UUIDv5|UUIDv4 (全大写)
 				parts := strings.Split(got, "|")
-				assert.Len(t, parts, 2, "长格式ID应包含两个UUID")
-				assert.Len(t, parts[0], 36, "UUID长度应为36")
-				assert.Len(t, parts[1], 36, "UUID长度应为36")
-				assert.Contains(t, parts[0], "-")
-				assert.Contains(t, parts[1], "-")
-				// 验证全大写
+				require.Len(t, parts, 2, "长格式ID应包含两个UUID")
+
+				uuidV5, err := uuid.Parse(parts[0])
+				require.NoError(t, err)
+				uuidV4, err := uuid.Parse(parts[1])
+				require.NoError(t, err)
+				assert.Equal(t, uuid.Version(5), uuidV5.Version())
+				assert.Equal(t, uuid.Version(4), uuidV4.Version())
 				assert.Equal(t, strings.ToUpper(parts[0]), parts[0], "UUID应为大写")
 				assert.Equal(t, strings.ToUpper(parts[1]), parts[1], "UUID应为大写")
 			} else {
 				// 验证短格式: 52位大写十六进制
 				assert.Len(t, got, 52, "短格式ID长度应为52")
+
 				for _, c := range got {
 					assert.True(t, (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F'),
 						"短格式ID应为大写十六进制字符")
@@ -645,7 +702,8 @@ func TestGenerateDeviceId(t *testing.T) {
 
 	t.Run("唯一性测试", func(t *testing.T) {
 		ids := make(map[string]bool)
-		for i := 0; i < 100; i++ {
+
+		for range 100 {
 			id := GenerateDeviceId()
 			assert.False(t, ids[id], "生成了重复的ID: %s", id)
 			ids[id] = true

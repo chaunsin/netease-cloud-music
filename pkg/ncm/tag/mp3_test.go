@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
+
 package tag
 
 import (
@@ -6,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/bogem/id3v2/v2"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMp3_Save(t *testing.T) {
@@ -15,6 +18,7 @@ func TestMp3_Save(t *testing.T) {
 		dest     string
 		encoding id3v2.Encoding
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -46,15 +50,16 @@ func TestMp3_Save(t *testing.T) {
 				t.Fatalf("os.Open() error = %v", err)
 				return
 			}
+
 			t.Cleanup(func() {
-				src.Close()
+				require.NoError(t, src.Close())
 			})
 
 			dest, err := os.Create(tt.args.dest)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(func() {
-				dest.Close()
-				os.Remove(tt.args.dest)
+				require.NoError(t, dest.Close())
+				require.NoError(t, os.Remove(tt.args.dest))
 			})
 
 			if _, err = io.Copy(dest, src); err != nil {

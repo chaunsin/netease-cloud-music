@@ -1,25 +1,5 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package tag
 
@@ -55,12 +35,14 @@ func NewFlac(filename string) (*Flac, error) {
 
 	// find the vorbisComment
 	var block *flac.MetaDataBlock
+
 	for _, m := range _flac.Meta {
 		if m.Type == flac.VorbisComment {
 			block = m
 			break
 		}
 	}
+
 	var comment *flacvorbis.MetaDataBlockVorbisComment
 	if block != nil {
 		comment, err = flacvorbis.ParseFromMetaDataBlock(*block)
@@ -105,21 +87,6 @@ func (f *Flac) SetCoverUrl(coverUrl string) error {
 	return nil
 }
 
-func (f *Flac) addTag(key string, values ...string) error {
-	old, err := f.comment.Get(key)
-	if err != nil {
-		return err
-	}
-	if len(old) == 0 {
-		for _, val := range values {
-			if err = f.comment.Add(key, val); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (f *Flac) SetTitle(title string) error {
 	return f.addTag(flacvorbis.FIELD_TITLE, title)
 }
@@ -137,25 +104,10 @@ func (f *Flac) SetComment(comment string) error {
 }
 
 // SetLyrics set lyrics
-// NOTE: LYRICS is not standard tag，de facto standard。
+// Compatibility: LYRICS is not standard tag，de facto standard。
 // see: https://datatracker.ietf.org/doc/html/rfc9639.html#name-security-considerations
 func (f *Flac) SetLyrics(lyrics string) error {
 	return f.addTag("LYRICS", lyrics)
-}
-
-func (f *Flac) setVorbisCommentMeta(block *flac.MetaDataBlock) {
-	var idx = -1
-	for i, m := range f.flac.Meta {
-		if m.Type == flac.VorbisComment {
-			idx = i
-			break
-		}
-	}
-	if idx == -1 {
-		f.flac.Meta = append(f.flac.Meta, block)
-	} else {
-		f.flac.Meta[idx] = block
-	}
 }
 
 func (f *Flac) Save() error {
@@ -167,7 +119,8 @@ func (f *Flac) Save() error {
 		return err
 	}
 
-	var tmpName = f.filename + "-tmp"
+	tmpName := f.filename + "-tmp"
+
 	temp, err := os.OpenFile(tmpName, os.O_RDWR|os.O_CREATE, stat.Mode())
 	if err != nil {
 		return err
@@ -191,4 +144,37 @@ func (f *Flac) Save() error {
 		return fmt.Errorf("rename: %w", err)
 	}
 	return nil
+}
+
+func (f *Flac) addTag(key string, values ...string) error {
+	old, err := f.comment.Get(key)
+	if err != nil {
+		return err
+	}
+
+	if len(old) == 0 {
+		for _, val := range values {
+			if err := f.comment.Add(key, val); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (f *Flac) setVorbisCommentMeta(block *flac.MetaDataBlock) {
+	idx := -1
+
+	for i, metadata := range f.flac.Meta {
+		if metadata.Type == flac.VorbisComment {
+			idx = i
+			break
+		}
+	}
+
+	if idx == -1 {
+		f.flac.Meta = append(f.flac.Meta, block)
+	} else {
+		f.flac.Meta[idx] = block
+	}
 }

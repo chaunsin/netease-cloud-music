@@ -1,25 +1,5 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package weapi
 
@@ -29,28 +9,31 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
-	"net/url"
+	neturl "net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+
+	"github.com/cheggaaa/pb/v3"
 
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/cheggaaa/pb/v3"
 )
 
 type CloudListReq struct {
 	types.ReqCommon
+
 	Limit  int64 `json:"limit,omitempty"`
 	Offset int64 `json:"offset,omitempty"`
 }
 
 type CloudListResp struct {
 	types.RespCommon[[]CloudListRespData]
+
 	HasMore     bool   // 用于分页
 	UpgradeSign int64  // 目前未知
 	MaxSize     string // 网盘总共空间
@@ -80,47 +63,47 @@ type CloudListRespDataSimpleSong struct {
 	Pst                  int64          `json:"pst"`
 	T                    int64          `json:"t"`
 	Ar                   []types.Artist `json:"ar"`
-	Alia                 []interface{}  `json:"alia"`
+	Alia                 []any          `json:"alia"`
 	Pop                  float64        `json:"pop"`
 	St                   int64          `json:"st"`
 	Rt                   string         `json:"rt"`
 	Fee                  int64          `json:"fee"`
 	V                    int64          `json:"v"`
-	Crbt                 interface{}    `json:"crbt"`
+	Crbt                 any            `json:"crbt"`
 	Cf                   string         `json:"cf"`
 	Al                   types.Album    `json:"al"`
 	Dt                   int64          `json:"dt"`
 	H                    *types.Quality `json:"h"`
 	M                    *types.Quality `json:"m"`
 	L                    *types.Quality `json:"l"`
-	A                    interface{}    `json:"a"`
+	A                    any            `json:"a"`
 	Cd                   string         `json:"cd"`
 	No                   int64          `json:"no"`
-	RtUrl                interface{}    `json:"rtUrl"`
+	RtUrl                any            `json:"rtUrl"`
 	Ftype                int64          `json:"ftype"`
-	RtUrls               []interface{}  `json:"rtUrls"`
+	RtUrls               []any          `json:"rtUrls"`
 	DjId                 int64          `json:"djId"`
 	Copyright            int64          `json:"copyright"`
 	SId                  int64          `json:"s_id"`
 	Mark                 int64          `json:"mark"`
 	OriginCoverType      int64          `json:"originCoverType"`
-	OriginSongSimpleData interface{}    `json:"originSongSimpleData"`
+	OriginSongSimpleData any            `json:"originSongSimpleData"`
 	Single               int64          `json:"single"`
 	NoCopyrightRcmd      struct {
-		Type     int64       `json:"type"`
-		TypeDesc string      `json:"typeDesc"`
-		SongId   interface{} `json:"songId"`
+		Type     int64  `json:"type"`
+		TypeDesc string `json:"typeDesc"`
+		SongId   any    `json:"songId"`
 	} `json:"noCopyrightRcmd"`
 	Cp          int64            `json:"cp"`
 	Mv          int64            `json:"mv"`
 	Mst         int64            `json:"mst"`
-	Rurl        interface{}      `json:"rurl"`
+	Rurl        any              `json:"rurl"`
 	Rtype       int64            `json:"rtype"`
 	PublishTime int64            `json:"publishTime"`
 	Privilege   types.Privileges `json:"privilege"`
 }
 
-// CloudList 查询云盘列表,包含云盘空间大小、已用空间数
+// CloudList 查询云盘列表,包含云盘空间大小、已用空间数.
 func (a *Api) CloudList(ctx context.Context, req *CloudListReq) (*CloudListResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/v1/cloud/get"
@@ -134,14 +117,16 @@ func (a *Api) CloudList(ctx context.Context, req *CloudListReq) (*CloudListResp,
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type CloudTokenAllocReq struct {
 	types.ReqCommon
+
 	Bucket string `json:"bucket,omitempty"`
 	// 文件扩展名 例如mp3、m4a、flac
 	Ext      string `json:"ext,omitempty"`
@@ -156,18 +141,20 @@ type CloudTokenAllocReq struct {
 
 type CloudTokenAllocResp struct {
 	types.RespCommon[any]
-	CloudTokenAllocRespResult `json:"result,omitempty"`
+	CloudTokenAllocRespResult `json:"result,omitzero"`
 }
 
 // CloudTokenAllocRespResult 数据示例
 // {
 // "bucket": "jd-musicrep-privatecloud-audio-public",
-// "token": "UPLOAD 037a197cb50b42468694de59c0bdd9b1:zWmW6BmWPo5mWEMdTCEjtu9SaSRpgYmSQpXtb20fVd0=:eyJSZWdpb24iOiJKRCIsIk9iamVjdCI6Im9iai93b0REbU1PQnc2UENsV3pDbk1LLS8zNjY1NjcyOTU5OC8xN2JjL2Y0MjQvYjMyNi84MDJiMmVmZTJiMGY1ZjU0MzAyNGFlYWFmNzQ3NGEwNi5tNGEiLCJFeHBpcmVzIjoxNzE4MzUyNjI4LCJCdWNrZXQiOiJqZC1tdXNpY3JlcC1wcml2YXRlY2xvdWQtYXVkaW8tcHVibGljIn0=",
-// "outerUrl": "https://jd-musicrep-privatecloud-audio-public.nos-jd.163yun.com/obj%2FwoDDmMOBw6PClWzCnMK-%2F36656729598%2F17bc%2Ff424%2Fb326%2F802b2efe2b0f5f543024aeaaf7474a06.m4a?Signature=NuGYr715XbqmSdr7xWoVoYR0GiwDc6zJ0luYLY0WSaE%3D&Expires=1718350828&NOSAccessKeyId=037a197cb50b42468694de59c0bdd9b1",
+// "token": "UPLOAD
+// 037a197cb50b42468694de59c0bdd9b1:zWmW6BmWPo5mWEMdTCEjtu9SaSRpgYmSQpXtb20fVd0=:eyJSZWdpb24iOiJKRCIsIk9iamVjdCI6Im9iai93b0REbU1PQnc2UENsV3pDbk1LLS8zNjY1NjcyOTU5OC8xN2JjL2Y0MjQvYjMyNi84MDJiMmVmZTJiMGY1ZjU0MzAyNGFlYWFmNzQ3NGEwNi5tNGEiLCJFeHBpcmVzIjoxNzE4MzUyNjI4LCJCdWNrZXQiOiJqZC1tdXNpY3JlcC1wcml2YXRlY2xvdWQtYXVkaW8tcHVibGljIn0=",
+// "outerUrl":
+// "https://jd-musicrep-privatecloud-audio-public.nos-jd.163yun.com/obj%2FwoDDmMOBw6PClWzCnMK-%2F36656729598%2F17bc%2Ff424%2Fb326%2F802b2efe2b0f5f543024aeaaf7474a06.m4a?Signature=NuGYr715XbqmSdr7xWoVoYR0GiwDc6zJ0luYLY0WSaE%3D&Expires=1718350828&NOSAccessKeyId=037a197cb50b42468694de59c0bdd9b1",
 // "docId": "-1",
 // "objectKey": "obj/woDDmMOBw6PClWzCnMK-/36656729598/17bc/f424/b326/802b2efe2b0f5f543024aeaaf7474a06.m4a",
 // "resourceId": 36656729598
-// }
+// }.
 type CloudTokenAllocRespResult struct {
 	Bucket     string `json:"bucket"` // 存储桶名称 如:ymusic
 	Token      string `json:"token"`  // 上传使用得token
@@ -179,7 +166,7 @@ type CloudTokenAllocRespResult struct {
 
 // CloudTokenAlloc 获取上传云盘token
 // url:
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) CloudTokenAlloc(ctx context.Context, req *CloudTokenAllocReq) (*CloudTokenAllocResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/nos/token/alloc"
@@ -193,14 +180,16 @@ func (a *Api) CloudTokenAlloc(ctx context.Context, req *CloudTokenAllocReq) (*Cl
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type CloudUploadCheckReq struct {
 	types.ReqCommon
+
 	// 音乐比特率 例如: 128000、192000、320000、999000
 	Bitrate string `json:"bitrate,omitempty"`
 	Ext     string `json:"ext,omitempty"`
@@ -213,6 +202,7 @@ type CloudUploadCheckReq struct {
 type CloudUploadCheckResp struct {
 	// code 501:貌似上传得文件过大
 	types.RespCommon[any]
+
 	SongId string `json:"songId,omitempty"`
 	// NeedUpload 是否需要上传 true:需要上传说明网易云网盘没有此音乐文件
 	NeedUpload bool `json:"needUpload"`
@@ -220,7 +210,7 @@ type CloudUploadCheckResp struct {
 
 // CloudUploadCheck 获取上传云盘token
 // url:
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) CloudUploadCheck(ctx context.Context, req *CloudUploadCheckReq) (*CloudUploadCheckResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/cloud/upload/check"
@@ -234,20 +224,23 @@ func (a *Api) CloudUploadCheck(ctx context.Context, req *CloudUploadCheckReq) (*
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type CloudUploadCheckV2Req struct {
 	types.ReqCommon
+
 	UploadType int64                        `json:"uploadType"` // 0
 	Songs      []CloudUploadCheckV2ReqSongs `json:"songs"`
 }
 
 type cloudUploadCheckV2Req struct {
 	types.ReqCommon
+
 	UploadType int64  `json:"uploadType"`
 	Songs      string `json:"songs"`
 }
@@ -270,7 +263,7 @@ type CloudUploadCheckV2RespData struct {
 
 // CloudUploadCheckV2 获取上传云盘token
 // url: 14.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) CloudUploadCheckV2(ctx context.Context, req *CloudUploadCheckV2Req) (*CloudUploadCheckV2Resp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/cloud/upload/check/v2"
@@ -284,8 +277,9 @@ func (a *Api) CloudUploadCheckV2(ctx context.Context, req *CloudUploadCheckV2Req
 
 	songs, err := json.Marshal(req.Songs)
 	if err != nil {
-		return nil, fmt.Errorf("json.Marshal(req.Songs) error: %v", err)
+		return nil, fmt.Errorf("json.Marshal(req.Songs) error: %w", err)
 	}
+
 	request := cloudUploadCheckV2Req{
 		ReqCommon:  req.ReqCommon,
 		UploadType: req.UploadType,
@@ -294,8 +288,9 @@ func (a *Api) CloudUploadCheckV2(ctx context.Context, req *CloudUploadCheckV2Req
 
 	resp, err := a.client.Request(ctx, url, &request, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -331,15 +326,15 @@ type CloudUploadLbsResp struct {
 // CloudUpload 上传到云盘
 // url:
 // needLogin: 未知
-// todo: 需要迁移到合适的包中
+// Pending: 需要迁移到合适的包中.
 func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploadResp, error) {
-	objectKey, err := url.PathUnescape(req.ObjectKey)
+	objectKey, err := neturl.PathUnescape(req.ObjectKey)
 	if err != nil {
-		return nil, fmt.Errorf("PathUnescape: %v", err)
+		return nil, fmt.Errorf("PathUnescape: %w", err)
 	}
 
 	var (
-		addr      = fmt.Sprintf("https://wanproxy.127.net/lbs?version=1.0&bucketname=%s", req.Bucket)
+		addr      = "https://wanproxy.127.net/lbs?version=1.0&bucketname=" + req.Bucket
 		urlFormat = "%s/%s/%s"
 		ip        = "http://59.111.242.121"
 		uploadUrl = fmt.Sprintf(urlFormat, ip, req.Bucket, objectKey)
@@ -351,20 +346,19 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 		NewRequest().
 		SetContext(ctx).
 		SetHeader("Referer", "https://music.163.com").
-		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034"). // todo: hard code
+		SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034"). // Pending: hard code
 		Get(addr)
 	if err != nil || resp.StatusCode() != http.StatusOK {
-		log.Error("user default upload lbs node. get %s error: %v", addr, err)
-		return nil, fmt.Errorf("Get: %w", err)
+		log.Errorf("user default upload lbs node. get %s error: %v", addr, err)
+		return nil, fmt.Errorf("get: %w", err)
 	} else {
 		var lbs CloudUploadLbsResp
-		if err := json.Unmarshal(resp.Body(), &lbs); err != nil {
-			log.Error("user default upload lbs node. Unmarshal %s error: %v", addr, err)
-		} else {
-			if len(lbs.Upload) > 0 {
-				ip = lbs.Upload[rand.Intn(len(lbs.Upload))]
-				uploadUrl = fmt.Sprintf(urlFormat, ip, req.Bucket, objectKey)
-			}
+		if unmarshalErr := json.Unmarshal(resp.Body(), &lbs); unmarshalErr != nil {
+			log.Errorf("user default upload lbs node. Unmarshal %s error: %v", addr, unmarshalErr)
+		} else if len(lbs.Upload) > 0 {
+			// Upload-node selection is load distribution, not security-sensitive randomness.
+			ip = lbs.Upload[rand.IntN(len(lbs.Upload))] //nolint:gosec // Random node selection is not security-sensitive.
+			uploadUrl = fmt.Sprintf(urlFormat, ip, req.Bucket, objectKey)
 		}
 	}
 
@@ -388,11 +382,11 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 
 	md5, err := utils.MD5Hex(data)
 	if err != nil {
-		return nil, fmt.Errorf("MD5Hex: %v", err)
+		return nil, fmt.Errorf("MD5Hex: %w", err)
 	}
 
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return nil, fmt.Errorf("SeekStart: %v", err)
+		return nil, fmt.Errorf("SeekStart: %w", err)
 	}
 
 	var (
@@ -402,11 +396,12 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 		chunks      = int((totalSize + chunkSize - 1) / chunkSize)
 		nextContext = ""
 	)
-	uploadUrl = uploadUrl + "?offset=%d&complete=%v&version=1.0"
 
-	var headers = map[string]string{
+	uploadUrl += "?offset=%d&complete=%v&version=1.0"
+
+	headers := map[string]string{
 		"X-Nos-Token":    req.Token,
-		"Content-Length": fmt.Sprintf("%d", totalSize),
+		"Content-Length": strconv.FormatInt(totalSize, 10),
 		"Content-Md5":    md5,
 		"Content-Type":   utils.DetectContentType(data, ext),
 		// "x-nos-meta-origin-md5": md5,
@@ -421,7 +416,7 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 	// }
 	// return &reply, nil
 
-	for i := 0; i < chunks; i++ {
+	for i := range chunks {
 		var (
 			complete = i == chunks-1
 			start    = int64(i) * chunkSize
@@ -441,11 +436,13 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 			return nil, fmt.Errorf("splitFile: %w", err)
 		}
 
-		resp, err = a.client.Upload(ctx, _addr, headers, bytes.NewReader(partData), &reply, req.ProgressBar)
-		log.Debug("upload addr: %s chunk %d/%d, offset: %d, complete: %v, resp: %+v",
+		opts := api.NewOptions().SetMethod(http.MethodPost).SetHeaders(headers)
+		resp, err = a.client.Upload(ctx, _addr, bytes.NewReader(partData), &reply, opts, req.ProgressBar)
+		log.Debugf("upload addr: %s chunk %d/%d, offset: %d, complete: %v, resp: %+v",
 			addr, i+1, chunks, start, complete, reply.ErrCode)
+
 		if err != nil {
-			return nil, fmt.Errorf("Upload: %w", err)
+			return nil, fmt.Errorf("upload: %w", err)
 		}
 
 		nextContext = reply.Context
@@ -455,7 +452,8 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 }
 
 func splitFile(file *os.File, start, end int64) ([]byte, error) {
-	var buf = make([]byte, end-start)
+	buf := make([]byte, end-start)
+
 	_, err := file.ReadAt(buf, start)
 	if err != nil && err != io.EOF {
 		return nil, err
@@ -465,6 +463,7 @@ func splitFile(file *os.File, start, end int64) ([]byte, error) {
 
 type CloudInfoReq struct {
 	types.ReqCommon
+
 	// Md5 文件md5
 	Md5 string `json:"md5,omitempty"`
 	// SongId 歌曲id 从 CloudUploadCheck() api/cloud/upload/check接口返回值中获取
@@ -494,6 +493,7 @@ type CloudInfoResp struct {
 	// 404: 错误未知,目前在上传文件时文件大于200MB时出现此错误，经后来测试多试了几次重传发现又好了貌似是临时性错误，待确认排查。
 	// 410: 涉嫌违规,无法上传
 	types.RespCommon[any]
+
 	// Code           int64        `json:"code,omitempty"`
 	SongId         string       `json:"songId,omitempty"`
 	SongIdLong     int64        `json:"songIdLong"` // songId和songIdLong相等只不过类型不同
@@ -510,38 +510,38 @@ type PrivateCloud struct {
 		Pst                  int              `json:"pst"`
 		T                    int              `json:"t"`
 		Ar                   []types.Artist   `json:"ar"`
-		Alia                 []interface{}    `json:"alia"`
+		Alia                 []any            `json:"alia"`
 		Pop                  float64          `json:"pop"`
 		St                   int              `json:"st"`
 		Rt                   string           `json:"rt"`
 		Fee                  int              `json:"fee"`
 		V                    int              `json:"v"`
-		Crbt                 interface{}      `json:"crbt"`
+		Crbt                 any              `json:"crbt"`
 		Cf                   string           `json:"cf"`
 		Al                   types.Album      `json:"al"`
 		Dt                   int              `json:"dt"`
 		H                    types.Quality    `json:"h"`
 		M                    types.Quality    `json:"m"`
 		L                    types.Quality    `json:"l"`
-		A                    interface{}      `json:"a"`
+		A                    any              `json:"a"`
 		Cd                   string           `json:"cd"`
 		No                   int              `json:"no"`
-		RtUrl                interface{}      `json:"rtUrl"`
+		RtUrl                any              `json:"rtUrl"`
 		Ftype                int              `json:"ftype"`
-		RtUrls               []interface{}    `json:"rtUrls"`
+		RtUrls               []any            `json:"rtUrls"`
 		DjId                 int              `json:"djId"`
 		Copyright            int              `json:"copyright"`
 		SId                  int              `json:"s_id"`
 		Mark                 int              `json:"mark"`
 		OriginCoverType      int              `json:"originCoverType"`
-		OriginSongSimpleData interface{}      `json:"originSongSimpleData"`
+		OriginSongSimpleData any              `json:"originSongSimpleData"`
 		Single               int              `json:"single"`
-		NoCopyrightRcmd      interface{}      `json:"noCopyrightRcmd"`
+		NoCopyrightRcmd      any              `json:"noCopyrightRcmd"`
 		Mst                  int              `json:"mst"`
 		Cp                   int              `json:"cp"`
 		Mv                   int              `json:"mv"`
 		Rtype                int              `json:"rtype"`
-		Rurl                 interface{}      `json:"rurl"`
+		Rurl                 any              `json:"rurl"`
 		PublishTime          int64            `json:"publishTime"`
 		Privilege            types.Privileges `json:"privilege"`
 	} `json:"simpleSong"`
@@ -561,24 +561,27 @@ type PrivateCloud struct {
 
 // CloudInfo 上传信息歌曲信息
 // url: /testdata/9.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) CloudInfo(ctx context.Context, req *CloudInfoReq) (*CloudInfoResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/upload/cloud/info/v2" // 是api还是weapi？
 		reply CloudInfoResp
 		opts  = api.NewOptions()
 	)
+
 	if req.Album == "" {
 		req.Album = "未知专辑"
 	}
+
 	if req.Artist == "" {
 		req.Artist = "未知艺术家"
 	}
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -589,6 +592,7 @@ type CloudMusicStatusReq struct {
 
 type CloudMusicStatusResp struct {
 	types.RespCommon[any]
+
 	// Key为歌曲的id
 	Statuses map[string]CloudMusicStatusRespData `json:"statuses"`
 }
@@ -601,7 +605,7 @@ type CloudMusicStatusRespData struct {
 
 // CloudMusicStatus 查询上传文件状态信息,此接口貌似是上传文件后查询文件转码状态
 // url: /testdata/10.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) CloudMusicStatus(ctx context.Context, req *CloudMusicStatusReq) (*CloudMusicStatusResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/v1/cloud/music/status"
@@ -611,14 +615,16 @@ func (a *Api) CloudMusicStatus(ctx context.Context, req *CloudMusicStatusReq) (*
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type CloudPublishReq struct {
 	types.ReqCommon
+
 	SongId string `json:"songid"`
 }
 
@@ -630,7 +636,7 @@ type CloudPublishResp struct {
 
 // CloudPublish 上传信息发布
 // url: testdata/har/13.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) CloudPublish(ctx context.Context, req *CloudPublishReq) (*CloudPublishResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/cloud/pub/v2"
@@ -640,8 +646,9 @@ func (a *Api) CloudPublish(ctx context.Context, req *CloudPublishReq) (*CloudPub
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -652,6 +659,7 @@ type CloudDownloadReq struct {
 
 type CloudDownloadResp struct {
 	types.RespCommon[any]
+
 	Name string `json:"name"`
 	Url  string `json:"url"`
 	// Size 单位字节(B)
@@ -660,7 +668,7 @@ type CloudDownloadResp struct {
 
 // CloudDownload 云盘歌曲下载歌曲
 // url: testdata/har/2.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) CloudDownload(ctx context.Context, req *CloudDownloadReq) (*CloudDownloadResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/cloud/dowonload"
@@ -670,8 +678,9 @@ func (a *Api) CloudDownload(ctx context.Context, req *CloudDownloadReq) (*CloudD
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -685,13 +694,14 @@ type CloudLyricReq struct {
 
 type CloudLyricResp struct {
 	types.RespCommon[any]
+
 	Lyc string `json:"lrc"`
 	Krc string `json:"krc"`
 }
 
 // CloudLyric 云盘歌曲歌词获取
 // url: testdata/har/3.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) CloudLyric(ctx context.Context, req *CloudLyricReq) (*CloudLyricResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/cloud/lyric/get"
@@ -701,8 +711,9 @@ func (a *Api) CloudLyric(ctx context.Context, req *CloudLyricReq) (*CloudLyricRe
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -714,6 +725,7 @@ type CloudDelReq struct {
 type CloudDelResp struct {
 	// Code 200:成功 404:删除失败(当重复删除同一个id时会出现)
 	types.RespCommon[any]
+
 	// FailIds 删除失败的歌曲id
 	FailIds []int64 `json:"failIds"`
 	// SuccIds 删除成功的歌曲id
@@ -722,7 +734,7 @@ type CloudDelResp struct {
 
 // CloudDel 云盘歌曲删除
 // url: 15.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) CloudDel(ctx context.Context, req *CloudDelReq) (*CloudDelResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/cloud/del"
@@ -732,8 +744,9 @@ func (a *Api) CloudDel(ctx context.Context, req *CloudDelReq) (*CloudDelResp, er
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -749,24 +762,25 @@ type CloudUploadNodeResp struct {
 
 // CloudUploadNode 上传节点获取
 // url: 16.har
-// needLogin: 不需要
+// needLogin: 不需要.
 func (a *Api) CloudUploadNode(ctx context.Context, req *CloudUploadNodeReq) (*CloudUploadNodeResp, error) {
 	var (
 		url   = "http://wanproxy.127.net/lbs?version=%s"
 		reply CloudUploadNodeResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetAPI().SetMethod(http.MethodGet)
 	)
-	opts.Method = http.MethodGet
-	opts.CryptoMode = api.CryptoModeAPI
+
 	if req.Version == "" {
 		req.Version = "1.0"
 	}
+
 	url = fmt.Sprintf(url, req.Version)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

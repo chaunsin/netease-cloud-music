@@ -1,25 +1,5 @@
-// MIT License
-//
-// Copyright (c) 2025 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2025-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package cookiecloud
 
@@ -34,6 +14,7 @@ func TestDecrypt(t *testing.T) {
 		password   string
 		ciphertext string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -54,6 +35,7 @@ func TestDecrypt(t *testing.T) {
 				t.Errorf("Decrypt() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !reflect.DeepEqual(string(got), tt.want) {
 				t.Errorf("Decrypt() got = [%s], want [%v]", got, tt.want)
 			}
@@ -63,10 +45,10 @@ func TestDecrypt(t *testing.T) {
 
 func TestEncrypt(t *testing.T) {
 	type args struct {
-		uuid     string
 		password string
 		data     string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -87,7 +69,9 @@ func TestEncrypt(t *testing.T) {
 				t.Errorf("EncryptCookieData() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			t.Logf("got = %v", got)
+
 			if len(got) != tt.want {
 				t.Errorf("EncryptCookieData() got = %v, want %v", len(got), tt.want)
 			}
@@ -103,6 +87,7 @@ func TestBytesToKey(t *testing.T) {
 		keyLen   int
 		blockLen int
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -119,9 +104,11 @@ func TestBytesToKey(t *testing.T) {
 				t.Errorf("BytesToKey() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !reflect.DeepEqual(gotKey, tt.wantKey) {
 				t.Errorf("BytesToKey() gotKey = %v, want %v", gotKey, tt.wantKey)
 			}
+
 			if !reflect.DeepEqual(gotIv, tt.wantIv) {
 				t.Errorf("BytesToKey() gotIv = %v, want %v", gotIv, tt.wantIv)
 			}
@@ -134,6 +121,7 @@ func TestBytesToKeyAES256CBC(t *testing.T) {
 		salt []byte
 		data []byte
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -150,9 +138,11 @@ func TestBytesToKeyAES256CBC(t *testing.T) {
 				t.Errorf("BytesToKeyAES256CBC() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !reflect.DeepEqual(gotKey, tt.wantKey) {
 				t.Errorf("BytesToKeyAES256CBC() gotKey = %v, want %v", gotKey, tt.wantKey)
 			}
+
 			if !reflect.DeepEqual(gotIv, tt.wantIv) {
 				t.Errorf("BytesToKeyAES256CBC() gotIv = %v, want %v", gotIv, tt.wantIv)
 			}
@@ -165,6 +155,7 @@ func TestBytesToKeyAES256CBCMD5(t *testing.T) {
 		salt []byte
 		data []byte
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -181,9 +172,11 @@ func TestBytesToKeyAES256CBCMD5(t *testing.T) {
 				t.Errorf("BytesToKeyAES256CBCMD5() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !reflect.DeepEqual(gotKey, tt.wantKey) {
 				t.Errorf("BytesToKeyAES256CBCMD5() gotKey = %v, want %v", gotKey, tt.wantKey)
 			}
+
 			if !reflect.DeepEqual(gotIv, tt.wantIv) {
 				t.Errorf("BytesToKeyAES256CBCMD5() gotIv = %v, want %v", gotIv, tt.wantIv)
 			}
@@ -195,6 +188,7 @@ func TestMd5String(t *testing.T) {
 	type args struct {
 		inputs []string
 	}
+
 	tests := []struct {
 		name string
 		args args

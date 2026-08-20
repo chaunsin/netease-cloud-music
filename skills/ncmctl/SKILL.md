@@ -1,133 +1,145 @@
 ---
 name: ncmctl
 description: >-
-  ncmctl CLI reference and usage guide for NetEase Cloud Music. Use this skill when the user
-  mentions ncmctl, 网易云音乐命令行, 网易云音乐, 网易云, 网易音乐, NetEase Cloud Music CLI,
-  or asks how to install, login, download songs, upload to cloud, decrypt NCM files, convert ncm to mp3/flac,
-  run daily tasks (sign/partner/scrobble), 刷歌, 云贝签到, 音乐合伙人, 黑胶签到, or use API debugging tools.
-  Also trigger on questions about ncmctl configuration, cookie management, or Docker deployment.
-  Use even if the user does not explicitly say "ncmctl" when the work is clearly related to NetEase Cloud Music CLI operations.
-metadata:
-  author: chaunsin
-  version: "0.1.0"
+  Install, configure, operate, and troubleshoot the ncmctl command-line client for NetEase Cloud
+  Music. Use this skill when the user mentions ncmctl or asks for CLI-based NetEase login, Cookie or
+  CookieCloud import, QR/SMS login, scheduled sign/partner/scrobble tasks, song download, cloud-disk
+  upload, NCM-to-MP3/FLAC decryption, API crypto/curl debugging, Docker deployment, or the local
+  HTTP(S) capture proxy. Also use it for ncmctl flags, shell completion, config files, runtime paths,
+  credentials, and proxy CA safety. Do not trigger for general music recommendations, official app usage, or repository
+  development; the repository-local ncmctl-dev skill covers source changes.
 ---
 
-# ncmctl - NetEase Cloud Music CLI
+# ncmctl User Guide
 
-ncmctl is a Go CLI for NetEase Cloud Music: login, daily tasks, music download, cloud upload, NCM decryption, and API debugging.
+ncmctl is a Go CLI for NetEase Cloud Music login, scheduled account tasks, media download/upload, NCM decryption, API debugging, and local HTTP(S) traffic monitoring.
 
-## Prerequisites
+## How to use this skill
+
+1. Identify whether the user needs installation/login help or a command reference.
+2. Start with the matching reference file listed at the end. Load the other only when the request crosses installation/login and command/config concerns.
+3. Prefer the installed binary's `ncmctl <command> --help` output when available; it is the exact syntax for that version.
+4. Explain network, credential, filesystem, and account effects before suggesting a command that causes them.
+5. Never invent flags, interactive prompts, environment variables, exit codes, or decryption capabilities that are not documented here or shown by the binary.
+
+Do not perform an action that changes an account or credentials, writes or deletes files, modifies a trust store, starts a listener, or launches a long-running service unless the user explicitly requested that effect. Representative commands include login/logout, account tasks, media operations, `curl`, and `proxy`.
+
+## Installation check
 
 ```bash
-# Check if ncmctl is installed
 ncmctl --version
+ncmctl --help
+```
 
-# Install options:
+If the command is missing, read `references/install-and-login.md`. Source installation requires Go 1.25.0 or newer:
 
-# Go install (requires Go >= 1.25.0)
+```bash
 go install github.com/chaunsin/netease-cloud-music/cmd/ncmctl@latest
-
-# Or download pre-built binary from GitHub Releases
-# https://github.com/chaunsin/netease-cloud-music/releases
 ```
 
-## Quick Reference
+Prebuilt binaries are published on the project's GitHub Releases page.
 
-| Command      | Login | Description                                                      |
-| ------------ | ----- | ---------------------------------------------------------------- |
-| `login`    | No    | Phone/Cookie/CookieCloud/QR code login                           |
-| `logout`   | No    | Clear stored credentials                                         |
-| `task`     | Yes   | Run daily tasks on cron schedule                                 |
-| `sign`     | Yes   | YunBei + VIP daily check-in                                      |
-| `partner`  | Yes   | Music partner auto-evaluation                                    |
-| `scrobble` | Yes   | Scrobble songs daily (default 300, max 300)                      |
-| `download` | Yes   | Download songs/albums/playlists                                  |
-| `cloud`    | Yes   | Upload music to cloud disk                                       |
-| `ncm`      | No    | Decrypt .ncm to .mp3/.flac                                       |
-| `crypto`   | No    | Encrypt/decrypt API parameters (debugging only)                  |
-| `curl`     | No    | Invoke API methods directly (ncmctl subcommand, not system curl) |
+## Command map
 
-## Global Flags
+| Command | Login | Purpose |
+| --- | --- | --- |
+| `login` | No | Phone/SMS, password, Cookie, CookieCloud, or QR login |
+| `logout` | Existing session | Log out, remove the default Cookie and XEAPI state, and optionally remove the anonymous token |
+| `task` | Yes | Run sign, partner, and/or scrobble on cron schedules |
+| `sign` | Yes | Run YunBei and VIP daily sign-in actions; VIP sign-in needs no active entitlement |
+| `partner` | Yes | Submit music-partner evaluations once |
+| `scrobble` | Yes | Submit play logs, up to 300 per day |
+| `download` | Yes | Download songs, albums, artists, or playlists |
+| `cloud` | Yes | Upload local audio to the account's cloud disk |
+| `ncm` | No | Decode local `.ncm` files to playable audio |
+| `crypto` | No | Inspect supported API encryption formats |
+| `curl` | Depends on API | Invoke an exported API wrapper method by name |
+| `proxy` | No | Monitor the user's own NetEase HTTP(S) traffic |
+| `completion` | No | Generate shell completion for bash, fish, PowerShell, or zsh |
 
-| Flag             | Default       | Description                     |
-| ---------------- | ------------- | ------------------------------- |
-| `--debug`      | false         | Enable debug mode               |
-| `-c, --config` | none          | Config file path                |
-| `--home`       | `~/.ncmctl` | Home directory for runtime data |
+Read `references/commands.md` for flags, limits, side effects, and examples.
 
-## Configuration Paths
+## Global flags and runtime data
 
-| Item     | Default Path                   |
-| -------- | ------------------------------ |
-| Config   | `~/.ncmctl/config.yaml`      |
-| Cookie   | `~/.ncmctl/cookie.json`      |
-| Database | `~/.ncmctl/database/badger/` |
-| Logs     | `~/.ncmctl/log/ncm.log`      |
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--debug` | false | Enable verbose logs; API headers and bodies may expose secrets |
+| `-c, --config` | none | Select an exact complete YAML file; see the schema in `references/commands.md` |
+| `--home` | OS user home | Root for `.ncmctl` state and the `${HOME}` replacement in configured paths |
 
-Env var prefix: `NCmctl_` (e.g., `NCmctl_Log_Level=debug`). Note: the mixed-case prefix `NCmctl_` is the actual prefix used by the tool.
+Without `--config`, ncmctl uses its embedded defaults; it does not automatically load `~/.ncmctl/config.yaml`.
 
-## Security Considerations
+Default runtime paths under `<home>`:
 
-> **IMPORTANT**: ncmctl handles authentication credentials and performs actions on your NetEase Cloud Music account. Pay close attention to the following safety guidelines:
+| Data | Path |
+| --- | --- |
+| Cookies | `<home>/.ncmctl/cookie.json` |
+| XEAPI key and session state | `<home>/.ncmctl/xeapi.yaml` |
+| Anonymous token | `<home>/.ncmctl/anonymous_token` |
+| Optional API header overrides | `<home>/.ncmctl/header.yaml` |
+| Badger database | `<home>/.ncmctl/database/badger/` |
+| Logs | `<home>/.ncmctl/log/ncm.log` |
+| Proxy CA certificate | `<home>/.ncmctl/proxy/ca.crt` |
+| Proxy CA private key | `<home>/.ncmctl/proxy/ca.key` |
 
-- **Never pass passwords on the command line** — they are visible in shell history and process listings. Prefer interactive prompts or environment variables.
-- **Protect cookie files** — `~/.ncmctl/cookie.json` contains sensitive session credentials. Set file permissions immediately after login:
-  ```bash
-  chmod 600 ~/.ncmctl/cookie.json
-  ```
-- **Be cautious with CookieCloud credentials** — the UUID and password for CookieCloud login are sensitive; avoid sharing or logging them. Use environment variables or interactive prompts instead of command-line arguments.
-- **Docker volume mounts** — when running in Docker, the mounted volume (`-v ./data:/root`) may expose credentials on the host filesystem. Ensure the host directory has restricted permissions:
-  ```bash
-  chmod 700 ./data
-  ```
-- **Account ban risks** — automated tasks (scrobble, sign automatic rewards, partner evaluation) may trigger NetEase risk control and result in account restrictions. Use at your own risk.
+For custom configuration, copy the full schema from `config/config.yaml`, edit it, and pass the path explicitly with `--config`.
 
-## Important Warnings
+## Safety boundaries
 
-- Scrobble (刷歌) has high ban risk due to strict risk control
-- `--sign.automatic` auto-claim rewards has ban risk, disabled by default
-- Cookie persistence is interval-based (3s); unclean shutdown may lose recent cookies
-- Do not delete `~/.ncmctl/database/` (scrobble dedup data)
-- Directory depth limit: 3 for cloud upload and NCM decryption
-- Cloud upload max file size: 500MB
+- **Account risk:** `scrobble`, partner evaluation, automatic reward claims, and other automation can trigger NetEase risk control. Scrobble has a particularly high ban risk.
+- **Credentials:** Cookie values, `MUSIC_U`, phone passwords, CookieCloud UUID/passwords, and XEAPI dynamic/session keys are secrets. Phone-password, CookieCloud, and XEAPI key inputs are flags; they do not provide a hidden prompt or dedicated environment variable. In particular, `proxy --xeapi-session-key` is visible in shell history and process arguments.
+- **TLS verification:** The current NetEase API and CookieCloud clients disable server-certificate verification. HTTPS traffic is encrypted but the peer identity is not authenticated; use only a trusted network path and CookieCloud server.
+- **State files:** Cookies, XEAPI session state, and anonymous tokens are sensitive. ncmctl creates its managed state files with restrictive permissions on POSIX, but backups, exported Cookies, and user-provided `header.yaml` files remain the user's responsibility. Prefer `login cookie -f` over placing a Cookie string directly in shell history.
+- **Cookie import persistence:** Cookie and CookieCloud imports enter the configured persistent jar before account validation. A failed validation can still write those values during immediate, periodic, or final flush.
+- **Proxy CA:** Trust only `ca.crt` on a client you control. Never install, share, or commit `ca.key`. Remove trust when monitoring is finished if it is no longer needed.
+- **Sensitive capture:** Proxy redaction is enabled by default. `--show-sensitive` can expose credentials and identifiers in the terminal or redirected files.
+- **Debug logs:** Global `--debug` enables raw API request/response logging outside the proxy redactor. Treat stderr, rolling logs, and redirected output as sensitive.
+- **LAN proxy:** `--listen 0.0.0.0:9000` is unauthenticated. Use it only temporarily on a trusted network behind a firewall.
+- **Local files:** Download, upload, NCM decode, QR login, HAR processing, and redirected proxy output read or write local files. Confirm paths before running them.
 
-## Common Workflows
+## Common workflows
 
-### Daily Automation (Sign + Scrobble)
+### Schedule sign and scrobble
 
 ```bash
-# Run as a background service with cron scheduling
 ncmctl task --sign --scrobble
-
-# Or run commands individually
-ncmctl sign
-ncmctl scrobble -n 200
 ```
 
-### Batch Download Playlist and Decrypt NCM
+`task` is a long-running service. With no selectors it registers sign, partner, and scrobble; explicit selectors limit the jobs. Press Ctrl+C or send SIGTERM to stop it.
+
+### Download a playlist
 
 ```bash
-# Download a playlist
-ncmctl download 'https://music.163.com/playlist?id=593617579' -o ./music/
-
-# Decrypt downloaded NCM files
-ncmctl ncm ./music/ -o ./decrypted/ -p 10
+ncmctl download -l lossless \
+  'https://music.163.com/playlist?id=593617579' \
+  -o ./music
 ```
 
-### Docker Scheduled Tasks
+### Decode local NCM files
 
 ```bash
-# Run daily tasks in Docker container
-docker run -d -v ./data:/root \
-  --name ncmctl-daily \
-  --restart unless-stopped \
-  chaunsin/ncmctl:latest \
-  /app/ncmctl task --sign --scrobble
+ncmctl ncm '/path/to/ncm/files' -o ./decoded -p 10
 ```
 
-## Reference Files
+The historical `ncm --tag` flag is inverted: tags are written by default, and passing `--tag` disables tag writing.
 
-| File                                | Content                                     | When to read                                                         |
-| ----------------------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
-| `references/install-and-login.md` | Installation methods and login procedures   | Setting up ncmctl for the first time or troubleshooting login issues |
-| `references/commands.md`          | All command flags, parameters, and examples | Looking up detailed command syntax, flags, or execution flow         |
+### Monitor local API traffic
+
+```bash
+ncmctl proxy
+ncmctl proxy > capture.log
+ncmctl proxy --xeapi-state-file ~/.ncmctl/xeapi.yaml
+```
+
+Configure the client to use `127.0.0.1:9000` for HTTP and HTTPS, then trust `<home>/.ncmctl/proxy/ca.crt`. The proxy never modifies the system trust store automatically.
+
+XEAPI session state is opt-in at startup: `proxy` does not discover `<home>/.ncmctl/xeapi.yaml` unless `--xeapi-state-file` names it. It can also accept a paired `--xeapi-session-id` / `--xeapi-session-key`; the ID is at most 1024 bytes and the key is raw ASCII of 16, 24, or 32 bytes. During capture, valid session response headers are learned in memory for later requests and are not written back. Requests without a matching key remain `partial`; `S` is only structurally validated because the proxy has neither side's X25519 private key.
+
+Use `ncmctl --debug proxy` to correlate the CONNECT target with ClientHello SNI, the selected tunnel/MITM action, generated certificate SANs, and hostname-match results. An IP-targeted CONNECT is MITM'd only when its exposed SNI matches a configured NetEase domain and remains pinned to the original IP upstream. CONNECT diagnostics describe the underlying tunnel, not every HTTP request carried by it, so a reused tunnel produces no new `phase=connect` record. Investigate QUIC/HTTP3, direct connections, or another bypass path only after confirming that the underlying connection also had no CONNECT record when it was established.
+
+## References
+
+| File | Read when |
+| --- | --- |
+| `references/install-and-login.md` | Installing, upgrading, logging in/out, or troubleshooting authentication |
+| `references/commands.md` | Looking up flags, command behavior, config schema, proxy limitations, or debugging tools |

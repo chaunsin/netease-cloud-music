@@ -1,32 +1,12 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package eapi
 
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -36,23 +16,25 @@ const (
 
 func TestCaptchaSend(t *testing.T) {
 	// 发送验证码
-	var req = CaptchaSendReq{
+	cli := new(Api)
+	req := CaptchaSendReq{
 		Phone:  phone,
 		CTCode: ct,
 	}
-	got, err := cli.CaptchaSend(ctx, &req)
-	assert.NoError(t, err)
-	t.Logf("CaptchaSend: %+v\n", got)
+	got, err := cli.CaptchaSend(t.Context(), &req)
+	require.Nil(t, got)
+	require.EqualError(t, err, "CaptchaSend is not implemented")
 }
 
 func TestCaptchaVerify(t *testing.T) {
 	// 发送验证码
-	var req = CaptchaVerifyReq{
+	cli := new(Api)
+	req := CaptchaVerifyReq{
 		Phone:   phone,
 		CTCode:  ct,
 		Captcha: "2129",
 	}
-	got, err := cli.CaptchaVerify(ctx, &req)
-	assert.NoError(t, err)
-	t.Logf("CaptchaVerify: %+v\n", got)
+	got, err := cli.CaptchaVerify(t.Context(), &req)
+	require.Nil(t, got)
+	require.EqualError(t, err, "CaptchaVerify is not implemented")
 }

@@ -1,18 +1,22 @@
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
+
 package config
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/go-viper/mapstructure/v2"
+	"github.com/spf13/viper"
+	"go.yaml.in/yaml/v4"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/pkg/database"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
-
-	"github.com/go-viper/mapstructure/v2"
-	"github.com/spf13/viper"
-	"gopkg.in/yaml.v3"
 )
 
 var HomeDir string
@@ -25,10 +29,12 @@ var (
 
 func init() {
 	var err error
+
 	HomeDir, err = os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
+
 	if err := yaml.Unmarshal(defaultConfigByte, &defaultConfig); err != nil {
 		panic(fmt.Sprintf("defaultConfig.Unmarshal: %s", err))
 	}
@@ -39,7 +45,6 @@ func init() {
 }
 
 type Config struct {
-	v        *viper.Viper
 	Version  string           `json:"version" yaml:"version"`
 	Log      *log.Config      `json:"log" yaml:"log"`
 	Network  *api.Config      `json:"network" yaml:"network"`
@@ -47,6 +52,29 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
+	if c == nil {
+		return errors.New("config is nil")
+	}
+
+	if c.Log == nil {
+		return errors.New("log config is required")
+	}
+
+	if c.Network == nil {
+		return errors.New("network config is required")
+	}
+
+	if c.Database == nil {
+		return errors.New("database config is required")
+	}
+
+	if err := c.Log.Validate(); err != nil {
+		return fmt.Errorf("log: %w", err)
+	}
+
+	if err := c.Network.Validate(); err != nil {
+		return fmt.Errorf("network: %w", err)
+	}
 	return nil
 }
 
@@ -56,11 +84,11 @@ func GetDefault() *Config {
 
 func New(cfgPath ...string) (*Config, error) {
 	var (
-		conf Config
-		opts = viper.DecodeHook(func(m *mapstructure.DecoderConfig) {
-			m.TagName = "yaml"
-		})
 		_cfgPath string
+		conf     Config
+		opts     = func(m *mapstructure.DecoderConfig) {
+			m.TagName = "yaml"
+		}
 	)
 	if len(cfgPath) > 0 {
 		_cfgPath = cfgPath[0]
@@ -74,27 +102,29 @@ func New(cfgPath ...string) (*Config, error) {
 	v.AllowEmptyEnv(true)
 	v.SetConfigType("yaml")
 	v.SetConfigFile(_cfgPath)
+
 	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("ReadInConfig: %w", err)
 	}
+
 	if err := v.UnmarshalExact(&conf, opts); err != nil {
 		return nil, fmt.Errorf("UnmarshalExact: %w", err)
 	}
+
 	if err := conf.Validate(); err != nil {
 		return nil, err
 	}
+
 	return &conf, nil
 }
 
 // ReplaceMagicVariables 替换配置文件中的魔法变量。注意该方法只能调用一次再次调用则不会生效.
 func (c *Config) ReplaceMagicVariables(name, value string) (*Config, bool) {
-
 	var (
-		isset   bool
+		isset   int
 		mapping = func(k string) string {
-			switch k {
-			case name:
-				isset = true
+			if k == name {
+				isset++
 				return value
 			}
 			return ""
@@ -104,5 +134,5 @@ func (c *Config) ReplaceMagicVariables(name, value string) (*Config, bool) {
 	c.Log.Rotate.Filename = os.Expand(c.Log.Rotate.Filename, mapping)
 	c.Network.Cookie.Filepath = os.Expand(c.Network.Cookie.Filepath, mapping)
 	c.Database.Path = os.Expand(c.Database.Path, mapping)
-	return c, isset
+	return c, isset > 0
 }

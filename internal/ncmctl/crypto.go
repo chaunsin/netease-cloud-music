@@ -1,65 +1,43 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package ncmctl
 
 import (
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
-
 	"github.com/spf13/cobra"
-)
 
-type CryptoOpts struct {
-	Output string // 生成文件路径
-	Kind   string // api类型
-}
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
+)
 
 type Crypto struct {
 	root *Root
 	cmd  *cobra.Command
-	opts CryptoOpts
-	l    *log.Logger
+
+	Output string // 生成文件路径
+	Kind   string // api类型
 }
 
 func NewCrypto(root *Root, l *log.Logger) *Crypto {
 	c := &Crypto{
 		root: root,
-		l:    l,
 		cmd: &cobra.Command{
-			Use:     "crypto",
-			Short:   "Crypto is a tool for encrypting and decrypting the http data",
-			Example: "  ncmctl crypto -h\n  ncmctl crypto decrypt -k eapi 'ciphertext'\n  ncmctl crypto decrypt http_request.har\n  ncmctl crypto encrypt -k weapi '{\"key\":\"value\"}'",
+			Use:   "crypto",
+			Short: "Encrypt and decrypt NetEase API payloads",
+			Long: "Inspect supported NetEase API encryption formats locally. Encryption supports " +
+				"WEAPI, EAPI, and Linux API payloads. Decryption supports EAPI requests plus XEAPI " +
+				"requests and responses within the documented dynamic-key boundary. HAR files, keys, " +
+				"and decrypted output may contain credentials and personal data.",
+			Example: "  ncmctl crypto encrypt --kind weapi '{\"key\":\"value\"}'\n" +
+				"  ncmctl crypto encrypt --kind eapi --url /eapi/v3/song/detail request.json\n" +
+				"  ncmctl crypto decrypt --kind eapi --encode hex 'CIPHERTEXT'\n" +
+				"  ncmctl crypto decrypt --kind xeapi --encode hex 'CIPHERTEXT'\n" +
+				"  ncmctl crypto decrypt --url '/xeapi/*' capture.har",
 		},
 	}
 	c.addFlags()
-	c.Add(encrypt(c, l))
+	c.Add(encrypt(c))
 	c.Add(decrypt(c, l))
 	return c
-}
-
-func (c *Crypto) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "", "generate decrypt file directory location")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Kind, "kind", "k", "weapi", "encryption and decryption mode, weapi|eapi|linux")
 }
 
 func (c *Crypto) Add(command ...*cobra.Command) {
@@ -68,4 +46,9 @@ func (c *Crypto) Add(command ...*cobra.Command) {
 
 func (c *Crypto) Command() *cobra.Command {
 	return c.cmd
+}
+
+func (c *Crypto) addFlags() {
+	c.cmd.PersistentFlags().StringVarP(&c.Output, "output", "o", "", "write the JSON result to a file instead of stdout")
+	c.cmd.PersistentFlags().StringVarP(&c.Kind, "kind", "k", "weapi", "payload mode: weapi, eapi, xeapi, or linux (support differs by subcommand)")
 }

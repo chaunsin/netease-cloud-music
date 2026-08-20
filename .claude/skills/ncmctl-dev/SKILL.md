@@ -1,159 +1,48 @@
 ---
 name: ncmctl-dev
-description: >
-  NetEase Cloud Music CLI tool (ncmctl) development guide. Use this skill when working with
-  the netease-cloud-music codebase, including ncmctl commands, API integration, crypto,
-  NCM file decryption, daily tasks, music download, cloud upload, or any Go code in this
-  repository. Trigger on mentions of ncmctl, 网易云音乐 CLI, NetEase Cloud Music API,
-  weapi/eapi encryption, .ncm file format, cloud music daily tasks (sign/partner/scrobble),
-  or when modifying, debugging, or extending any part of this project.
+description: >-
+  Repository-specific development workflow for github.com/chaunsin/netease-cloud-music and the
+  ncmctl Go CLI. Use for code, tests, documentation, reviews, refactors, or debugging in this
+  repository, including Cobra commands, API and crypto protocols, XEAPI and NCBL, configuration,
+  cookies and database persistence, NCM decoding, account tasks, downloads and uploads, and the
+  HTTP(S) monitoring proxy. Trigger when the user names this checkout or one of its Go packages,
+  even without saying ncmctl. Do not use for general NetEase Music questions or user-only CLI help.
 ---
+
 # ncmctl Development Guide
 
-ncmctl is a Go CLI tool for NetEase Cloud Music providing login, daily tasks, music download, cloud upload, and NCM file decryption.
+## Workflow
 
-## Project Structure
+1. Read the repository-root `AGENTS.md` completely. It links to the canonical `CLAUDE.md` and owns repository-wide policy, test side effects, and documentation boundaries.
+2. Run `git status --short`; inspect relevant staged, unstaged, and untracked contents. Preserve unrelated work.
+3. Classify the task with the routing table and load only the matching resources. If no row matches, use root guidance plus the nearest source, callers, and tests without loading unrelated references.
+4. Trace the nearest implementation, callers, tests, and public contract before editing. Derive protocol behavior from source, captures, history, or fixed vectors, not symptoms or guesses.
+5. Reuse existing types and patterns and keep behavior stable unless requested otherwise. Before deleting, prove usage and remove associated exports, references, tests, and documentation.
+6. Return errors with enough context to locate the failed operation. Log only at cleanup or asynchronous boundaries where an error cannot be returned.
+7. Validate the smallest safe scope described by the selected route or nearest tests, then apply the root completion checklist.
 
-```
-cmd/ncmctl/main.go       # CLI entry point
-internal/ncmctl/          # CLI command implementations (cobra commands)
-api/                      # API client layer
-  ├── api.go              # Core Client: HTTP, encryption, cookie persistence
-  ├── weapi/              # Web/Mini-program API (recommended, most complete)
-  ├── eapi/               # PC/Mobile API
-  ├── linux/              # Linux client API
-  └── types/              # Shared request/response types
-pkg/
-  ├── crypto/             # AES-CBC/ECB, RSA, weapi/eapi encryption
-  ├── cookie/             # Cookie persistence and sync
-  ├── cookiecloud/        # CookieCloud browser extension support
-  ├── ncm/                # NCM file decryption + audio tag handling
-  ├── database/           # Badger key-value store wrapper
-  ├── log/                # Structured logging (lumberjack rotation)
-  └── utils/              # General utilities
-config/                   # Config structs + default config.yaml
-```
+## Reference routing
 
-## Build & Test
+| Task | Read |
+| --- | --- |
+| Change a Cobra command, root lifecycle, scheduler, concurrent file command, or CLI test | `references/commands.md` |
+| Change config loading, runtime paths, cookies, logs, CookieCloud, or database persistence | `references/configuration.md` |
+| Add or change an endpoint, `api.Client`, request options, auxiliary HTTP client, or TLS transport | `references/api-guide.md` |
+| Change WEAPI, EAPI, Linux API, XEAPI, NCBL, or other crypto/wire behavior | `references/protocols.md` |
+| Change proxy forwarding, capture, decoding, redaction, output, CA handling, or shutdown | `references/proxy.md` |
+| Change NCM decoding or tags | `pkg/ncm/`, `pkg/ncm/tag/`, and their tests |
+| Verify user-facing flags, examples, config, proxy, or debugging behavior | Repository-root `skills/ncmctl/references/commands.md` and freshly built Cobra help |
+| Verify installation, login, logout, or authentication behavior | Repository-root `skills/ncmctl/references/install-and-login.md` and freshly built Cobra help |
+| Change the user Skill quick reference or safety boundaries | Repository-root `skills/ncmctl/SKILL.md` |
+| Change build, CI, dependencies, release files, or an unmatched package | Root guidance, then the nearest implementation and tests; use `Makefile`, `go.mod`, or `.github/` only as applicable |
 
-```bash
-make build                # Build binary → ./ncmctl
-make install              # Install to $GOPATH/bin
-go test -v ./...          # Run all tests
-go test -v -run TestName ./example/  # Run single test
-make build-image          # Build Docker image
-```
+Load multiple references only for a real cross-cutting change. For example, read `commands.md` with `configuration.md` for root bootstrap, `proxy.md` with `protocols.md` for proxy decoding, or `configuration.md` with `api-guide.md` for CookieCloud transport.
 
-Requires Go >= 1.24. Tests needing login require cookie file or should be skipped.
+For XEAPI wire changes, read `protocols.md`, then the current-status table and only the relevant research section in repository-root `docs/xeapi.md`. For NCBL, use `protocols.md`, `pkg/crypto/ncbl.go`, and `pkg/crypto/ncbl_test.go`; NCBL is not part of XEAPI.
 
-## CLI Commands
+## Evidence by task
 
-| Command      | Login | Description                            |
-| ------------ | ----- | -------------------------------------- |
-| `login`    | No    | Phone/Cookie/CookieCloud/QR code login |
-| `logout`   | No    | Clear stored credentials               |
-| `task`     | Yes   | Run all daily tasks on cron schedule   |
-| `sign`     | Yes   | YunBei + VIP daily check-in            |
-| `partner`  | Yes   | Music partner auto-evaluation          |
-| `scrobble` | Yes   | Scrobble 300 songs daily               |
-| `download` | Yes   | Download songs/albums/playlists        |
-| `cloud`    | Yes   | Upload music to cloud disk             |
-| `ncm`      | No    | Decrypt .ncm → .mp3/.flac             |
-| `crypto`   | No    | Encrypt/decrypt API parameters         |
-| `curl`     | No    | Invoke API methods directly            |
-
-## Adding a New CLI Command
-
-1. Create `internal/ncmctl/<command>.go` implementing a struct with `root`, `cmd`, `opts`, `l` fields
-2. Implement `New<Command>(root *Root, l *log.Logger)` constructor
-3. Define cobra command with `Use`, `Short`, `Example`
-4. Add flags via `addFlags()` method
-5. Implement `validate()` and `execute(ctx, args)` methods
-6. For login-required commands: create API client, check `request.NeedLogin(ctx)`, defer `request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})`
-7. Register in `internal/ncmctl/ncmctl.go`: `c.Add(New<Command>(c, c.l).Command())`
-
-Pattern for login-required commands:
-
-```go
-cli, err := api.NewClient(c.root.Cfg.Network, c.l)
-if err != nil { return fmt.Errorf("NewClient: %w", err) }
-defer cli.Close(ctx)
-request := weapi.New(cli)
-if request.NeedLogin(ctx) { return fmt.Errorf("need login") }
-defer func() {
-    refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
-    if err != nil || refresh.Code != 200 {
-        log.Warn("TokenRefresh resp:%+v err: %s", refresh, err)
-    }
-}()
-```
-
-## Adding a New API Endpoint
-
-1. Create file in `api/weapi/` or `api/eapi/`
-2. Define request/response structs (request fields use json tags)
-3. Implement method on API struct calling `a.client.Request(ctx, url, req, resp, opts...)`
-4. Set correct `CryptoMode` via option: `api.WithCryptoMode(api.CryptoModeWEAPI)`
-5. Default crypto mode is weapi; eapi uses `CryptoModeEAPI`
-
-API call flow:
-
-```go
-cli := api.New(cfg)
-weapiClient := weapi.New(cli)
-resp, err := weapiClient.SomeMethod(ctx, &weapi.SomeMethodReq{...})
-cli.Close(ctx)
-```
-
-## Encryption Modes
-
-| Mode                | Algorithm                    | Use Case         |
-| ------------------- | ---------------------------- | ---------------- |
-| `CryptoModeWEAPI` | AES-CBC double encrypt + RSA | Web/Mini-program |
-| `CryptoModeEAPI`  | AES-ECB                      | PC/Mobile        |
-| `CryptoModeLinux` | AES-ECB                      | Linux client     |
-| `CryptoModeAPI`   | None                         | Basic API        |
-
-Core functions in `pkg/crypto/crypto.go`: `WeApiEncrypt()`, `EApiEncrypt()`, `LinuxApiEncrypt()`, `EApiDecrypt()`.
-
-## Configuration
-
-- Config file: `~/.ncmctl/config.yaml` (optional, uses defaults if absent)
-- Cookie storage: `~/.ncmctl/cookie.json` (auto-persisted, 3s interval)
-- Database: `~/.ncmctl/database/badger/` (scrobble dedup records)
-- Logs: `~/.ncmctl/log/ncm.log`
-- Env var prefix: `NCmctl_` (e.g., `NCmctl_Network_Debug=true`)
-- Magic variable: `${HOME}` replaced at runtime
-
-## Download Quality Levels
-
-| Level    | Aliases | Format  |
-| -------- | ------- | ------- |
-| standard | 128     | 128kbps |
-| higher   | 192     | 192kbps |
-| exhigh   | HQ, 320 | 320kbps |
-| lossless | SQ      | FLAC    |
-| hires    | HR      | Hi-Res  |
-
-## Key Dependencies
-
-| Package                 | Purpose           |
-| ----------------------- | ----------------- |
-| `spf13/cobra`         | CLI framework     |
-| `go-resty/resty/v2`   | HTTP client       |
-| `dgraph-io/badger/v4` | Local KV database |
-| `robfig/cron/v3`      | Cron scheduling   |
-| `spf13/viper`         | Config management |
-
-## Important Notes
-
-- Cookie persistence is interval-based (3s); unclean shutdown may lose recent cookies
-- Scrobble dedup data in `~/.ncmctl/database/` should not be deleted
-- Directory depth limit is 3 for cloud upload and NCM decryption
-- Cloud upload max file size: 500MB
-- Download parallelism max: 20; Cloud upload parallelism max: 10
-- The `task` command runs as a long-lived service; use Ctrl+C to stop
-- Sign-in reward auto-claim (`--sign.automatic`) has ban risk, disabled by default
-- Scrobble (刷歌) currently has high risk of account ban due to strict risk control
-
-For detailed command usage and API reference, read `references/commands.md` and `references/api-guide.md`.
+- Treat source plus focused tests as the current implementation contract.
+- Treat generated Cobra help, `Makefile`, `go.mod`, and `config/config.yaml` as executable documentation sources for their respective surfaces.
+- Require captures or independently sourced fixed vectors for protocol compatibility claims; a local encrypt/decrypt round trip is insufficient by itself.
+- Update only documentation directly affected by the requested behavior. Report unrelated drift instead of broadening scope.

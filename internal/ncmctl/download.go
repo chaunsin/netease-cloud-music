@@ -1,32 +1,13 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package ncmctl
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec // Download integrity is verified against the server-provided MD5 checksum.
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http/httputil"
@@ -36,21 +17,21 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/cheggaaa/pb/v3"
+	"github.com/mattn/go-runewidth"
+	"github.com/spf13/cobra"
+	"golang.org/x/sync/semaphore"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/cheggaaa/pb/v3"
-	"github.com/mattn/go-runewidth"
-	"github.com/spf13/cobra"
-	"golang.org/x/sync/semaphore"
 )
 
 const (
 	barNameWidth = 35
-	// see: https://github.com/cheggaaa/pb/blob/master/v3/element.go
+	// barTemplate see: https://github.com/cheggaaa/pb/blob/master/v3/element.go .
 	barTemplate = `{{string . "prefix"}} {{ bar . (blue "[") (green "-") (cycle . "↖" "↗" "↘" "↙" ) " " (blue "]") }} {{counters . "%s/%s"}} {{percent . "%6.2f%%"}}`
 )
 
@@ -80,34 +61,52 @@ func NewDownload(root *Root, l *log.Logger) *Download {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "download",
-			Short:   "[need login] Download songs",
-			Example: `  ncmctl download 2161154646`,
+			Use:   "download <id-or-url> [id-or-url...]",
+			Short: "Download songs, albums, artists, or playlists",
+			Long: "Download one or more resources after resolving song IDs or NetEase song, album, " +
+				"artist, and playlist URLs. Login is required. Completed files are written to --output " +
+				"after MD5 verification; --strict skips songs when the exact quality is unavailable.",
+			Example: "  ncmctl download 2161154646\n" +
+				"  ncmctl download --level hires 'https://music.163.com/song?id=1820944399'\n" +
+				"  ncmctl download --strict 'https://music.163.com/playlist?id=593617579'\n" +
+				"  ncmctl download --output ./music --parallel 5 2161154646",
+			Args: cobra.MinimumNArgs(1),
 		},
 	}
 	c.addFlags()
 	c.cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 {
-			return fmt.Errorf("input is empty, please enter the song id or song link")
-		}
 		return c.execute(cmd.Context(), args)
 	}
 	return c
 }
 
+func (c *Download) Add(command ...*cobra.Command) {
+	c.cmd.AddCommand(command...)
+}
+
+func (c *Download) Command() *cobra.Command {
+	return c.cmd
+}
+
 func (c *Download) addFlags() {
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./download", "music file output path")
-	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 5, "concurrent download count")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.Level, "level", "l", string(types.LevelLossless), "song quality level. support: standard/128,higher/192,exhigh/HQ/320,lossless/SQ,hires/HR")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.EncodeType, "encode-type", "", "flac", "song encode type")
-	c.cmd.PersistentFlags().StringVarP(&c.opts.ImmerseType, "immerse-type", "", "c51", "song immerse type")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Strict, "strict", false, "strict mode. when the downloaded song does not find the corresponding quality, it will not be downloaded.")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", true, "whether to set song tag information, default enable")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.Output, "output", "o", "./download", "directory for completed music files")
+	c.cmd.PersistentFlags().Int64VarP(&c.opts.Parallel, "parallel", "p", 5, "maximum concurrent downloads (1-20)")
+	c.cmd.PersistentFlags().StringVarP(
+		&c.opts.Level,
+		"level",
+		"l",
+		string(types.LevelLossless),
+		"requested quality: standard/128, higher/192, exhigh/HQ/320, lossless/SQ, or hires/HR",
+	)
+	c.cmd.PersistentFlags().StringVarP(&c.opts.EncodeType, "encode-type", "", "flac", "encode type sent to the player URL endpoint")
+	c.cmd.PersistentFlags().StringVarP(&c.opts.ImmerseType, "immerse-type", "", "c51", "immersive-audio type sent to the player URL endpoint")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Strict, "strict", false, "skip a song when the exact requested quality is unavailable")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Tag, "tag", true, "reserved for compatibility; download tag writing is not implemented")
 }
 
 func (c *Download) validate() error {
 	if c.opts.Parallel <= 0 || c.opts.Parallel > 20 {
-		return fmt.Errorf("parallel <= 0 or > 10")
+		return errors.New("parallel must be between 1 and 20")
 	}
 
 	lv, err := strconv.ParseInt(c.opts.Level, 10, 64)
@@ -126,7 +125,7 @@ func (c *Download) validate() error {
 
 	switch types.Level(c.opts.Level) {
 	case "":
-		return fmt.Errorf("level is empty")
+		return errors.New("level is empty")
 	case types.LevelStandard,
 		types.LevelHigher,
 		types.LevelExhigh,
@@ -151,14 +150,6 @@ func (c *Download) validate() error {
 	return nil
 }
 
-func (c *Download) Add(command ...*cobra.Command) {
-	c.cmd.AddCommand(command...)
-}
-
-func (c *Download) Command() *cobra.Command {
-	return c.cmd
-}
-
 func (c *Download) execute(ctx context.Context, args []string) error {
 	if err := c.validate(); err != nil {
 		return fmt.Errorf("validate: %w", err)
@@ -168,24 +159,25 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer cli.Close(ctx)
+	defer closeAPIClient(ctx, cli, c.l)
+
 	request := weapi.New(cli)
 
 	// 判断是否需要登录
 	if request.NeedLogin(ctx) {
-		return fmt.Errorf("need login")
+		return errors.New("need login")
 	}
 
 	// 刷新token过期时间
 	defer func() {
-		refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
-		if err != nil || refresh.Code != 200 {
-			log.Warn("TokenRefresh resp:%+v err: %s", refresh, err)
+		refresh, refreshErr := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
+		if refreshErr != nil || refresh.Code != 200 {
+			c.l.Warnf("TokenRefresh resp:%+v err: %s", refresh, refreshErr)
 		}
 	}()
 
-	if err := utils.MkdirIfNotExist(c.opts.Output, 0755); err != nil {
-		return fmt.Errorf("MkdirIfNotExist: %w", err)
+	if mkdirErr := utils.MkdirIfNotExist(c.opts.Output, 0o755); mkdirErr != nil {
+		return fmt.Errorf("MkdirIfNotExist: %w", mkdirErr)
 	}
 
 	// 解析处理输入的资源类型
@@ -199,34 +191,83 @@ func (c *Download) execute(ctx context.Context, args []string) error {
 		failed atomic.Int64
 		sema   = semaphore.NewWeighted(c.opts.Parallel)
 	)
+
 	pool, err := pb.StartPool()
 	if err != nil {
 		return fmt.Errorf("StartPool: %w", err)
 	}
+
 	defer func() {
-		pool.Stop()
+		_ = pool.Stop()
+
 		c.cmd.Printf("report total: %v success: %v failed: %v\n", total, total-failed.Load(), failed.Load())
 	}()
 
-	for _, song := range songs {
-		var song = song
+	for i := range songs {
+		song := &songs[i]
+
 		if err := sema.Acquire(ctx, 1); err != nil {
 			return fmt.Errorf("acquire: %w", err)
 		}
 		go func() {
 			defer sema.Release(1)
-			if err := c.download(ctx, cli, request, &song, pool); err != nil {
+
+			if err := c.download(ctx, cli, request, song, pool); err != nil {
 				failed.Add(1)
-				log.Error("download %s err: %v", song.String(), err)
+				c.l.Errorf("download %s err: %v", song.String(), err)
 				// c.cmd.Printf("download %s err: %v\n", song.String(), err)
 				return
 			}
 		}()
 	}
+
 	if err := sema.Acquire(ctx, c.opts.Parallel); err != nil {
 		return fmt.Errorf("wait: %w", err)
 	}
 	return nil
+}
+
+func (c *Download) fetchSongDetails(ctx context.Context, request *weapi.Api, ids []int64) ([]Music, error) {
+	pages, err := utils.SplitSlice(ids, 500)
+	if err != nil {
+		return nil, fmt.Errorf("split song IDs: %w", err)
+	}
+
+	var songs []Music
+
+	for _, page := range pages {
+		details := make([]weapi.SongDetailReqList, 0, len(page))
+		for _, id := range page {
+			details = append(details, weapi.SongDetailReqList{Id: strconv.FormatInt(id, 10), V: 0})
+		}
+
+		resp, err := request.SongDetail(ctx, &weapi.SongDetailReq{C: details})
+		if err != nil {
+			return nil, fmt.Errorf("SongDetail: %w", err)
+		}
+
+		if resp.Code != 200 {
+			return nil, fmt.Errorf("SongDetail err: %+v", resp)
+		}
+
+		if len(resp.Songs) == 0 {
+			c.l.Warnf("SongDetail Songs is empty")
+			continue
+		}
+
+		for i := range resp.Songs {
+			song := &resp.Songs[i]
+			songs = append(songs, Music{
+				Id:      song.Id,
+				Name:    song.Name,
+				Artist:  song.Ar,
+				Album:   song.Al,
+				AlbumId: song.Al.Id,
+				Time:    song.Dt,
+			})
+		}
+	}
+	return songs, nil
 }
 
 func (c *Download) inputParse(ctx context.Context, args []string, request *weapi.Api) ([]Music, error) {
@@ -235,11 +276,13 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 		set    = make(map[int64]struct{})
 		list   []Music
 	)
+
 	for _, arg := range args {
 		kind, id, err := Parse(arg)
 		if err != nil {
 			return nil, fmt.Errorf("Parse: %w", err)
 		}
+
 		if v, ok := source[kind]; ok {
 			source[kind] = append(v, id)
 		} else {
@@ -250,47 +293,22 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 	for k, ids := range source {
 		switch k {
 		case "song":
-			{
-				var tmp = make([]int64, 0, len(ids))
-				for _, id := range ids {
-					if _, ok := set[id]; ok {
-						continue
-					}
-					set[id] = struct{}{}
-					tmp = append(tmp, id)
+			tmp := make([]int64, 0, len(ids))
+			for _, id := range ids {
+				if _, ok := set[id]; ok {
+					continue
 				}
 
-				// 分页处理
-				pages, _ := utils.SplitSlice(tmp, 500)
-				for _, p := range pages {
-					var c = make([]weapi.SongDetailReqList, 0, len(p))
-					for _, v := range p {
-						c = append(c, weapi.SongDetailReqList{Id: fmt.Sprintf("%v", v), V: 0})
-					}
-					resp, err := request.SongDetail(ctx, &weapi.SongDetailReq{C: c})
-					if err != nil {
-						return nil, fmt.Errorf("SongDetail: %w", err)
-					}
-					if resp.Code != 200 {
-						return nil, fmt.Errorf("SongDetail err: %+v", resp)
-					}
-					if len(resp.Songs) <= 0 {
-						log.Warn("SongDetail() Songs is empty")
-						continue
-					}
-					for _, v := range resp.Songs {
-						list = append(list, Music{
-							Id:      v.Id,
-							Name:    v.Name,
-							Artist:  v.Ar,
-							Album:   v.Al,
-							AlbumId: v.Al.Id,
-							Time:    v.Dt,
-						})
-					}
-					// todo: 处理版权,状态等有效性校验
-				}
+				set[id] = struct{}{}
+				tmp = append(tmp, id)
 			}
+
+			songs, err := c.fetchSongDetails(ctx, request, tmp)
+			if err != nil {
+				return nil, err
+			}
+
+			list = append(list, songs...)
 		case "artist":
 			for _, id := range ids {
 				for i := 1; ; i++ {
@@ -305,21 +323,28 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 					if err != nil {
 						return nil, fmt.Errorf("ArtistSongs(%v): %w", id, err)
 					}
+
 					if artist.Code != 200 {
 						return nil, fmt.Errorf("ArtistSongs(%v) err: %+v", id, artist)
 					}
-					if len(artist.Songs) <= 0 {
-						log.Warn("ArtistSongs(%v) songs is empty", id)
+
+					if len(artist.Songs) == 0 {
+						c.l.Warnf("ArtistSongs(%v) songs is empty", id)
 						break
 					}
+
 					if !artist.More {
 						break
 					}
-					for _, v := range artist.Songs {
+
+					for i := range artist.Songs {
+						v := &artist.Songs[i]
 						if _, ok := set[v.Id]; ok {
 							continue
 						}
-						set[id] = struct{}{}
+
+						set[v.Id] = struct{}{}
+
 						list = append(list, Music{
 							Id:      v.Id,
 							Name:    v.Name,
@@ -329,27 +354,33 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 							Time:    v.Dt,
 						})
 					}
-					// todo: 处理版权,状态等有效性校验
+					// Pending: 处理版权,状态等有效性校验
 				}
 			}
 		case "album":
 			for _, id := range ids {
-				album, err := request.Album(ctx, &weapi.AlbumReq{Id: fmt.Sprintf("%d", id)})
+				album, err := request.Album(ctx, &weapi.AlbumReq{Id: strconv.FormatInt(id, 10)})
 				if err != nil {
 					return nil, fmt.Errorf("Album(%v): %w", id, err)
 				}
+
 				if album.Code != 200 {
 					return nil, fmt.Errorf("Album(%v) err: %+v", id, album)
 				}
-				if len(album.Songs) <= 0 {
-					log.Warn("Album(%v) Songs is empty", id)
+
+				if len(album.Songs) == 0 {
+					c.l.Warnf("Album(%v) Songs is empty", id)
 					continue
 				}
-				for _, v := range album.Songs {
+
+				for i := range album.Songs {
+					v := &album.Songs[i]
 					if _, ok := set[v.Id]; ok {
 						continue
 					}
-					set[id] = struct{}{}
+
+					set[v.Id] = struct{}{}
+
 					list = append(list, Music{
 						Id:      v.Id,
 						Name:    v.Name,
@@ -359,67 +390,49 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 						Time:    v.Dt,
 					})
 				}
-				// todo: 处理版权,状态等有效性校验
+				// Pending: 处理版权,状态等有效性校验
 			}
 		case "playlist":
 			for _, id := range ids {
-				playlist, err := request.PlaylistDetail(ctx, &weapi.PlaylistDetailReq{Id: fmt.Sprintf("%d", id)})
+				playlist, err := request.PlaylistDetail(ctx, &weapi.PlaylistDetailReq{Id: strconv.FormatInt(id, 10)})
 				if err != nil {
 					return nil, fmt.Errorf("PlaylistDetail(%v): %w", id, err)
 				}
+
 				if playlist.Code != 200 {
 					return nil, fmt.Errorf("PlaylistDetail(%v) err: %+v", id, playlist)
 				}
+
 				if playlist.Playlist.TrackIds == nil {
-					log.Warn("PlaylistDetail(%v) Tracks is nil", id)
+					c.l.Warnf("PlaylistDetail(%v) Tracks is nil", id)
 					continue
 				}
-				var tmp = make([]int64, 0, len(playlist.Playlist.TrackIds))
-				for _, v := range playlist.Playlist.TrackIds {
+
+				tmp := make([]int64, 0, len(playlist.Playlist.TrackIds))
+				for i := range playlist.Playlist.TrackIds {
+					v := &playlist.Playlist.TrackIds[i]
 					if _, ok := set[v.Id]; ok {
 						continue
 					}
+
 					set[v.Id] = struct{}{}
 					tmp = append(tmp, v.Id)
 				}
 
-				// 分页处理
-				pages, _ := utils.SplitSlice(tmp, 500)
-				for _, p := range pages {
-					var c = make([]weapi.SongDetailReqList, 0, len(p))
-					for _, v := range p {
-						c = append(c, weapi.SongDetailReqList{Id: fmt.Sprintf("%v", v), V: 0})
-					}
-					resp, err := request.SongDetail(ctx, &weapi.SongDetailReq{C: c})
-					if err != nil {
-						return nil, fmt.Errorf("SongDetail: %w", err)
-					}
-					if resp.Code != 200 {
-						return nil, fmt.Errorf("SongDetail err: %+v", resp)
-					}
-					if len(resp.Songs) <= 0 {
-						log.Warn("SongDetail Songs is empty")
-						continue
-					}
-					for _, v := range resp.Songs {
-						list = append(list, Music{
-							Id:      v.Id,
-							Name:    v.Name,
-							Artist:  v.Ar,
-							Album:   v.Al,
-							AlbumId: v.Al.Id,
-							Time:    v.Dt,
-						})
-					}
-					// todo: 处理版权,状态等有效性校验
+				songs, err := c.fetchSongDetails(ctx, request, tmp)
+				if err != nil {
+					return nil, err
 				}
+
+				list = append(list, songs...)
 			}
 		default:
 			return nil, fmt.Errorf("[%s] is not support", k)
 		}
 	}
-	if len(list) <= 0 {
-		return nil, fmt.Errorf("input resource is empty or the song is copyrighted")
+
+	if len(list) == 0 {
+		return nil, errors.New("input resource is empty or the song is copyrighted")
 	}
 	return list, nil
 }
@@ -427,7 +440,7 @@ func (c *Download) inputParse(ctx context.Context, args []string, request *weapi
 func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi.Api, music *Music, pool *pb.Pool) error {
 	var (
 		songId    = music.Id
-		songIdStr = fmt.Sprintf("%d", songId)
+		songIdStr = strconv.FormatInt(songId, 10)
 	)
 
 	// 下载进度条
@@ -435,6 +448,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 		Set(pb.Bytes, true).
 		Set("prefix", fixedWidthName(fmt.Sprintf("%s - %s", music.ArtistString(), music.NameString()), barNameWidth)).
 		SetTemplateString(barTemplate)
+
 	pool.Add(bar)
 	defer bar.Finish()
 
@@ -443,11 +457,14 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	if err != nil {
 		return fmt.Errorf("SongMusicQuality(%v): %w", songId, err)
 	}
+
 	if qualityResp.Code != 200 {
 		return fmt.Errorf("SongMusicQuality(%v) err: %+v", songId, qualityResp)
 	}
-	quality, level, ok := qualityResp.Data.Qualities.FindBetter(types.Level(c.opts.Level))
-	log.Debug("SongMusicQuality(%v) quality level=%s info=%+v", songId, types.LevelString[level], quality)
+
+	quality, level, ok := qualityResp.Data.FindBetter(types.Level(c.opts.Level))
+	c.l.Debugf("SongMusicQuality(%v) quality level=%s info=%+v", songId, types.LevelString[level], quality)
+
 	if !ok && c.opts.Strict {
 		return fmt.Errorf("SongMusicQuality(%v) not support %v", songId, types.Level(c.opts.Level))
 	}
@@ -470,12 +487,12 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	// 	switch downResp.Data.Code {
 	// 	case -110:
 	// 		msg = fmt.Errorf("无音源(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
-	// 	case -105: // todo: 待确定完善,目前测试发现,当用户没有会员权益时,会返回-105，其他情况可能也会返回此值
+	// 	case -105: // Pending: 待确定完善,目前测试发现,当用户没有会员权益时,会返回-105，其他情况可能也会返回此值
 	// 		fallthrough
 	// 	default:
 	// 		msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
 	// 	}
-	// 	log.Warn("资源已下架或无版权(%v) detail: %+v", songId, downResp)
+	// 	c.l.Warnf("资源已下架或无版权(%v) detail: %+v", songId, downResp)
 	// 	return msg
 	// }
 
@@ -490,7 +507,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	// if downResp.Code != 200 {
 	// 	return fmt.Errorf("SongPlayer(%v) err: %+v", songId, downResp)
 	// }
-	// if len(downResp.Data) <= 0 {
+	// if len(downResp.Data) == 0 {
 	// 	return fmt.Errorf("SongPlayer(%v) is empty: %+v", songId, downResp)
 	// }
 	// //歌曲变灰则不能下载
@@ -499,44 +516,49 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	// 	switch ret.Code {
 	// 	case -110:
 	// 		msg = fmt.Errorf("无音源(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
-	// 	case -105: // todo: 待确定完善,目前测试发现,当用户没有会员权益时,会返回-105，其他情况可能也会返回此值
+	// 	case -105: // Pending: 待确定完善,目前测试发现,当用户没有会员权益时,会返回-105，其他情况可能也会返回此值
 	// 		fallthrough
 	// 	default:
 	// 		msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, downResp.Data.Code)
 	// 	}
-	// 	log.Warn("资源已下架或无版权(%v) detail: %+v", songId, downResp)
+	// 	c.l.Warnf("资源已下架或无版权(%v) detail: %+v", songId, downResp)
 	// 	return msg
 	// }
 
-	// todo: 待解决传入得音质和下载的品质不准确问题，尝试传入os=pc
-	var downReq = &weapi.SongPlayerV1Req{
+	// Pending: 待解决传入得音质和下载的品质不准确问题，尝试传入os=pc
+	downReq := &weapi.SongPlayerV1Req{
 		Ids:         []int64{songId},
 		Level:       types.Level(c.opts.Level),
 		EncodeType:  c.opts.EncodeType,
 		ImmerseType: c.opts.ImmerseType,
 	}
+
 	downResp, err := request.SongPlayerV1(ctx, downReq)
 	if err != nil {
 		return fmt.Errorf("SongPlayerV1(%v): %w", songId, err)
 	}
+
 	if downResp.Code != 200 {
-		return fmt.Errorf("SongPlayerV1(%v) err: %+v", songId, downResp)
+		return fmt.Errorf("SongPlayerV1(%v) code=%d message=%q", songId, downResp.Code, downResp.Message)
 	}
-	if len(downResp.Data) <= 0 {
-		return fmt.Errorf("SongPlayerV1(%v) is empty: %+v", songId, downResp)
+
+	if len(downResp.Data) == 0 {
+		return fmt.Errorf("SongPlayerV1(%v) returned no download data", songId)
 	}
 	// 歌曲变灰则不能下载
 	if ret := downResp.Data[0]; ret.Code != 200 || ret.Url == "" {
 		var msg error
+
 		switch ret.Code {
 		case -110:
 			msg = fmt.Errorf("无音源(%v) br: %v code: %v", songId, quality.Br, ret.Code)
-		case -105: // todo: 待确定完善,目前测试发现,当用户没有会员权益时,会返回-105，其他情况可能也会返回此值
-			fallthrough
+		case -105: // Pending: 待确定完善,目前测试发现,当用户没有会员权益时,会返回-105，其他情况可能也会返回此值
+			msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, ret.Code)
 		default:
 			msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, ret.Code)
 		}
-		log.Warn("资源已下架或无版权(%v) detail: %+v", songId, downResp)
+
+		c.l.Warnf("资源已下架或无版权(%v) code=%v message=%v", songId, ret.Code, ret.Message)
 		return msg
 	}
 
@@ -557,43 +579,46 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	bar.SetTotal(drd.Size)
 
 	// 下载
-	resp, err := cli.Download(ctx, drd.Url, nil, nil, file, bar)
+	resp, err := cli.Download(ctx, drd.Url, nil, nil, file, bar) //nolint:bodyclose // Download owns and closes the response body.
 	if err != nil {
 		_ = os.Remove(file.Name())
 		return fmt.Errorf("download: %w", err)
 	}
+
 	if c.root.Opts.Debug {
 		dump, err := httputil.DumpResponse(resp, false)
 		if err != nil {
-			log.Debug("DumpResponse err: %s", err)
+			c.l.Debugf("DumpResponse err: %s", err)
 		} else {
-			log.Debug("Download DumpResponse: %s", dump)
+			c.l.Debugf("Download DumpResponse: %s", dump)
 		}
 	}
 
-	size, _ := strconv.ParseFloat(resp.Header.Get("Content-Length"), 10)
-	log.Debug("id=%v downloadUrl=%v wantLevel=%v-%v realLevel=%v-%v encodeType=%v type=%v size=%0.2fM,%vKB free=%v tempFile=%s outDir=%s",
-		drd.Id, drd.Url, c.opts.Level, quality.Br, drd.Level, drd.Br, drd.EncodeType, drd.Type, size/float64(utils.MB), int64(size), types.Free(drd.Fee), file.Name(), dest)
+	size := resp.ContentLength
+	c.l.Debugf("id=%v status=%d downloadUrl=%v wantLevel=%v-%v realLevel=%v-%v encodeType=%v type=%v size=%vM,%vKB free=%v tempFile=%s outDir=%s",
+		drd.Id, resp.StatusCode, drd.Url, c.opts.Level, quality.Br, drd.Level, drd.Br, drd.EncodeType, drd.Type, size/utils.MB, size, types.Free(drd.Fee), file.Name(), dest)
 
 	// 校验md5文件完整性
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		_ = os.Remove(file.Name())
-		return fmt.Errorf("Seek: %w", err)
+		return fmt.Errorf("seek: %w", err)
 	}
-	var m = md5.New()
+
+	m := md5.New() //nolint:gosec // The remote API provides only an MD5 checksum for this file.
 	if _, err := io.Copy(m, file); err != nil {
 		_ = os.Remove(file.Name())
 		return err
 	}
+
 	if m := hex.EncodeToString(m.Sum(nil)); m != drd.Md5 {
 		_ = os.Remove(file.Name())
 		return fmt.Errorf("file %v md5 not match, want=%s, got=%s", file.Name(), drd.Md5, m)
 	}
 
-	// 设置歌曲tag值
-	if c.opts.Tag {
-		// todo:
-	}
+	// Pending: 设置歌曲tag值
+	// if c.opts.Tag {
+	//
+	// }
 
 	// 避免文件重名
 	for i := 1; utils.FileExists(dest); i++ {
@@ -601,14 +626,16 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 	}
 	// 显示关闭文件避免Windows系统无法重命名错误: The process cannot access the file because it is being used by another process
 	if err := file.Close(); err != nil {
-		log.Error("close %s file err: %s", file.Name(), err)
+		c.l.Errorf("close %s file err: %s", file.Name(), err)
 		_ = os.Remove(file.Name())
 	}
+
 	if err := os.Rename(file.Name(), dest); err != nil {
 		_ = os.Remove(file.Name())
 		return fmt.Errorf("rename: %w", err)
 	}
-	if err := os.Chmod(dest, 0644); err != nil {
+
+	if err := os.Chmod(dest, 0o644); err != nil { //nolint:gosec // Downloaded media keeps conventional read permissions.
 		return fmt.Errorf("chmod: %w", err)
 	}
 	return nil

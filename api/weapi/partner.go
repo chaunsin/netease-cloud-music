@@ -1,25 +1,5 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package weapi
 
@@ -54,14 +34,16 @@ func (a *Api) PartnerHotPopup(ctx context.Context, req *PartnerHotPopupReq) (*Pa
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type PartnerWeekReq struct {
 	types.ReqCommon
+
 	Period string `json:"period"` // 格式:MMD-1617552000000-37-1
 }
 
@@ -70,22 +52,22 @@ type PartnerWeekResp struct {
 }
 
 type PartnerWeekData struct {
-	Period        int64       `json:"period"`
-	Week          int64       `json:"week"`
-	Periods       interface{} `json:"periods"`
-	SectionPeriod string      `json:"sectionPeriod"`
+	Period        int64  `json:"period"`
+	Week          int64  `json:"week"`
+	Periods       any    `json:"periods"`
+	SectionPeriod string `json:"sectionPeriod"`
 	User          struct {
 		UserId    int64  `json:"userId"`
 		NickName  string `json:"nickName"`
 		AvatarUrl string `json:"avatarUrl"`
 	} `json:"user"`
 	PickRight struct {
-		Status    interface{} `json:"status"`
-		ValidTime int64       `json:"validTime"`
-		ValidDay  int64       `json:"validDay"`
+		Status    any   `json:"status"`
+		ValidTime int64 `json:"validTime"`
+		ValidDay  int64 `json:"validDay"`
 	} `json:"pickRight"`
-	Title      interface{} `json:"title"`
-	Integral   int64       `json:"integral"`
+	Title      any   `json:"title"`
+	Integral   int64 `json:"integral"`
 	Evaluation struct {
 		EvaluateCount    int64  `json:"evaluateCount"`
 		BasicIntegral    int64  `json:"basicIntegral"`
@@ -96,17 +78,17 @@ type PartnerWeekData struct {
 	} `json:"evaluation"`
 	Top3 []struct {
 		Work struct {
-			Id                  int64       `json:"id"`
-			ResourceType        string      `json:"resourceType"`
-			ResourceId          int64       `json:"resourceId"`
-			Name                string      `json:"name"`
-			CoverUrl            string      `json:"coverUrl"`
-			AuthorName          string      `json:"authorName"`
-			Duration            int64       `json:"duration"`
-			Source              string      `json:"source"`
-			Status              string      `json:"status"`
-			BackendForceOffline bool        `json:"backendForceOffline"`
-			WorkResourceInfo    interface{} `json:"workResourceInfo"`
+			Id                  int64  `json:"id"`
+			ResourceType        string `json:"resourceType"`
+			ResourceId          int64  `json:"resourceId"`
+			Name                string `json:"name"`
+			CoverUrl            string `json:"coverUrl"`
+			AuthorName          string `json:"authorName"`
+			Duration            int64  `json:"duration"`
+			Source              string `json:"source"`
+			Status              string `json:"status"`
+			BackendForceOffline bool   `json:"backendForceOffline"`
+			WorkResourceInfo    any    `json:"workResourceInfo"`
 		} `json:"work"`
 		Score            float64 `json:"score"`
 		AvgScore         float64 `json:"avgScore"`
@@ -135,43 +117,43 @@ type PartnerWeekData struct {
 	} `json:"top3"`
 	AccurateWorks []struct {
 		Work struct {
-			Id                  int64       `json:"id"`
-			ResourceType        string      `json:"resourceType"`
-			ResourceId          int64       `json:"resourceId"`
-			Name                string      `json:"name"`
-			CoverUrl            string      `json:"coverUrl"`
-			AuthorName          string      `json:"authorName"`
-			Duration            int64       `json:"duration"`
-			Source              string      `json:"source"`
-			Status              string      `json:"status"`
-			BackendForceOffline bool        `json:"backendForceOffline"`
-			WorkResourceInfo    interface{} `json:"workResourceInfo"`
+			Id                  int64  `json:"id"`
+			ResourceType        string `json:"resourceType"`
+			ResourceId          int64  `json:"resourceId"`
+			Name                string `json:"name"`
+			CoverUrl            string `json:"coverUrl"`
+			AuthorName          string `json:"authorName"`
+			Duration            int64  `json:"duration"`
+			Source              string `json:"source"`
+			Status              string `json:"status"`
+			BackendForceOffline bool   `json:"backendForceOffline"`
+			WorkResourceInfo    any    `json:"workResourceInfo"`
 		} `json:"work"`
-		Score            float64     `json:"score"`
-		AvgScore         float64     `json:"avgScore"`
-		BasicIntegral    int64       `json:"basicIntegral"`
-		AccuracyIntegral int64       `json:"accuracyIntegral"`
-		EvaluateCount    int64       `json:"evaluateCount"`
-		Tags             interface{} `json:"tags"`
-		ScoreStats       interface{} `json:"scoreStats"`
-		ScorePercentMap  interface{} `json:"scorePercentMap"`
-		Accuracy         float64     `json:"accuracy"`
+		Score            float64 `json:"score"`
+		AvgScore         float64 `json:"avgScore"`
+		BasicIntegral    int64   `json:"basicIntegral"`
+		AccuracyIntegral int64   `json:"accuracyIntegral"`
+		EvaluateCount    int64   `json:"evaluateCount"`
+		Tags             any     `json:"tags"`
+		ScoreStats       any     `json:"scoreStats"`
+		ScorePercentMap  any     `json:"scorePercentMap"`
+		Accuracy         float64 `json:"accuracy"`
 	} `json:"accurateWorks"`
-	ExcellentWorks     []interface{} `json:"excellentWorks"`
-	RecoverStatus      bool          `json:"recoverStatus"`
-	RecoverExpiredTime int64         `json:"recoverExpiredTime"`
+	ExcellentWorks     []any `json:"excellentWorks"`
+	RecoverStatus      bool  `json:"recoverStatus"`
+	RecoverExpiredTime int64 `json:"recoverExpiredTime"`
 	ExcellentPlaylists []struct {
 		Id    int64  `json:"id"`
 		Name  string `json:"name"`
 		Cover string `json:"cover"`
 	} `json:"excellentPlaylists"`
-	Status            string      `json:"status"`
-	ResultConfigTitle interface{} `json:"resultConfigTitle"`
-	ConfigedAct       bool        `json:"configedAct"`
-	Eliminated        bool        `json:"eliminated"`
+	Status            string `json:"status"`
+	ResultConfigTitle any    `json:"resultConfigTitle"`
+	ConfigedAct       bool   `json:"configedAct"`
+	Eliminated        bool   `json:"eliminated"`
 }
 
-// PartnerWeek 查询当前周期周一数据报告情况
+// PartnerWeek 查询当前周期周一数据报告情况.
 func (a *Api) PartnerWeek(ctx context.Context, req *PartnerWeekReq) (*PartnerWeekResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/week/result/get"
@@ -185,8 +167,9 @@ func (a *Api) PartnerWeek(ctx context.Context, req *PartnerWeekReq) (*PartnerWee
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -200,18 +183,18 @@ type PartnerPeriodResp struct {
 }
 
 type PartnerPeriodRespData struct {
-	Period        int64       `json:"period"`
-	Week          int64       `json:"week"`
-	Periods       string      `json:"periods"`
-	SectionPeriod interface{} `json:"sectionPeriod"`
+	Period        int64  `json:"period"`
+	Week          int64  `json:"week"`
+	Periods       string `json:"periods"`
+	SectionPeriod any    `json:"sectionPeriod"`
 	User          struct {
 		UserId    int64  `json:"userId"`
 		NickName  string `json:"nickName"`
 		AvatarUrl string `json:"avatarUrl"`
 	} `json:"user"`
-	PickRight  interface{} `json:"pickRight"`
-	Title      string      `json:"title"`
-	Integral   int64       `json:"integral"`
+	PickRight  any    `json:"pickRight"`
+	Title      string `json:"title"`
+	Integral   int64  `json:"integral"`
 	Evaluation struct {
 		EvaluateCount    int64  `json:"evaluateCount"`
 		BasicIntegral    int64  `json:"basicIntegral"`
@@ -222,17 +205,17 @@ type PartnerPeriodRespData struct {
 	} `json:"evaluation"`
 	Top3 []struct {
 		Work struct {
-			Id                  int64       `json:"id"`
-			ResourceType        string      `json:"resourceType"`
-			ResourceId          int64       `json:"resourceId"`
-			Name                string      `json:"name"`
-			CoverUrl            string      `json:"coverUrl"`
-			AuthorName          string      `json:"authorName"`
-			Duration            int64       `json:"duration"`
-			Source              string      `json:"source"`
-			Status              string      `json:"status"`
-			BackendForceOffline bool        `json:"backendForceOffline"`
-			WorkResourceInfo    interface{} `json:"workResourceInfo"`
+			Id                  int64  `json:"id"`
+			ResourceType        string `json:"resourceType"`
+			ResourceId          int64  `json:"resourceId"`
+			Name                string `json:"name"`
+			CoverUrl            string `json:"coverUrl"`
+			AuthorName          string `json:"authorName"`
+			Duration            int64  `json:"duration"`
+			Source              string `json:"source"`
+			Status              string `json:"status"`
+			BackendForceOffline bool   `json:"backendForceOffline"`
+			WorkResourceInfo    any    `json:"workResourceInfo"`
 		} `json:"work"`
 		Score            float64 `json:"score"`
 		AvgScore         float64 `json:"avgScore"`
@@ -261,45 +244,45 @@ type PartnerPeriodRespData struct {
 	} `json:"top3"`
 	AccurateWorks []struct {
 		Work struct {
-			Id                  int64       `json:"id"`
-			ResourceType        string      `json:"resourceType"`
-			ResourceId          int64       `json:"resourceId"`
-			Name                string      `json:"name"`
-			CoverUrl            string      `json:"coverUrl"`
-			AuthorName          string      `json:"authorName"`
-			Duration            int64       `json:"duration"`
-			Source              string      `json:"source"`
-			Status              string      `json:"status"`
-			BackendForceOffline bool        `json:"backendForceOffline"`
-			WorkResourceInfo    interface{} `json:"workResourceInfo"`
+			Id                  int64  `json:"id"`
+			ResourceType        string `json:"resourceType"`
+			ResourceId          int64  `json:"resourceId"`
+			Name                string `json:"name"`
+			CoverUrl            string `json:"coverUrl"`
+			AuthorName          string `json:"authorName"`
+			Duration            int64  `json:"duration"`
+			Source              string `json:"source"`
+			Status              string `json:"status"`
+			BackendForceOffline bool   `json:"backendForceOffline"`
+			WorkResourceInfo    any    `json:"workResourceInfo"`
 		} `json:"work"`
-		Score            float64     `json:"score"`
-		AvgScore         float64     `json:"avgScore"`
-		BasicIntegral    int64       `json:"basicIntegral"`
-		AccuracyIntegral int64       `json:"accuracyIntegral"`
-		EvaluateCount    int64       `json:"evaluateCount"`
-		Tags             interface{} `json:"tags"`
-		ScoreStats       interface{} `json:"scoreStats"`
-		ScorePercentMap  interface{} `json:"scorePercentMap"`
-		Accuracy         float64     `json:"accuracy"`
+		Score            float64 `json:"score"`
+		AvgScore         float64 `json:"avgScore"`
+		BasicIntegral    int64   `json:"basicIntegral"`
+		AccuracyIntegral int64   `json:"accuracyIntegral"`
+		EvaluateCount    int64   `json:"evaluateCount"`
+		Tags             any     `json:"tags"`
+		ScoreStats       any     `json:"scoreStats"`
+		ScorePercentMap  any     `json:"scorePercentMap"`
+		Accuracy         float64 `json:"accuracy"`
 	} `json:"accurateWorks"`
-	ExcellentWorks     []interface{} `json:"excellentWorks"`
-	RecoverStatus      bool          `json:"recoverStatus"`
-	RecoverExpiredTime int64         `json:"recoverExpiredTime"`
+	ExcellentWorks     []any `json:"excellentWorks"`
+	RecoverStatus      bool  `json:"recoverStatus"`
+	RecoverExpiredTime int64 `json:"recoverExpiredTime"`
 	ExcellentPlaylists []struct {
 		Id    int64  `json:"id"`
 		Name  string `json:"name"`
 		Cover string `json:"cover"`
 	} `json:"excellentPlaylists"`
 	// Status 状态 SETTLED: 可能是代表本期已经结算或者未满足320分失去测评资格了
-	Status            string      `json:"status"`
-	ResultConfigTitle interface{} `json:"resultConfigTitle"`
-	ConfigedAct       interface{} `json:"configedAct"`
+	Status            string `json:"status"`
+	ResultConfigTitle any    `json:"resultConfigTitle"`
+	ConfigedAct       any    `json:"configedAct"`
 	// Eliminated 状态: true 可能是代表未满足320分失去测评资格了,很大概率是，它和Status状态二者必占其一
 	Eliminated bool `json:"eliminated"`
 }
 
-// PartnerPeriod 查询当前周期数据报告情况
+// PartnerPeriod 查询当前周期数据报告情况.
 func (a *Api) PartnerPeriod(ctx context.Context, req *PartnerPeriodReq) (*PartnerPeriodResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/period/result/get"
@@ -313,8 +296,9 @@ func (a *Api) PartnerPeriod(ctx context.Context, req *PartnerPeriodReq) (*Partne
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -323,7 +307,7 @@ type PartnerUserinfoReq struct {
 	types.ReqCommon
 }
 
-// PartnerUserinfoResp code:703 非音乐合伙人
+// PartnerUserinfoResp code:703 非音乐合伙人.
 type PartnerUserinfoResp struct {
 	types.RespCommon[PartnerUserinfoRespData]
 }
@@ -344,8 +328,8 @@ type PartnerUserinfoRespData struct {
 	EvaluateCount int64 `json:"evaluateCount"`
 	PickCount     int64 `json:"pickCount"`
 	// Status 状态 NORMAL:正常 ELIMINATED: 未满足320分失去测评资格了
-	Status     string        `json:"status"`
-	PickRights []interface{} `json:"pickRights"`
+	Status     string `json:"status"`
+	PickRights []any  `json:"pickRights"`
 	// TitleStats 音乐合伙人身份统计,比如多少次初级音乐合伙人，多少次高级音乐合伙人
 	TitleStats []struct {
 		// Title eg:JUNIOR、SENIOR
@@ -353,11 +337,11 @@ type PartnerUserinfoRespData struct {
 		// Count 累计次数
 		Count int64 `json:"count"`
 	} `json:"titleStats"`
-	CurrentPeriodRank  interface{} `json:"currentPeriodRank"`
-	RecoverExpiredTime int64       `json:"recoverExpiredTime"`
-	RightType          int64       `json:"rightType"`
-	RecCount           int64       `json:"recCount"`
-	NextPeriodStart    string      `json:"nextPeriodStart"`
+	CurrentPeriodRank  any    `json:"currentPeriodRank"`
+	RecoverExpiredTime int64  `json:"recoverExpiredTime"`
+	RightType          int64  `json:"rightType"`
+	RecCount           int64  `json:"recCount"`
+	NextPeriodStart    string `json:"nextPeriodStart"`
 }
 
 // PartnerUserinfo 查询当前用户数据
@@ -375,8 +359,9 @@ func (a *Api) PartnerUserinfo(ctx context.Context, req *PartnerUserinfoReq) (*Pa
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -410,8 +395,9 @@ func (a *Api) PartnerLatest(ctx context.Context, req *PartnerLatestReq) (*Partne
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -441,11 +427,11 @@ type PartnerHomeRespData struct {
 		Integral            int64 `json:"integral"`
 		CurrentWeekIntegral int64 `json:"currentWeekIntegral"`
 	} `json:"integral"`
-	Title      interface{} `json:"title"`
-	Banner     interface{} `json:"banner"`
-	BtnDesc    interface{} `json:"btnDesc"`
-	RuleUrl    string      `json:"ruleUrl"` // 音乐合伙人规则图片地支: https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3
-	HotSongDto interface{} `json:"hotSongDto"`
+	Title      any    `json:"title"`
+	Banner     any    `json:"banner"`
+	BtnDesc    any    `json:"btnDesc"`
+	RuleUrl    string `json:"ruleUrl"` // 音乐合伙人规则图片地支: https://y.music.163.com/g/yida/9fecf6a378be49a7a109ae9befb1b8d3
+	HotSongDto any    `json:"hotSongDto"`
 }
 
 // PartnerHome 查询本周完成任务情况
@@ -463,8 +449,9 @@ func (a *Api) PartnerHome(ctx context.Context, req *PartnerHomeReq) (*PartnerHom
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -506,18 +493,18 @@ type PartnerTaskRespData struct {
 	// 完成数量
 	CompletedCount int64 `json:"completedCount"`
 	// 完成所有 Works 任务获得的积分,老版为10现在3.0版本为8分
-	Integral  int64       `json:"integral"`
-	TaskTitle interface{} `json:"taskTitle"`
+	Integral  int64 `json:"integral"`
+	TaskTitle any   `json:"taskTitle"`
 	// Works 待测评的5首基础歌曲列表,如果没有测评资格则该任务列表为空
 	Works []struct {
 		Work            PartnerWork `json:"work"`
 		Completed       bool        `json:"completed"`
 		Score           float64     `json:"score"`
 		UserScore       float64     `json:"userScore"`
-		Tags            interface{} `json:"tags"`
-		CustomTags      interface{} `json:"customTags"`
-		Comment         interface{} `json:"comment"`
-		TaskTitleDesc   interface{} `json:"taskTitleDesc"`
+		Tags            any         `json:"tags"`
+		CustomTags      any         `json:"customTags"`
+		Comment         any         `json:"comment"`
+		TaskTitleDesc   any         `json:"taskTitleDesc"`
 		SongCommentInfo struct {
 			CommentId int64  `json:"commentId"`
 			ThreadId  string `json:"threadId"`
@@ -530,7 +517,7 @@ type PartnerTaskRespData struct {
 	RecResources []struct {
 		Work           PartnerWork `json:"work"`
 		SpecialTag     []string    `json:"specialTag"`
-		SongCommonTags interface{} `json:"songCommonTags"`
+		SongCommonTags any         `json:"songCommonTags"`
 		ReceivedScore  int64       `json:"receivedScore"`
 		QualityScore   int64       `json:"qualityScore"`
 		RedHeartSong   bool        `json:"redHeartSong"`
@@ -564,8 +551,9 @@ func (a *Api) PartnerDailyTask(ctx context.Context, req *PartnerTaskReq) (*Partn
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -578,7 +566,7 @@ type PartnerPickRightResp struct {
 	types.RespCommon[[]PartnerPickRightRespData]
 }
 
-// PartnerPickRightRespData TODO:待补充参数
+// PartnerPickRightRespData TODO:待补充参数.
 type PartnerPickRightRespData struct{}
 
 // PartnerPickRight todo:正确数量？
@@ -596,8 +584,9 @@ func (a *Api) PartnerPickRight(ctx context.Context, req *PartnerPickRightReq) (*
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -625,13 +614,14 @@ func (a *Api) PartnerNotice(ctx context.Context, req *PartnerNoticeReq) (*Partne
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
-// PartnerTags 音乐合伙人测评默认标签
+// PartnerTags 音乐合伙人测评默认标签.
 type PartnerTags string
 
 const (
@@ -753,9 +743,11 @@ var PartnerTagsGroup = map[int64][]PartnerTags{
 	5: {FiveAOnePartnerTags, FiveATwoPartnerTags, FiveBOnePartnerTags, FiveCOnePartnerTags, FiveDOnePartnerTags, FiveDTwoPartnerTags, FiveEOnePartnerTags, FiveETwoPartnerTags},
 }
 
-// PartnerEvaluateReq "{"taskId":118761451,"workId":787080,"score":4,"tags":"4-A-1,4-A-2,4-B-1,4-C-1,4-D-1,4-D-2,4-E-1,4-E-2","customTags":"[\"特别\"]","comment":"","syncYunCircle":false,"syncComment":true,"source":"mp-music-partner","csrf_token":"77bf3a5074699038504234d63d68d917"}"
+// PartnerEvaluateReq
+// "{"taskId":118761451,"workId":787080,"score":4,"tags":"4-A-1,4-A-2,4-B-1,4-C-1,4-D-1,4-D-2,4-E-1,4-E-2","customTags":"[\"特别\"]","comment":"","syncYunCircle":false,"syncComment":true,"source":"mp-music-partner","csrf_token":"77bf3a5074699038504234d63d68d917"}".
 type PartnerEvaluateReq struct {
 	types.ReqCommon
+
 	TaskId        string      `json:"taskId"`        // 任务id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
 	WorkId        string      `json:"workId"`        // 哪首歌曲id 参数值对应https://interface.music.163.com/weapi/music/partner/daily/task/get 接口
 	Score         string      `json:"score"`         // 分值1~5
@@ -799,8 +791,9 @@ func (a *Api) PartnerEvaluate(ctx context.Context, req *PartnerEvaluateReq) (*Pa
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
@@ -814,18 +807,18 @@ type PartnerExtraTaskResp struct {
 }
 
 type PartnerExtraTaskRespData struct {
-	Work                 PartnerWork   `json:"work"`
-	Completed            bool          `json:"completed"`
-	Score                float64       `json:"score"`
-	UserScore            float64       `json:"userScore"`
-	Tags                 []interface{} `json:"tags"`
-	CustomTags           []interface{} `json:"customTags"`
-	Comment              string        `json:"comment"`
-	SongCommentInfo      interface{}   `json:"songCommentInfo"`
-	TaskTitleDesc        string        `json:"taskTitleDesc"`
-	SupportExtraEvaTypes []int64       `json:"supportExtraEvaTypes"`
-	ExtraScore           struct{}      `json:"extraScore"`
-	TaskSource           int64         `json:"taskSource"`
+	Work                 PartnerWork `json:"work"`
+	Completed            bool        `json:"completed"`
+	Score                float64     `json:"score"`
+	UserScore            float64     `json:"userScore"`
+	Tags                 []any       `json:"tags"`
+	CustomTags           []any       `json:"customTags"`
+	Comment              string      `json:"comment"`
+	SongCommentInfo      any         `json:"songCommentInfo"`
+	TaskTitleDesc        string      `json:"taskTitleDesc"`
+	SupportExtraEvaTypes []int64     `json:"supportExtraEvaTypes"`
+	ExtraScore           struct{}    `json:"extraScore"`
+	TaskSource           int64       `json:"taskSource"`
 }
 
 // PartnerExtraTask 扩展听歌任务列表(2024年10月21日推出的新功能测评)。
@@ -843,14 +836,16 @@ func (a *Api) PartnerExtraTask(ctx context.Context, req *PartnerExtraTaskReq) (*
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 type PartnerExtraReportReq struct {
 	types.ReqCommon
+
 	WorkId        string `json:"workId"`        //
 	ResourceId    string `json:"resourceId"`    //
 	BizResourceId string `json:"bizResourceId"` //
@@ -862,8 +857,8 @@ type PartnerExtraReportResp struct {
 }
 
 type PartnerExtraReportRespData struct {
-	FailedReason   interface{} `json:"failedReason"` // 如果不为空,则应改表示失败
-	InteractResult bool        `json:"interactResult"`
+	FailedReason   any  `json:"failedReason"` // 如果不为空,则应改表示失败
+	InteractResult bool `json:"interactResult"`
 }
 
 // PartnerExtraReport 报告扩展听歌任务(2024年10月21日出的新功能测评)
@@ -881,16 +876,18 @@ func (a *Api) PartnerExtraReport(ctx context.Context, req *PartnerExtraReportReq
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }
 
 // PartnerContentAntispamReq
-// eapi请求示例参数 {"type":"comment","content":"过去是一段时光的记忆，回不去忘不了","taskId":"185640294","workId":"1561351","header":"{}","e_r":true}
+// eapi请求示例参数 {"type":"comment","content":"过去是一段时光的记忆，回不去忘不了","taskId":"185640294","workId":"1561351","header":"{}","e_r":true}.
 type PartnerContentAntispamReq struct {
 	types.ReqCommon
+
 	Type    string `json:"type"`    // 类型 comment:评论
 	Content string `json:"content"` // 内容
 	TaskId  string `json:"taskId"`
@@ -898,7 +895,7 @@ type PartnerContentAntispamReq struct {
 }
 
 // PartnerContentAntispamResp
-// 成功响应: {"code":200,"data":{},"message":""}
+// 成功响应: {"code":200,"data":{},"message":""}.
 type PartnerContentAntispamResp struct {
 	types.RespCommon[any]
 }
@@ -918,8 +915,9 @@ func (a *Api) PartnerContentAntispam(ctx context.Context, req *PartnerContentAnt
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
 	_ = resp
 	return &reply, nil
 }

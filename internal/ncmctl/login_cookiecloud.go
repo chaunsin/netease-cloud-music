@@ -1,42 +1,23 @@
-// MIT License
-//
-// Copyright (c) 2025 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2025-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package ncmctl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/cookiecloud"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
-
-	"github.com/spf13/cobra"
 )
 
 type loginCookieCloudCmd struct {
@@ -57,10 +38,15 @@ func cookieCloud(root *Login, l *log.Logger) *cobra.Command {
 		l:    l,
 	}
 	c.cmd = &cobra.Command{
-		Use:     "cookiecloud",
-		Long:    "What is cookiecloud?\n  detail: https://github.com/easychen/CookieCloud",
-		Short:   "use cookiecloud login",
-		Example: "  ncmctl login cookiecloud -u <your uuid> -p <your password> -s http://127.0.0.1:8088",
+		Use:   "cookiecloud",
+		Short: "Log in with cookies synchronized by CookieCloud",
+		Long: "Fetch cookies from a CookieCloud server, import the NetEase domains, and validate " +
+			"the resulting account. --uuid and --password are required. These credential flags may " +
+			"be visible in shell history and process lists. CookieCloud project: " +
+			"https://github.com/easychen/CookieCloud",
+		Example: "  ncmctl login cookiecloud --uuid '<uuid>' --password '<password>'\n" +
+			"  ncmctl login cookiecloud -u '<uuid>' -p '<password>' -s http://127.0.0.1:8088",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.execute(cmd.Context(), args)
 		},
@@ -70,32 +56,42 @@ func cookieCloud(root *Login, l *log.Logger) *cobra.Command {
 }
 
 func (c *loginCookieCloudCmd) addFlags() {
-	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Second*30, "timeout, eg: 1s、1m")
-	c.cmd.Flags().StringVarP(&c.server, "server", "s", "http://127.0.0.1:8088", "cookiecloud server address")
-	c.cmd.Flags().StringVarP(&c.uuid, "uuid", "u", "", "login account uuid")
-	c.cmd.Flags().StringVarP(&c.password, "password", "p", "", "use when logging in with a password.")
-	c.cmd.Flags().StringVarP(&c.headers, "headers", "H", "", "custom headers, eg: key1=value1,key2=value2")
+	c.cmd.Flags().DurationVarP(&c.timeout, "timeout", "t", time.Second*30, "CookieCloud request timeout")
+	c.cmd.Flags().StringVarP(&c.server, "server", "s", "http://127.0.0.1:8088", "CookieCloud server URL")
+	c.cmd.Flags().StringVarP(&c.uuid, "uuid", "u", "", "CookieCloud UUID (required; visible in process arguments)")
+	c.cmd.Flags().StringVarP(
+		&c.password,
+		"password",
+		"p",
+		"",
+		"CookieCloud password (required; visible in process arguments)",
+	)
+	c.cmd.Flags().StringVarP(&c.headers, "headers", "H", "", "additional HTTP headers as comma-separated key=value pairs")
 }
 
 func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
-	var headers = make(map[string]string)
+	headers := make(map[string]string)
 	if c.headers != "" {
-		for _, header := range strings.Split(c.headers, ",") {
+		for header := range strings.SplitSeq(c.headers, ",") {
 			kv := strings.Split(header, "=")
 			if len(kv) != 2 {
 				return fmt.Errorf("invalid header format: %s", header)
 			}
+
 			headers[kv[0]] = kv[1]
 		}
 	}
+
 	if c.server == "" {
-		return fmt.Errorf("server is required")
+		return errors.New("server is required")
 	}
+
 	if c.uuid == "" {
-		return fmt.Errorf("uuid is required")
+		return errors.New("uuid is required")
 	}
+
 	if c.password == "" {
-		return fmt.Errorf("password is required")
+		return errors.New("password is required")
 	}
 
 	ctx, cancel := context.WithTimeout(_ctx, c.timeout)
@@ -105,43 +101,51 @@ func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer cli.Close(ctx)
+	defer closeAPIClient(ctx, cli, c.l)
 
-	var cfg = cookiecloud.Config{
+	cfg := cookiecloud.Config{
 		ApiUrl:  c.server,
 		Timeout: c.timeout,
 		Retry:   3,
 		Debug:   c.root.root.Opts.Debug,
 	}
+
 	cc, err := cookiecloud.NewClient(&cfg)
 	if err != nil {
 		return fmt.Errorf("cookiecloud.NewClient: %w", err)
 	}
+
 	if len(headers) > 0 {
 		cc.SetHeaders(headers)
 	}
+
 	resp, err := cc.Get(ctx, &cookiecloud.GetReq{Uuid: c.uuid, Password: c.password})
 	if err != nil {
 		return fmt.Errorf("cookiecloud.Get: %w", err)
 	}
+
 	c.cmd.Printf("cookie最后更新时间为: %s\n", resp.UpdateTime)
+
 	var cnt int
+
 	for domain, cookies := range resp.CookieData {
 		if !strings.HasSuffix(domain, "music.163.com") {
 			continue
 		}
 		// Parse the domain into a URL (adjust a scheme if needed)
-		u, err := url.Parse("https://music.163.com")
-		if err != nil {
-			return fmt.Errorf("failed to parse domain URL: %v", err)
+		u, parseErr := url.Parse("https://music.163.com")
+		if parseErr != nil {
+			return fmt.Errorf("failed to parse domain URL: %w", parseErr)
 		}
 
 		// Convert a custom cookie type to http.Cookie
 		var httpCookies []*http.Cookie
+
 		for _, v := range cookies {
 			if v.Name == "MUSIC_U" {
 				cnt++
 			}
+
 			httpCookies = append(httpCookies, &http.Cookie{
 				Domain:   domain, // Use original domain value
 				Expires:  v.GetExpired(),
@@ -154,21 +158,28 @@ func (c *loginCookieCloudCmd) execute(_ctx context.Context, _ []string) error {
 				// Quoted:   false,
 			})
 		}
+
 		if len(httpCookies) > 0 {
 			cli.SetCookies(u, httpCookies)
 		}
 	}
 
 	if cnt == 0 {
-		return fmt.Errorf("请确认已登录网页版网易云音乐，并且cookie已经同步到cookiecloud")
+		return errors.New("请确认已登录网页版网易云音乐，并且cookie已经同步到cookiecloud")
 	}
 
 	// 查询登录信息是否成功
 	request := weapi.New(cli)
+
 	user, err := request.GetUserInfo(ctx, &weapi.GetUserInfoReq{})
 	if err != nil {
-		return fmt.Errorf("GetUserInfo: %s", err)
+		return fmt.Errorf("GetUserInfo: %w", err)
 	}
+
+	if err := validateLoginAccount(user); err != nil {
+		return err
+	}
+
 	c.cmd.Printf("login success: %+v\n", user)
 	return nil
 }

@@ -1,25 +1,5 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package types
 
@@ -30,9 +10,9 @@ type Artist struct {
 	// Id 歌手id
 	Id int64 `json:"id"`
 	// Name 歌手名
-	Name  string        `json:"name"`
-	Tns   []interface{} `json:"tns"`
-	Alias []interface{} `json:"alias"`
+	Name  string `json:"name"`
+	Tns   []any  `json:"tns"`
+	Alias []any  `json:"alias"`
 }
 
 // Album 专辑信息.
@@ -42,26 +22,26 @@ type Album struct {
 	// Name 专辑名
 	Name string `json:"name"`
 	// PicUrl 专辑图片
-	PicUrl string        `json:"picUrl"`
-	Tns    []interface{} `json:"tns"`
-	PicStr string        `json:"pic_str"`
-	Pic    int64         `json:"pic"`
+	PicUrl string `json:"picUrl"`
+	Tns    []any  `json:"tns"`
+	PicStr string `json:"pic_str"`
+	Pic    int64  `json:"pic"`
 }
 
 type ChargeInfo struct {
-	Rate          int64       `json:"rate"`
-	ChargeUrl     interface{} `json:"chargeUrl"`
-	ChargeMessage interface{} `json:"chargeMessage"`
-	ChargeType    int64       `json:"chargeType"`
+	Rate          int64 `json:"rate"`
+	ChargeUrl     any   `json:"chargeUrl"`
+	ChargeMessage any   `json:"chargeMessage"`
+	ChargeType    int64 `json:"chargeType"`
 }
 
 type FreeTrialPrivilege struct {
-	FreeLimitTagType   interface{} `json:"freeLimitTagType"`
-	CannotListenReason interface{} `json:"cannotListenReason"`
-	ListenType         interface{} `json:"listenType"`
-	PlayReason         interface{} `json:"playReason"`
-	ResConsumable      bool        `json:"resConsumable"`
-	UserConsumable     bool        `json:"userConsumable"`
+	FreeLimitTagType   any  `json:"freeLimitTagType"`
+	CannotListenReason any  `json:"cannotListenReason"`
+	ListenType         any  `json:"listenType"`
+	PlayReason         any  `json:"playReason"`
+	ResConsumable      bool `json:"resConsumable"`
+	UserConsumable     bool `json:"userConsumable"`
 }
 
 type FreeTimeTrialPrivilege struct {
@@ -104,7 +84,7 @@ type Privileges struct {
 	DlLevel string `json:"dlLevel"`
 	// FlLevel 免费用户的该歌曲播放音质
 	FlLevel            string             `json:"flLevel"`
-	Rscl               interface{}        `json:"rscl"`
+	Rscl               any                `json:"rscl"`
 	FreeTrialPrivilege FreeTrialPrivilege `json:"freeTrialPrivilege"`
 	RightSource        int64              `json:"rightSource"`
 	ChargeInfoList     []ChargeInfo       `json:"chargeInfoList"`

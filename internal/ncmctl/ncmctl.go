@@ -1,39 +1,20 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package ncmctl
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 
+	"github.com/spf13/cobra"
+
 	"github.com/chaunsin/netease-cloud-music/config"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
-
-	"github.com/spf13/cobra"
 )
 
 const title = "                       _    _\n ___  ___  _____  ___ | |_ | |\n|   ||  _||     ||  _||  _|| |\n|_|_||___||_|_|_||___||_|  |_|\n"
@@ -48,16 +29,23 @@ type Root struct {
 	Cfg  *config.Config
 	Opts RootOpts
 	cmd  *cobra.Command
-	l    *log.Logger
+	l    log.Logger
 }
 
 func New() *Root {
 	c := &Root{
 		cmd: &cobra.Command{
-			Use:     "ncmctl",
-			Short:   "ncmctl command",
-			Long:    "ncmctl is a toolbox for netease cloud music\n\nMIT License Copyright (c) 2024 chaunsin\nhttps://github.com/chaunsin/netease-cloud-music\n" + title,
-			Example: "  ncmctl cloud\n  ncmctl crypto\n  ncmctl login\n  ncmctl curl\n  ncmctl partner\n  ncmctl scrobble\n  ncmctl sign\n  ncmctl task",
+			Use:   "ncmctl",
+			Short: "NetEase Cloud Music command-line toolbox",
+			Long: "ncmctl provides NetEase Cloud Music login, scheduled account tasks, media download and upload, " +
+				"NCM file decoding, API payload debugging, and an HTTP(S) monitoring proxy.\n" +
+				"Run 'ncmctl <command> --help' for command-specific inputs, side effects, and limits.\n\n" +
+				"MIT License Copyright (c) 2026 chaunsin\nhttps://github.com/chaunsin/netease-cloud-music\n" + title,
+			Example: "  ncmctl login qrcode\n" +
+				"  ncmctl download --level lossless 2161154646\n" +
+				"  ncmctl ncm input.ncm --output ./decoded\n" +
+				"  ncmctl task --sign --scrobble\n" +
+				"  ncmctl proxy",
 		},
 	}
 	c.cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
@@ -68,12 +56,14 @@ func New() *Root {
 		)
 		if c.Opts.Config != "" {
 			var err error
+
 			if !utils.FileExists(c.Opts.Config) {
 				return fmt.Errorf("config file not exists: %s", c.Opts.Config)
 			}
+
 			c.Cfg, err = config.New(c.Opts.Config)
 			if err != nil {
-				return fmt.Errorf("init config error: %s", err)
+				return fmt.Errorf("init config error: %w", err)
 			}
 		} else {
 			cfgPath = "default"
@@ -81,12 +71,12 @@ func New() *Root {
 		}
 
 		c.Cfg.ReplaceMagicVariables("HOME", home)
+		c.Cfg.Network.HomeDir = home
+
 		if err := c.Cfg.Validate(); err != nil {
-			return fmt.Errorf("config validate error: %s", err)
+			return fmt.Errorf("config validate error: %w", err)
 		}
 
-		// todo: 暂时关闭debug模式,api中得resty日志需要统一输出本库中得logger里
-		c.Cfg.Network.Debug = false
 		// 命令行开启了debug模式优先级大于配置文件中得优先级
 		if c.Opts.Debug {
 			c.Cfg.Log.Stdout = true
@@ -94,37 +84,33 @@ func New() *Root {
 			c.Cfg.Network.Debug = true
 		}
 
-		// init logger
-		c.l = log.New(c.Cfg.Log)
-		log.Default = c.l
-		log.Debug("[config] init home=%s path=%s log=%+v network=%+v", home, cfgPath, c.Cfg.Log, c.Cfg.Network)
+		if err := c.l.Close(); err != nil {
+			return fmt.Errorf("close previous logger: %w", err)
+		}
+
+		// Keep the address stable for commands registered before configuration is loaded.
+		c.l = *log.New(c.Cfg.Log)
+		log.SetDefault(&c.l)
+		c.l.Debugf("[config] init home=%s path=%s log=%+v network=%+v", home, cfgPath, c.Cfg.Log, c.Cfg.Network)
 		return nil
 	}
-	c.cmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
-		return c.l.Close()
-	}
-
 	c.addFlags()
 
 	// add sub commands
-	c.Add(NewCrypto(c, c.l).Command())
-	c.Add(NewLogin(c, c.l).Command())
-	c.Add(NewLogout(c, c.l).Command())
-	c.Add(NewPartner(c, c.l).Command())
-	c.Add(NewCurl(c, c.l).Command())
-	c.Add(NewCloud(c, c.l).Command())
-	c.Add(NewTask(c, c.l).Command())
-	c.Add(NewScrobble(c, c.l).Command())
-	c.Add(NewSignIn(c, c.l).Command())
-	c.Add(NewNCM(c, c.l).Command())
-	c.Add(NewDownload(c, c.l).Command())
+	c.Add(NewCrypto(c, &c.l).Command())
+	c.Add(NewLogin(c, &c.l).Command())
+	c.Add(NewLogout(c, &c.l).Command())
+	c.Add(NewPartner(c, &c.l).Command())
+	c.Add(NewCurl(c, &c.l).Command())
+	c.Add(NewProxy(c).Command())
+	c.Add(NewCloud(c, &c.l).Command())
+	c.Add(NewTask(c, &c.l).Command())
+	c.Add(NewScrobble(c, &c.l).Command())
+	c.Add(NewSignIn(c, &c.l).Command())
+	c.Add(NewNCM(c, &c.l).Command())
+	c.Add(NewDownload(c, &c.l).Command())
+	c.Add(NewUpdate(c).Command())
 	return c
-}
-
-func (c *Root) addFlags() {
-	c.cmd.PersistentFlags().BoolVar(&c.Opts.Debug, "debug", false, "run in debug mode")
-	c.cmd.PersistentFlags().StringVarP(&c.Opts.Config, "config", "c", "", "configuration file path")
-	c.cmd.PersistentFlags().StringVar(&c.Opts.Home, "home", config.HomeDir, "configuration home path. the home path is used to store running information")
 }
 
 func (c *Root) Version(version, buildTime, commitHash string) {
@@ -137,8 +123,42 @@ func (c *Root) Add(command ...*cobra.Command) {
 }
 
 func (c *Root) Execute() {
-	if err := c.cmd.Execute(); err != nil {
+	if err := runWithCleanup(c.cmd.Execute, func() error {
+		return c.l.Close()
+	}); err != nil {
 		c.cmd.PrintErrln(err)
 		os.Exit(1)
 	}
+}
+
+func runWithCleanup(run, cleanup func() error) (err error) {
+	defer func() {
+		if cleanupErr := cleanup(); cleanupErr != nil {
+			err = errors.Join(err, fmt.Errorf("cleanup: %w", cleanupErr))
+		}
+	}()
+
+	return run()
+}
+
+func (c *Root) addFlags() {
+	c.cmd.PersistentFlags().BoolVar(
+		&c.Opts.Debug,
+		"debug",
+		false,
+		"enable verbose logs; API headers and bodies may contain sensitive data",
+	)
+	c.cmd.PersistentFlags().StringVarP(
+		&c.Opts.Config,
+		"config",
+		"c",
+		"",
+		"path to a complete YAML configuration file (not auto-discovered)",
+	)
+	c.cmd.PersistentFlags().StringVar(
+		&c.Opts.Home,
+		"home",
+		config.HomeDir,
+		"OS home used for .ncmctl state and substituted for ${HOME} in configured runtime paths",
+	)
 }

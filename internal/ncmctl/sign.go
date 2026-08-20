@@ -1,37 +1,22 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package ncmctl
 
 import (
 	"context"
+	"errors"
 	"fmt"
-
-	"github.com/chaunsin/netease-cloud-music/api"
-	"github.com/chaunsin/netease-cloud-music/api/weapi"
-	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chaunsin/netease-cloud-music/api"
+	"github.com/chaunsin/netease-cloud-music/api/eapi"
+	"github.com/chaunsin/netease-cloud-music/api/weapi"
+	"github.com/chaunsin/netease-cloud-music/pkg/log"
 )
 
 type SignInOpts struct {
@@ -50,9 +35,15 @@ func NewSignIn(root *Root, l *log.Logger) *SignIn {
 		root: root,
 		l:    l,
 		cmd: &cobra.Command{
-			Use:     "sign",
-			Short:   "[need login] Sign perform daily cloud shell check-in",
-			Example: `  ncmctl sign`,
+			Use:   "sign",
+			Short: "Run YunBei and VIP daily sign-in actions",
+			Long: "Perform the YunBei and VIP sign-in actions once. Login is required; VIP sign-in " +
+				"does not require an active VIP entitlement. --automatic also claims available YunBei " +
+				"and eligible VIP rewards, which performs " +
+				"additional account actions and may increase risk-control exposure.",
+			Example: "  ncmctl sign\n" +
+				"  ncmctl sign --automatic",
+			Args: cobra.NoArgs,
 		},
 	}
 	c.addFlags()
@@ -62,20 +53,20 @@ func NewSignIn(root *Root, l *log.Logger) *SignIn {
 	return c
 }
 
-func (c *SignIn) addFlags() {
-	c.cmd.Flags().BoolVarP(&c.opts.Automatic, "automatic", "a", false, "automatically claim sign-in rewards")
-}
-
-func (c *SignIn) validate() error {
-	return nil
-}
-
 func (c *SignIn) Add(command ...*cobra.Command) {
 	c.cmd.AddCommand(command...)
 }
 
 func (c *SignIn) Command() *cobra.Command {
 	return c.cmd
+}
+
+func (c *SignIn) addFlags() {
+	c.cmd.Flags().BoolVarP(&c.opts.Automatic, "automatic", "a", false, "claim available YunBei and eligible VIP rewards after sign-in")
+}
+
+func (c *SignIn) validate() error {
+	return nil
 }
 
 func (c *SignIn) execute(ctx context.Context) error {
@@ -87,22 +78,33 @@ func (c *SignIn) execute(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
 	}
-	defer cli.Close(ctx)
+	defer closeAPIClient(ctx, cli, c.l)
+
 	request := weapi.New(cli)
 
 	// 判断是否需要登录
 	if request.NeedLogin(ctx) {
-		return fmt.Errorf("need login")
+		return errors.New("need login")
 	}
 
-	// 执行云贝签到
+	if err := c.executeYunBeiSign(ctx, request); err != nil {
+		return err
+	}
+
+	return c.executeVipSign(ctx, request, eapi.New(cli), time.Now().UnixMilli())
+}
+
+// executeYunBeiSign 执行云贝签到.
+func (c *SignIn) executeYunBeiSign(ctx context.Context, request *weapi.Api) error {
 	resp, err := request.YunBeiSignIn(ctx, &weapi.YunBeiSignInReq{})
 	if err != nil {
 		return fmt.Errorf("YunBeiSignIn: %w", err)
 	}
+
 	if resp.Code != 200 {
 		return fmt.Errorf("YunBeiSignIn: %+v", resp)
 	}
+
 	if resp.Data.Sign {
 		c.cmd.Println("云贝签到成功")
 	} else {
@@ -111,100 +113,189 @@ func (c *SignIn) execute(ctx context.Context) error {
 
 	// 获取签到进度
 	if c.opts.Automatic {
-		progress, err := request.YunBeiSignInProgress(ctx, &weapi.YunBeiSignInProgressReq{})
-		if err != nil {
-			return fmt.Errorf("YunBeiSignInProgress: %w", err)
+		progress, progressErr := request.YunBeiSignInProgress(ctx, &weapi.YunBeiSignInProgressReq{})
+		if progressErr != nil {
+			return fmt.Errorf("YunBeiSignInProgress: %w", progressErr)
 		}
+
 		for _, v := range progress.Data.LotteryConfig {
 			if v.BaseLotteryId <= 0 && v.ExtraLotteryId <= 0 {
 				continue
 			}
-			log.Debug("天数=%v,奖励内容=%v,id=%v,extId=%v,status=%v",
+
+			c.l.Debugf("天数=%v,奖励内容=%v,id=%v,extId=%v,status=%v",
 				v.SignDay, v.BaseGrant.Name, v.BaseLotteryId, v.ExtraLotteryId, v.BaseLotteryStatus)
 			// 领取奖励
-			reply, err := request.YunBeiSignLottery(ctx, &weapi.YunBeiSignLotteryReq{
-				UserLotteryId: fmt.Sprintf("%d", v.BaseLotteryId),
+			reply, lotteryErr := request.YunBeiSignLottery(ctx, &weapi.YunBeiSignLotteryReq{
+				UserLotteryId: strconv.FormatInt(v.BaseLotteryId, 10),
 			})
-			if err != nil {
-				log.Error("YunBeiSignLottery(%v): %s", v.BaseLotteryId, err)
+			if lotteryErr != nil {
+				c.l.Errorf("YunBeiSignLottery(%v): %s", v.BaseLotteryId, lotteryErr)
 			}
+
 			if reply.Data {
 				c.cmd.Printf("云贝连续签到天数=%v,奖励内容=%v 领取成功\n", v.SignDay, v.BaseGrant.Name)
 			}
-			// todo: 满勤签到领取抽奖机会使用ExtraLotteryId,同时也是YunBeiSignLottery方法?
+			// Pending: 满勤签到领取抽奖机会使用ExtraLotteryId,同时也是YunBeiSignLottery方法?
 		}
 
 		// 完成当前时刻可以领取的任务奖励
-		task, err := request.YunBeiTaskTodo(ctx, &weapi.YunBeiTaskTodoReq{})
-		if err != nil {
-			return fmt.Errorf("YunBeiTaskTodo: %w", err)
+		task, taskErr := request.YunBeiTaskTodo(ctx, &weapi.YunBeiTaskTodoReq{})
+		if taskErr != nil {
+			return fmt.Errorf("YunBeiTaskTodo: %w", taskErr)
 		}
+
 		for _, v := range task.Data {
 			if !v.Completed {
 				continue
 			}
 
-			reply, err := request.YunBeiTaskFinish(ctx, &weapi.YunBeiTaskFinishReq{
-				Period:      fmt.Sprintf("%d", v.Period),
-				UserTaskId:  fmt.Sprintf("%d", v.UserTaskId),
-				DepositCode: fmt.Sprintf("%d", v.DepositCode),
+			reply, finishErr := request.YunBeiTaskFinish(ctx, &weapi.YunBeiTaskFinishReq{
+				Period:      strconv.FormatInt(v.Period, 10),
+				UserTaskId:  strconv.FormatInt(v.UserTaskId, 10),
+				DepositCode: strconv.FormatInt(v.DepositCode, 10),
 			})
-			if err != nil {
-				log.Error("YunBeiTaskFinish(%v): %s", v.UserTaskId, err)
+			if finishErr != nil {
+				c.l.Errorf("YunBeiTaskFinish(%v): %s", v.UserTaskId, finishErr)
 			}
+
 			if reply.Code != 200 {
-				log.Error("YunBeiTaskFinish(%v) detail:%+v", v.UserTaskId, reply)
+				c.l.Errorf("YunBeiTaskFinish(%v) detail:%+v", v.UserTaskId, reply)
 			} else {
 				c.cmd.Printf("云贝 [%s] 任务完成获得云贝数量 %v\n", v.TaskName, v.TaskPoint)
 			}
 		}
 	}
 
-	// 查询vip权益
-	vip, err := request.VipGrowPoint(ctx, &weapi.VipGrowPointReq{})
+	return nil
+}
+
+// executeVipSign 执行VIP签到.
+func (c *SignIn) executeVipSign(ctx context.Context, weapiRequest *weapi.Api, eapiRequest *eapi.Api, signDayTime int64) error {
+	vip, err := weapiRequest.VipGrowPoint(ctx, &weapi.VipGrowPointReq{})
 	if err != nil {
 		return fmt.Errorf("VipGrowPoint: %w", err)
 	}
+
 	if vip.Code != 200 {
-		return fmt.Errorf("VipGrowPoint: %+v", vip)
-	}
-	if vip.Data.UserLevel.LatestVipStatus != 1 {
-		c.cmd.Printf("暂无会员权益: %v\n", vip.Data.UserLevel.LatestVipStatus)
-		return nil
-	}
-	if vip.Data.UserLevel.MaxLevel {
-		c.cmd.Println("vip等级已达到最大值")
-		return nil
+		return fmt.Errorf("VipGrowPoint: code=%d message=%q", vip.Code, vip.Message)
 	}
 
-	// 黑胶乐签
-	vipSign, err := request.VipTaskSign(ctx, &weapi.VipTaskSignReq{IsNew: ""}) // 使用isNew=1?
+	// VIP entitlement gates growth rewards only; Music Sign is available without it.
+	hasVipEntitlement := vip.Data.UserLevel.LatestVipStatus == 1
+	if !hasVipEntitlement {
+		c.cmd.Println("VIP 权益: 暂无, 仅执行乐签")
+	}
+
+	maxLevel := vip.Data.UserLevel.MaxLevel
+	if maxLevel {
+		c.cmd.Println("VIP 等级: 已满级")
+	}
+
+	vipSign, err := eapiRequest.VipTaskSign(ctx, &eapi.VipTaskSignReq{})
 	if err != nil {
 		return fmt.Errorf("VipTaskSign: %w", err)
 	}
-	if vipSign.Data {
-		c.cmd.Println("vip乐签成功")
-	} else {
-		c.cmd.Printf("vip乐签失败: %+v", vipSign)
+
+	if vipSign.Code != 200 {
+		return fmt.Errorf("VipTaskSign: code=%d message=%q", vipSign.Code, vipSign.Message)
 	}
 
-	// 领取当前时刻所有可领得成长值
-	if c.opts.Automatic {
-		reward, err := request.VipRewardGetAll(ctx, &weapi.VipRewardGetAllReq{})
-		if err != nil {
-			return fmt.Errorf("VipRewardGetAll: %w", err)
+	if vipSign.Data {
+		c.cmd.Println("黑胶乐签: 成功")
+	} else if message := strings.TrimSpace(vipSign.Message); message != "" {
+		c.cmd.Printf("黑胶乐签: %s\n", message)
+	} else {
+		c.cmd.Println("黑胶乐签: 本次未完成")
+	}
+
+	// The desktop client refreshes the detail and both card variants after signing.
+	detail, err := eapiRequest.VipCheckinHistoryDetail(ctx, &eapi.VipCheckinHistoryDetailReq{
+		SignDayTime: strconv.FormatInt(signDayTime, 10),
+		Type:        "1",
+	})
+	if err != nil {
+		return fmt.Errorf("VipCheckinHistoryDetail after VipTaskSign: %w", err)
+	}
+
+	if detail.Code != 200 {
+		return fmt.Errorf("VipCheckinHistoryDetail after VipTaskSign: code=%d message=%q", detail.Code, detail.Message)
+	}
+
+	// TDDO: 每次请求的歌曲都不一样原因,官方每次都是一样得和type=2有关.
+	if detail.Data.SongInfo != nil {
+		songName := strings.TrimSpace(detail.Data.SongInfo.SongName)
+		artistName := strings.TrimSpace(detail.Data.SongInfo.ArtistName)
+
+		switch {
+		case songName != "" && artistName != "":
+			c.cmd.Printf("  今日歌曲: %s - %s\n", songName, artistName)
+		case songName != "":
+			c.cmd.Printf("  今日歌曲: %s\n", songName)
+		case artistName != "":
+			c.cmd.Printf("  今日歌手: %s\n", artistName)
 		}
+	}
+
+	var monthCard eapi.VipMinideskMusicSignPCData
+
+	for _, typ := range []int{0, 1} {
+		card, cardErr := eapiRequest.VipMinideskMusicSignPC(ctx, &eapi.VipMinideskMusicSignPCReq{Type: typ})
+		if cardErr != nil {
+			return fmt.Errorf("VipMinideskMusicSignPC(type=%d) after VipTaskSign: %w", typ, cardErr)
+		}
+
+		if card.Code != 200 {
+			return fmt.Errorf(
+				"VipMinideskMusicSignPC(type=%d) after VipTaskSign: code=%d message=%q",
+				typ,
+				card.Code,
+				card.Message,
+			)
+		}
+
+		if typ == 1 {
+			monthCard = card.Data
+		}
+	}
+
+	monthTitle := "本月黑胶乐签"
+	if monthCard.Text != nil && strings.TrimSpace(*monthCard.Text) != "" {
+		monthTitle = strings.TrimSpace(*monthCard.Text)
+	}
+
+	monthTip := strings.TrimSpace(monthCard.SubText)
+
+	switch {
+	case detail.Data.MonthCheckInTotalDay > 0 && monthTip != "":
+		c.cmd.Printf("  %s: 已签 %d 天, %s\n", monthTitle, detail.Data.MonthCheckInTotalDay, monthTip)
+	case detail.Data.MonthCheckInTotalDay > 0:
+		c.cmd.Printf("  %s: 已签 %d 天\n", monthTitle, detail.Data.MonthCheckInTotalDay)
+	case monthTip != "":
+		c.cmd.Printf("  %s:%s\n", monthTitle, monthTip)
+	}
+
+	if c.opts.Automatic && hasVipEntitlement && !maxLevel {
+		reward, rewardErr := weapiRequest.VipRewardGetAll(ctx, &weapi.VipRewardGetAllReq{})
+		if rewardErr != nil {
+			return fmt.Errorf("VipRewardGetAll: %w", rewardErr)
+		}
+
 		if reward.Data.Result {
-			c.cmd.Println("vip成长值领取成功")
+			c.cmd.Println("VIP 成长值: 领取成功")
+		} else if message := strings.TrimSpace(reward.Message); message != "" {
+			c.cmd.Printf("VIP 成长值: %s\n", message)
 		} else {
-			c.cmd.Printf("vip成长值领取失败: %+v", reward)
+			c.cmd.Println("VIP 成长值: 未领取")
 		}
 	}
 
 	// 刷新token过期时间
-	refresh, err := request.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
-	if err != nil || refresh.Code != 200 {
-		log.Warn("TokenRefresh resp:%+v err: %s", refresh, err)
+	refresh, refreshErr := weapiRequest.TokenRefresh(ctx, &weapi.TokenRefreshReq{})
+	if refreshErr != nil {
+		c.l.Warnf("TokenRefresh: %v", refreshErr)
+	} else if refresh.Code != 200 {
+		c.l.Warnf("TokenRefresh: code=%d message=%q", refresh.Code, refresh.Message)
 	}
 	return nil
 }

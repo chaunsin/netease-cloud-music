@@ -1,25 +1,5 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package eapi
 
@@ -33,6 +13,8 @@ import (
 )
 
 type V3SongDetailReq struct {
+	types.EApiReqCommon
+
 	C []V3SongDetailReqList `json:"c"`
 }
 
@@ -42,6 +24,8 @@ type V3SongDetailReqList struct {
 }
 
 type v3SongDetailReq struct {
+	types.EApiReqCommon
+
 	C string `json:"c"`
 }
 
@@ -123,9 +107,10 @@ type v3SongDetailReq struct {
 // rurl: Option<String(?)>, 常为None，功能未知
 // mst: u32, 偶尔为0, 常为9，功能未知
 // cp: u64, 功能未知
-// publish_time: i64, 毫秒为单位的Unix时间戳
+// publish_time: i64, 毫秒为单位的Unix时间戳.
 type V3SongDetailResp struct {
 	types.RespCommon[any]
+
 	Songs      []V3SongDetailRespSongs      `json:"songs"`
 	Privileges []V3SongDetailRespPrivileges `json:"privileges"`
 }
@@ -136,55 +121,55 @@ type V3SongDetailRespSongs struct {
 	Pst  int64  `json:"pst"`
 	T    int64  `json:"t"`
 	Ar   []struct {
-		Id    int64         `json:"id"`
-		Name  string        `json:"name"`
-		Tns   []interface{} `json:"tns"`
-		Alias []interface{} `json:"alias"`
+		Id    int64  `json:"id"`
+		Name  string `json:"name"`
+		Tns   []any  `json:"tns"`
+		Alias []any  `json:"alias"`
 	} `json:"ar"`
-	Alia []interface{} `json:"alia"`
-	Pop  float64       `json:"pop"`
-	St   int64         `json:"st"`
-	Rt   string        `json:"rt"`
-	Fee  int64         `json:"fee"`
-	V    int64         `json:"v"`
-	Crbt interface{}   `json:"crbt"`
-	Cf   string        `json:"cf"`
+	Alia []any   `json:"alia"`
+	Pop  float64 `json:"pop"`
+	St   int64   `json:"st"`
+	Rt   string  `json:"rt"`
+	Fee  int64   `json:"fee"`
+	V    int64   `json:"v"`
+	Crbt any     `json:"crbt"`
+	Cf   string  `json:"cf"`
 	Al   struct {
-		Id     int64         `json:"id"`
-		Name   string        `json:"name"`
-		PicUrl string        `json:"picUrl"`
-		Tns    []interface{} `json:"tns"`
-		PicStr string        `json:"pic_str"`
-		Pic    int64         `json:"pic"`
+		Id     int64  `json:"id"`
+		Name   string `json:"name"`
+		PicUrl string `json:"picUrl"`
+		Tns    []any  `json:"tns"`
+		PicStr string `json:"pic_str"`
+		Pic    int64  `json:"pic"`
 	} `json:"al"`
 	Dt                   int64         `json:"dt"`
 	H                    types.Quality `json:"h"`
 	M                    types.Quality `json:"m"`
 	L                    types.Quality `json:"l"`
 	Sq                   types.Quality `json:"sq"`
-	Hr                   interface{}   `json:"hr"`
-	A                    interface{}   `json:"a"`
+	Hr                   any           `json:"hr"`
+	A                    any           `json:"a"`
 	Cd                   string        `json:"cd"`
 	No                   int64         `json:"no"`
-	RtUrl                interface{}   `json:"rtUrl"`
+	RtUrl                any           `json:"rtUrl"`
 	Ftype                int           `json:"ftype"`
-	RtUrls               []interface{} `json:"rtUrls"`
+	RtUrls               []any         `json:"rtUrls"`
 	DjId                 int           `json:"djId"`
 	Copyright            int           `json:"copyright"`
 	SId                  int           `json:"s_id"`
 	Mark                 int           `json:"mark"`
 	OriginCoverType      int           `json:"originCoverType"`
-	OriginSongSimpleData interface{}   `json:"originSongSimpleData"`
-	TagPicList           interface{}   `json:"tagPicList"`
+	OriginSongSimpleData any           `json:"originSongSimpleData"`
+	TagPicList           any           `json:"tagPicList"`
 	ResourceState        bool          `json:"resourceState"`
 	Version              int           `json:"version"`
-	SongJumpInfo         interface{}   `json:"songJumpInfo"`
-	EntertainmentTags    interface{}   `json:"entertainmentTags"`
-	AwardTags            interface{}   `json:"awardTags"`
+	SongJumpInfo         any           `json:"songJumpInfo"`
+	EntertainmentTags    any           `json:"entertainmentTags"`
+	AwardTags            any           `json:"awardTags"`
 	Single               int           `json:"single"`
-	NoCopyrightRcmd      interface{}   `json:"noCopyrightRcmd"`
+	NoCopyrightRcmd      any           `json:"noCopyrightRcmd"`
 	Mv                   int           `json:"mv"`
-	Rurl                 interface{}   `json:"rurl"`
+	Rurl                 any           `json:"rurl"`
 	Mst                  int           `json:"mst"`
 	Cp                   int           `json:"cp"`
 	Rtype                int           `json:"rtype"`
@@ -192,56 +177,55 @@ type V3SongDetailRespSongs struct {
 }
 
 type V3SongDetailRespPrivileges struct {
-	Id                 int         `json:"id"`
-	Fee                int         `json:"fee"`
-	Payed              int         `json:"payed"`
-	St                 int         `json:"st"`
-	Pl                 int         `json:"pl"`
-	Dl                 int         `json:"dl"`
-	Sp                 int         `json:"sp"`
-	Cp                 int         `json:"cp"`
-	Subp               int         `json:"subp"`
-	Cs                 bool        `json:"cs"`
-	Maxbr              int         `json:"maxbr"`
-	Fl                 int         `json:"fl"`
-	Toast              bool        `json:"toast"`
-	Flag               int         `json:"flag"`
-	PreSell            bool        `json:"preSell"`
-	PlayMaxbr          int         `json:"playMaxbr"`
-	DownloadMaxbr      int         `json:"downloadMaxbr"`
-	MaxBrLevel         string      `json:"maxBrLevel"`
-	PlayMaxBrLevel     string      `json:"playMaxBrLevel"`
-	DownloadMaxBrLevel string      `json:"downloadMaxBrLevel"`
-	PlLevel            string      `json:"plLevel"`
-	DlLevel            string      `json:"dlLevel"`
-	FlLevel            string      `json:"flLevel"`
-	Rscl               interface{} `json:"rscl"`
+	Id                 int    `json:"id"`
+	Fee                int    `json:"fee"`
+	Payed              int    `json:"payed"`
+	St                 int    `json:"st"`
+	Pl                 int    `json:"pl"`
+	Dl                 int    `json:"dl"`
+	Sp                 int    `json:"sp"`
+	Cp                 int    `json:"cp"`
+	Subp               int    `json:"subp"`
+	Cs                 bool   `json:"cs"`
+	Maxbr              int    `json:"maxbr"`
+	Fl                 int    `json:"fl"`
+	Toast              bool   `json:"toast"`
+	Flag               int    `json:"flag"`
+	PreSell            bool   `json:"preSell"`
+	PlayMaxbr          int    `json:"playMaxbr"`
+	DownloadMaxbr      int    `json:"downloadMaxbr"`
+	MaxBrLevel         string `json:"maxBrLevel"`
+	PlayMaxBrLevel     string `json:"playMaxBrLevel"`
+	DownloadMaxBrLevel string `json:"downloadMaxBrLevel"`
+	PlLevel            string `json:"plLevel"`
+	DlLevel            string `json:"dlLevel"`
+	FlLevel            string `json:"flLevel"`
+	Rscl               any    `json:"rscl"`
 	FreeTrialPrivilege struct {
-		ResConsumable      bool        `json:"resConsumable"`
-		UserConsumable     bool        `json:"userConsumable"`
-		ListenType         interface{} `json:"listenType"`
-		CannotListenReason interface{} `json:"cannotListenReason"`
-		PlayReason         interface{} `json:"playReason"`
+		ResConsumable      bool `json:"resConsumable"`
+		UserConsumable     bool `json:"userConsumable"`
+		ListenType         any  `json:"listenType"`
+		CannotListenReason any  `json:"cannotListenReason"`
+		PlayReason         any  `json:"playReason"`
 	} `json:"freeTrialPrivilege"`
 	RightSource    int `json:"rightSource"`
 	ChargeInfoList []struct {
-		Rate          int         `json:"rate"`
-		ChargeUrl     interface{} `json:"chargeUrl"`
-		ChargeMessage interface{} `json:"chargeMessage"`
-		ChargeType    int         `json:"chargeType"`
+		Rate          int `json:"rate"`
+		ChargeUrl     any `json:"chargeUrl"`
+		ChargeMessage any `json:"chargeMessage"`
+		ChargeType    int `json:"chargeType"`
 	} `json:"chargeInfoList"`
 }
 
 // V3SongDetail todo: 歌单列表 应该是根据歌单ID获取
 // url: https://app.apifox.com/project/3870894 testdata/har/1.har
-// needLogin: 未知
+// needLogin: 未知.
 func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDetailResp, error) {
 	var (
 		url   = "https://music.163.com/eapi/v3/song/detail"
 		reply V3SongDetailResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions().SetEAPI()
 	)
-	opts.CryptoMode = api.CryptoModeEAPI
 
 	// "[{\"id\":\"1974334953\",\"v\":0}]
 	data, err := json.Marshal(req.C)
@@ -249,10 +233,84 @@ func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDe
 		return nil, err
 	}
 
-	resp, err := a.client.Request(ctx, url, &v3SongDetailReq{C: string(data)}, &reply, opts)
+	resp, err := a.client.Request(ctx, url, &v3SongDetailReq{
+		EApiReqCommon: req.EApiReqCommon,
+		C:             string(data),
+	}, &reply, opts)
 	if err != nil {
-		return nil, fmt.Errorf("Request: %w", err)
+		return nil, fmt.Errorf("request: %w", err)
 	}
+
+	_ = resp
+	return &reply, nil
+}
+
+type DiscoveryRecommendSongsReq struct {
+	types.EApiReqCommon
+}
+
+type DiscoveryRecommendSongsResp struct {
+	Code int `json:"code"`
+	Data struct {
+		DailySongs []struct {
+			Id   int64  `json:"id"`
+			Name string `json:"name"`
+			Al   struct {
+				Id     int64  `json:"id"`
+				Name   string `json:"name"`
+				PicUrl string `json:"picUrl"`
+			} `json:"al"`
+			Ar []struct {
+				Id   int64  `json:"id"`
+				Name string `json:"name"`
+			} `json:"ar"`
+		} `json:"dailySongs"`
+	} `json:"data"`
+}
+
+// DiscoveryRecommendSongs 获取每日推荐歌曲.
+func (a *Api) DiscoveryRecommendSongs(ctx context.Context, req *DiscoveryRecommendSongsReq) (*DiscoveryRecommendSongsResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/eapi/v3/discovery/recommend/songs"
+		reply DiscoveryRecommendSongsResp
+		opts  = api.NewOptions().SetEAPI()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+
+	_ = resp
+	return &reply, nil
+}
+
+type SongLikeReq struct {
+	types.EApiReqCommon
+
+	TrackId    string `json:"trackId"`
+	Like       string `json:"like"` // "true" or "false"
+	Time       string `json:"time"` // "3"
+	CheckToken string `json:"checkToken"`
+}
+
+type SongLikeResp struct {
+	Code int `json:"code"`
+}
+
+// SongLike 红心或取消红心歌曲.
+func (a *Api) SongLike(ctx context.Context, req *SongLikeReq) (*SongLikeResp, error) {
+	var (
+		url   = "https://interface3.music.163.com/eapi/song/like"
+		reply SongLikeResp
+		opts  = api.NewOptions().SetEAPI()
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+
 	_ = resp
 	return &reply, nil
 }

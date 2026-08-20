@@ -1,25 +1,5 @@
-// MIT License
-//
-// Copyright (c) 2024 chaunsin
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Copyright (c) 2024-2026 chaunsin
+// SPDX-License-Identifier: MIT
 
 package mail
 
@@ -39,19 +19,23 @@ type Config struct {
 	To       []string
 }
 
-func (c Config) Validate() error {
+func (c *Config) Validate() error {
 	if c.Host == "" {
 		return errors.New("host is empty")
 	}
+
 	if c.Port == 0 {
 		return errors.New("port is empty")
 	}
+
 	if c.Username == "" {
 		return errors.New("username is empty")
 	}
+
 	if c.Password == "" {
 		return errors.New("password is empty")
 	}
+
 	if len(c.To) == 0 {
 		return errors.New("to is empty")
 	}
@@ -87,18 +71,22 @@ func New(cfg *Config) (*Client, error) {
 
 func (c *Client) Send(ctx context.Context, content string) error {
 	var msg []*mail.Msg
+
 	for _, to := range c.cfg.To {
 		m := mail.NewMsg()
 		if err := m.From(c.cfg.Username); err != nil {
-			return fmt.Errorf("From: %w", err)
+			return fmt.Errorf("from: %w", err)
 		}
+
 		if err := m.To(to); err != nil {
-			return fmt.Errorf("To: %w", err)
+			return fmt.Errorf("to: %w", err)
 		}
+
 		m.Subject("This is my first mail with go-mail!")
 		m.SetBodyString(mail.TypeTextPlain, content)
 		msg = append(msg, m)
 	}
+
 	if err := c.cli.DialAndSendWithContext(ctx, msg...); err != nil {
 		return fmt.Errorf("DialAndSendWithContext: %w", err)
 	}
