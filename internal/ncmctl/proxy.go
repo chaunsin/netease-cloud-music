@@ -138,7 +138,7 @@ func (c *Proxy) validate() error {
 	}
 	// Capture helpers reserve one extra byte to distinguish truncation.
 	if c.opts.MaxBodyBytes == math.MaxInt64 {
-		return fmt.Errorf("max-body must be less than %d bytes", math.MaxInt64)
+		return fmt.Errorf("max-body must be less than %d bytes", int64(math.MaxInt64))
 	}
 
 	seeds, err := c.xeapiSessionSeeds()

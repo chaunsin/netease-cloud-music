@@ -91,7 +91,7 @@ func normalizeConfig(input *Config) (Config, error) {
 	}
 	// Treat MaxInt64 as an unbounded capture request rather than a usable limit.
 	if cfg.MaxBodyBytes == math.MaxInt64 {
-		return Config{}, fmt.Errorf("max body bytes must be less than %d", math.MaxInt64)
+		return Config{}, fmt.Errorf("max body bytes must be less than %d", int64(math.MaxInt64))
 	}
 
 	if cfg.ShutdownTimeout <= 0 {
