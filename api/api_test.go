@@ -249,6 +249,72 @@ func TestWeapiRequestSetsVisitorCookies(t *testing.T) {
 	assert.NotEmpty(t, parts[1])
 }
 
+func newIdentitySeedClient(t *testing.T, cookieFile string) (*Client, *log.Logger) {
+	t.Helper()
+
+	logger := log.New(&log.Config{Level: "error"})
+	client, err := NewClient(&Config{
+		Timeout: time.Second,
+		HomeDir: t.TempDir(),
+		Cookie: cookie.Config{
+			Filepath: cookieFile,
+			Interval: 0,
+		},
+	}, logger)
+	require.NoError(t, err)
+	return client, logger
+}
+
+func TestNewClientSeedsIdentityCookies(t *testing.T) {
+	musicURL := mustParseURL(t, "https://music.163.com")
+	identityNames := []string{"WNMCID", "_ntes_nnid", "_ntes_nuid"}
+
+	first, logger := newIdentitySeedClient(t, filepath.Join(t.TempDir(), "cookie.json"))
+	firstValues := cookieValues(first.GetCookies(musicURL))
+
+	for _, name := range identityNames {
+		assert.NotEmpty(t, firstValues[name], name)
+	}
+
+	require.NoError(t, first.Close(context.Background()))
+	require.NoError(t, logger.Close())
+
+	// 第二次启动必须复用 jar 中持久化的值,而不是重新生成。
+	second, logger := newIdentitySeedClient(t, first.cfg.Cookie.Filepath)
+	defer func() {
+		require.NoError(t, second.Close(context.Background()))
+		require.NoError(t, logger.Close())
+	}()
+
+	secondValues := cookieValues(second.GetCookies(musicURL))
+	for _, name := range identityNames {
+		assert.Equal(t, firstValues[name], secondValues[name], name)
+	}
+}
+
+func TestNewClientKeepsExistingIdentityCookies(t *testing.T) {
+	musicURL := mustParseURL(t, "https://music.163.com")
+
+	first, logger := newIdentitySeedClient(t, filepath.Join(t.TempDir(), "cookie.json"))
+	first.SetCookies(musicURL, []*http.Cookie{{Name: "_ntes_nuid", Value: "custom-nuid"}})
+	require.NoError(t, first.Close(context.Background()))
+	require.NoError(t, logger.Close())
+
+	// 已存在的 _ntes_nuid 不能被 seed 覆盖,缺失的其余身份 Cookie 仍会被补齐。
+	second, logger := newIdentitySeedClient(t, first.cfg.Cookie.Filepath)
+	defer func() {
+		require.NoError(t, second.Close(context.Background()))
+		require.NoError(t, logger.Close())
+	}()
+
+	values := cookieValuesByName(second.GetCookies(musicURL), "_ntes_nuid")
+	assert.Contains(t, values, "custom-nuid")
+
+	secondValues := cookieValues(second.GetCookies(musicURL))
+	assert.NotEmpty(t, secondValues["WNMCID"])
+	assert.NotEmpty(t, secondValues["_ntes_nnid"])
+}
+
 func newDownloadTestClient(body io.ReadCloser, statusCode int, contentLength int64) *Client {
 	restyClient := resty.New()
 	restyClient.SetTransport(testRoundTripperFunc(func(*http.Request) (*http.Response, error) {

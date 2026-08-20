@@ -173,7 +173,7 @@ type requestCookiePolicy struct {
 	finalized             bool
 }
 
-func newRequestCookiePolicy(cookieURL *url.URL, optionCookies, jarCookies []*http.Cookie) (*requestCookiePolicy, error) {
+func newRequestCookiePolicy(cookieURL *url.URL, optionCookies, jarCookies []*http.Cookie, defCookies map[string]string) (*requestCookiePolicy, error) {
 	options := cloneCookies(optionCookies)
 	jar := cloneCookies(jarCookies)
 
@@ -183,14 +183,22 @@ func newRequestCookiePolicy(cookieURL *url.URL, optionCookies, jarCookies []*htt
 		}
 	}
 
-	return &requestCookiePolicy{
+	policy := &requestCookiePolicy{
 		originURL:             cloneURL(cookieURL),
 		options:               options,
 		optionByName:          indexUniqueCookies(options),
 		jarByName:             groupCookiesByName(jar),
 		defaults:              make(map[string]*http.Cookie),
 		allowProtocolDefaults: cookieURL != nil && isProtocolCookieDomain(cookieURL.Hostname()),
-	}, nil
+	}
+
+	for name, value := range defCookies {
+		if err := policy.setDefaultCookie(name, value); err != nil {
+			return nil, err
+		}
+	}
+
+	return policy, nil
 }
 
 func (r *requestCookiePolicy) cookieScalar(names ...string) (string, bool) {
@@ -214,15 +222,6 @@ func (r *requestCookiePolicy) cookieScalar(names ...string) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-func (r *requestCookiePolicy) setDefaultCookies(cookies map[string]string) error {
-	for name, value := range cookies {
-		if err := r.setDefaultCookie(name, value); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (r *requestCookiePolicy) setDefaultCookie(name, value string) error {

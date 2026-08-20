@@ -800,7 +800,11 @@ func TestXeapiRefreshOutsideProtocolCookieDomainKeepsAndroidOSFallback(t *testin
 		switch request.URL.Path {
 		case "/eapi/gorilla/anti/crawler/security/key/get":
 			assert.Equal(t, "interface.music.163.com", request.URL.Hostname())
-			assert.Empty(t, request.Cookies())
+			// 协议身份 Cookie 已随 jar 持久化,刷新请求与主请求应携带同一组身份。
+			assert.Equal(t,
+				cookieValues(client.GetCookies(mustParseURL(t, xeapiPublicKeyURL))),
+				cookieValues(request.Cookies()),
+			)
 
 			payload := decodeEAPIRequestPayload(t, request)
 			assert.Empty(t, payload["appVersion"])

@@ -361,8 +361,8 @@ func TestRequestSnapshotUsesRewrittenXEAPIURLForJarScope(t *testing.T) {
 		{Name: "deviceId", Value: "rewritten-device", Path: "/xeapi"},
 	})
 
-	policy := mustNewRequestCookiePolicy(t, rewritten, nil, client.cookieJar.Cookies(rewritten))
-	require.NoError(t, policy.setDefaultCookies(client.defHeader.XEAPI.Cookie))
+	policy, err := newRequestCookiePolicy(rewritten, nil, client.cookieJar.Cookies(rewritten), client.defHeader.XEAPI.Cookie)
+	require.NoError(t, err)
 
 	val, _ := policy.cookieScalar("deviceId")
 	assert.Equal(t, "rewritten-device", val)
@@ -628,12 +628,13 @@ func TestRequestCookiePolicyUsesExplicitAndJarIdentityOutsideProtocolCookieDomai
 	target := mustParseURL(t, "https://example.test/eapi/test")
 	client.SetCookies(target, []*http.Cookie{{Name: "deviceId", Value: "jar-device"}})
 
-	policy := mustNewRequestCookiePolicy(t,
+	policy, err := newRequestCookiePolicy(
 		target,
 		[]*http.Cookie{{Name: "appver", Value: "explicit-appver"}},
 		client.cookieJar.Cookies(target),
+		client.defHeader.EAPI.Cookie,
 	)
-	require.NoError(t, policy.setDefaultCookies(client.defHeader.EAPI.Cookie))
+	require.NoError(t, err)
 
 	deviceId, _ := policy.cookieScalar("deviceId")
 	appver, _ := policy.cookieScalar("appver")
@@ -1507,7 +1508,7 @@ func mustParseURL(t *testing.T, rawURL string) *url.URL {
 func mustNewRequestCookiePolicy(t *testing.T, cookieURL *url.URL, optionCookies, jarCookies []*http.Cookie) *requestCookiePolicy {
 	t.Helper()
 
-	policy, err := newRequestCookiePolicy(cookieURL, optionCookies, jarCookies)
+	policy, err := newRequestCookiePolicy(cookieURL, optionCookies, jarCookies, nil)
 	require.NoError(t, err)
 	return policy
 }

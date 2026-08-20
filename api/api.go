@@ -167,6 +167,10 @@ func NewClient(cfg *Config, l *log.Logger) (*Client, error) {
 		return nil, fmt.Errorf("NewCookie: %w", err)
 	}
 
+	// 协议身份 Cookie 持久化:首次启动写入 jar,后续启动复用 jar 中已有值,
+	// 避免每次进程启动都重新生成新值导致身份漂移。
+	seedProtocolIdentityCookies(jar)
+
 	cli := resty.New()
 	cli.SetCookieJar(nil) // resty 默认使用cookiejar
 	cli.SetRetryCount(cfg.Retry)
@@ -424,12 +428,8 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	requestHeaders := mergeRequestHeaders(def.Header, opts.Headers)
 	cookieURL := cookieURLForHost(uri, requestHeaders.Get("Host"))
 
-	policy, cookieErr := newRequestCookiePolicy(cookieURL, opts.cookieSnapshot(), c.cookieJar.Cookies(cookieURL))
+	policy, cookieErr := newRequestCookiePolicy(cookieURL, opts.cookieSnapshot(), c.cookieJar.Cookies(cookieURL), def.Cookie)
 	if cookieErr != nil {
-		return nil, fmt.Errorf("prepare request Cookies: %w", cookieErr)
-	}
-
-	if cookieErr := policy.setDefaultCookies(def.Cookie); cookieErr != nil {
 		return nil, fmt.Errorf("prepare request Cookies: %w", cookieErr)
 	}
 
@@ -808,12 +808,8 @@ func (c *Client) Upload(ctx context.Context, url string, data io.Reader, resp an
 	requestHeaders := mergeRequestHeaders(def.Header, opts.Headers)
 	cookieURL := cookieURLForHost(uri, requestHeaders.Get("Host"))
 
-	policy, cookieErr := newRequestCookiePolicy(cookieURL, opts.cookieSnapshot(), c.cookieJar.Cookies(cookieURL))
+	policy, cookieErr := newRequestCookiePolicy(cookieURL, opts.cookieSnapshot(), c.cookieJar.Cookies(cookieURL), def.Cookie)
 	if cookieErr != nil {
-		return nil, fmt.Errorf("prepare upload Cookies: %w", cookieErr)
-	}
-
-	if cookieErr := policy.setDefaultCookies(def.Cookie); cookieErr != nil {
 		return nil, fmt.Errorf("prepare upload Cookies: %w", cookieErr)
 	}
 
@@ -884,8 +880,7 @@ func (c *Client) Upload(ctx context.Context, url string, data io.Reader, resp an
 	c.l.Debugf("[upload.response] method=%s url=%s status=%d bytes=%d", opts.Method, url, response.StatusCode(), len(response.Body()))
 
 	if resp != nil {
-		decode := json.NewDecoder(bytes.NewReader(response.Body()))
-		if err := decode.Decode(&resp); err != nil {
+		if err := json.NewDecoder(bytes.NewReader(response.Body())).Decode(&resp); err != nil {
 			return nil, newAPIError(response.StatusCode(), fmt.Errorf("json.NewDecoder: %w", err))
 		}
 	}
@@ -980,6 +975,42 @@ func (c *Client) getCookieValueByURL(uri *neturl.URL, names ...string) string {
 		}
 	}
 	return ""
+}
+
+// seedProtocolIdentityCookies 将进程级协议身份 Cookie 写入持久化 jar,
+// 保证跨进程重启时取值稳定,而不是每次启动都重新生成。
+// 只补齐缺失的 Cookie,不覆盖已导入或服务端下发的真实值。
+func seedProtocolIdentityCookies(jar *cookie.Cookie) {
+	var (
+		seedDomain = domainURLs[0].Hostname()
+		expire     = time.Now().AddDate(1, 0, 0) // cookie session 得过期时间不精确正常来说应该跟登录时间一致。
+		existing   = make(map[string]struct{})
+		missing    = make([]*http.Cookie, 0, 4)
+		seeds      = []*http.Cookie{
+			{Name: "WNMCID", Value: _wnmcid, Domain: seedDomain, Expires: expire},
+			{Name: "_ntes_nnid", Value: _ntes_nnid, Domain: seedDomain, Expires: expire},
+			{Name: "_ntes_nuid", Value: _ntes_nuid, Domain: seedDomain, Expires: expire},
+			{Name: "deviceId", Value: _deviceId, Domain: seedDomain, Expires: expire},
+		}
+	)
+
+	for _, domain := range domainURLs {
+		for _, ck := range jar.Cookies(domain) {
+			if ck != nil {
+				existing[ck.Name] = struct{}{}
+			}
+		}
+	}
+
+	for _, seed := range seeds {
+		if _, ok := existing[seed.Name]; !ok {
+			missing = append(missing, seed)
+		}
+	}
+
+	if len(missing) > 0 {
+		jar.SetCookies(domainURLs[0], missing)
+	}
 }
 
 func mergeRequestHeaders(defaults, user http.Header) http.Header {

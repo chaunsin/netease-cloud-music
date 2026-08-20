@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 const defUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusicDesktop/2.3.17.1034"
@@ -49,7 +49,7 @@ var defaultHeaders = &Headers{
 			"brand":         "samsung",
 			"versioncode":   "9002085", // 要和UserAgent中一致
 			"packageType":   "release", // beta、release
-			"deviceId":      "MzUxNTY0MTAxMTE4NDEyCTA4OjAwOjI3OjRmOjEyOmJhCThjMzczZDE5ODk3ODc2M2EJOTZiOGEzZjBmYzgyMDgxNw==",
+			// "deviceId":      "MzUxNTY0MTAxMTE4NDEyCTA4OjAwOjI3OjRmOjEyOmJhCThjMzczZDE5ODk3ODc2M2EJOTZiOGEzZjBmYzgyMDgxNw==",
 		},
 		Header: map[string][]string{
 			"User-Agent": {"NeteaseMusic/9.2.85.250418145357(9002085);Dalvik/2.1.0 (Linux; U; Android 9; SM-S9180 Build/PQ3B.190801.10101846)"},
@@ -85,7 +85,7 @@ var defaultHeaders = &Headers{
 			"brand":         "samsung",
 			"versioncode":   "9002085", // 要和UserAgent中一致
 			"packageType":   "release", // beta、release
-			"deviceId":      "MzUxNTY0MTAxMTE4NDEyCTA4OjAwOjI3OjRmOjEyOmJhCThjMzczZDE5ODk3ODc2M2EJOTZiOGEzZjBmYzgyMDgxNw==",
+			// "deviceId":      "MzUxNTY0MTAxMTE4NDEyCTA4OjAwOjI3OjRmOjEyOmJhCThjMzczZDE5ODk3ODc2M2EJOTZiOGEzZjBmYzgyMDgxNw==",
 		},
 		Header: map[string][]string{
 			"User-Agent": {defaultXeapiUserAgent},

@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/go-resty/resty/v2"
+	"go.yaml.in/yaml/v4"
 	"golang.org/x/sync/singleflight"
-	"gopkg.in/yaml.v3"
 
 	"github.com/chaunsin/netease-cloud-music/pkg/crypto"
 	"github.com/chaunsin/netease-cloud-music/pkg/utils"
