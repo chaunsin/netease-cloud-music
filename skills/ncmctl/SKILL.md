@@ -45,7 +45,8 @@ Prebuilt binaries are published on the project's GitHub Releases page.
 | --- | --- | --- |
 | `login` | No | Phone/SMS, password, Cookie, CookieCloud, or QR login |
 | `logout` | Existing session | Log out, remove the default Cookie and XEAPI state, and optionally remove the anonymous token |
-| `task` | Yes | Run sign, partner, and/or scrobble on cron schedules |
+| `task` | Yes | Run sign, partner, scrobble, and optionally daily song challenge on cron schedules |
+| `share` | Yes | Publish a public daily song note, inspect status, or draw rewards |
 | `sign` | Yes | Run YunBei and VIP daily sign-in actions; VIP sign-in needs no active entitlement |
 | `partner` | Yes | Submit music-partner evaluations once |
 | `scrobble` | Yes | Submit play logs, up to 300 per day |
@@ -86,7 +87,7 @@ For custom configuration, copy the full schema from `config/config.yaml`, edit i
 
 ## Safety boundaries
 
-- **Account risk:** `scrobble`, partner evaluation, automatic reward claims, and other automation can trigger NetEase risk control. Scrobble has a particularly high ban risk.
+- **Account risk:** `scrobble`, partner evaluation, daily song publishing, automatic reward claims, and other automation can trigger NetEase risk control. Scrobble has a particularly high ban risk.
 - **Credentials:** Cookie values, `MUSIC_U`, phone passwords, CookieCloud UUID/passwords, and XEAPI dynamic/session keys are secrets. Phone-password, CookieCloud, and XEAPI key inputs are flags; they do not provide a hidden prompt or dedicated environment variable. In particular, `proxy --xeapi-session-key` is visible in shell history and process arguments.
 - **TLS verification:** The current NetEase API and CookieCloud clients disable server-certificate verification. HTTPS traffic is encrypted but the peer identity is not authenticated; use only a trusted network path and CookieCloud server.
 - **State files:** Cookies, XEAPI session state, and anonymous tokens are sensitive. ncmctl creates its managed state files with restrictive permissions on POSIX, but backups, exported Cookies, and user-provided `header.yaml` files remain the user's responsibility. Prefer `login cookie -f` over placing a Cookie string directly in shell history.

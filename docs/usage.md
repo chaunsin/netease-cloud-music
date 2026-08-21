@@ -17,7 +17,7 @@
 
 ## 开始之前
 
-- `sign`、`partner`、`scrobble`、`cloud` 和部分 `curl` 调用会修改账号数据，不要把它们当作连通性测试。
+- `sign`、`partner`、`scrobble`、`share`、`cloud` 和部分 `curl` 调用会修改账号数据，不要把它们当作连通性测试。
 - `scrobble` 存在较高的账号风控风险；`sign --automatic` 也会执行额外的奖励领取操作。
 - 当前网易 API 和 CookieCloud HTTP 客户端未校验服务端 TLS 证书，只应在可信网络中使用。
 - 全局 `--debug` 会记录 API 请求和响应，其中可能包含 Cookie、Token、设备标识等敏感数据。调试日志和重定向输出应按凭据文件保护。
@@ -32,6 +32,7 @@
 | `ncmctl login <method>`              | 否     | 通过手机、Cookie、CookieCloud 或二维码登录 |
 | `ncmctl logout`                      | 已有会话  | 远端退出并删除默认 Cookie 和 XEAPI 会话状态  |
 | `ncmctl task [flags]`                | 是     | 按 cron 长期调度账号任务                |
+| `ncmctl share [flags]`    | 是     | 发布每日推歌公开动态，可查询状态或抽奖    |
 | `ncmctl sign [flags]`                | 是     | 立即执行一次云贝签到和黑胶乐签                |
 | `ncmctl partner [flags]`             | 是     | 立即上报音乐合伙人测评                    |
 | `ncmctl scrobble [flags]`            | 是     | 提交播放日志并在本地去重                   |
@@ -163,7 +164,7 @@ ncmctl logout --clear-anonymous-token
 
 ## 每日任务
 
-`task` 是长期运行的调度服务；`sign`、`partner` 和 `scrobble` 则执行一次后退出。
+`task` 是长期运行的调度服务；`sign`、`partner`、`scrobble` 和 `share` 则执行一次后退出。
 
 
 | 命令         | 作用              | 默认调度时间 |
@@ -171,6 +172,7 @@ ncmctl logout --clear-anonymous-token
 | `sign`     | 云贝签到和黑胶乐签       | 10:00  |
 | `partner`  | 音乐合伙人测评         | 18:00  |
 | `scrobble` | 上报播放日志，最多 300 首 | 18:00  |
+| `share` | 发布每日推歌公开动态并按服务端机会抽奖 | 09:00  |
 
 
 不指定任务时，`task` 会注册全部三项任务，并持续运行到收到 `Ctrl+C`：
@@ -205,6 +207,24 @@ ncmctl scrobble --num 200
 ```
 
 `sign --automatic` 会在签到后领取可用的云贝和符合条件的 VIP 奖励，因此会执行更多账号操作。`partner` 会在每个测评项目之间等待 15 至 24 秒。`scrobble` 风控风险较高，且可用歌曲不足或本地去重命中时，实际完成数可能少于请求数。
+
+### 每日推歌挑战
+
+发布命令会修改账号动态，笔记默认公开并默认抽奖，默认不会删除动态。先查看活动状态：
+
+```bash
+ncmctl share status
+ncmctl share draw --count 1
+```
+
+发布每日推荐歌曲：
+
+```bash
+ncmctl share
+ncmctl share --song-id 1820944399 --draw=false
+```
+
+`--image` 可指定本地非空图片；否则命令下载歌曲封面。`--dry-run` 只读取状态并准备歌曲和文案，不报名、不上传、不发布。`--delete` 只删除本次发布的动态，且必须与抽奖一起使用；删除可能影响全勤奖励资格。活动进度以服务端状态为准，发布后的后续失败不会自动重发。
 
 ## 音乐下载
 

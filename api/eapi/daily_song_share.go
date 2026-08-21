@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/types"
 )
@@ -93,20 +95,20 @@ type DailySongShareRegistrationGuideResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    struct {
-		RegisterStatus     string `json:"registerStatus"`
-		ActivityId         int64  `json:"activityId"`
-		ActivityCycleId    int64  `json:"activityCycleId"`
-		ActivityInterestId int64  `json:"activityInterestId"`
-		RewardJumpUrl      string `json:"rewardJumpUrl"`
-		Duration           string `json:"duration"`
+		RegisterStatus     string `json:"registerStatus"`     // NOREGISTER:没有参与活动 REGISTER:参与
+		ActivityId         int64  `json:"activityId"`         // eg: 1
+		ActivityCycleId    int64  `json:"activityCycleId"`    // eg: 501572
+		ActivityInterestId int64  `json:"activityInterestId"` // eg: 11066304
+		RewardJumpUrl      string `json:"rewardJumpUrl"`      // eg: https://st.music.163.com/g/platform/lottery?activityIds=11066304\u0026newVersion=1
+		Duration           string `json:"duration"`           // eg: 第0817-0823期
 		RegisteredGuide    struct {
-			Title           string `json:"title"`
-			SignUp          string `json:"signUp"`
-			SignTip         string `json:"signTip"`
-			RewardCount     int    `json:"rewardCount"`
-			HaveRewardCount int    `json:"haveRewardCount"`
-			AlreadyPubEvent bool   `json:"alreadyPubEvent"`
-			PubEventCount   int    `json:"pubEventCount"`
+			Title           string `json:"title"`           // eg: 每日推歌挑战赛
+			SignUp          string `json:"signUp"`          // eg: 暂无抽奖机会
+			SignTip         string `json:"signTip"`         // eg: 剩余0次机会
+			RewardCount     int    `json:"rewardCount"`     // 今日奖励次数？
+			HaveRewardCount int    `json:"haveRewardCount"` // 可以抽奖次数
+			AlreadyPubEvent bool   `json:"alreadyPubEvent"` // 貌似是今日是否有发布动态，待确认？
+			PubEventCount   int    `json:"pubEventCount"`   // 已发布的动态次数
 		} `json:"noteAttendanceRegisteredGuideVo"`
 	} `json:"data"`
 }
@@ -172,6 +174,10 @@ func (a *Api) DailySongSharePublish(ctx context.Context, req *DailySongSharePubl
 	req.UseNewUpload = true
 	req.FromRn = true
 	req.NeedsGuardianToken = true
+
+	if req.Uuid == "" {
+		req.Uuid = uuid.NewString()
+	}
 
 	if req.OS == "" {
 		req.OS = "android"
@@ -263,7 +269,7 @@ func (a *Api) DailySongShareTrigger(ctx context.Context, req *DailySongShareTrig
 type DailySongShareLotteryReq struct {
 	types.EApiReqCommon
 
-	ActivityId int64 `json:"activityId"`
+	ActivityId int64 `json:"activityId"` // 对应 DailySongShareRegistrationGuideResp.Data.ActivityInterestId
 }
 
 // DailySongShareLotteryPrizeDetail describes one possible lottery prize.
@@ -281,7 +287,7 @@ type DailySongShareLotteryPrizeDetail struct {
 
 // DailySongShareLotteryResp is the sharing activity lottery response.
 type DailySongShareLotteryResp struct {
-	Code    int    `json:"code"`
+	Code    int    `json:"code"` // 456:很遗憾，您本次权益不足，谢谢您的参与
 	Message string `json:"message"`
 	Data    struct {
 		UserId             int64                                       `json:"userId"`

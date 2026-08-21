@@ -84,8 +84,8 @@ For login-required work, verify authentication before the first account mutation
 
 `task` has two modes:
 
-- With no selector, or with `--runAll`, it registers all three jobs.
-- With any of `--sign`, `--partner`, or `--scrobble`, it registers only the selected jobs.
+- With `--runAll` it registers all four jobs (sign, partner, scrobble, daily song challenge); with no selector and without `--runAll` it fails fast requiring at least one selector.
+- With any of `--sign`, `--partner`, `--scrobble`, or `--share`, it registers only the selected jobs.
 
 The scheduler creates fresh command instances and copies embedded option structs into them. When adding a scheduled option, update the `TaskOpts` embedding/fields, flag binding, validation, and command-copy path together. Keep cron parsing in validation and timezone loading before job registration.
 

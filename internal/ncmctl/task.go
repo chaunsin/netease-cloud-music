@@ -22,6 +22,7 @@ type TaskOpts struct {
 	PartnerOpts
 	ScrobbleOpts
 	SignInOpts
+	ShareOpts
 
 	Location string
 	RunAll   bool
@@ -34,6 +35,9 @@ type TaskOpts struct {
 
 	SignIn            bool
 	SignInOptsCrontab string
+
+	SongShare        bool
+	ShareOptsCrontab string
 }
 
 type Task struct {
@@ -55,11 +59,11 @@ func NewTask(root *Root, l *log.Logger) *Task {
 		cmd: &cobra.Command{
 			Use:   "task",
 			Short: "Schedule account tasks as a long-running service",
-			Long: "Schedule sign, partner, and scrobble jobs using five-field cron expressions. " +
-				"Login is required. With no task selectors, all three jobs are registered; explicit " +
-				"selectors register only those jobs. The service runs until interrupted.",
+			Long: "Schedule sign, partner, scrobble and daily song challenge jobs using five-field cron expressions. " +
+				"Login is required. Without --runAll or any task selector the command fails fast. " +
+				"Explicit selectors register only those jobs; --runAll schedules all four jobs. The service runs until interrupted.",
 			Example: "  # Schedule all tasks\n" +
-				"  ncmctl task\n\n" +
+				"  ncmctl task --runAll\n\n" +
 				"  # Schedule only sign and scrobble\n" +
 				"  ncmctl task --sign --scrobble\n\n" +
 				"  # Run scrobble daily at 20:00 in the selected time zone\n" +
@@ -84,7 +88,7 @@ func (c *Task) Command() *cobra.Command {
 
 func (c *Task) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Location, "location", "l", "Asia/Shanghai", "IANA time zone used for cron schedules")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.RunAll, "runAll", false, "schedule all tasks (same as using no task selectors)")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.RunAll, "runAll", false, "schedule all tasks (sign, partner, scrobble and daily song challenge)")
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Partner, "partner", false, "schedule the music-partner evaluation task")
 	c.cmd.PersistentFlags().StringVar(&c.opts.PartnerOptsCrontab, "partner.cron", "0 18 * * *", "five-field cron schedule for the partner task")
@@ -99,6 +103,15 @@ func (c *Task) addFlags() {
 	c.cmd.PersistentFlags().BoolVar(&c.opts.SignIn, "sign", false, "schedule the YunBei and VIP sign-in task")
 	c.cmd.PersistentFlags().StringVar(&c.opts.SignInOptsCrontab, "sign.cron", "0 10 * * *", "five-field cron schedule for the sign task")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Automatic, "sign.automatic", false, "claim eligible rewards during sign-in (increased account risk)")
+
+	c.cmd.PersistentFlags().BoolVar(&c.opts.SongShare, "share", false, "schedule the public daily song challenge task")
+	c.cmd.PersistentFlags().StringVar(&c.opts.ShareOptsCrontab, "share.cron", "0 9 * * *", "five-field cron schedule for daily song challenge")
+	c.cmd.PersistentFlags().Int64Var(&c.opts.SongID, "share.song-id", 0, "fixed song ID for daily song challenge")
+	c.cmd.PersistentFlags().StringVar(&c.opts.Image, "share.image", "", "fixed image file for daily song challenge")
+	c.cmd.PersistentFlags().StringVar(&c.opts.Title, "share.title", "", "title override for daily song challenge")
+	c.cmd.PersistentFlags().StringVar(&c.opts.Message, "share.message", "", "message override for daily song challenge")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Draw, "share.draw", true, "draw rewards after daily song challenge")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.Delete, "share.delete", false, "delete each new note after lottery")
 }
 
 func (c *Task) validate() error {
@@ -133,31 +146,65 @@ func (c *Task) validate() error {
 			}
 			return nil
 		}
+		dailySongShare = func() error {
+			if c.opts.ShareOptsCrontab == "" {
+				return errors.New("share.crontab is required")
+			}
+
+			if _, err := cron.ParseStandard(c.opts.ShareOptsCrontab); err != nil {
+				return fmt.Errorf("ParseStandard: %w", err)
+			}
+
+			if c.opts.Delete && !c.opts.Draw {
+				return errors.New("share.delete requires draw=true")
+			}
+			return nil
+		}
 	)
 
-	o := c.opts
-	if o.RunAll || (!o.SignIn && !o.Partner && !o.Scrobble) {
-		return errors.Join(signIn(), partner(), scrobble())
-	} else {
-		if o.SignIn {
-			if err := signIn(); err != nil {
-				return err
-			}
+	sel, err := c.taskSelection()
+	if err != nil {
+		return err
+	}
+	if sel.SignIn {
+		if err := signIn(); err != nil {
+			return err
 		}
-
-		if o.Partner {
-			if err := partner(); err != nil {
-				return err
-			}
+	}
+	if sel.Partner {
+		if err := partner(); err != nil {
+			return err
 		}
-
-		if o.Scrobble {
-			if err := scrobble(); err != nil {
-				return err
-			}
+	}
+	if sel.Scrobble {
+		if err := scrobble(); err != nil {
+			return err
+		}
+	}
+	if sel.SongShare {
+		if err := dailySongShare(); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+type taskSelection struct {
+	SignIn    bool
+	Partner   bool
+	Scrobble  bool
+	SongShare bool
+}
+
+func (c *Task) taskSelection() (taskSelection, error) {
+	o := c.opts
+	if o.RunAll {
+		return taskSelection{SignIn: true, Partner: true, Scrobble: true, SongShare: true}, nil
+	}
+	if !o.SignIn && !o.Partner && !o.Scrobble && !o.SongShare {
+		return taskSelection{}, errors.New("no task selected: specify at least one of --sign/--partner/--scrobble/--share or --runAll")
+	}
+	return taskSelection{SignIn: o.SignIn, Partner: o.Partner, Scrobble: o.Scrobble, SongShare: o.SongShare}, nil
 }
 
 func (c *Task) registerScheduledCommand(ctx context.Context, job *cron.Cron, name, schedule, cronError string, command scheduledCommand) error {
@@ -230,30 +277,35 @@ func (c *Task) execute(ctx context.Context, _ []string) error {
 			command.opts = c.opts.SignInOpts
 			return c.registerScheduledCommand(ctx, job, "sign", c.opts.SignInOptsCrontab, "[sign] crontab error", command)
 		}
+		dailySongShare = func() error {
+			command := NewDailySongShare(c.root, c.l)
+			command.opts = c.opts.ShareOpts
+			return c.registerScheduledCommand(ctx, job, "share", c.opts.ShareOptsCrontab, "[share] crontab error", command)
+		}
 	)
 
-	o := c.opts
-	if o.RunAll || (!o.SignIn && !o.Partner && !o.Scrobble) {
-		if err := errors.Join(signIn(), partner(), scrobble()); err != nil {
+	sel, err := c.taskSelection()
+	if err != nil {
+		return err
+	}
+	if sel.SignIn {
+		if err := signIn(); err != nil {
 			return err
 		}
-	} else {
-		if o.SignIn {
-			if err := signIn(); err != nil {
-				return err
-			}
+	}
+	if sel.Partner {
+		if err := partner(); err != nil {
+			return err
 		}
-
-		if o.Partner {
-			if err := partner(); err != nil {
-				return err
-			}
+	}
+	if sel.Scrobble {
+		if err := scrobble(); err != nil {
+			return err
 		}
-
-		if o.Scrobble {
-			if err := scrobble(); err != nil {
-				return err
-			}
+	}
+	if sel.SongShare {
+		if err := dailySongShare(); err != nil {
+			return err
 		}
 	}
 
