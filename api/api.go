@@ -641,8 +641,8 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	request.SetCookies(policy.options)
 	request.SetContext(withRequestCookiePolicy(ctx, policy))
 
-	c.l.Debugf("[request] method=%s crypto=%s url=%s payload_type=%T eapiEncrypted=%v encrypted_fields=%d",
-		opts.Method, opts.CryptoMode, requestURL, req, eapiEncrypted, len(encryptData))
+	c.l.Debugf("[request] method=%s crypto=%s url=%s payload_type=%T eapiEncrypted=%v encrypted=%+v",
+		opts.Method, opts.CryptoMode, requestURL, req, eapiEncrypted, encryptData)
 
 	// 注意: 大多数请求都是post请求,如果是get请求会丢弃 encryptData 使用者要注意。
 	switch opts.Method {
@@ -658,7 +658,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		return nil, fmt.Errorf("do request: %w", err)
 	}
 
-	c.l.Debugf("[response.raw] status=%d bytes=%d", response.StatusCode(), len(response.Body()))
+	c.l.Debugf("[response.raw] status=%d body=%s", response.StatusCode(), response.Body())
 
 	var decryptData []byte
 
@@ -706,7 +706,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
 
-	c.l.Debugf("[response.decrypt] crypto=%s bytes=%d", opts.CryptoMode, len(decryptData))
+	c.l.Debugf("[response.decrypt] crypto=%s decrypt=%s", opts.CryptoMode, decryptData)
 
 	decode := json.NewDecoder(bytes.NewReader(decryptData))
 	// decode.DisallowUnknownFields()

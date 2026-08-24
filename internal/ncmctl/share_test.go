@@ -32,11 +32,9 @@ func TestClassifyDailySongShareGuide(t *testing.T) {
 		want            dailySongState
 	}{
 		{"completed", "registered", true, 1, 1, stateCompleted},
-		{"not registered", "未报名", false, 1, 1, stateNotRegistered},
-		{"cycle", "需要周期报名", false, 1, 1, stateNeedsCycle},
-		{"ready", "已报名", false, 1, 1, stateReady},
-		{"ready register", "REGISTER", false, 1, 1, stateReady},
-		{"unknown", "new-server-state", false, 1, 1, stateUnknown},
+		{"not registered NOREGISTER", "NOREGISTER", false, 1, 1, stateNotRegistered},
+		{"registered REGISTER", "REGISTER", false, 1, 1, stateIsRegister},
+		{"unknown status", "其他", false, 1, 1, dailySongState("unknow status: 其他")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

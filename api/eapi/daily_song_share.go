@@ -95,22 +95,58 @@ type DailySongShareRegistrationGuideResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    struct {
-		RegisterStatus     string `json:"registerStatus"`     // NOREGISTER:没有参与活动 REGISTER:参与
-		ActivityId         int64  `json:"activityId"`         // eg: 1
-		ActivityCycleId    int64  `json:"activityCycleId"`    // eg: 501572
-		ActivityInterestId int64  `json:"activityInterestId"` // eg: 11066304
-		RewardJumpUrl      string `json:"rewardJumpUrl"`      // eg: https://st.music.163.com/g/platform/lottery?activityIds=11066304\u0026newVersion=1
-		Duration           string `json:"duration"`           // eg: 第0817-0823期
-		RegisteredGuide    struct {
-			Title           string `json:"title"`           // eg: 每日推歌挑战赛
-			SignUp          string `json:"signUp"`          // eg: 暂无抽奖机会
-			SignTip         string `json:"signTip"`         // eg: 剩余0次机会
-			RewardCount     int    `json:"rewardCount"`     // 今日奖励次数？
-			HaveRewardCount int    `json:"haveRewardCount"` // 可以抽奖次数
-			AlreadyPubEvent bool   `json:"alreadyPubEvent"` // 貌似是今日是否有发布动态，待确认？
-			PubEventCount   int    `json:"pubEventCount"`   // 已发布的动态次数
+		RegisterStatus                      string `json:"registerStatus"`                 // NOREGISTER:没有报名活动 REGISTER:已参与报名
+		ActivityId                          int64  `json:"activityId"`                     // eg: 1
+		ActivityCycleId                     int64  `json:"activityCycleId"`                // 活动周期id 通常每周+1 eg: 501572
+		ActivityInterestId                  int64  `json:"activityInterestId"`             // eg: 11066304
+		RewardJumpUrl                       string `json:"rewardJumpUrl"`                  // eg: https://st.music.163.com/g/platform/lottery?activityIds=11066304\u0026newVersion=1
+		Duration                            string `json:"duration"`                       // eg: 第0817-0823期
+		VipPopNotificationVo                any    `json:"vipPopNotificationVo,omitempty"` //
+		NoteAttendanceNoRegistrationGuideVo struct {
+			Title      any `json:"title"`
+			Content    any `json:"content"`
+			SubContent any `json:"subContent"`
+			Pic        any `json:"pic"`
+			SignUp     any `json:"signUp"`
+			SignUpTip  any `json:"signUpTip"`
+		} `json:"noteAttendanceNoRegistrationGuideVo"`
+		RegisteredGuide struct {
+			AvatarUrl       string                      `json:"avatarUrl"`       // eg: http://p2.music.126.net/WieETOwCMTVpV7CKerCjJA==/109951163670838912.jpg
+			AvatarTip       string                      `json:"avatarTip"`       // eg: 第0824期 · 挑战1天
+			Title           string                      `json:"title"`           // eg: 每日推歌挑战赛
+			Content         string                      `json:"content"`         // eg: 连续发布7天可额外获得黑胶VIP会员奖励
+			RichContent     RegisteredGuideRichContent  `json:"richContent"`     //
+			RewardCardList  []RegisteredGuideRewardCard `json:"rewardCardList"`  // 奖励内容描述
+			SignUp          string                      `json:"signUp"`          // eg: 暂无抽奖机会、立即抽奖(1次)
+			SignTip         string                      `json:"signTip"`         // eg: 剩余0次机会、剩余1次机会
+			RewardCount     int64                       `json:"rewardCount"`     // 今日奖励次数？
+			HaveRewardCount int64                       `json:"haveRewardCount"` // 可以抽奖次数
+			AlreadyPubEvent bool                        `json:"alreadyPubEvent"` // 貌似是今日是否有发布动态，待确认？
+			PubEventCount   int64                       `json:"pubEventCount"`   // 本周期内已发布的动态次数
 		} `json:"noteAttendanceRegisteredGuideVo"`
 	} `json:"data"`
+}
+
+type RegisteredGuideRichContent struct {
+	Text      string `json:"text"`      // eg: 连续发布%s天可额外获得黑胶VIP会员奖励
+	PlaceText string `json:"placeText"` // eg: 7
+}
+
+type RegisteredGuideRewardCard struct {
+	Pic          string `json:"pic"`          // eg: https://p6.music.126.net/obj/wonDlsKUwrLClGjCm8Kx/60688668715/4db5/6020/3d7f/e7c578763f91f986c8c6832351ab560a.png
+	Name         string `json:"name"`         // 包含换行符，eg: "VIP\n年卡"
+	Outline      string `json:"outline"`      // eg: #918787
+	GradientMask string `json:"gradientMask"` // eg: #81714D
+	Projection   string `json:"projection"`   // eg: #918787
+}
+
+type NoteAttendanceNoRegistrationGuideVo struct {
+	Title      any `json:"title"`
+	Content    any `json:"content"`
+	SubContent any `json:"subContent"`
+	Pic        any `json:"pic"`
+	SignUp     any `json:"signUp"`
+	SignUpTip  any `json:"signUpTip"`
 }
 
 // DailySongShareRegistrationGuide gets the current activity guide and identifiers.
@@ -278,26 +314,28 @@ type DailySongShareLotteryPrizeDetail struct {
 	WinPrizeDesc string   `json:"winPrizeDesc"`
 	PrizeImgList []string `json:"prizeImgList"`
 	ExchangeUrl  string   `json:"exchangeUrl"`
-	PrizeType    int      `json:"prizeType"`
-	SubType      int      `json:"subType"`
+	PrizeType    int64    `json:"prizeType"`
+	SubType      int64    `json:"subType"`
 	ContentId    string   `json:"contentId"`
-	DefaultPrize int      `json:"defaultPrize"`
-	PrizeLevel   int      `json:"prizeLevel"`
+	DefaultPrize int64    `json:"defaultPrize"`
+	PrizeLevel   int64    `json:"prizeLevel"`
 }
 
-// DailySongShareLotteryResp is the sharing activity lottery response.
+// DailySongShareLotteryResp TODO: 响应内容不完整需要补充。
 type DailySongShareLotteryResp struct {
-	Code    int    `json:"code"` // 456:很遗憾，您本次权益不足，谢谢您的参与
+	Code    int64  `json:"code"` // 456:很遗憾，您本次权益不足，谢谢您的参与
 	Message string `json:"message"`
 	Data    struct {
 		UserId             int64                                       `json:"userId"`
+		BatchIdemKey       any                                         `json:"batchIdemKey"`
 		IdempotentId       string                                      `json:"idempotentId"`
 		ActivityId         int64                                       `json:"activityId"`
 		PrizeSchemeId      int64                                       `json:"prizeSchemeId"`
 		DrawPrizeTime      int64                                       `json:"drawPrizeTime"`
 		PrizeDetailInfoMap map[string]DailySongShareLotteryPrizeDetail `json:"prizeDetailInfoMap"`
 		NoLotteryContent   any                                         `json:"noLotteryContent"`
-		RestChance         int                                         `json:"restChance"`
+		RestChance         int64                                       `json:"restChance"`
+		CollectDTO         any                                         `json:"collectDTO"`
 	} `json:"data"`
 }
 

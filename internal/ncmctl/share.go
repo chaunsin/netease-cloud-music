@@ -29,11 +29,35 @@ import (
 
 const dailySongCoverLimit int64 = 20 << 20
 
+type dailySongState string
+
+const (
+	stateCompleted     dailySongState = "completed"      // 今日已发布动态
+	stateNotRegistered dailySongState = "not-registered" // 未参与活动报名
+	stateIsRegister    dailySongState = "is-register"    // 已报名
+)
+
+func classifyGuide(g *eapi.DailySongShareRegistrationGuideResp) dailySongState {
+	d := g.Data
+	if d.RegisteredGuide.AlreadyPubEvent {
+		return stateCompleted
+	}
+
+	switch v := d.RegisterStatus; v {
+	case "NOREGISTER":
+		return stateNotRegistered
+	case "REGISTER":
+		return stateIsRegister
+	default:
+		return dailySongState("unknow status: " + v)
+	}
+}
+
 type ShareOpts struct {
 	SongID                int64
 	Image, Title, Message string
 	Draw, Delete, DryRun  bool
-	Count                 int
+	Count                 int64
 	countSet              bool
 }
 
@@ -57,6 +81,7 @@ func NewDailySongShare(root *Root, l *log.Logger) *DailySongShare {
 				if len(args) > 1 {
 					return fmt.Errorf("only one of 'status' or 'draw' is allowed, got %v", args)
 				}
+
 				for _, a := range args {
 					if a != "status" && a != "draw" {
 						return fmt.Errorf("unknown argument %q, expected 'status' or 'draw'", a)
@@ -95,7 +120,7 @@ func (c *DailySongShare) addFlags() {
 	f.BoolVar(&c.opts.Draw, "draw", true, "draw available rewards after publish")
 	f.BoolVar(&c.opts.Delete, "delete", false, "delete this note after a successful lottery; may affect full attendance")
 	f.BoolVar(&c.opts.DryRun, "dry-run", false, "read state and prepare text without changing account state or uploading")
-	f.IntVar(&c.opts.Count, "count", 0, "number of draws (1-8); default uses all server-reported chances")
+	f.Int64Var(&c.opts.Count, "count", 0, "number of draws (1-8); default uses all server-reported chances")
 }
 
 func (c *DailySongShare) validateFlags(parent bool) error {
@@ -140,45 +165,6 @@ func (c *DailySongShare) validate() error {
 	return c.validateFlags(true)
 }
 
-type dailySongState string
-
-const (
-	stateCompleted     dailySongState = "completed"
-	stateNotRegistered dailySongState = "not-registered"
-	stateNeedsCycle    dailySongState = "needs-cycle-registration"
-	stateReady         dailySongState = "ready-to-publish"
-	stateForbidden     dailySongState = "forbidden"
-	stateUnknown       dailySongState = "unknown"
-)
-
-func classifyGuide(g *eapi.DailySongShareRegistrationGuideResp) dailySongState {
-	d := g.Data
-	if d.RegisteredGuide.AlreadyPubEvent {
-		return stateCompleted
-	}
-
-	s := strings.ToLower(strings.TrimSpace(d.RegisterStatus))
-	if strings.Contains(s, "forbid") || strings.Contains(s, "abandon") || strings.Contains(s, "不可") || strings.Contains(s, "放弃") {
-		return stateForbidden
-	}
-
-	if strings.Contains(s, "未报名") || strings.Contains(s, "unregister") || s == "0" {
-		return stateNotRegistered
-	}
-
-	if strings.Contains(s, "周期") || strings.Contains(s, "cycle") || strings.Contains(s, "attendance") {
-		return stateNeedsCycle
-	}
-
-	if strings.Contains(s, "已报名") || strings.Contains(s, "registered") || strings.Contains(s, "可参加") ||
-		strings.Contains(s, "ready") || strings.Contains(s, "register") || s == "1" {
-		if d.ActivityId > 0 && d.ActivityCycleId > 0 {
-			return stateReady
-		}
-	}
-	return stateUnknown
-}
-
 func (c *DailySongShare) load(ctx context.Context) (*api.Client, *weapi.Api, *eapi.Api, *eapi.DailySongShareRegistrationGuideResp, error) {
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
@@ -208,7 +194,21 @@ func (c *DailySongShare) load(ctx context.Context) (*api.Client, *weapi.Api, *ea
 		return nil, nil, nil, nil, err
 	}
 
-	c.printGuide(g)
+	d := g.Data
+
+	c.cmd.Printf("活动周期: %s (周期ID %d)\n报名状态: %s\n活动ID: %d\n已发布笔记: %d 篇\n抽奖机会: %d 次\n剩余机会: %d 次\n",
+		d.Duration,
+		d.ActivityCycleId,
+		d.RegisterStatus,
+		d.ActivityId,
+		d.RegisteredGuide.PubEventCount,
+		d.RegisteredGuide.RewardCount,
+		d.RegisteredGuide.HaveRewardCount,
+	)
+
+	if d.RewardJumpUrl != "" {
+		c.cmd.Printf("奖励领取: %s\n", d.RewardJumpUrl)
+	}
 	return cli, w, e, g, nil
 }
 
@@ -263,12 +263,6 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 	}
 	defer closeAPIClient(ctx, a, c.l)
 
-	state := classifyGuide(g)
-	if state == stateForbidden || state == stateUnknown {
-		c.cmd.Printf("活动状态为 %q,已跳过写操作\n", g.Data.RegisterStatus)
-		return nil
-	}
-
 	if c.opts.DryRun {
 		song, selectErr := c.selectSong(ctx, w)
 		if selectErr != nil {
@@ -280,59 +274,61 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 		return nil
 	}
 
+	state := classifyGuide(g)
+	if strings.HasPrefix(string(state), "unknow status:") {
+		c.cmd.Printf("活动状态为 %q,已跳过写操作\n", g.Data.RegisterStatus)
+		return nil
+	}
+
+	// 执行自动参加活动报名
+	if state == stateNotRegistered {
+		// todo: 此接口功能未知待探索。
+		resp, err := e.DailySongShareRegister(ctx, &eapi.DailySongShareRegisterReq{})
+		if err != nil {
+			return fmt.Errorf("register activity: %w", err)
+		}
+
+		if resp.Code != 200 {
+			return fmt.Errorf("register activity: code=%d message=%s", resp.Code, resp.Message)
+		}
+
+		// todo:
+		// if resp.Data.NoteAttendance {
+		// }
+
+		if g.Data.ActivityId <= 0 || g.Data.ActivityCycleId <= 0 {
+			return errors.New("registration guide lacks activity or cycle ID")
+		}
+
+		// 参加报名活动
+		arResp, err := e.DailySongShareAttendanceRegister(ctx, &eapi.DailySongShareAttendanceRegisterReq{
+			ActivityId:      g.Data.ActivityId,
+			ActivityCycleId: g.Data.ActivityCycleId,
+			AutoRegister:    true,
+		})
+		if err != nil {
+			return fmt.Errorf("register activity cycle: %w", err)
+		}
+
+		if arResp.Code != 200 {
+			return fmt.Errorf("register activity cycle: code=%d message=%s", arResp.Code, arResp.Message)
+		}
+
+		g, err = c.guide(ctx, e)
+		if err != nil {
+			return err
+		}
+
+		if g.Data.RegisterStatus != "REGISTER" {
+			return fmt.Errorf("register status is invalid: %s", state)
+		}
+	}
+
 	var publish *eapi.EventPublishResp
 
 	if state == stateCompleted {
-		c.cmd.Println("本周期已打卡，跳过发布动态")
+		c.cmd.Println("今日已打卡，跳过发布动态")
 	} else {
-		if state == stateNotRegistered {
-			resp, err := e.DailySongShareRegister(ctx, &eapi.DailySongShareRegisterReq{})
-			if err != nil {
-				return fmt.Errorf("register activity: %w", err)
-			}
-
-			if resp.Code != 200 {
-				return fmt.Errorf("register activity: code=%d message=%s", resp.Code, resp.Message)
-			}
-
-			g, err = c.guide(ctx, e)
-			if err != nil {
-				return err
-			}
-
-			state = classifyGuide(g)
-		}
-
-		if state == stateNeedsCycle {
-			if g.Data.ActivityId <= 0 || g.Data.ActivityCycleId <= 0 {
-				return errors.New("registration guide lacks activity or cycle ID")
-			}
-
-			resp, err := e.DailySongShareAttendanceRegister(ctx, &eapi.DailySongShareAttendanceRegisterReq{
-				ActivityId:      g.Data.ActivityId,
-				ActivityCycleId: g.Data.ActivityCycleId,
-				AutoRegister:    true,
-			})
-			if err != nil {
-				return fmt.Errorf("register activity cycle: %w", err)
-			}
-
-			if resp.Code != 200 {
-				return fmt.Errorf("register activity cycle: code=%d message=%s", resp.Code, resp.Message)
-			}
-
-			g, err = c.guide(ctx, e)
-			if err != nil {
-				return err
-			}
-
-			state = classifyGuide(g)
-		}
-
-		if state != stateReady {
-			return fmt.Errorf("activity status %q is not ready for publishing", g.Data.RegisterStatus)
-		}
-
 		// 选择分享一首歌
 		song, err := c.selectSong(ctx, w)
 		if err != nil {
@@ -435,36 +431,12 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 	return nil
 }
 
-func (c *DailySongShare) printGuide(g *eapi.DailySongShareRegistrationGuideResp) {
-	var (
-		d    = g.Data
-		used = max(d.RegisteredGuide.RewardCount-d.RegisteredGuide.HaveRewardCount, 0)
-		left = d.RegisteredGuide.HaveRewardCount
-	)
-
-	c.cmd.Printf("活动周期: %s (周期ID %d)\n报名状态: %s\n活动ID: %d\n已发布笔记: %d 篇\n抽奖机会: %d 次\n已使用机会: %d 次\n剩余机会: %d 次\n",
-		d.Duration,
-		d.ActivityCycleId,
-		d.RegisterStatus,
-		d.ActivityId,
-		d.RegisteredGuide.PubEventCount,
-		d.RegisteredGuide.RewardCount,
-		used,
-		left,
-	)
-
-	if d.RewardJumpUrl != "" {
-		c.cmd.Printf("奖励领取: %s\n", d.RewardJumpUrl)
-	}
-}
-
-func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, g *eapi.DailySongShareRegistrationGuideResp, count int, explicit bool) error {
+func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, g *eapi.DailySongShareRegistrationGuideResp, count int64, explicit bool) error {
 	const maxDraws = 8 // SPEC: 单次活动抽奖上限为 8 次？
 
-	n := g.Data.RegisteredGuide.HaveRewardCount
-	if n > maxDraws {
-		n = maxDraws
-	}
+	// n := min(g.Data.RegisteredGuide.HaveRewardCount, maxDraws)
+	n := min(g.Data.RegisteredGuide.RewardCount, maxDraws)
+
 	if n <= 0 {
 		c.cmd.Println("暂无可用的抽奖机会")
 		return nil
@@ -474,7 +446,7 @@ func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, g *eapi.DailySon
 		n = count
 	}
 
-	for i := 0; i < n; i++ {
+	for i := int64(0); i < n; i++ {
 		resp, err := a.DailySongShareLottery(ctx, &eapi.DailySongShareLotteryReq{ActivityId: g.Data.ActivityInterestId})
 		if err != nil {
 			return err
@@ -493,16 +465,17 @@ func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, g *eapi.DailySon
 
 		c.cmd.Println()
 
-		// 避免风控睡眠1到5秒
-		time.Sleep(time.Second * time.Duration(1+rand.IntN(5)))
-
 		// 以服务端剩余次数为准，避免单次消耗多次机会时超额抽奖（code=456）
 		if resp.Data.RestChance <= 0 {
 			break
 		}
+
 		if resp.Data.RestChance < n-i-1 {
 			n = i + 1 + resp.Data.RestChance
 		}
+
+		// 避免风控睡眠1到5秒
+		time.Sleep(time.Second * time.Duration(1+rand.IntN(5)))
 	}
 	return nil
 }

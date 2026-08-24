@@ -166,21 +166,25 @@ func (c *Task) validate() error {
 	if err != nil {
 		return err
 	}
+
 	if sel.SignIn {
 		if err := signIn(); err != nil {
 			return err
 		}
 	}
+
 	if sel.Partner {
 		if err := partner(); err != nil {
 			return err
 		}
 	}
+
 	if sel.Scrobble {
 		if err := scrobble(); err != nil {
 			return err
 		}
 	}
+
 	if sel.SongShare {
 		if err := dailySongShare(); err != nil {
 			return err
@@ -201,6 +205,7 @@ func (c *Task) taskSelection() (taskSelection, error) {
 	if o.RunAll {
 		return taskSelection{SignIn: true, Partner: true, Scrobble: true, SongShare: true}, nil
 	}
+
 	if !o.SignIn && !o.Partner && !o.Scrobble && !o.SongShare {
 		return taskSelection{}, errors.New("no task selected: specify at least one of --sign/--partner/--scrobble/--share or --runAll")
 	}
@@ -288,21 +293,25 @@ func (c *Task) execute(ctx context.Context, _ []string) error {
 	if err != nil {
 		return err
 	}
+
 	if sel.SignIn {
 		if err := signIn(); err != nil {
 			return err
 		}
 	}
+
 	if sel.Partner {
 		if err := partner(); err != nil {
 			return err
 		}
 	}
+
 	if sel.Scrobble {
 		if err := scrobble(); err != nil {
 			return err
 		}
 	}
+
 	if sel.SongShare {
 		if err := dailySongShare(); err != nil {
 			return err
