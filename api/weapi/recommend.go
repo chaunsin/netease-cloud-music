@@ -141,7 +141,7 @@ func (a *Api) RecommendSongs(ctx context.Context, req *RecommendSongsReq) (*Reco
 	var (
 		url   = "https://music.163.com/weapi/v3/discovery/recommend/songs"
 		reply RecommendSongsResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.RecommendSongs")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -328,7 +328,7 @@ func (a *Api) PCDailyRecommendBlock(ctx context.Context, req *PCDailyRecommendBl
 	var (
 		url   = "https://interface.music.163.com/weapi/pc/daily/rcmd/block"
 		reply PCDailyRecommendBlockResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PCDailyRecommendBlock")
 	)
 	// opts = api.NewOptions().SetEAPI()
 	// opts.SetCookies(&http.Cookie{Name: "os", Value: "osx"})

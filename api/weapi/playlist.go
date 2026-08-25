@@ -116,7 +116,7 @@ func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, er
 	var (
 		url   = "https://music.163.com/weapi/user/playlist/"
 		reply PlaylistResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.Playlist")
 	)
 
 	if req.Limit == "" {
@@ -316,7 +316,7 @@ func (a *Api) PlaylistDetail(ctx context.Context, req *PlaylistDetailReq) (*Play
 	var (
 		url   = "https://music.163.com/api/v6/playlist/detail?id=" + req.Id
 		reply PlaylistDetailResp
-		opts  = api.NewOptions().SetAPI()
+		opts  = api.NewOptions("weapi.PlaylistDetail").SetAPI()
 	)
 
 	if req.N == "" {
@@ -485,7 +485,7 @@ func (a *Api) Radio(ctx context.Context, req *RadioReq) (*RadioResp, error) {
 	var (
 		url   = "https://interface.music.163.com/weapi/v1/radio/get"
 		reply RadioResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.Radio")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -538,7 +538,7 @@ func (a *Api) PCRecentListenList(ctx context.Context, req *PCRecentListenListReq
 	var (
 		url   = "https://interface.music.163.com/weapi/pc/recent/listen/list"
 		reply PCRecentListenListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PCRecentListenList")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -571,7 +571,7 @@ func (a *Api) PlaylistAddOrDel(ctx context.Context, req *PlaylistAddOrDelReq) (*
 	var (
 		url   = "https://music.163.com/weapi/playlist/manipulate/tracks"
 		reply PlaylistAddOrDelResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PlaylistAddOrDel")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -595,7 +595,7 @@ func (a *Api) PlaylistUpdatePlayCount(ctx context.Context, req *PlaylistUpdatePl
 	var (
 		url   = "https://music.163.com/weapi/playlist/update/playcount"
 		reply PlaylistUpdatePlayCountResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PlaylistUpdatePlayCount")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

@@ -641,8 +641,8 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	request.SetCookies(policy.options)
 	request.SetContext(withRequestCookiePolicy(ctx, policy))
 
-	c.l.Debugf("[request] method=%s crypto=%s url=%s payload_type=%T eapiEncrypted=%v encrypted=%+v",
-		opts.Method, opts.CryptoMode, requestURL, req, eapiEncrypted, encryptData)
+	c.l.Debugf("[request] func=%s method=%s crypto=%s url=%s payload_type=%T eapiEncrypted=%v encrypted=%+v",
+		opts.Func, opts.Method, opts.CryptoMode, requestURL, req, eapiEncrypted, encryptData)
 
 	// 注意: 大多数请求都是post请求,如果是get请求会丢弃 encryptData 使用者要注意。
 	switch opts.Method {
@@ -658,7 +658,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		return nil, fmt.Errorf("do request: %w", err)
 	}
 
-	c.l.Debugf("[response.raw] status=%d body=%s", response.StatusCode(), response.Body())
+	c.l.Debugf("[response.raw] func=%s status=%d body=%s", opts.Func, response.StatusCode(), response.Body())
 
 	var decryptData []byte
 
@@ -706,7 +706,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
 
-	c.l.Debugf("[response.decrypt] crypto=%s decrypt=%s", opts.CryptoMode, decryptData)
+	c.l.Debugf("[response.decrypt] func=%s crypto=%s decrypt=%s", opts.Func, opts.CryptoMode, decryptData)
 
 	decode := json.NewDecoder(bytes.NewReader(decryptData))
 	// decode.DisallowUnknownFields()
@@ -877,7 +877,7 @@ func (c *Client) Upload(ctx context.Context, url string, data io.Reader, resp an
 		return nil, fmt.Errorf("do upload: %w", err)
 	}
 
-	c.l.Debugf("[upload.response] method=%s url=%s status=%d bytes=%d", opts.Method, url, response.StatusCode(), len(response.Body()))
+	c.l.Debugf("[upload.response] func=%s method=%s url=%s status=%d bytes=%d", opts.Func, opts.Method, url, response.StatusCode(), len(response.Body()))
 
 	if resp != nil {
 		if err := json.NewDecoder(bytes.NewReader(response.Body())).Decode(&resp); err != nil {

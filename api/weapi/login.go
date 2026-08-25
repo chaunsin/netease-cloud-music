@@ -38,7 +38,7 @@ func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*Qr
 	var (
 		url   = "https://music.163.com/weapi/login/qrcode/unikey"
 		reply QrcodeCreateKeyResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.QrcodeCreateKey")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -123,7 +123,7 @@ func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeChec
 	var (
 		url   = "https://music.163.com/weapi/login/qrcode/client/login"
 		reply QrcodeCheckResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.QrcodeCheck")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -207,7 +207,7 @@ func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInf
 	var (
 		url   = "https://music.163.com/weapi/w/nuser/account/get"
 		reply GetUserInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.GetUserInfo")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -235,7 +235,7 @@ func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRef
 	var (
 		url   = "https://music.163.com/weapi/login/token/refresh"
 		reply TokenRefreshResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.TokenRefresh")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -282,7 +282,7 @@ func (a *Api) RegisterAnonymous(ctx context.Context, req *RegisterAnonymousReq) 
 	var (
 		url   = "https://interface.music.163.com/weapi/register/anonimous"
 		reply RegisterAnonymousResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.RegisterAnonymous")
 	)
 
 	if req.Username == "" {
@@ -321,7 +321,7 @@ func (a *Api) SendSMS(ctx context.Context, req *SendSMSReq) (*SendSMSResp, error
 	var (
 		url   = "https://interface.music.163.com/weapi/sms/captcha/sent"
 		reply SendSMSResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SendSMS")
 	)
 
 	if req.CtCode <= 0 {
@@ -356,7 +356,7 @@ func (a *Api) SMSVerify(ctx context.Context, req *SMSVerifyReq) (*SMSVerifyResp,
 	var (
 		url   = "https://interface.music.163.com/weapi/sms/captcha/verify"
 		reply SMSVerifyResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SMSVerify")
 	)
 
 	if req.CtCode <= 0 {
@@ -462,7 +462,7 @@ func (a *Api) LoginCellphone(ctx context.Context, req *LoginCellphoneReq) (*Logi
 	var (
 		url    = "https://interface.music.163.com/eapi/w/login/cellphone" // use weapi 出现 8821需要行为验证码验证
 		reply  LoginCellphoneResp
-		opts   = api.NewOptions().SetEAPI()
+		opts   = api.NewOptions("weapi.LoginCellphone").SetEAPI()
 		params = make(map[string]any)
 	)
 

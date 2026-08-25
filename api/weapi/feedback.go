@@ -46,7 +46,7 @@ func (a *Api) ApiWebLog(ctx context.Context, req *ApiWebLogReq) (*ApiWebLogResp,
 	var (
 		url  = "https://interface.music.163.com/api/feedback/weblog"
 		resp ApiWebLogResp
-		opts = api.NewOptions()
+		opts = api.NewOptions("weapi.ApiWebLog")
 	)
 	if req.CsrfToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -99,7 +99,7 @@ func (a *Api) WebLog(ctx context.Context, req *WebLogReq) (*WebLogResp, error) {
 	var (
 		url  = "https://music.163.com/weapi/feedback/weblog"
 		resp WebLogResp
-		opts = api.NewOptions()
+		opts = api.NewOptions("weapi.WebLog")
 	)
 	if req.CsrfToken == "" {
 		csrf, _ := a.client.GetCSRF(url)

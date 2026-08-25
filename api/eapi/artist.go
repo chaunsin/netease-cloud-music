@@ -41,7 +41,7 @@ func (a *Api) ArtistHot(ctx context.Context, req *ArtistHotReq) (*ArtistHotResp,
 	var (
 		url   = "https://interface3.music.163.com/eapi/artist/hot"
 		reply ArtistHotResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.ArtistHot").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -67,7 +67,7 @@ func (a *Api) ArtistSub(ctx context.Context, req *ArtistSubReq) (*ArtistSubResp,
 	var (
 		url   = "https://music.163.com/weapi/artist/sub"
 		reply ArtistSubResp
-		opts  = api.NewOptions().SetWEAPI()
+		opts  = api.NewOptions("eapi.ArtistSub").SetWEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -112,7 +112,7 @@ func (a *Api) ArtistUnsub(ctx context.Context, req *ArtistUnsubReq) (*ArtistUnsu
 	var (
 		url   = "https://music.163.com/weapi/artist/unsub"
 		reply ArtistUnsubResp
-		opts  = api.NewOptions().SetWEAPI()
+		opts  = api.NewOptions("eapi.ArtistUnsub").SetWEAPI()
 	)
 
 	weapiReq := &weapiArtistUnsubReq{ArtistIds: parsedIds}

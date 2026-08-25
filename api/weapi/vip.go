@@ -35,7 +35,7 @@ func (a *Api) VipRewardGet(ctx context.Context, req *VipRewardGetReq) (*VipRewar
 	}
 
 	var (
-		opts    = api.NewOptions()
+		opts    = api.NewOptions("weapi.VipRewardGet")
 		url     = "https://music.163.com/weapi/vipnewcenter/app/level/task/reward/get"
 		reply   VipRewardGetResp
 		request = vipRewardGetReq{
@@ -69,7 +69,7 @@ func (a *Api) VipRewardGetAll(ctx context.Context, req *VipRewardGetAllReq) (*Vi
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/task/reward/getall"
 		reply VipRewardGetAllResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipRewardGetAll")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -135,7 +135,7 @@ func (a *Api) VipTask(ctx context.Context, req *VipTaskReq) (*VipTaskResp, error
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/task/list"
 		reply VipTaskResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipTask")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -206,7 +206,7 @@ func (a *Api) VipTaskV2(ctx context.Context, req *VipTaskV2Req) (*VipTaskV2Resp,
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/task/newlist"
 		reply VipTaskV2Resp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipTaskV2")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -274,7 +274,7 @@ func (a *Api) VipInfo(ctx context.Context, req *VipInfoReq) (*VipInfoResp, error
 	var (
 		url   = "https://music.163.com/weapi/music-vip-membership/front/vip/info"
 		reply VipInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipInfo")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -367,7 +367,7 @@ func (a *Api) VipClientInfo(ctx context.Context, req *VipClientInfoReq) (*VipCli
 	var (
 		url   = "https://music.163.com/api/music-vip-membership/client/vip/info"
 		reply VipClientInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipClientInfo")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -443,7 +443,7 @@ func (a *Api) VipGrowPoint(ctx context.Context, req *VipGrowPointReq) (*VipGrowP
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/growhpoint/basic"
 		reply VipGrowPointResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipGrowPoint")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -553,7 +553,7 @@ func (a *Api) VipProgressList(ctx context.Context, req *VipProgressListReq) (*Vi
 	var (
 		url   = "https://interface3.music.163.com/weapi/middle/vip/mission/user/progress/list"
 		reply VipProgressListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipProgressList")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -592,7 +592,7 @@ func (a *Api) VipSignInfo(ctx context.Context, req *VipSignInfoReq) (*VipSignInf
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/user/sign/info"
 		reply VipSignInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipSignInfo")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -626,7 +626,7 @@ func (a *Api) VipMAXScore(ctx context.Context, req *VipMAXScoreReq) (*VipMAXScor
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/user/max/score"
 		reply VipMAXScoreResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipMAXScore")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -677,7 +677,7 @@ func (a *Api) VipNewList(ctx context.Context, req *VipNewListReq) (*VipNewListRe
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/level/auth/new/list"
 		reply VipNewListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipNewList")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -807,7 +807,7 @@ func (a *Api) VipCashierInfo(ctx context.Context, req *VipCashierInfoReq) (*VipC
 	var (
 		url   = "https://interface3.music.163.com/weapi/music-vip-membership/cashier/info"
 		reply VipCashierInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipCashierInfo")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -845,7 +845,7 @@ func (a *Api) VipLevelList(ctx context.Context, req *VipLevelListReq) (*VipLevel
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/level/list"
 		reply VipLevelListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipLevelList")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -902,7 +902,7 @@ func (a *Api) VipWelfareList(ctx context.Context, req *VipWelfareListReq) (*VipW
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/level/welfare/new/list"
 		reply VipWelfareListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipWelfareList")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -954,7 +954,7 @@ func (a *Api) VipDetailList(ctx context.Context, req *VipDetailListReq) (*VipDet
 		url = fmt.Sprintf("https://interface3.music.163.com/weapi/vipnewcenter/app/level/auth/new/detail/list?isSupportHistoryGift=%v",
 			req.IsSupportHistoryGift)
 		reply VipDetailListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipDetailList")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -996,7 +996,7 @@ func (a *Api) VipConfig(ctx context.Context, req *VipConfigReq) (*VipConfigResp,
 	var (
 		url   = "https://interface3.music.163.com/weapi/music-vip-configuration/config/query"
 		reply VipConfigResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipConfig")
 	)
 
 	if req.ConfigName == "" {
@@ -1041,7 +1041,7 @@ func (a *Api) VipDowngradeCompensate(ctx context.Context, req *VipDowngradeCompe
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/level/downgrade/compensate"
 		reply VipDowngradeCompensateResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipDowngradeCompensate")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1070,7 +1070,7 @@ func (a *Api) VipInterests(ctx context.Context, req *VipInterestsReq) (*VipInter
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipauth/app/interests/userrecord/get"
 		reply VipInterestsResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipInterests")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1181,7 +1181,7 @@ func (a *Api) VipFloatData(ctx context.Context, req *VipFloatDataReq) (*VipFloat
 	var (
 		url   = "https://interface3.music.163.com/weapi/vip-center-bff/float/data"
 		reply VipFloatDataResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipFloatData")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1229,7 +1229,7 @@ func (a *Api) VipCommonList(ctx context.Context, req *VipCommonListReq) (*VipCom
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/resource/common/list"
 		reply VipCommonListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipCommonList")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1279,7 +1279,7 @@ func (a *Api) VipNewAccountPage(ctx context.Context, req *VipNewAccountPageReq) 
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/resource/newaccountpage"
 		reply VipNewAccountPageResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipNewAccountPage")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1310,7 +1310,7 @@ func (a *Api) VipTaskSign(ctx context.Context, req *VipTaskSignReq) (*VipTaskSig
 	var (
 		url   = "https://interface3.music.163.com/weapi/vip-center-bff/task/sign"
 		reply VipTaskSignResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipTaskSign")
 	)
 	if req.IsNew != "" {
 		url = url + "?isNew=" + req.IsNew
@@ -1350,7 +1350,7 @@ func (a *Api) VipCheckinHistoryList(ctx context.Context, req *VipCheckinHistoryL
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/level/user/checkin/history/list"
 		reply VipCheckinHistoryListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipCheckinHistoryList")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1433,7 +1433,7 @@ func (a *Api) VipCheckinHistoryDetail(ctx context.Context, req *VipCheckinHistor
 	var (
 		url   = "https://interface3.music.163.com/weapi/vipnewcenter/app/level/user/checkin/history/detail"
 		reply VipCheckinHistoryDetailResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipCheckinHistoryDetail")
 	)
 
 	if req.Type == "" {
@@ -1502,7 +1502,7 @@ func (a *Api) VipMinideskMusicSignPC(ctx context.Context, req *VipMinideskMusicS
 	var (
 		url     = "https://interface3.music.163.com/weapi/vipnewcenter/app/minidesk/music/sign/pc"
 		reply   VipMinideskMusicSignPCResp
-		opts    = api.NewOptions()
+		opts    = api.NewOptions("weapi.VipMinideskMusicSignPC")
 		request = vipMinideskMusicSignPCReq{
 			ReqCommon: req.ReqCommon,
 			Type:      strconv.Itoa(req.Type),
@@ -1534,7 +1534,7 @@ func (a *Api) VipWelfareClaim(ctx context.Context, req *VipWelfareClaimReq) (*Vi
 	var (
 		url   = "https://music.163.com/weapi/vipnewcenter/app/level/welfare/claim"
 		reply VipWelfareClaimResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipWelfareClaim")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1578,7 +1578,7 @@ func (a *Api) VipMiddlePageViewReport(ctx context.Context, req *VipMiddlePageVie
 	var (
 		url   = "https://interface.music.163.com/weapi/middle/page/view/report"
 		reply VipMiddlePageViewReportResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.VipMiddlePageViewReport")
 	)
 
 	// 模拟 webview 环境设置自定义 User-Agent、Host、Origin、Referer 及 netease_webkit_context

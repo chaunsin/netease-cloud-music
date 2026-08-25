@@ -38,7 +38,7 @@ func (a *Api) SignIn(ctx context.Context, req *SignInReq) (*SignInResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/point/dailyTask"
 		reply SignInResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SignIn")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -114,7 +114,7 @@ func (a *Api) SignInProgress(ctx context.Context, req *SignInProgressReq) (*Sign
 	var (
 		url   = "https://music.163.com/weapi/act/modules/signin/v2/progress"
 		reply SignInProgressResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SignInProgress")
 	)
 
 	if req.ModuleId == "" {
@@ -182,7 +182,7 @@ func (a *Api) SignInHappyInfo(ctx context.Context, req *SignHappyInfoReq) (*Sign
 	var (
 		url   = "https://music.163.com/weapi/sign/happy/info"
 		reply SignHappyInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SignInHappyInfo")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -217,7 +217,7 @@ func (a *Api) YunBeiSignInfo(ctx context.Context, req *YunBeiSignInfoReq) (*YunB
 	var (
 		url   = "https://music.163.com/weapi/point/signed/get"
 		reply YunBeiSignInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiSignInfo")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -270,7 +270,7 @@ func (a *Api) YunBeiUserInfo(ctx context.Context, req *YunBeiUserInfoReq) (*YunB
 	var (
 		url   = "https://music.163.com/weapi/v1/user/info"
 		reply YunBeiUserInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiUserInfo")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -300,7 +300,7 @@ func (a *Api) YunBeiSignIn(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSi
 	var (
 		url   = "https://music.163.com/weapi/pointmall/user/sign"
 		reply YunBeiSignInResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiSignIn")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -329,7 +329,7 @@ func (a *Api) YunBeiTodaySignInInfo(ctx context.Context, req *YunBeiTodaySignInI
 	var (
 		url   = "https://music.163.com/weapi/point/today/get"
 		reply YunBeiTodaySignInInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiTodaySignInInfo")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -365,7 +365,7 @@ func (a *Api) YunBeiExpense(ctx context.Context, req *YunBeiExpenseReq) (*YunBei
 	var (
 		url   = "https://music.163.com/store/api/point/expense"
 		reply YunBeiExpenseResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiExpense")
 	)
 
 	if req.Limit == 0 {
@@ -420,7 +420,7 @@ func (a *Api) YunBeiReceipt(ctx context.Context, req *YunBeiReceiptReq) (*YunBei
 	var (
 		url   = "https://music.163.com/store/api/point/receipt"
 		reply YunBeiReceiptResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiReceipt")
 	)
 
 	if req.Limit == 0 {
@@ -494,7 +494,7 @@ func (a *Api) YunBeiTaskList(ctx context.Context, req *YunBeiTaskListReq) (*YunB
 	var (
 		url   = "https://music.163.com/weapi/usertool/task/list/all"
 		reply YunBeiTaskListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiTaskList")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -568,7 +568,7 @@ func (a *Api) YunBeiTaskListV3(ctx context.Context, req *YunBeiTaskListV3Req) (*
 	var (
 		url   = "https://music.163.com/weapi/usertool/task/list/all/v3"
 		reply YunBeiTaskListV3Resp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiTaskListV3")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -608,7 +608,7 @@ func (a *Api) YunBeiTaskTodo(ctx context.Context, req *YunBeiTaskTodoReq) (*YunB
 	var (
 		url   = "https://music.163.com/weapi/usertool/task/todo/query"
 		reply YunBeiTaskTodoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiTaskTodo")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -637,7 +637,7 @@ func (a *Api) YunBeiTaskFinish(ctx context.Context, req *YunBeiTaskFinishReq) (*
 	var (
 		url   = "https://music.163.com/weapi/usertool/task/point/receive"
 		reply YunBeiTaskFinishResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiTaskFinish")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -669,7 +669,7 @@ func (a *Api) YunBeiSignInCalendar(ctx context.Context, req *YunBeiSignInCalenda
 	var (
 		url   = "https://music.163.com/weapi/pointmall/sign/calendar"
 		reply YunBeiSignInCalendarResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiSignInCalendar")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -694,7 +694,7 @@ func (a *Api) YunBeiSignInJudge(ctx context.Context, req *YunBeiSignInJudgeReq) 
 	var (
 		url   = "https://music.163.com/weapi/pointmall/extra/sign/judge"
 		reply YunBeiSignInJudgeResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiSignInJudge")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -757,7 +757,7 @@ func (a *Api) YunBeiSignInProgress(ctx context.Context, req *YunBeiSignInProgres
 	var (
 		url   = "https://music.163.com/weapi/pointmall/user/sign/config"
 		reply YunBeiSignInProgressResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiSignInProgress")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -788,7 +788,7 @@ func (a *Api) YunBeiNewJudge(ctx context.Context, req *YunBeiNewJudgeReq) (*YunB
 	var (
 		url   = "https://music.163.com/weapi/usertool/user/new/judge"
 		reply YunBeiNewJudgeResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiNewJudge")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -818,7 +818,7 @@ func (a *Api) YunBeiExpire(ctx context.Context, req *YunBeiExpireReq) (*YunBeiEx
 	var (
 		url   = "https://music.163.com/weapi/yunbei/expire/get"
 		reply YunBeiExpireResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiExpire")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -850,7 +850,7 @@ func (a *Api) YunBeiRecommendConfig(ctx context.Context, req *YunBeiRecommendCon
 	var (
 		url   = "https://music.163.com/weapi/pointmall/recommend/config"
 		reply YunBeiRecommendConfigResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiRecommendConfig")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -882,7 +882,7 @@ func (a *Api) YunBeiBalance(ctx context.Context, req *YunBeiBalanceReq) (*YunBei
 	var (
 		url   = "https://interface.music.163.com/weapi/middle/mall/balance"
 		reply YunBeiBalanceResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiBalance")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -910,7 +910,7 @@ func (a *Api) YunBeiSignLottery(ctx context.Context, req *YunBeiSignLotteryReq) 
 	var (
 		url   = "https://interface.music.163.com/weapi/pointmall/user/sign/lottery/get"
 		reply YunBeiSignLotteryResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiSignLottery")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -953,7 +953,7 @@ func (a *Api) YunBeiSquareBlockCategory(ctx context.Context, req *YunBeiSquareBl
 	var (
 		url   = "https://interface3.music.163.com/weapi/yunbei-center/square/block/list/category"
 		reply YunBeiSquareBlockCategoryResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiSquareBlockCategory")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1005,7 +1005,7 @@ func (a *Api) YunBeiRecommend(ctx context.Context, req *YunBeiRecommendReq) (*Yu
 	var (
 		url   = "https://interface3.music.163.com/weapi/pointmall/point/recommend"
 		reply YunBeiRecommendResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiRecommend")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1103,7 +1103,7 @@ func (a *Api) YunBeiTaskRecommendV2(ctx context.Context, req *YunBeiTaskRecommen
 	var (
 		url   = "https://interface3.music.163.com/weapi/usertool/task/recommend/v2?adExtJson="
 		reply YunBeiTaskRecommendV2Resp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiTaskRecommendV2")
 	)
 
 	data, err := json.Marshal(req.AdExtJson)
@@ -1139,7 +1139,7 @@ func (a *Api) YunBeiCoinRecordInsert(ctx context.Context, req *YunBeiCoinRecordI
 	var (
 		url   = "https://interface3.music.163.com/weapi/ad/listening/new/yunbei/coin/record/insert"
 		reply YunBeiCoinRecordInsertResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiCoinRecordInsert")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1183,7 +1183,7 @@ func (a *Api) YunBeiProductList(ctx context.Context, req *YunBeiProductListReq) 
 	var (
 		url   = "https://interface3.music.163.com/weapi/pointmall/special/product/list"
 		reply YunBeiProductListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiProductList")
 	)
 
 	if req.Limit == "" {
@@ -1214,7 +1214,7 @@ func (a *Api) YunBeiSignHoliday(ctx context.Context, req *YunBeiSignHolidayReq) 
 	var (
 		url   = "https://interface3.music.163.com/weapi/pointmall/user/sign/holiday"
 		reply YunBeiSignHolidayResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiSignHoliday")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1250,7 +1250,7 @@ func (a *Api) YunBeiTodayRecommendCard(ctx context.Context, req *YunBeiTodayReco
 	var (
 		url   = "https://interface3.music.163.com/weapi/pointmall/today/recommend/card"
 		reply YunBeiTodayRecommendCardResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiTodayRecommendCard")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1289,7 +1289,7 @@ func (a *Api) YunBeiActivityReserve(ctx context.Context, req *YunBeiActivityRese
 	var (
 		url   = "https://interface3.music.163.com/weapi/new/yunbei/activity/reserve/info/simple"
 		reply YunBeiActivityReserveResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiActivityReserve")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1316,7 +1316,7 @@ func (a *Api) YunBeiMergeConvert(ctx context.Context, req *YunBeiMergeConvertReq
 	var (
 		url   = "https://interface3.music.163.com/weapi/pointmall/merge/convert"
 		reply YunBeiMergeConvertResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiMergeConvert")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1349,7 +1349,7 @@ func (a *Api) YunBeiDragonJudgePopup(ctx context.Context, req *YunBeiDragonJudge
 	var (
 		url   = "https://interface3.music.163.com/weapi/yunbei/user/dragon/judge/popup"
 		reply YunBeiDragonJudgePopupResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiDragonJudgePopup")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1381,7 +1381,7 @@ func (a *Api) YunBeiSignCalenderDay(ctx context.Context, req *YunBeiSignCalender
 	var (
 		url   = "https://interface3.music.163.com/weapi/pointmall/sign/calendar/day"
 		reply YunBeiSignCalenderDayResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiSignCalenderDay")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1408,7 +1408,7 @@ func (a *Api) YunBeiSignRemind(ctx context.Context, req *YunBeiSignRemindReq) (*
 	var (
 		url   = "https://interface3.music.163.com/weapi/pointmall/extra/sign/remind"
 		reply YunBeiSignRemindResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiSignRemind")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1490,7 +1490,7 @@ func (a *Api) YunBeiSceneResource(ctx context.Context, req *YunBeiSceneResourceR
 	var (
 		url   = "https://interface3.music.163.com/weapi/link/scene/show/resource"
 		reply YunBeiSceneResourceResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiSceneResource")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1528,7 +1528,7 @@ func (a *Api) YunBeiPositionResource(ctx context.Context, req *YunBeiPositionRes
 	var (
 		url   = "https://interface3.music.163.com/weapi/link/position/show/resource"
 		reply YunBeiPositionResourceResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiPositionResource")
 	)
 	if req.PositionCode != "" {
 		url = url + "?positionCode=" + req.PositionCode
@@ -1591,7 +1591,7 @@ func (a *Api) YunBeiMultiTerminalWidgetCalender(ctx context.Context, req *YunBei
 	var (
 		url   = "https://interface3.music.163.com/weapi/music/multi/terminal/widget/24/comment/calendar" // 24是动态参数？
 		reply YunBeiMultiTerminalWidgetCalenderResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiMultiTerminalWidgetCalender")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -1640,7 +1640,7 @@ func (a *Api) YunBeiDayVipInfo(ctx context.Context, req *YunBeiDayVipInfoReq) (*
 	var (
 		url   = "https://interface3.music.163.com/weapi/ad/listening/new/yunbei/center/day/vip/info"
 		reply YunBeiDayVipInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.YunBeiDayVipInfo")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

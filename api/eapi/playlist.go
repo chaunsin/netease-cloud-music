@@ -118,7 +118,7 @@ func (a *Api) Playlist(ctx context.Context, req *PlaylistReq) (*PlaylistResp, er
 	var (
 		url   = "https://music.163.com/eapi/user/playlist/"
 		reply PlaylistResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.Playlist").SetEAPI()
 	)
 
 	if req.Limit == "" {

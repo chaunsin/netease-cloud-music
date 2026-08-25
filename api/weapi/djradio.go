@@ -112,7 +112,7 @@ func (a *Api) DjRadioSub(ctx context.Context, req *DjRadioSub) (*DjRadioSubResp,
 	var (
 		url   = "https://interface.music.163.com/weapi/djradio/get/subed"
 		reply DjRadioSubResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.DjRadioSub")
 	)
 
 	if req.Limit == "" {

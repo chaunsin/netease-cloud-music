@@ -21,8 +21,9 @@ const (
 )
 
 type Options struct {
-	Method     string
-	CryptoMode CryptoMode
+	Func       string     // 请求接口方法名用于log记录使用
+	Method     string     // http 请求方法
+	CryptoMode CryptoMode // 加密算法类型
 	Headers    http.Header
 
 	cookies     []*http.Cookie
@@ -30,8 +31,13 @@ type Options struct {
 	cookieErr   error
 }
 
-func NewOptions() *Options {
+func NewOptions(fn ...string) *Options {
+	var f string
+	if len(fn) > 0 {
+		f = fn[0]
+	}
 	return &Options{
+		Func:       f,
 		Method:     http.MethodPost,
 		CryptoMode: CryptoModeWEAPI,
 		Headers:    make(http.Header),

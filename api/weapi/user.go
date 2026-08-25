@@ -119,7 +119,7 @@ func (a *Api) GetUserInfoDetail(ctx context.Context, req *GetUserInfoDetailReq) 
 	var (
 		url   = fmt.Sprintf("https://interface.music.163.com/weapi/w/v1/user/detail/%v", req.UserId)
 		reply GetUserInfoDetailResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.GetUserInfoDetail")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -156,7 +156,7 @@ func (a *Api) GetUserBindings(ctx context.Context, req *GetUserBindingsReq) (*Ge
 	var (
 		url   = fmt.Sprintf("https://interface.music.163.com/weapi/w/v1/user/bindings/%v", req.UserId)
 		reply GetUserBindingsResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.GetUserBindings")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

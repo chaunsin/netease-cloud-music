@@ -90,7 +90,7 @@ func (a *Api) MusicianVipTasks(ctx context.Context, req *MusicianVipTasksReq) (*
 	var (
 		url   = "https://music.163.com/eapi/nmusician/workbench/special/right/vip/info"
 		reply MusicianVipTasksResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.MusicianVipTasks").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -131,7 +131,7 @@ func (a *Api) MusicianRoleGet(ctx context.Context, req *MusicianRoleGetReq) (*Mu
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/musician/role/get"
 		reply MusicianRoleGetResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.MusicianRoleGet").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -163,7 +163,7 @@ func (a *Api) MusicianSign(ctx context.Context, req *MusicianSignReq) (*Musician
 	var (
 		url   = "https://interface3.music.163.com/eapi/creator/user/access"
 		reply MusicianSignResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.MusicianSign").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -235,7 +235,7 @@ func (a *Api) MusicianMissionCycleList(ctx context.Context, req *MusicianMission
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/mission/cycle/list"
 		reply MusicianMissionListResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.MusicianMissionCycleList").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -256,7 +256,7 @@ func (a *Api) MusicianMissionStageList(ctx context.Context, req *MusicianMission
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/mission/stage/list"
 		reply MusicianMissionListResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.MusicianMissionStageList").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -294,7 +294,7 @@ func (a *Api) MusicianRewardObtain(ctx context.Context, req *MusicianRewardObtai
 	var (
 		url   = "https://interface3.music.163.com/eapi/nmusician/workbench/mission/reward/obtain/new"
 		reply MusicianRewardObtainResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.MusicianRewardObtain").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
