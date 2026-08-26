@@ -186,7 +186,10 @@ func (c *DailySongShare) load(ctx context.Context) (*api.Client, *weapi.Api, *ea
 	}
 
 	c.uid = u.Profile.UserId
-	c.cmd.Printf("账号: %s(UID %d)\n", u.Profile.Nickname, u.Profile.UserId)
+
+	c.cmd.Printf("\n📤 每日歌曲挑战\n\n")
+
+	c.cmd.Printf("  账号: %s（UID %d）\n", u.Profile.Nickname, u.Profile.UserId)
 
 	g, err := c.guide(ctx, e)
 	if err != nil {
@@ -196,20 +199,16 @@ func (c *DailySongShare) load(ctx context.Context) (*api.Client, *weapi.Api, *ea
 
 	d := g.Data
 
-	c.cmd.Printf("活动周期: %s (周期ID %d)\n报名状态: %s\n活动ID: %d\n已发布笔记: %d 篇\n提示: %s\n抽奖机会提示: %s, RewardCount=%v, HaveRewardCount=%v\n",
-		d.Duration,
-		d.ActivityCycleId,
-		d.RegisterStatus,
-		d.ActivityId,
-		d.RegisteredGuide.PubEventCount,
-		d.RegisteredGuide.SignUp,
-		d.RegisteredGuide.SignTip,
-		d.RegisteredGuide.RewardCount,
-		d.RegisteredGuide.HaveRewardCount,
-	)
+	c.cmd.Printf("  活动周期: %s（周期ID %d）\n", d.Duration, d.ActivityCycleId)
+	c.cmd.Printf("  报名状态: %s\n", d.RegisterStatus)
+	c.cmd.Printf("  活动ID: %d\n", d.ActivityId)
+	c.cmd.Printf("  已发布笔记: %d 篇\n", d.RegisteredGuide.PubEventCount)
+	c.cmd.Printf("  提示: %s\n", d.RegisteredGuide.SignUp)
+	c.cmd.Printf("  抽奖机会提示: %s\n", d.RegisteredGuide.SignTip)
+	c.cmd.Printf("  抽奖机会: RewardCount=%v HaveRewardCount=%v\n", d.RegisteredGuide.RewardCount, d.RegisteredGuide.HaveRewardCount)
 
 	if d.RewardJumpUrl != "" {
-		c.cmd.Printf("奖励领取: %s\n", d.RewardJumpUrl)
+		c.cmd.Printf("  奖励领取: %s\n", d.RewardJumpUrl)
 	}
 	return cli, w, e, g, nil
 }
@@ -237,6 +236,7 @@ func (c *DailySongShare) executeStatus(ctx context.Context) error {
 	}
 	defer closeAPIClient(ctx, cli, c.l)
 
+	c.cmd.Printf("\n状态查看完成\n")
 	return nil
 }
 
@@ -251,7 +251,12 @@ func (c *DailySongShare) executeDraw(ctx context.Context) error {
 	}
 	defer closeAPIClient(ctx, cli, c.l)
 
-	return c.draw(ctx, e, g, c.opts.Count, c.opts.countSet)
+	if err := c.draw(ctx, e, g, c.opts.Count, c.opts.countSet); err != nil {
+		return err
+	}
+
+	c.cmd.Printf("\n抽奖完成\n")
+	return nil
 }
 
 func (c *DailySongShare) execute(ctx context.Context) error {
@@ -272,13 +277,17 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 		}
 
 		t, m := c.text(song)
-		c.cmd.Printf("dry-run 预览: 歌曲=%s(ID %d)\n标题=%s\n正文=%s\n", song.name, song.id, t, m)
+		c.cmd.Println("  dry-run 预览:")
+		c.cmd.Printf("    歌曲: %s（ID %d）\n", song.name, song.id)
+		c.cmd.Printf("    标题: %s\n", t)
+		c.cmd.Printf("    正文: %s\n", m)
+		c.cmd.Printf("\ndry-run 预览结束\n")
 		return nil
 	}
 
 	state := classifyGuide(g)
 	if strings.HasPrefix(string(state), "unknow status:") {
-		c.cmd.Printf("活动状态异常 %q,已终止\n", g.Data.RegisterStatus)
+		c.cmd.Printf("  活动状态异常 %q，已终止\n", g.Data.RegisterStatus)
 		return nil
 	}
 
@@ -330,7 +339,7 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 
 	// 执行发布动态逻辑
 	if state == stateCompleted {
-		c.cmd.Println("今日已打卡，跳过发布动态")
+		c.cmd.Println("  发布动态: 今日已打卡，已跳过")
 	} else {
 		// 选择分享一首歌
 		song, err := c.selectSong(ctx, w)
@@ -381,7 +390,7 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 			return errors.New("publish note succeeded without a valid event ID")
 		}
 
-		c.cmd.Printf("已发布动态(动态ID %d)\n", pub.ID)
+		c.cmd.Printf("  发布动态: 成功（动态ID %d）\n", pub.ID)
 
 		// 关联触发事件
 		tr, err := e.DailySongShareTrigger(ctx, &eapi.DailySongShareTriggerReq{SongId: id, Channel: "cloudmusic"})
@@ -391,6 +400,8 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 			}
 			return fmt.Errorf("trigger share: code=%d message=%s", tr.Code, tr.Message)
 		}
+
+		c.cmd.Println("  触发挑战: 成功")
 
 		g, err = c.guide(ctx, e)
 		if err != nil {
@@ -405,6 +416,7 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 	}
 
 	if !c.opts.Draw {
+		c.cmd.Printf("\n每日歌曲挑战完成\n")
 		return nil
 	}
 
@@ -415,7 +427,7 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 
 	// 删除动态
 	if c.opts.Delete && publish == nil {
-		c.cmd.Println("本次未发布新动态（可能本周期已打卡），--delete 已忽略")
+		c.cmd.Println("  删除动态: 本次未发布新动态，--delete 已忽略")
 	} else if c.opts.Delete && publish != nil && publish.ID > 0 {
 		// 避免风控睡眠5到10秒再删除
 		time.Sleep(time.Second * time.Duration(5+rand.IntN(10)))
@@ -429,8 +441,10 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 			return fmt.Errorf("delete event %d: code=%d message=%s", publish.ID, d.Code, d.Message)
 		}
 
-		c.cmd.Printf("已删除本次动态(动态ID %d)\n", publish.ID)
+		c.cmd.Printf("  删除动态: 已删除（动态ID %d）\n", publish.ID)
 	}
+
+	c.cmd.Printf("\n每日歌曲挑战完成\n")
 	return nil
 }
 
@@ -441,9 +455,11 @@ func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, g *eapi.DailySon
 	n := min(g.Data.RegisteredGuide.RewardCount, maxDraws)
 
 	if n <= 0 {
-		c.cmd.Println("暂无可用的抽奖机会")
+		c.cmd.Println("  抽奖: 暂无可用的抽奖机会")
 		return nil
 	}
+
+	c.cmd.Println("  抽奖:")
 
 	if explicit && count < n {
 		n = count
@@ -459,18 +475,16 @@ func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, g *eapi.DailySon
 			return fmt.Errorf("code=%d message=%s", resp.Code, resp.Message)
 		}
 
-		c.cmd.Printf("第 %d 次抽奖: 剩余 %d 次", i+1, resp.Data.RestChance)
+		c.cmd.Printf("    第 %d 次: 剩余 %d 次", i+1, resp.Data.RestChance)
 
 		// 会出现抽不到奖品的情况返回结果为: {"code":200,"data":{"userId":1289504343,"batchIdemKey":null,"idempotentId":"5ffed82c-1a6d-4fc5-b1f5-265862cc36e3","activityId":11066304,"prizeSchemeId":11147804,"drawPrizeTime":1787627166087,"drawPrizeInfoList":[],"prizeDetailInfoMap":{},"noLotteryContent":null,"restChance":0,"collectDTO":null},"message":""}
 		if len(resp.Data.PrizeDetailInfoMap) == 0 {
-			c.cmd.Println("很遗憾没抽到")
+			c.cmd.Println("，很遗憾没抽到")
 		} else {
 			for _, p := range resp.Data.PrizeDetailInfoMap {
-				c.cmd.Printf("，奖品「%s」,说明: %s,兑换: %s", p.PrizeName, p.WinPrizeDesc, p.ExchangeUrl)
+				c.cmd.Printf("，奖品「%s」，说明: %s，兑换: %s\n", p.PrizeName, p.WinPrizeDesc, p.ExchangeUrl)
 				break
 			}
-
-			c.cmd.Println()
 		}
 
 		// 以服务端剩余次数为准，避免单次消耗多次机会时超额抽奖

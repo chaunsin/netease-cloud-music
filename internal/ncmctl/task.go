@@ -214,8 +214,6 @@ func (c *Task) taskSelection() (taskSelection, error) {
 
 func (c *Task) registerScheduledCommand(ctx context.Context, job *cron.Cron, name, schedule, cronError string, command scheduledCommand) error {
 	label := "[" + name + "]"
-	c.cmd.Println(label + " task register")
-	c.l.Infof("%s task register", label)
 
 	command.Command().DisableFlagParsing = true
 	command.Command().SetArgs([]string{})
@@ -225,21 +223,35 @@ func (c *Task) registerScheduledCommand(ctx context.Context, job *cron.Cron, nam
 	}
 
 	id, err := job.AddFunc(schedule, func() {
+		start := time.Now()
+
 		c.l.Infof("%s task start", label)
+		c.cmd.Printf("  %s 开始执行\n", label)
 
 		if err := command.Command().ExecuteContext(ctx); err != nil {
 			c.l.Errorf(label+" execute err: %s", err)
 			return
 		}
 
-		c.l.Infof("%s execute success", label)
+		c.l.Infof("%s execute success (cost=%s)", label, time.Since(start).Round(time.Second))
 	})
 	if err != nil {
 		return fmt.Errorf("%s: %w", cronError, err)
 	}
 
-	c.l.Infof(label+" next execute: %s", job.Entry(id).Schedule.Next(time.Now()))
+	desc := describeSchedule(job.Entry(id).Schedule, job.Location())
+
+	c.l.Infof("%s task registered: schedule=%q tz=%s next=%s", label, schedule, job.Location(), desc)
+	c.cmd.Printf("  %s 下次执行: %s\n", label, desc)
 	return nil
+}
+
+// describeSchedule renders the next activation of sched in a human-readable form,
+// e.g. "2026-08-26 18:00:00 CST (6h30m0s)". The relative duration comes from the
+// standard library time.Duration string, so no extra dependency is needed.
+func describeSchedule(sched cron.Schedule, loc *time.Location) string {
+	next := sched.Next(time.Now().In(loc))
+	return fmt.Sprintf("%s（%s）", next.Format("2006-01-02 15:04:05 MST"), time.Until(next).Round(time.Second))
 }
 
 func (c *Task) execute(ctx context.Context, _ []string) error {
@@ -264,6 +276,8 @@ func (c *Task) execute(ctx context.Context, _ []string) error {
 	if request.NeedLogin(ctx) {
 		return errors.New("need login")
 	}
+
+	c.cmd.Printf("\n⚙️ 定时任务\n\n")
 
 	var (
 		job     = cron.New(cron.WithLocation(local))
@@ -319,6 +333,11 @@ func (c *Task) execute(ctx context.Context, _ []string) error {
 	}
 
 	job.Start()
+
+	c.l.Infof("task service started: jobs=%d tz=%s", len(job.Entries()), local)
+	c.cmd.Printf("  已注册任务: %d\n", len(job.Entries()))
+	c.cmd.Printf("  时区: %s\n", local)
+	c.cmd.Printf("\n服务已启动（Ctrl+C 退出）\n")
 
 	nohup.Daemon(nohup.CloseHook(func(ctx context.Context) error {
 		job.Stop()
