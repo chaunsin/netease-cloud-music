@@ -147,9 +147,9 @@ func (c *DailySongShare) validateFlags(parent bool) error {
 		}
 	}
 
-	if c.opts.Delete && (!parent || !c.opts.Draw) {
-		return errors.New("--delete requires the publish command with --draw enabled")
-	}
+	// if c.opts.Delete && (!parent || !c.opts.Draw) {
+	// 	return errors.New("--delete requires the publish command with --draw enabled")
+	// }
 
 	if c.opts.countSet && (c.opts.Count < 1 || c.opts.Count > 8) {
 		return errors.New("count must be between 1 and 8")
@@ -189,7 +189,7 @@ func (c *DailySongShare) load(ctx context.Context) (*api.Client, *weapi.Api, *ea
 
 	c.cmd.Printf("\n📤 每日歌曲挑战\n\n")
 
-	c.cmd.Printf("  账号: %s（UID %d）\n", u.Profile.Nickname, u.Profile.UserId)
+	c.cmd.Printf("  账号: %s(UID %d)\n", u.Profile.Nickname, u.Profile.UserId)
 
 	g, err := c.guide(ctx, e)
 	if err != nil {
@@ -199,7 +199,7 @@ func (c *DailySongShare) load(ctx context.Context) (*api.Client, *weapi.Api, *ea
 
 	d := g.Data
 
-	c.cmd.Printf("  活动周期: %s（周期ID %d）\n", d.Duration, d.ActivityCycleId)
+	c.cmd.Printf("  活动周期: %s(周期ID %d)\n", d.Duration, d.ActivityCycleId)
 	c.cmd.Printf("  报名状态: %s\n", d.RegisterStatus)
 	c.cmd.Printf("  活动ID: %d\n", d.ActivityId)
 	c.cmd.Printf("  已发布笔记: %d 篇\n", d.RegisteredGuide.PubEventCount)
@@ -245,13 +245,13 @@ func (c *DailySongShare) executeDraw(ctx context.Context) error {
 		return err
 	}
 
-	cli, _, e, g, err := c.load(ctx)
+	cli, w, e, g, err := c.load(ctx)
 	if err != nil {
 		return err
 	}
 	defer closeAPIClient(ctx, cli, c.l)
 
-	if err := c.draw(ctx, e, g, c.opts.Count, c.opts.countSet); err != nil {
+	if err := c.draw(ctx, e, w, g, c.opts.Count, c.opts.countSet); err != nil {
 		return err
 	}
 
@@ -278,7 +278,7 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 
 		t, m := c.text(song)
 		c.cmd.Println("  dry-run 预览:")
-		c.cmd.Printf("    歌曲: %s（ID %d）\n", song.name, song.id)
+		c.cmd.Printf("    歌曲: %s(ID %d)\n", song.name, song.id)
 		c.cmd.Printf("    标题: %s\n", t)
 		c.cmd.Printf("    正文: %s\n", m)
 		c.cmd.Printf("\ndry-run 预览结束\n")
@@ -287,7 +287,7 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 
 	state := classifyGuide(g)
 	if strings.HasPrefix(string(state), "unknow status:") {
-		c.cmd.Printf("  活动状态异常 %q，已终止\n", g.Data.RegisterStatus)
+		c.cmd.Printf("  活动状态异常 %q,已终止\n", g.Data.RegisterStatus)
 		return nil
 	}
 
@@ -390,7 +390,7 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 			return errors.New("publish note succeeded without a valid event ID")
 		}
 
-		c.cmd.Printf("  发布动态: 成功（动态ID %d）\n", pub.ID)
+		c.cmd.Printf("  发布动态: 成功(动态ID %d)\n", pub.ID)
 
 		// 关联触发事件
 		tr, err := e.DailySongShareTrigger(ctx, &eapi.DailySongShareTriggerReq{SongId: id, Channel: "cloudmusic"})
@@ -421,7 +421,7 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 	}
 
 	// 抽奖
-	if err := c.draw(ctx, e, g, c.opts.Count, c.opts.countSet); err != nil {
+	if err := c.draw(ctx, e, w, g, c.opts.Count, c.opts.countSet); err != nil {
 		return fmt.Errorf("lottery: %w", err)
 	}
 
@@ -441,14 +441,14 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 			return fmt.Errorf("delete event %d: code=%d message=%s", publish.ID, d.Code, d.Message)
 		}
 
-		c.cmd.Printf("  删除动态: 已删除（动态ID %d）\n", publish.ID)
+		c.cmd.Printf("  删除动态: 已删除(动态ID %d)\n", publish.ID)
 	}
 
 	c.cmd.Printf("\n每日歌曲挑战完成\n")
 	return nil
 }
 
-func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, g *eapi.DailySongShareRegistrationGuideResp, count int64, explicit bool) error {
+func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, w *weapi.Api, g *eapi.DailySongShareRegistrationGuideResp, count int64, explicit bool) error {
 	const maxDraws = 8 // SPEC: 单次活动抽奖上限为 8 次？
 
 	// n := min(g.Data.RegisteredGuide.HaveRewardCount, maxDraws)
@@ -482,7 +482,15 @@ func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, g *eapi.DailySon
 			c.cmd.Println("，很遗憾没抽到")
 		} else {
 			for _, p := range resp.Data.PrizeDetailInfoMap {
-				c.cmd.Printf("，奖品「%s」，说明: %s，兑换: %s\n", p.PrizeName, p.WinPrizeDesc, p.ExchangeUrl)
+				c.cmd.Printf("，奖品「%s」,说明: %s,兑换: %s\n", p.PrizeName, p.WinPrizeDesc, p.ExchangeUrl)
+				// 当抽到云贝时需要24小时领取不然会出现过期。
+				if strings.Contains(p.PrizeName, "云贝") {
+					c.cmd.Println("    开始自动领取云贝")
+
+					if err = yunbeiClaim(ctx, w, c.l, c.cmd); err != nil {
+						return fmt.Errorf("yunbeiClaim: %w", err)
+					}
+				}
 				break
 			}
 		}

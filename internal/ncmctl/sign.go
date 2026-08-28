@@ -146,31 +146,9 @@ func (c *SignIn) executeYunBeiSign(ctx context.Context, request *weapi.Api) erro
 			// Pending: 满勤签到领取抽奖机会使用ExtraLotteryId,同时也是YunBeiSignLottery方法?
 		}
 
-		// 完成当前时刻可以领取的任务奖励
-		task, taskErr := request.YunBeiTaskTodo(ctx, &weapi.YunBeiTaskTodoReq{})
-		if taskErr != nil {
-			return fmt.Errorf("YunBeiTaskTodo: %w", taskErr)
-		}
-
-		for _, v := range task.Data {
-			if !v.Completed {
-				continue
-			}
-
-			reply, finishErr := request.YunBeiTaskFinish(ctx, &weapi.YunBeiTaskFinishReq{
-				Period:      strconv.FormatInt(v.Period, 10),
-				UserTaskId:  strconv.FormatInt(v.UserTaskId, 10),
-				DepositCode: strconv.FormatInt(v.DepositCode, 10),
-			})
-			if finishErr != nil {
-				c.l.Errorf("YunBeiTaskFinish(%v): %s", v.UserTaskId, finishErr)
-			}
-
-			if reply.Code != 200 {
-				c.l.Errorf("YunBeiTaskFinish(%v) detail:%+v", v.UserTaskId, reply)
-			} else {
-				c.cmd.Printf("  云贝任务: [%s] 获得 %v 云贝\n", v.TaskName, v.TaskPoint)
-			}
+		// 领取奖励
+		if err = yunbeiClaim(ctx, request, c.l, c.cmd); err != nil {
+			return fmt.Errorf("yunbeiClaim: %w", err)
 		}
 	}
 
@@ -303,6 +281,36 @@ func (c *SignIn) executeVipSign(ctx context.Context, weapiRequest *weapi.Api, ea
 		c.l.Warnf("TokenRefresh: %v", refreshErr)
 	} else if refresh.Code != 200 {
 		c.l.Warnf("TokenRefresh: code=%d message=%q", refresh.Code, refresh.Message)
+	}
+	return nil
+}
+
+// yunbeiClaim 完成当前时刻可以领取的任务奖励.
+func yunbeiClaim(ctx context.Context, request *weapi.Api, l *log.Logger, cmd *cobra.Command) error {
+	task, err := request.YunBeiTaskTodo(ctx, &weapi.YunBeiTaskTodoReq{})
+	if err != nil {
+		return fmt.Errorf("YunBeiTaskTodo: %w", err)
+	}
+
+	for _, v := range task.Data {
+		if !v.Completed {
+			continue
+		}
+
+		reply, finishErr := request.YunBeiTaskFinish(ctx, &weapi.YunBeiTaskFinishReq{
+			Period:      strconv.FormatInt(v.Period, 10),
+			UserTaskId:  strconv.FormatInt(v.UserTaskId, 10),
+			DepositCode: strconv.FormatInt(v.DepositCode, 10),
+		})
+		if finishErr != nil {
+			l.Errorf("YunBeiTaskFinish(%v): %s", v.UserTaskId, finishErr)
+		}
+
+		if reply.Code != 200 {
+			l.Errorf("YunBeiTaskFinish(%v) detail:%+v", v.UserTaskId, reply)
+		} else {
+			cmd.Printf("  云贝任务: [%s] 获得 %v 云贝\n", v.TaskName, v.TaskPoint)
+		}
 	}
 	return nil
 }
