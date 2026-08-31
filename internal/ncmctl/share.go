@@ -415,16 +415,6 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 		publish = pub
 	}
 
-	if !c.opts.Draw {
-		c.cmd.Printf("\n每日歌曲挑战完成\n")
-		return nil
-	}
-
-	// 抽奖
-	if err := c.draw(ctx, e, w, g, c.opts.Count, c.opts.countSet); err != nil {
-		return fmt.Errorf("lottery: %w", err)
-	}
-
 	// 删除动态
 	if c.opts.Delete && publish == nil {
 		c.cmd.Println("  删除动态: 本次未发布新动态，--delete 已忽略")
@@ -442,6 +432,13 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 		}
 
 		c.cmd.Printf("  删除动态: 已删除(动态ID %d)\n", publish.ID)
+	}
+
+	// 抽奖
+	if c.opts.Draw {
+		if err := c.draw(ctx, e, w, g, c.opts.Count, c.opts.countSet); err != nil {
+			return fmt.Errorf("lottery: %w", err)
+		}
 	}
 
 	c.cmd.Printf("\n每日歌曲挑战完成\n")
