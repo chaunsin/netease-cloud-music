@@ -130,11 +130,13 @@ func (c *Partner) execute(ctx context.Context) error {
 		return fmt.Errorf("validate: %w", err)
 	}
 
+	c.cmd.Printf("\n🤝 音乐合伙人测评\n\n")
+
 	if err := c.do(ctx); err != nil {
 		return err
 	}
 
-	c.cmd.Printf("%s execute success\n", time.Now())
+	c.cmd.Printf("\n音乐合伙人测评完成\n")
 	return nil
 }
 
@@ -167,6 +169,7 @@ func (c *Partner) do(ctx context.Context) error {
 
 	switch status := info.Data.Status; status {
 	case "NORMAL":
+		c.cmd.Printf("  账号状态: NORMAL（具备测评资格）\n")
 	case "ELIMINATED":
 		return errors.New("您没有测评资格或失去测评资格! ")
 	default:
@@ -179,7 +182,8 @@ func (c *Partner) do(ctx context.Context) error {
 		randomNum int // 扩展歌曲总共要执行的次数
 	)
 	defer func() {
-		c.cmd.Printf("report: 基础歌曲完成数量(%v) 扩展歌曲完成数量(%v/%v)\n", baseNum, extNum, randomNum)
+		c.cmd.Printf("  基础任务: 完成 %v 首\n", baseNum)
+		c.cmd.Printf("  扩展任务: 完成 %v/%v 首\n", extNum, randomNum)
 	}()
 
 	// 获取每日基本任务5首歌曲列表并执行测评

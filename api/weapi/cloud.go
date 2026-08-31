@@ -108,7 +108,7 @@ func (a *Api) CloudList(ctx context.Context, req *CloudListReq) (*CloudListResp,
 	var (
 		url   = "https://music.163.com/weapi/v1/cloud/get"
 		reply CloudListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CloudList")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -171,7 +171,7 @@ func (a *Api) CloudTokenAlloc(ctx context.Context, req *CloudTokenAllocReq) (*Cl
 	var (
 		url   = "https://music.163.com/weapi/nos/token/alloc"
 		reply CloudTokenAllocResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CloudTokenAlloc")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -215,7 +215,7 @@ func (a *Api) CloudUploadCheck(ctx context.Context, req *CloudUploadCheckReq) (*
 	var (
 		url   = "https://interface.music.163.com/weapi/cloud/upload/check"
 		reply CloudUploadCheckResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CloudUploadCheck")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -268,7 +268,7 @@ func (a *Api) CloudUploadCheckV2(ctx context.Context, req *CloudUploadCheckV2Req
 	var (
 		url   = "https://interface.music.163.com/weapi/cloud/upload/check/v2"
 		reply CloudUploadCheckV2Resp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CloudUploadCheckV2")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -436,7 +436,7 @@ func (a *Api) CloudUpload(ctx context.Context, req *CloudUploadReq) (*CloudUploa
 			return nil, fmt.Errorf("splitFile: %w", err)
 		}
 
-		opts := api.NewOptions().SetMethod(http.MethodPost).SetHeaders(headers)
+		opts := api.NewOptions("weapi.CloudUpload").SetMethod(http.MethodPost).SetHeaders(headers)
 		resp, err = a.client.Upload(ctx, _addr, bytes.NewReader(partData), &reply, opts, req.ProgressBar)
 		log.Debugf("upload addr: %s chunk %d/%d, offset: %d, complete: %v, resp: %+v",
 			addr, i+1, chunks, start, complete, reply.ErrCode)
@@ -566,7 +566,7 @@ func (a *Api) CloudInfo(ctx context.Context, req *CloudInfoReq) (*CloudInfoResp,
 	var (
 		url   = "https://music.163.com/weapi/upload/cloud/info/v2" // 是api还是weapi？
 		reply CloudInfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CloudInfo")
 	)
 
 	if req.Album == "" {
@@ -610,7 +610,7 @@ func (a *Api) CloudMusicStatus(ctx context.Context, req *CloudMusicStatusReq) (*
 	var (
 		url   = "https://music.163.com/weapi/v1/cloud/music/status"
 		reply CloudMusicStatusResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CloudMusicStatus")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -641,7 +641,7 @@ func (a *Api) CloudPublish(ctx context.Context, req *CloudPublishReq) (*CloudPub
 	var (
 		url   = "https://interface.music.163.com/weapi/cloud/pub/v2"
 		reply CloudPublishResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CloudPublish")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -673,7 +673,7 @@ func (a *Api) CloudDownload(ctx context.Context, req *CloudDownloadReq) (*CloudD
 	var (
 		url   = "https://music.163.com/weapi/cloud/dowonload"
 		reply CloudDownloadResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CloudDownload")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -706,7 +706,7 @@ func (a *Api) CloudLyric(ctx context.Context, req *CloudLyricReq) (*CloudLyricRe
 	var (
 		url   = "https://music.163.com/weapi/cloud/lyric/get"
 		reply CloudLyricResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CloudLyric")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -739,7 +739,7 @@ func (a *Api) CloudDel(ctx context.Context, req *CloudDelReq) (*CloudDelResp, er
 	var (
 		url   = "https://music.163.com/weapi/cloud/del"
 		reply CloudDelResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CloudDel")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -767,7 +767,7 @@ func (a *Api) CloudUploadNode(ctx context.Context, req *CloudUploadNodeReq) (*Cl
 	var (
 		url   = "http://wanproxy.127.net/lbs?version=%s"
 		reply CloudUploadNodeResp
-		opts  = api.NewOptions().SetAPI().SetMethod(http.MethodGet)
+		opts  = api.NewOptions("weapi.CloudUploadNode").SetAPI().SetMethod(http.MethodGet)
 	)
 
 	if req.Version == "" {

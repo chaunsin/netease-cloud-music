@@ -50,7 +50,7 @@ func (a *Api) FansGroupDetailGet(ctx context.Context, req *FansGroupDetailGetReq
 	var (
 		url   = "https://interface3.music.163.com/eapi/social/fansgroup/bff/detail/get?" + queryParams
 		reply FansGroupDetailGetResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.FansGroupDetailGet").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -131,7 +131,7 @@ func (a *Api) FansGroupMissionAll(ctx context.Context, req *FansGroupMissionAllR
 	var (
 		url   = "https://interface3.music.163.com/eapi/fans/group/mission/all?fansGroupId=" + req.FansGroupId
 		reply FansGroupMissionAllResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.FansGroupMissionAll").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -176,7 +176,7 @@ func (a *Api) FansGroupFeedRecommend(ctx context.Context, req *FansGroupFeedReco
 
 	var (
 		reply      FansGroupFeedRecommendResp
-		opts       = api.NewOptions().SetEAPI()
+		opts       = api.NewOptions("eapi.FansGroupFeedRecommend").SetEAPI()
 		requestURL = fmt.Sprintf(
 			"https://interface3.music.163.com/eapi/fans/group/feed/recommend/get?artistSelf=%s&cursor=%s&fansGroupId=%s&size=%s",
 			req.ArtistSelf,
@@ -225,7 +225,7 @@ func (a *Api) FansGroupMissionForwardProgress(ctx context.Context, req *FansGrou
 
 	var (
 		reply      FansGroupMissionForwardProgressResp
-		opts       = api.NewOptions().SetEAPI()
+		opts       = api.NewOptions("eapi.FansGroupMissionForwardProgress").SetEAPI()
 		requestURL = fmt.Sprintf(
 			"https://interface3.music.163.com/eapi/fans/group/mission/forward/progress?resourceId=%s&action=%s&fansGroupId=%s&resourceType=%s",
 			req.ResourceId,
@@ -260,7 +260,7 @@ func (a *Api) ResourceLike(ctx context.Context, req *ResourceLikeReq) (*Resource
 	var (
 		url   = "https://interface3.music.163.com/eapi/resource/like"
 		reply ResourceLikeResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.ResourceLike").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -304,7 +304,7 @@ func (a *Api) FansGroupUserGroupDetailGet(ctx context.Context, req *FansGroupUse
 	var (
 		url   = "https://interface3.music.163.com/eapi/social/fansgroup/bff/user/group/detail/get?groupId=" + req.GroupId
 		reply FansGroupUserGroupDetailGetResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.FansGroupUserGroupDetailGet").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

@@ -206,7 +206,7 @@ func (a *Api) TopNewSongs(ctx context.Context, req *TopNewSongsReq) (*TopNewSong
 	var (
 		url   = "https://music.163.com/weapi/v1/discovery/new/songs"
 		reply TopNewSongsResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.TopNewSongs")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -282,7 +282,7 @@ func (a *Api) TopList(ctx context.Context, req *TopListReq) (*TopListResp, error
 	var (
 		url   = "https://music.163.com/api/toplist"
 		reply TopListResp
-		opts  = api.NewOptions().SetAPI()
+		opts  = api.NewOptions("weapi.TopList").SetAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

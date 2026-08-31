@@ -24,7 +24,7 @@ func (a *Api) CDNList(ctx context.Context, req *CDNListReq) (*CDNListResp, error
 	var (
 		url   = "https://music.163.com/weapi/cdns"
 		reply CDNListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CDNList")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

@@ -105,20 +105,22 @@ func New(cfg *Config) *Logger {
 		level.Set(slog.LevelDebug)
 	}
 
-	opts := slog.HandlerOptions{
-		AddSource:   true,
-		Level:       &level,
-		ReplaceAttr: nil,
-	}
+	var (
+		opts = slog.HandlerOptions{
+			AddSource:   true,
+			Level:       &level,
+			ReplaceAttr: nil,
+		}
+		w    = []io.Writer{&cfg.Rotate}
+		h    slog.Handler
+		skip = new(atomic.Int32)
+	)
 
-	var w []io.Writer
+	skip.Store(3) // default 3
+
 	if cfg.Stdout {
 		w = append(w, os.Stderr)
 	}
-
-	w = append(w, &cfg.Rotate)
-
-	var h slog.Handler
 
 	switch cfg.Format {
 	case "json":
@@ -129,17 +131,12 @@ func New(cfg *Config) *Logger {
 		h = slog.NewTextHandler(io.MultiWriter(w...), &opts)
 	}
 
-	h = h.WithAttrs([]slog.Attr{slog.String("app", cfg.App)})
-	skip := new(atomic.Int32)
-	skip.Store(3)
-
-	l := Logger{
+	return &Logger{
 		cfg:   cfg,
-		l:     slog.New(h),
+		l:     slog.New(h.WithAttrs([]slog.Attr{slog.String("app", cfg.App)})),
 		level: &level,
-		skip:  skip, // default 3
+		skip:  skip,
 	}
-	return &l
 }
 
 func (l *Logger) Close() error {

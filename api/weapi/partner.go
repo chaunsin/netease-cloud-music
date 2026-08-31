@@ -25,7 +25,7 @@ func (a *Api) PartnerHotPopup(ctx context.Context, req *PartnerHotPopupReq) (*Pa
 	var (
 		url   = "https://interface3.music.163.com/weapi/music/partner/user/hot/popup/get"
 		reply PartnerHotPopupResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerHotPopup")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -158,7 +158,7 @@ func (a *Api) PartnerWeek(ctx context.Context, req *PartnerWeekReq) (*PartnerWee
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/week/result/get"
 		reply PartnerWeekResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerWeek")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -287,7 +287,7 @@ func (a *Api) PartnerPeriod(ctx context.Context, req *PartnerPeriodReq) (*Partne
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/period/result/get"
 		reply PartnerPeriodResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerPeriod")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -350,7 +350,7 @@ func (a *Api) PartnerUserinfo(ctx context.Context, req *PartnerUserinfoReq) (*Pa
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/user/info/get"
 		reply PartnerUserinfoResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerUserinfo")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -386,7 +386,7 @@ func (a *Api) PartnerLatest(ctx context.Context, req *PartnerLatestReq) (*Partne
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/latest/settle/period/get"
 		reply PartnerLatestResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerLatest")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -440,7 +440,7 @@ func (a *Api) PartnerHome(ctx context.Context, req *PartnerHomeReq) (*PartnerHom
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/home/get"
 		reply PartnerHomeResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerHome")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -542,7 +542,7 @@ func (a *Api) PartnerDailyTask(ctx context.Context, req *PartnerTaskReq) (*Partn
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/daily/task/get"
 		reply PartnerTaskResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerDailyTask")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -575,7 +575,7 @@ func (a *Api) PartnerPickRight(ctx context.Context, req *PartnerPickRightReq) (*
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/song/pick/right/get"
 		reply PartnerPickRightResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerPickRight")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -605,7 +605,7 @@ func (a *Api) PartnerNotice(ctx context.Context, req *PartnerNoticeReq) (*Partne
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/daily/notice/switch/get"
 		reply PartnerNoticeResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerNotice")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -782,7 +782,7 @@ func (a *Api) PartnerEvaluate(ctx context.Context, req *PartnerEvaluateReq) (*Pa
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/work/evaluate"
 		reply PartnerEvaluateResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerEvaluate")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -827,7 +827,7 @@ func (a *Api) PartnerExtraTask(ctx context.Context, req *PartnerExtraTaskReq) (*
 	var (
 		url   = "https://interface.music.163.com/api/music/partner/extra/wait/evaluate/work/list"
 		reply PartnerExtraTaskResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerExtraTask")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -867,7 +867,7 @@ func (a *Api) PartnerExtraReport(ctx context.Context, req *PartnerExtraReportReq
 	var (
 		url   = "https://interface.music.163.com/weapi/partner/resource/interact/report"
 		reply PartnerExtraReportResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerExtraReport")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -906,7 +906,7 @@ func (a *Api) PartnerContentAntispam(ctx context.Context, req *PartnerContentAnt
 	var (
 		url   = "https://interface.music.163.com/weapi/music/partner/custom/content/antispam"
 		reply PartnerContentAntispamResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.PartnerContentAntispam")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)

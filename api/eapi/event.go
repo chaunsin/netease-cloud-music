@@ -92,7 +92,7 @@ func (a *Api) EventPublish(ctx context.Context, req *EventPublishReq) (*EventPub
 	var (
 		url   = "https://interface3.music.163.com/eapi/note/share/friends/resource"
 		reply EventPublishResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.EventPublish").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -123,7 +123,7 @@ func (a *Api) EventDelete(ctx context.Context, req *EventDeleteReq) (*EventDelet
 	var (
 		url   = "https://interface3.music.163.com/eapi/event/delete"
 		reply EventDeleteResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.EventDelete").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -198,7 +198,7 @@ type eventUploadImgReq struct {
 
 // uploadEventImage 上传单张动态图片并返回其 picInfo。
 // uploadNode 为预先获取的 NOS 上传节点地址 (由 getUploadNode 返回)。
-func (a *Api) uploadEventImage(ctx context.Context, filePath, uploadNode string, index int) (*eventImgPicInfo, error) {
+func (a *Api) uploadEventImage(ctx context.Context, funcName, filePath, uploadNode string, index int) (*eventImgPicInfo, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
@@ -223,7 +223,7 @@ func (a *Api) uploadEventImage(ctx context.Context, filePath, uploadNode string,
 			Type:       "image",
 		}
 		tokenReply eventNosTokenResp
-		tokenOpts  = api.NewOptions().SetEAPI()
+		tokenOpts  = api.NewOptions(funcName).SetEAPI()
 	)
 
 	if _, err = a.client.Request(ctx, tokenURL, tokenReq, &tokenReply, tokenOpts); err != nil {
@@ -242,7 +242,7 @@ func (a *Api) uploadEventImage(ctx context.Context, filePath, uploadNode string,
 			"X-Nos-Token":  tokenReply.Result.Token,
 			"Content-Type": utils.DetectContentType(data, ext),
 		}
-		opts = api.NewOptions().SetMethod(http.MethodPut).SetHeaders(headers)
+		opts = api.NewOptions(funcName).SetMethod(http.MethodPut).SetHeaders(headers)
 	)
 
 	reply, err := a.client.Upload(ctx, uploadURL, bytes.NewReader(data), nil, opts, nil) // resp 暂时为空后续补充
@@ -260,7 +260,7 @@ func (a *Api) uploadEventImage(ctx context.Context, filePath, uploadNode string,
 			Format: ext,
 		}
 		imgReply eventUploadImgResp
-		imgOpts  = api.NewOptions().SetEAPI()
+		imgOpts  = api.NewOptions(funcName).SetEAPI()
 	)
 
 	if _, err := a.client.Request(ctx, imgURL, imgReq, &imgReply, imgOpts); err != nil {
@@ -294,7 +294,7 @@ func (a *Api) EventUploadImage(ctx context.Context, filePath string) (string, er
 		return "", fmt.Errorf("get upload node: %w", err)
 	}
 
-	picInfo, err := a.uploadEventImage(ctx, filePath, uploadNode, 0)
+	picInfo, err := a.uploadEventImage(ctx, "eapi.EventUploadImage", filePath, uploadNode, 0)
 	if err != nil {
 		return "", err
 	}
@@ -317,7 +317,7 @@ func (a *Api) EventUploadImages(ctx context.Context, filePaths []string) (string
 
 	pics := make([]eventImgPicInfo, 0, len(filePaths))
 	for i, fp := range filePaths {
-		picInfo, uploadErr := a.uploadEventImage(ctx, fp, uploadNode, i)
+		picInfo, uploadErr := a.uploadEventImage(ctx, "eapi.EventUploadImages", fp, uploadNode, i)
 		if uploadErr != nil {
 			return "", fmt.Errorf("uploadEventImage %s: %w", fp, uploadErr)
 		}

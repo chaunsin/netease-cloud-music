@@ -60,6 +60,9 @@ Run selected account tasks on cron schedules as a long-running service. Login is
 # No selectors means all three jobs
 ncmctl task
 
+# Explicitly schedule the daily public song challenge
+ncmctl task --share
+
 # Only sign and scrobble
 ncmctl task --sign --scrobble
 
@@ -71,13 +74,20 @@ ncmctl task --scrobble \
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--runAll` | false | Register all jobs; no selectors has the same effect |
+| `--runAll` | false | Register all four jobs (sign, partner, scrobble, daily song challenge) |
 | `--sign` | false | Register the sign job |
 | `--partner` | false | Register the partner job |
 | `--scrobble` | false | Register the scrobble job |
+| `--share` | false | Register the public daily song challenge job |
 | `--sign.cron` | `0 10 * * *` | Sign schedule |
 | `--partner.cron` | `0 18 * * *` | Partner schedule |
 | `--scrobble.cron` | `0 18 * * *` | Scrobble schedule |
+| `--share.cron` | `0 9 * * *` | Daily song challenge schedule |
+| `--share.song-id` | empty | Fixed song ID; empty uses daily recommendations |
+| `--share.image` | empty | Fixed local image; empty uses the song cover |
+| `--share.title` / `--share.message` | empty | Text overrides |
+| `--share.draw` | true | Draw server-reported rewards after publishing |
+| `--share.delete` | false | Delete only the new note after lottery; may affect full attendance |
 | `--sign.automatic` | false | Claim available sign rewards and eligible VIP rewards; increased account risk |
 | `--partner.star` | `3,4` | Base evaluation score choices, each 1-5 |
 | `--partner.extStar` | `2,3,4` | Extra evaluation score choices, each 1-5 |
@@ -86,6 +96,16 @@ ncmctl task --scrobble \
 | `-l, --location` | `Asia/Shanghai` | IANA timezone for cron |
 
 Schedules use standard five-field cron syntax. Press Ctrl+C or send SIGTERM to stop the service.
+
+## share
+
+Publish a public song note for the daily challenge. It changes account state, draws by default, and keeps the note by default. `status` is read-only; `draw --count N` consumes existing server-reported chances. `--dry-run` does not register, upload, publish, trigger, draw, or delete. `--delete` requires the publish command with `--draw=true` and only targets the event created in that run.
+
+```bash
+ncmctl share status
+ncmctl share --song-id 1820944399
+ncmctl share draw --count 1
+```
 
 ## sign
 

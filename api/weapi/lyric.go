@@ -55,7 +55,7 @@ func (a *Api) Lyric(ctx context.Context, req *LyricReq) (*LyricResp, error) {
 	var (
 		url   = "https://music.163.com/weapi/song/lyric"
 		reply LyricResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.Lyric")
 	)
 
 	if req.TV == 0 {
@@ -128,7 +128,7 @@ func (a *Api) LyricV1(ctx context.Context, req *LyricV1Req) (*LyricV1Resp, error
 	var (
 		url   = "https://music.163.com/weapi/song/lyric/v1"
 		reply LyricV1Resp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.LyricV1")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -154,7 +154,7 @@ func (a *Api) SongLyricsMark(ctx context.Context, req *SongLyricsMarkReq) (*Song
 	var (
 		url   = "https://music.163.com/weapi/song/lyrics/mark"
 		reply SongLyricsMarkResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SongLyricsMark")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

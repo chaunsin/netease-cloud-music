@@ -154,7 +154,7 @@ func (a *Api) Album(ctx context.Context, req *AlbumReq) (*AlbumResp, error) {
 	var (
 		url   = fmt.Sprintf("https://music.163.com/weapi/v1/album/%v", req.Id)
 		reply AlbumResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.Album")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

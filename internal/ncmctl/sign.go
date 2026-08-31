@@ -74,6 +74,8 @@ func (c *SignIn) execute(ctx context.Context) error {
 		return fmt.Errorf("validate: %w", err)
 	}
 
+	c.cmd.Printf("\n🔔 签到任务\n\n")
+
 	cli, err := api.NewClient(c.root.Cfg.Network, c.l)
 	if err != nil {
 		return fmt.Errorf("NewClient: %w", err)
@@ -91,7 +93,12 @@ func (c *SignIn) execute(ctx context.Context) error {
 		return err
 	}
 
-	return c.executeVipSign(ctx, request, eapi.New(cli), time.Now().UnixMilli())
+	if err := c.executeVipSign(ctx, request, eapi.New(cli), time.Now().UnixMilli()); err != nil {
+		return err
+	}
+
+	c.cmd.Printf("\n签到完成\n")
+	return nil
 }
 
 // executeYunBeiSign 执行云贝签到.
@@ -106,9 +113,9 @@ func (c *SignIn) executeYunBeiSign(ctx context.Context, request *weapi.Api) erro
 	}
 
 	if resp.Data.Sign {
-		c.cmd.Println("云贝签到成功")
+		c.cmd.Println("  云贝签到: 成功")
 	} else {
-		c.cmd.Println("云贝已签到")
+		c.cmd.Println("  云贝签到: 已签到")
 	}
 
 	// 获取签到进度
@@ -134,36 +141,14 @@ func (c *SignIn) executeYunBeiSign(ctx context.Context, request *weapi.Api) erro
 			}
 
 			if reply.Data {
-				c.cmd.Printf("云贝连续签到天数=%v,奖励内容=%v 领取成功\n", v.SignDay, v.BaseGrant.Name)
+				c.cmd.Printf("  云贝连续签到: 第 %v 天（奖励「%v」已领取）\n", v.SignDay, v.BaseGrant.Name)
 			}
 			// Pending: 满勤签到领取抽奖机会使用ExtraLotteryId,同时也是YunBeiSignLottery方法?
 		}
 
-		// 完成当前时刻可以领取的任务奖励
-		task, taskErr := request.YunBeiTaskTodo(ctx, &weapi.YunBeiTaskTodoReq{})
-		if taskErr != nil {
-			return fmt.Errorf("YunBeiTaskTodo: %w", taskErr)
-		}
-
-		for _, v := range task.Data {
-			if !v.Completed {
-				continue
-			}
-
-			reply, finishErr := request.YunBeiTaskFinish(ctx, &weapi.YunBeiTaskFinishReq{
-				Period:      strconv.FormatInt(v.Period, 10),
-				UserTaskId:  strconv.FormatInt(v.UserTaskId, 10),
-				DepositCode: strconv.FormatInt(v.DepositCode, 10),
-			})
-			if finishErr != nil {
-				c.l.Errorf("YunBeiTaskFinish(%v): %s", v.UserTaskId, finishErr)
-			}
-
-			if reply.Code != 200 {
-				c.l.Errorf("YunBeiTaskFinish(%v) detail:%+v", v.UserTaskId, reply)
-			} else {
-				c.cmd.Printf("云贝 [%s] 任务完成获得云贝数量 %v\n", v.TaskName, v.TaskPoint)
-			}
+		// 领取奖励
+		if err = yunbeiClaim(ctx, request, c.l, c.cmd); err != nil {
+			return fmt.Errorf("yunbeiClaim: %w", err)
 		}
 	}
 
@@ -184,12 +169,12 @@ func (c *SignIn) executeVipSign(ctx context.Context, weapiRequest *weapi.Api, ea
 	// VIP entitlement gates growth rewards only; Music Sign is available without it.
 	hasVipEntitlement := vip.Data.UserLevel.LatestVipStatus == 1
 	if !hasVipEntitlement {
-		c.cmd.Println("VIP 权益: 暂无, 仅执行乐签")
+		c.cmd.Println("  VIP 权益: 暂无（仅执行乐签）")
 	}
 
 	maxLevel := vip.Data.UserLevel.MaxLevel
 	if maxLevel {
-		c.cmd.Println("VIP 等级: 已满级")
+		c.cmd.Println("  VIP 等级: 已满级")
 	}
 
 	vipSign, err := eapiRequest.VipTaskSign(ctx, &eapi.VipTaskSignReq{})
@@ -202,11 +187,11 @@ func (c *SignIn) executeVipSign(ctx context.Context, weapiRequest *weapi.Api, ea
 	}
 
 	if vipSign.Data {
-		c.cmd.Println("黑胶乐签: 成功")
+		c.cmd.Println("  黑胶乐签: 成功")
 	} else if message := strings.TrimSpace(vipSign.Message); message != "" {
-		c.cmd.Printf("黑胶乐签: %s\n", message)
+		c.cmd.Printf("  黑胶乐签: %s\n", message)
 	} else {
-		c.cmd.Println("黑胶乐签: 本次未完成")
+		c.cmd.Println("  黑胶乐签: 本次未完成")
 	}
 
 	// The desktop client refreshes the detail and both card variants after signing.
@@ -229,11 +214,11 @@ func (c *SignIn) executeVipSign(ctx context.Context, weapiRequest *weapi.Api, ea
 
 		switch {
 		case songName != "" && artistName != "":
-			c.cmd.Printf("  今日歌曲: %s - %s\n", songName, artistName)
+			c.cmd.Printf("    今日歌曲: %s - %s\n", songName, artistName)
 		case songName != "":
-			c.cmd.Printf("  今日歌曲: %s\n", songName)
+			c.cmd.Printf("    今日歌曲: %s\n", songName)
 		case artistName != "":
-			c.cmd.Printf("  今日歌手: %s\n", artistName)
+			c.cmd.Printf("    今日歌手: %s\n", artistName)
 		}
 	}
 
@@ -268,11 +253,11 @@ func (c *SignIn) executeVipSign(ctx context.Context, weapiRequest *weapi.Api, ea
 
 	switch {
 	case detail.Data.MonthCheckInTotalDay > 0 && monthTip != "":
-		c.cmd.Printf("  %s: 已签 %d 天, %s\n", monthTitle, detail.Data.MonthCheckInTotalDay, monthTip)
+		c.cmd.Printf("    %s: 已签 %d 天，%s\n", monthTitle, detail.Data.MonthCheckInTotalDay, monthTip)
 	case detail.Data.MonthCheckInTotalDay > 0:
-		c.cmd.Printf("  %s: 已签 %d 天\n", monthTitle, detail.Data.MonthCheckInTotalDay)
+		c.cmd.Printf("    %s: 已签 %d 天\n", monthTitle, detail.Data.MonthCheckInTotalDay)
 	case monthTip != "":
-		c.cmd.Printf("  %s:%s\n", monthTitle, monthTip)
+		c.cmd.Printf("    %s: %s\n", monthTitle, monthTip)
 	}
 
 	if c.opts.Automatic && hasVipEntitlement && !maxLevel {
@@ -282,11 +267,11 @@ func (c *SignIn) executeVipSign(ctx context.Context, weapiRequest *weapi.Api, ea
 		}
 
 		if reward.Data.Result {
-			c.cmd.Println("VIP 成长值: 领取成功")
+			c.cmd.Println("  VIP 成长值: 领取成功")
 		} else if message := strings.TrimSpace(reward.Message); message != "" {
-			c.cmd.Printf("VIP 成长值: %s\n", message)
+			c.cmd.Printf("  VIP 成长值: %s\n", message)
 		} else {
-			c.cmd.Println("VIP 成长值: 未领取")
+			c.cmd.Println("  VIP 成长值: 未领取")
 		}
 	}
 
@@ -296,6 +281,36 @@ func (c *SignIn) executeVipSign(ctx context.Context, weapiRequest *weapi.Api, ea
 		c.l.Warnf("TokenRefresh: %v", refreshErr)
 	} else if refresh.Code != 200 {
 		c.l.Warnf("TokenRefresh: code=%d message=%q", refresh.Code, refresh.Message)
+	}
+	return nil
+}
+
+// yunbeiClaim 完成当前时刻可以领取的任务奖励.
+func yunbeiClaim(ctx context.Context, request *weapi.Api, l *log.Logger, cmd *cobra.Command) error {
+	task, err := request.YunBeiTaskTodo(ctx, &weapi.YunBeiTaskTodoReq{})
+	if err != nil {
+		return fmt.Errorf("YunBeiTaskTodo: %w", err)
+	}
+
+	for _, v := range task.Data {
+		if !v.Completed {
+			continue
+		}
+
+		reply, finishErr := request.YunBeiTaskFinish(ctx, &weapi.YunBeiTaskFinishReq{
+			Period:      strconv.FormatInt(v.Period, 10),
+			UserTaskId:  strconv.FormatInt(v.UserTaskId, 10),
+			DepositCode: strconv.FormatInt(v.DepositCode, 10),
+		})
+		if finishErr != nil {
+			l.Errorf("YunBeiTaskFinish(%v): %s", v.UserTaskId, finishErr)
+		}
+
+		if reply.Code != 200 {
+			l.Errorf("YunBeiTaskFinish(%v) detail:%+v", v.UserTaskId, reply)
+		} else {
+			cmd.Printf("  云贝任务: [%s] 获得 %v 云贝\n", v.TaskName, v.TaskPoint)
+		}
 	}
 	return nil
 }

@@ -224,7 +224,7 @@ func (a *Api) V3SongDetail(ctx context.Context, req *V3SongDetailReq) (*V3SongDe
 	var (
 		url   = "https://music.163.com/eapi/v3/song/detail"
 		reply V3SongDetailResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.V3SongDetail").SetEAPI()
 	)
 
 	// "[{\"id\":\"1974334953\",\"v\":0}]
@@ -273,7 +273,7 @@ func (a *Api) DiscoveryRecommendSongs(ctx context.Context, req *DiscoveryRecomme
 	var (
 		url   = "https://interface3.music.163.com/eapi/v3/discovery/recommend/songs"
 		reply DiscoveryRecommendSongsResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.DiscoveryRecommendSongs").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -303,7 +303,7 @@ func (a *Api) SongLike(ctx context.Context, req *SongLikeReq) (*SongLikeResp, er
 	var (
 		url   = "https://interface3.music.163.com/eapi/song/like"
 		reply SongLikeResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.SongLike").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

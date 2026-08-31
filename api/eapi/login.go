@@ -53,7 +53,7 @@ func (a *Api) QrcodeCreateKey(ctx context.Context, req *QrcodeCreateKeyReq) (*Qr
 	var (
 		url   = "https://music.163.com/eapi/login/qrcode/unikey"
 		reply QrcodeCreateKeyResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.QrcodeCreateKey").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -125,7 +125,7 @@ func (a *Api) QrcodeCheck(ctx context.Context, req *QrcodeCheckReq) (*QrcodeChec
 	var (
 		url   = "https://music.163.com/eapi/login/qrcode/client/login"
 		reply QrcodeCheckResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.QrcodeCheck").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -210,7 +210,7 @@ func (a *Api) GetUserInfo(ctx context.Context, req *GetUserInfoReq) (*GetUserInf
 	var (
 		url   = "https://music.163.com/eapi/w/nuser/account/get"
 		reply GetUserInfoResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.GetUserInfo").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -237,7 +237,7 @@ func (a *Api) TokenRefresh(ctx context.Context, req *TokenRefreshReq) (*TokenRef
 	var (
 		url   = "https://music.163.com/eapi/login/token/refresh"
 		reply TokenRefreshResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.TokenRefresh").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

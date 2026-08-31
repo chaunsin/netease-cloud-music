@@ -58,7 +58,7 @@ func TestExecuteYunBeiSignWithoutAutomaticOnlySigns(t *testing.T) {
 	err := command.executeYunBeiSign(context.Background(), weapi.New(client))
 	require.NoError(t, err)
 	assert.Equal(t, []string{"/weapi/pointmall/user/sign"}, transport.paths)
-	assert.Equal(t, "云贝已签到\n", output.String())
+	assert.Equal(t, "  云贝签到: 已签到\n", output.String())
 }
 
 func TestExecuteYunBeiSignAutomaticPreservesRewardFlow(t *testing.T) {
@@ -91,9 +91,9 @@ func TestExecuteYunBeiSignAutomaticPreservesRewardFlow(t *testing.T) {
 		"/weapi/usertool/task/todo/query",
 		"/weapi/usertool/task/point/receive",
 	}, transport.paths)
-	assert.Equal(t, "云贝签到成功\n"+
-		"云贝连续签到天数=3,奖励内容=3云贝 领取成功\n"+
-		"云贝 [分享歌曲] 任务完成获得云贝数量 2\n", output.String())
+	assert.Equal(t, "  云贝签到: 成功\n"+
+		"  云贝连续签到: 第 3 天（奖励「3云贝」已领取）\n"+
+		"  云贝任务: [分享歌曲] 获得 2 云贝\n", output.String())
 }
 
 func TestExecuteVipSignAtMaxLevelSkipsReward(t *testing.T) {
@@ -123,10 +123,10 @@ func TestExecuteVipSignAtMaxLevelSkipsReward(t *testing.T) {
 		"/eapi/vipnewcenter/app/minidesk/music/sign/pc",
 		"/weapi/login/token/refresh",
 	}, transport.paths)
-	assert.Equal(t, "VIP 等级: 已满级\n"+
-		"黑胶乐签: 成功\n"+
-		"  今日歌曲: Locked Out of Heaven - Bruno Mars\n"+
-		"  8月黑胶乐签: 已签 3 天, 再打卡4天得3天高清臻音\n", output.String())
+	assert.Equal(t, "  VIP 等级: 已满级\n"+
+		"  黑胶乐签: 成功\n"+
+		"    今日歌曲: Locked Out of Heaven - Bruno Mars\n"+
+		"    8月黑胶乐签: 已签 3 天，再打卡4天得3天高清臻音\n", output.String())
 }
 
 func TestExecuteVipSignClaimsRewardAfterFlow(t *testing.T) {
@@ -161,10 +161,10 @@ func TestExecuteVipSignClaimsRewardAfterFlow(t *testing.T) {
 		"/weapi/vipnewcenter/app/level/task/reward/getall",
 		"/weapi/login/token/refresh",
 	}, transport.paths)
-	assert.Equal(t, "黑胶乐签: 成功\n"+
-		"  今日歌曲: Locked Out of Heaven - Bruno Mars\n"+
-		"  8月黑胶乐签: 已签 3 天, 再打卡4天得3天高清臻音\n"+
-		"VIP 成长值: 领取成功\n", output.String())
+	assert.Equal(t, "  黑胶乐签: 成功\n"+
+		"    今日歌曲: Locked Out of Heaven - Bruno Mars\n"+
+		"    8月黑胶乐签: 已签 3 天，再打卡4天得3天高清臻音\n"+
+		"  VIP 成长值: 领取成功\n", output.String())
 }
 
 func TestExecuteVipSignPrintsServerMessageWhenNotCompleted(t *testing.T) {
@@ -180,9 +180,9 @@ func TestExecuteVipSignPrintsServerMessageWhenNotCompleted(t *testing.T) {
 
 	err := command.executeVipSign(context.Background(), weapi.New(client), eapi.New(client), 1785913200098)
 	require.NoError(t, err)
-	assert.Equal(t, "黑胶乐签: 今日已乐签\n"+
-		"  今日歌曲: Locked Out of Heaven - Bruno Mars\n"+
-		"  8月黑胶乐签: 已签 3 天, 再打卡4天得3天高清臻音\n", output.String())
+	assert.Equal(t, "  黑胶乐签: 今日已乐签\n"+
+		"    今日歌曲: Locked Out of Heaven - Bruno Mars\n"+
+		"    8月黑胶乐签: 已签 3 天，再打卡4天得3天高清臻音\n", output.String())
 }
 
 func TestExecuteVipSignStopsWhenDetailRefreshFails(t *testing.T) {
@@ -227,10 +227,10 @@ func TestExecuteVipSignWithoutVipContinuesSignFlow(t *testing.T) {
 		"/eapi/vipnewcenter/app/minidesk/music/sign/pc",
 		"/weapi/login/token/refresh",
 	}, transport.paths)
-	assert.Equal(t, "VIP 权益: 暂无, 仅执行乐签\n"+
-		"黑胶乐签: 成功\n"+
-		"  今日歌曲: Locked Out of Heaven - Bruno Mars\n"+
-		"  8月黑胶乐签: 已签 3 天, 再打卡4天得3天高清臻音\n", output.String())
+	assert.Equal(t, "  VIP 权益: 暂无（仅执行乐签）\n"+
+		"  黑胶乐签: 成功\n"+
+		"    今日歌曲: Locked Out of Heaven - Bruno Mars\n"+
+		"    8月黑胶乐签: 已签 3 天，再打卡4天得3天高清臻音\n", output.String())
 }
 
 func newSignFlowClient(t *testing.T, responses [][]byte) (*api.Client, *signFlowTransport) {

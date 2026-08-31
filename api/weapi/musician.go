@@ -29,7 +29,7 @@ func (a *Api) MusicianSign(ctx context.Context, req *MusicianSignReq) (*Musician
 	var (
 		url   = "https://music.163.com/weapi/creator/user/access"
 		reply MusicianSignResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.MusicianSign")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -77,7 +77,7 @@ func (a *Api) MusicianTasks(ctx context.Context, req *MusicianTasksReq) (*Musici
 	var (
 		url   = "https://music.163.com/weapi/nmusician/workbench/mission/cycle/list"
 		reply MusicianTasksResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.MusicianTasks")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -103,7 +103,7 @@ func (a *Api) MusicianTasksNew(ctx context.Context, req *MusicianTasksNewReq) (*
 	var (
 		url   = "https://music.163.com/weapi/nmusician/workbench/mission/stage/list"
 		reply MusicianTasksNewResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.MusicianTasksNew")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -140,7 +140,7 @@ func (a *Api) MusicianCloudbeanObtain(ctx context.Context, req *MusicianCloudbea
 	var (
 		url   = "https://music.163.com/weapi/nmusician/workbench/mission/reward/obtain/new"
 		reply MusicianCloudbeanObtainResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.MusicianCloudbeanObtain")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

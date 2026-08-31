@@ -79,7 +79,7 @@ func (a *Api) ArtistSongs(ctx context.Context, req *ArtistSongsReq) (*ArtistSong
 	var (
 		url   = "https://music.163.com/weapi/v1/artist/songs"
 		reply ArtistSongsResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.ArtistSongs")
 	)
 
 	if req.Order == "" {

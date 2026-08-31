@@ -35,7 +35,7 @@ func (a *Api) VipMemberGiftTokenCreate(ctx context.Context, req *VipMemberGiftTo
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/vipactivity/app/vip/invitation/token/create"
 		reply    VipMemberGiftTokenCreateResp
-		opts     = api.NewOptions().SetXEAPI()
+		opts     = api.NewOptions("eapi.VipMemberGiftTokenCreate").SetXEAPI()
 	)
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
@@ -75,7 +75,7 @@ func (a *Api) VipMemberGiftPageInfo(ctx context.Context, req *VipMemberGiftPageI
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/vipactivity/app/vip/invitation/page/info"
 		reply    VipMemberGiftPageInfoResp
-		opts     = api.NewOptions().SetXEAPI()
+		opts     = api.NewOptions("eapi.VipMemberGiftPageInfo").SetXEAPI()
 	)
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
@@ -129,7 +129,7 @@ func (a *Api) VipMemberGiftDetail(ctx context.Context, req *VipMemberGiftDetailR
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/vipactivity/app/vip/invitation/detail/info/get"
 		reply    VipMemberGiftDetailResp
-		opts     = api.NewOptions().SetXEAPI()
+		opts     = api.NewOptions("eapi.VipMemberGiftDetail").SetXEAPI()
 	)
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {
@@ -175,7 +175,7 @@ func (a *Api) VipMemberGiftAccept(ctx context.Context, req *VipMemberGiftAcceptR
 	var (
 		endpoint = "https://interface3.music.163.com/xeapi/vipactivity/app/vip/invitation/accept"
 		reply    VipMemberGiftAcceptResp
-		opts     = api.NewOptions().SetXEAPI()
+		opts     = api.NewOptions("eapi.VipMemberGiftAccept").SetXEAPI()
 	)
 
 	if _, err := a.client.Request(ctx, endpoint, req, &reply, opts); err != nil {

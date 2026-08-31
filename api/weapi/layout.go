@@ -24,7 +24,7 @@ func (a *Api) Layout(ctx context.Context, req *LayoutReq) (*LayoutResp, error) {
 	var (
 		url  = "https://music.163.com/weapi/logout"
 		resp LayoutResp
-		opts = api.NewOptions()
+		opts = api.NewOptions("weapi.Layout")
 	)
 	if req.CsrfToken == "" {
 		csrf, _ := a.client.GetCSRF(url)

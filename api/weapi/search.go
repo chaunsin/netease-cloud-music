@@ -46,7 +46,7 @@ func (a *Api) SearchDefault(ctx context.Context, req *SearchDefaultReq) (*Search
 	var (
 		url   = "https://interface.music.163.com/eapi/search/default/keyword/get"
 		reply SearchDefaultResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("weapi.SearchDefault").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

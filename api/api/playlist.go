@@ -194,7 +194,7 @@ func (a *Api) PlaylistDetail(ctx context.Context, req *PlaylistDetailReq) (*Play
 	var (
 		url   = "https://music.163.com/api/v6/playlist/detail"
 		reply PlaylistDetailResp
-		opts  = api.NewOptions().SetAPI().SetMethod(http.MethodGet)
+		opts  = api.NewOptions("api.PlaylistDetail").SetAPI().SetMethod(http.MethodGet)
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

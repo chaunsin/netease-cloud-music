@@ -155,7 +155,7 @@ func (a *Api) SongDetail(ctx context.Context, req *SongDetailReq) (*SongDetailRe
 	var (
 		url   = "https://music.163.com/weapi/v3/song/detail"
 		reply SongDetailResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SongDetail")
 	)
 
 	// "[{\"id\":\"1974334953\",\"v\":0}]
@@ -200,7 +200,7 @@ func (a *Api) SongMusicQuality(ctx context.Context, req *SongMusicQualityReq) (*
 	var (
 		url   = "https://music.163.com/weapi/song/music/detail/get"
 		reply SongMusicQualityResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SongMusicQuality")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -268,7 +268,7 @@ func (a *Api) SongPlayer(ctx context.Context, req *SongPlayerReq) (*SongPlayerRe
 	var (
 		url   = "https://interface.music.163.com/weapi/song/enhance/player/url"
 		reply SongPlayerResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SongPlayer")
 	)
 	if req.CSRFToken == "" {
 		csrf, _ := a.client.GetCSRF(url)
@@ -340,7 +340,7 @@ func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerV1Req) (*SongPlay
 	var (
 		url   = "https://music.163.com/weapi/song/enhance/player/url/v1"
 		reply SongPlayerV1Resp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SongPlayerV1")
 	)
 	// 经测试设置cookie下载无损音质音乐还是会下载hires音质得音乐。比如Animals歌曲id: 28987626
 	// see: https://gitlab.com/Binaryify/neteasecloudmusicapi/-/blob/main/public/docs/home.md?ref_type=heads#%E8%8E%B7%E5%8F%96%E9%9F%B3%E4%B9%90-url---%E6%96%B0%E7%89%88
@@ -413,7 +413,7 @@ func (a *Api) SongDownloadUrl(ctx context.Context, req *SongDownloadUrlReq) (*So
 	var (
 		url   = "https://music.163.com/weapi/song/enhance/download/url"
 		reply SongDownloadUrlResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SongDownloadUrl")
 	)
 
 	resp, err := a.client.Request(ctx, url, &req, &reply, opts)
@@ -476,7 +476,7 @@ func (a *Api) SongDownloadUrlV1(ctx context.Context, req *SongDownloadUrlV1Req) 
 	var (
 		url   = "https://music.163.com/weapi/song/enhance/download/url/v1"
 		reply SongDownloadUrlV1Resp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SongDownloadUrlV1")
 	)
 
 	// 目前不传值也没发现什么问题
@@ -505,7 +505,7 @@ func (a *Api) SongDynamicCover(ctx context.Context, req *SongDynamicCoverReq) (*
 	var (
 		url   = "https://music.163.com/weapi/songplay/dynamic-cover"
 		reply SongDynamicCoverResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.SongDynamicCover")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

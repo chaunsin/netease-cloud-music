@@ -35,7 +35,7 @@ func (a *Api) YunBeiSignIn(ctx context.Context, req *YunBeiSignInReq) (*YunBeiSi
 	var (
 		url   = "https://music.163.com/eapi/point/dailyTask"
 		reply YunBeiSignInResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.YunBeiSignIn").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -67,7 +67,7 @@ func (a *Api) YunbeiClickTask(ctx context.Context, req *YunbeiClickTaskReq) (*Yu
 	var (
 		url   = "https://interface3.music.163.com/eapi/yunbei/click/task"
 		reply YunbeiClickTaskResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.YunbeiClickTask").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -100,7 +100,7 @@ func (a *Api) YunbeiDistributionRecommendSong(ctx context.Context, req *YunbeiDi
 	var (
 		url   = "https://interface3.music.163.com/eapi/ad/power/yunbei/distribution/recommend/song"
 		reply YunbeiDistributionRecommendSongResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.YunbeiDistributionRecommendSong").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -129,7 +129,7 @@ func (a *Api) YunbeiDistributionCreate(ctx context.Context, req *YunbeiDistribut
 	var (
 		url   = "https://interface3.music.163.com/eapi/ad/power/yunbei/distribution/create"
 		reply YunbeiDistributionCreateResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.YunbeiDistributionCreate").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -161,7 +161,7 @@ func (a *Api) YunbeiReserveInfo(ctx context.Context, req *YunbeiReserveInfoReq) 
 	var (
 		url   = "https://interface3.music.163.com/eapi/new/yunbei/activity/reserve/info"
 		reply YunbeiReserveInfoResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.YunbeiReserveInfo").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -190,7 +190,7 @@ func (a *Api) YunbeiReserveBooked(ctx context.Context, req *YunbeiReserveBookedR
 	var (
 		url   = "https://interface3.music.163.com/eapi/new/yunbei/activity/reserve/booked"
 		reply YunbeiReserveBookedResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.YunbeiReserveBooked").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -223,7 +223,7 @@ func (a *Api) YunbeiReserveRewardReceive(ctx context.Context, req *YunbeiReserve
 	var (
 		url   = "https://interface3.music.163.com/eapi/new/yunbei/activity/reserve/reward/receive"
 		reply YunbeiReserveRewardReceiveResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.YunbeiReserveRewardReceive").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -259,7 +259,7 @@ func (a *Api) YunBeiTaskTodo(ctx context.Context, req *YunBeiTaskTodoReq) (*YunB
 	var (
 		url   = "https://interface3.music.163.com/eapi/usertool/task/todo/query"
 		reply YunBeiTaskTodoResp
-		opts  = api.NewOptions().SetEAPI()
+		opts  = api.NewOptions("eapi.YunBeiTaskTodo").SetEAPI()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)

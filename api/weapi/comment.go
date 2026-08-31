@@ -41,7 +41,7 @@ func (a *Api) CommentInfoList(ctx context.Context, req *CommentInfoListReq) (*Co
 	var (
 		url   = "https://interface.music.163.com/weapi/resource/commentInfo/list"
 		reply CommentInfoListResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CommentInfoList")
 	)
 
 	// 目前不传值也没发现什么问题
@@ -206,7 +206,7 @@ func (a *Api) Comments(ctx context.Context, req *CommentsReq) (*CommentsResp, er
 	var (
 		url   = "https://interface.music.163.com/weapi/v1/resource/comments/" + req.ThreadId
 		reply CommentsResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.Comments")
 	)
 
 	// 目前不传值也没发现什么问题
@@ -240,7 +240,7 @@ func (a *Api) CommentLike(ctx context.Context, req *CommentLikeReq) (*CommentLik
 	var (
 		url   = "https://music.163.com/weapi/v1/comment/like"
 		reply CommentLikeResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CommentLike")
 	)
 
 	resp, err := a.client.Request(ctx, url, &req, &reply, opts)
@@ -258,7 +258,7 @@ func (a *Api) CommentUnlike(ctx context.Context, req *CommentLikeReq) (*CommentL
 	var (
 		url   = "https://music.163.com/weapi/v1/comment/unlike"
 		reply CommentLikeResp
-		opts  = api.NewOptions()
+		opts  = api.NewOptions("weapi.CommentUnlike")
 	)
 
 	resp, err := a.client.Request(ctx, url, &req, &reply, opts)
