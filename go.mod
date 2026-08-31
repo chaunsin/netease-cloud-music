@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	codeberg.org/sbinet/mozcookie v0.4.0
-	github.com/andybalholm/brotli v1.2.2
+	github.com/andybalholm/brotli v1.2.3
 	github.com/bogem/id3v2/v2 v2.1.4
 	github.com/chaunsin/go-har v0.0.0-20260803121011-24f803d1ae68
 	github.com/cheggaaa/pb/v3 v3.2.1
@@ -27,7 +27,7 @@ require (
 	github.com/wneessen/go-mail v0.8.1
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
 	golang.org/x/crypto v0.55.0
-	golang.org/x/net v0.57.0
+	golang.org/x/net v0.58.0
 	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
