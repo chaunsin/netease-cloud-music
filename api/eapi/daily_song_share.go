@@ -119,7 +119,7 @@ type DailySongShareRegistrationGuideResp struct {
 			RewardCardList  []RegisteredGuideRewardCard `json:"rewardCardList"`  // 奖励内容描述
 			SignUp          string                      `json:"signUp"`          // eg: 暂无抽奖机会、立即抽奖(1次)
 			SignTip         string                      `json:"signTip"`         // eg: 剩余0次机会、剩余1次机会
-			RewardCount     int64                       `json:"rewardCount"`     // 当前可以抽奖次数
+			RewardCount     int64                       `json:"rewardCount"`     //
 			HaveRewardCount int64                       `json:"haveRewardCount"` // 今日做任务可获得抽奖次数
 			AlreadyPubEvent bool                        `json:"alreadyPubEvent"` // 貌似是今日是否有发布动态，待确认？
 			OnlyOnceLeft    bool                        `json:"onlyOnceLeft"`    //

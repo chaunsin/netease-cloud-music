@@ -121,14 +121,8 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 
 	// 4. 轮训获取扫码状态
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		if err := utils.Sleep(ctx, 3*time.Second); err != nil {
-			return err
+		if sleepErr := utils.Sleep(ctx, 3*time.Second); sleepErr != nil {
+			return sleepErr
 		}
 
 		resp, checkErr := request.QrcodeCheck(ctx, &weapi.QrcodeCheckReq{Type: 1, Key: key.UniKey})

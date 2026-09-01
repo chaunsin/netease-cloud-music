@@ -206,6 +206,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 
 		if resp.Code != 200 {
 			c.l.Errorf("[scrobble] WebLog err: %+v\n", resp)
+
 			if err := utils.Sleep(ctx, 1*time.Second); err != nil {
 				return err
 			}
@@ -225,6 +226,7 @@ func (c *Scrobble) execute(ctx context.Context) error {
 			total++
 
 			bar.Increment()
+
 			if err := utils.Sleep(ctx, 100*time.Millisecond); err != nil {
 				return err
 			}

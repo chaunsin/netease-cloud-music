@@ -355,7 +355,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 	}
 
 	// 3.获取上传凭证
-	allocReq := weapi.CloudTokenAllocReq{
+	allocResp, err := client.CloudTokenAlloc(ctx, &weapi.CloudTokenAllocReq{
 		Bucket:     "", // jd-musicrep-privatecloud-audio-public
 		Ext:        ext,
 		Filename:   name,
@@ -363,9 +363,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		NosProduct: "3",
 		Type:       "audio",
 		Md5:        md5,
-	}
-
-	allocResp, err := client.CloudTokenAlloc(ctx, &allocReq)
+	})
 	if err != nil {
 		return fmt.Errorf("CloudTokenAlloc: %w", err)
 	}
@@ -406,7 +404,7 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		return fmt.Errorf("ReadFrom: %w", err)
 	}
 
-	InfoReq := weapi.CloudInfoReq{
+	infoReq := weapi.CloudInfoReq{
 		Md5:        md5,
 		SongId:     resp.SongId,
 		Filename:   stat.Name(),
@@ -418,9 +416,9 @@ func (c *Cloud) upload(ctx context.Context, client *weapi.Api, filename string, 
 		// CoverId:    "",
 		// ObjectKey: allocResp.ObjectKey, // 不能穿入此值不然会报告 {"msg":"rep create failed","code":404}
 	}
-	c.l.Debugf("CloudInfo filename=%q bitrate=%s resource_id=%d", InfoReq.Filename, InfoReq.Bitrate, InfoReq.ResourceId)
+	c.l.Debugf("CloudInfo filename=%q bitrate=%s resource_id=%d", infoReq.Filename, infoReq.Bitrate, infoReq.ResourceId)
 
-	infoResp, err := client.CloudInfo(ctx, &InfoReq)
+	infoResp, err := client.CloudInfo(ctx, &infoReq)
 	if err != nil {
 		return fmt.Errorf("CloudInfo: %w", err)
 	}
@@ -456,8 +454,9 @@ retry:
 	// v.Status=9得条件下出现过云盘上传成功的情况,即使不走下面的CloudPublish逻辑,目前暂时未找到原因
 	if v, ok := statusResp.Statuses[infoResp.SongId]; ok && v.Status != 0 {
 		c.l.Warnf("CloudMusicStatus status: %v retry #%v\n", statusResp.Statuses, retryNum)
-		if err := utils.Sleep(ctx, 30*time.Second); err != nil {
-			return err
+
+		if sleepErr := utils.Sleep(ctx, 30*time.Second); sleepErr != nil {
+			return sleepErr
 		}
 		goto retry
 	}

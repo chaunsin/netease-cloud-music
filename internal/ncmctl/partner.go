@@ -169,7 +169,7 @@ func (c *Partner) do(ctx context.Context) error {
 
 	switch status := info.Data.Status; status {
 	case "NORMAL":
-		c.cmd.Printf("  账号状态: NORMAL（具备测评资格）\n")
+		c.cmd.Printf("  账号状态: NORMAL(具备测评资格)\n")
 	case "ELIMINATED":
 		return errors.New("您没有测评资格或失去测评资格! ")
 	default:
@@ -203,8 +203,8 @@ func (c *Partner) do(ctx context.Context) error {
 		}
 
 		// 模拟听歌消耗得时间,随机15-24秒
-		if err := utils.Sleep(ctx, 15*time.Second, 24*time.Second); err != nil {
-			return err
+		if sleepErr := utils.Sleep(ctx, 15*time.Second, 24*time.Second); sleepErr != nil {
+			return sleepErr
 		}
 
 		// 随机一个分数,然后从对应分数组中取一个tag
@@ -316,8 +316,8 @@ func (c *Partner) do(ctx context.Context) error {
 			}
 
 			// 模拟听歌消耗得时间,随机15-24秒
-			if err := utils.Sleep(ctx, 15*time.Second, 24*time.Second); err != nil {
-				return err
+			if sleepErr := utils.Sleep(ctx, 15*time.Second, 24*time.Second); sleepErr != nil {
+				return sleepErr
 			}
 
 			// 随机一个分数,然后从对应分数组中取一个tag

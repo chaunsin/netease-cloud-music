@@ -145,14 +145,14 @@ func (c *DailySongShare) Command() *cobra.Command {
 
 func (c *DailySongShare) addFlags() {
 	f := c.cmd.Flags()
-	f.Int64Var(&c.opts.SongID, "song-id", 0, "song ID; empty selects from daily recommendations")
-	f.StringVar(&c.opts.Image, "image", "", "local image file; empty downloads the song cover")
-	f.StringVar(&c.opts.Title, "title", "", "note title; default is 今日推荐：<song name>")
-	f.StringVar(&c.opts.Message, "message", "", "note message; must contain at least 10 Unicode characters")
-	f.BoolVar(&c.opts.Draw, "draw", true, "draw available rewards after publish")
-	f.BoolVar(&c.opts.Delete, "delete", false, "delete this note after a successful lottery; may affect full attendance")
+	f.Int64VarP(&c.opts.SongID, "song-id", "s", 0, "song ID; empty selects from daily recommendations")
+	f.StringVarP(&c.opts.Image, "image", "i", "", "local image file; empty downloads the song cover")
+	f.StringVarP(&c.opts.Title, "title", "t", "", "note title; default is 今日推荐：<song name>")
+	f.StringVarP(&c.opts.Message, "message", "m", "", "note message; must contain at least 10 Unicode characters")
+	f.BoolVarP(&c.opts.Draw, "draw", "d", true, "draw available rewards after publish")
+	f.BoolVarP(&c.opts.Delete, "delete", "D", false, "delete this note after a successful lottery; may affect full attendance")
 	f.BoolVar(&c.opts.DryRun, "dry-run", false, "read state and prepare text without changing account state or uploading")
-	f.Int64Var(&c.opts.Count, "count", 0, "number of draws (1-8); default uses all server-reported chances")
+	f.Int64VarP(&c.opts.Count, "count", "n", 0, "number of draws (1-8); default uses all server-reported chances")
 }
 
 func (c *DailySongShare) validateFlags(parent bool) error {
@@ -480,8 +480,9 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, w *weapi.Api, g *eapi.DailySongShareRegistrationGuideResp, count int64, explicit bool) error {
 	const maxDraws = 8 // SPEC: 单次活动抽奖上限为 8 次？
 
-	// n := min(g.Data.RegisteredGuide.HaveRewardCount, maxDraws)
-	n := min(g.Data.RegisteredGuide.RewardCount, maxDraws)
+	// 目前出现了这种情况, HaveRewardCount=2 RewardCount=0, 当发布笔记之后+抽奖之后出现满足 RestChance<=0情况
+	//
+	n := min(g.Data.RegisteredGuide.RewardCount+g.Data.RegisteredGuide.HaveRewardCount, maxDraws)
 
 	if n <= 0 {
 		c.cmd.Println("  抽奖: 暂无可用的抽奖机会")
@@ -494,7 +495,9 @@ func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, w *weapi.Api, g 
 		n = count
 	}
 
-	for i := int64(0); i < n; i++ {
+	total := n
+
+	for i := range n {
 		resp, err := a.DailySongShareLottery(ctx, &eapi.DailySongShareLotteryReq{ActivityId: g.Data.ActivityInterestId})
 		if err != nil {
 			return err
@@ -504,7 +507,8 @@ func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, w *weapi.Api, g 
 			return fmt.Errorf("code=%d message=%s", resp.Code, resp.Message)
 		}
 
-		c.cmd.Printf("    第 %d 次: 剩余 %d 次", i+1, resp.Data.RestChance)
+		total--
+		c.cmd.Printf("    第 %d 次: 剩余 %d 次", i+1, max(resp.Data.RestChance, total))
 
 		// 会出现抽不到奖品的情况返回结果为: {"code":200,"data":{"userId":1289504343,"batchIdemKey":null,"idempotentId":"5ffed82c-1a6d-4fc5-b1f5-265862cc36e3","activityId":11066304,"prizeSchemeId":11147804,"drawPrizeTime":1787627166087,"drawPrizeInfoList":[],"prizeDetailInfoMap":{},"noLotteryContent":null,"restChance":0,"collectDTO":null},"message":""}
 		if len(resp.Data.PrizeDetailInfoMap) == 0 {
@@ -525,12 +529,8 @@ func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, w *weapi.Api, g 
 		}
 
 		// 以服务端剩余次数为准，避免单次消耗多次机会时超额抽奖
-		if resp.Data.RestChance <= 0 {
+		if resp.Data.RestChance <= 0 && total <= 0 {
 			break
-		}
-
-		if resp.Data.RestChance < n-i-1 {
-			n = i + 1 + resp.Data.RestChance
 		}
 
 		// 避免风控睡眠1到5秒
