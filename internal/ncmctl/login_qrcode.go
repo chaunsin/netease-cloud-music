@@ -17,6 +17,7 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
 
 type loginQrcodeCmd struct {
@@ -126,7 +127,9 @@ func (c *loginQrcodeCmd) execute(ctx context.Context, _ []string) error {
 		default:
 		}
 
-		time.Sleep(time.Second * 3)
+		if err := utils.Sleep(ctx, 3*time.Second); err != nil {
+			return err
+		}
 
 		resp, checkErr := request.QrcodeCheck(ctx, &weapi.QrcodeCheckReq{Type: 1, Key: key.UniKey})
 		if checkErr != nil {

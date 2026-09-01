@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 // FansGroup (乐迷团) API — 乐迷团任务相关接口
+// Endpoints:
+//   - /api/fans/group/mission/all (获取乐迷团任务列表)
+//   - /api/social/fansgroup/bff/detail/get (获取乐迷团详情含boardId)
+//   - /api/fans/group/feed/recommend/get (获取乐迷团推荐Feed)
+//   - /api/fans/group/mission/forward/progress (分享进度上报)
+//   - /api/resource/like (点赞资源)
 
 package eapi
 
@@ -153,11 +159,26 @@ type FansGroupFeedRecommendReq struct {
 	Size        string `json:"size"`        // 数量, 默认 "10"
 }
 
+// FansGroupFeedPost 乐迷团推荐Feed中的单条帖子.
+// Data 由 any 类型化: 点赞任务需要读取帖子 threadId / 点赞状态 / 发布者 (过滤本人帖子)。
+// 注意: posts 数组在 data 下的挂载层级来自 PRD 对参考实现的转述, 待 Phase 1 验证 (SPEC 11.1 Q2)。
+type FansGroupFeedPost struct {
+	ThreadID string `json:"threadId"`
+	Info     struct {
+		Liked bool `json:"liked"`
+	} `json:"info"`
+	User struct {
+		UserID int64 `json:"userId"`
+	} `json:"user"`
+}
+
 // FansGroupFeedRecommendResp 获取乐迷团推荐Feed响应.
 type FansGroupFeedRecommendResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
-	Data    any    `json:"data"` // 复杂结构, 按需解析
+	Data    struct {
+		Posts []FansGroupFeedPost `json:"posts"`
+	} `json:"data"`
 }
 
 // FansGroupFeedRecommend 获取乐迷团推荐Feed.

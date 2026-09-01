@@ -106,6 +106,7 @@ func New() *Root {
 	c.Add(NewCloud(c, &c.l).Command())
 	c.Add(NewTask(c, &c.l).Command())
 	c.Add(NewDailySongShare(c, &c.l).Command())
+	c.Add(NewFansGroup(c, &c.l).Command())
 	c.Add(NewScrobble(c, &c.l).Command())
 	c.Add(NewSignIn(c, &c.l).Command())
 	c.Add(NewNCM(c, &c.l).Command())

@@ -4,6 +4,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -708,5 +709,60 @@ func TestGenerateDeviceId(t *testing.T) {
 			assert.False(t, ids[id], "生成了重复的ID: %s", id)
 			ids[id] = true
 		}
+	})
+}
+
+func TestSleep(t *testing.T) {
+	t.Run("固定时长", func(t *testing.T) {
+		start := time.Now()
+
+		require.NoError(t, Sleep(context.Background(), 20*time.Millisecond))
+
+		assert.GreaterOrEqual(t, time.Since(start), 20*time.Millisecond)
+		assert.Less(t, time.Since(start), time.Second)
+	})
+
+	t.Run("随机区间", func(t *testing.T) {
+		// 区间内取值: 等待时长落在 [min, max]
+		start := time.Now()
+
+		require.NoError(t, Sleep(context.Background(), 20*time.Millisecond, 40*time.Millisecond))
+
+		assert.GreaterOrEqual(t, time.Since(start), 20*time.Millisecond)
+		assert.Less(t, time.Since(start), time.Second)
+	})
+
+	t.Run("零时长立即返回", func(t *testing.T) {
+		require.NoError(t, Sleep(context.Background(), 0))
+		require.NoError(t, Sleep(context.Background(), 0, 0))
+	})
+
+	t.Run("区间倒置快速失败", func(t *testing.T) {
+		// 不应在 rand.Int64N 处 panic
+		require.ErrorContains(t, Sleep(context.Background(), time.Second, time.Millisecond), "invalid sleep range")
+	})
+
+	t.Run("ctx 已取消立即返回", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		start := time.Now()
+
+		require.ErrorIs(t, Sleep(ctx, time.Hour), context.Canceled)
+		assert.Less(t, time.Since(start), time.Second)
+	})
+
+	t.Run("等待中被取消", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+
+		go func() {
+			time.Sleep(20 * time.Millisecond)
+			cancel()
+		}()
+
+		start := time.Now()
+
+		require.ErrorIs(t, Sleep(ctx, time.Hour), context.Canceled)
+		assert.Less(t, time.Since(start), time.Second)
 	})
 }

@@ -17,8 +17,8 @@
 
 ## 开始之前
 
-- `sign`、`partner`、`scrobble`、`share`、`cloud` 和部分 `curl` 调用会修改账号数据，不要把它们当作连通性测试。
-- `scrobble` 存在较高的账号风控风险；`sign --automatic` 也会执行额外的奖励领取操作。
+- `sign`、`partner`、`scrobble`、`share`、`fansgroup`、`cloud` 和部分 `curl` 调用会修改账号数据，不要把它们当作连通性测试。
+- `scrobble` 存在较高的账号风控风险；`sign --automatic` 也会执行额外的奖励领取操作；`fansgroup` 会修改播放记录、红心、点赞并发布公开动态。
 - 当前网易 API 和 CookieCloud HTTP 客户端未校验服务端 TLS 证书，只应在可信网络中使用。
 - 全局 `--debug` 会记录 API 请求和响应，其中可能包含 Cookie、Token、设备标识等敏感数据。调试日志和重定向输出应按凭据文件保护。
 
@@ -33,6 +33,7 @@
 | `ncmctl logout`                      | 已有会话  | 远端退出并删除默认 Cookie 和 XEAPI 会话状态  |
 | `ncmctl task [flags]`                | 是     | 按 cron 长期调度账号任务                |
 | `ncmctl share [flags]`    | 是     | 发布每日推歌公开动态，可查询状态或抽奖    |
+| `ncmctl fansgroup [status]`          | 是     | 执行乐迷团每日任务，可只读查询状态          |
 | `ncmctl sign [flags]`                | 是     | 立即执行一次云贝签到和黑胶乐签                |
 | `ncmctl partner [flags]`             | 是     | 立即上报音乐合伙人测评                    |
 | `ncmctl scrobble [flags]`            | 是     | 提交播放日志并在本地去重                   |
@@ -164,7 +165,7 @@ ncmctl logout --clear-anonymous-token
 
 ## 每日任务
 
-`task` 是长期运行的调度服务；`sign`、`partner`、`scrobble` 和 `share` 则执行一次后退出。
+`task` 是长期运行的调度服务；`sign`、`partner`、`scrobble`、`share` 和 `fansgroup` 则执行一次后退出。
 
 
 | 命令         | 作用              | 默认调度时间 |
@@ -173,12 +174,13 @@ ncmctl logout --clear-anonymous-token
 | `partner`  | 音乐合伙人测评         | 18:00  |
 | `scrobble` | 上报播放日志，最多 300 首 | 18:00  |
 | `share` | 发布每日推歌公开动态并按服务端机会抽奖 | 09:00  |
+| `fansgroup` | 执行乐迷团每日任务 | 10:30  |
 
 
-不指定任务时，`task` 会注册全部三项任务，并持续运行到收到 `Ctrl+C`：
+指定 `--runAll` 注册全部五项任务；不带任何任务开关时 `task` 会直接报错退出。启动后持续运行到收到 `Ctrl+C`：
 
 ```bash
-ncmctl task
+ncmctl task --runAll
 ```
 
 也可以只调度需要的任务：
@@ -204,6 +206,8 @@ ncmctl task --scrobble \
 ncmctl sign
 ncmctl partner
 ncmctl scrobble --num 200
+ncmctl fansgroup status
+ncmctl fansgroup
 ```
 
 `sign --automatic` 会在签到后领取可用的云贝和符合条件的 VIP 奖励，因此会执行更多账号操作。`partner` 会在每个测评项目之间等待 15 至 24 秒。`scrobble` 风控风险较高，且可用歌曲不足或本地去重命中时，实际完成数可能少于请求数。
@@ -225,6 +229,55 @@ ncmctl share --song-id 1820944399 --draw=false
 ```
 
 `--image` 可指定本地非空图片；否则命令下载歌曲封面。`--dry-run` 只读取状态并准备歌曲和文案，不报名、不上传、不发布。`--delete` 只删除本次发布的动态，且必须与抽奖一起使用；删除可能影响全勤奖励资格。活动进度以服务端状态为准，发布后的后续失败不会自动重发。
+
+### 乐迷团任务
+
+`fansgroup` 一次性命令会查询并执行乐迷团的每日任务：播放歌曲、分享歌曲、点赞乐迷笔记、发布图文笔记和今日加速任务。它会修改账号状态（播放记录、红心列表、点赞和公开动态），发布的笔记默认保留，自动化行为存在账号风控风险，使用频率请自行决定。
+
+先只读查看任务状态：
+
+```bash
+ncmctl fansgroup status
+```
+
+执行乐迷团任务（各步骤间随机等待以降低风控风险：任务间 2~5 秒、点赞间 1~3 秒、删除前 5~30 秒）：
+
+```bash
+# 默认乐迷团
+ncmctl fansgroup
+
+# 指定乐迷团 ID（可逗号分隔或重复传参）
+ncmctl fansgroup --group-id 1872529203038486609,1872529203038486610
+
+# 自定义笔记文案、图片，并在任务完成后删除本次发布的笔记
+ncmctl fansgroup --group-id 1872529203038486609 \
+  --title '我的打卡标题' \
+  --message '这是一段至少十个字符的打卡正文' \
+  --delete
+```
+
+说明：
+
+- `--group-id` 默认为内置乐迷团 ID，每个值必须为纯数字。
+- `--title` 和 `--message` 缺省时使用内置文案；`--message` 覆盖时 TrimSpace 后至少 10 个字符。
+- `--image` 需为本地非空常规文件；缺省时下载乐迷团头像作为笔记图片。
+- `--delete` 只删除本次执行链内发布成功的动态，未发布时不删除；删除失败会逐行输出但不影响退出码。
+- 任务进度以服务端返回为准；已完成、未知类型或无可点赞帖子会被跳过。仅当某团执行过任务且全部失败时命令才退出非零。
+
+调度到 `task` 服务：
+
+```bash
+# 每天 10:30 执行乐迷团任务
+ncmctl task --fansgroup
+
+# 自定义调度与笔记选项
+ncmctl task --fansgroup \
+  --fansgroup.cron '30 10 * * *' \
+  --fansgroup.group-id 1872529203038486609 \
+  --fansgroup.delete
+```
+
+`task --runAll` 会注册包括 `fansgroup` 在内的全部五项任务。
 
 ## 音乐下载
 

@@ -18,11 +18,17 @@ import (
 	"github.com/chaunsin/netease-cloud-music/pkg/nohup"
 )
 
+type scheduledCommand interface {
+	Command() *cobra.Command
+	validate() error
+}
+
 type TaskOpts struct {
 	PartnerOpts
 	ScrobbleOpts
 	SignInOpts
 	ShareOpts
+	FansGroupOpts
 
 	Location string
 	RunAll   bool
@@ -38,6 +44,9 @@ type TaskOpts struct {
 
 	SongShare        bool
 	ShareOptsCrontab string
+
+	FansGroup            bool
+	FansGroupOptsCrontab string
 }
 
 type Task struct {
@@ -47,11 +56,6 @@ type Task struct {
 	l    *log.Logger
 }
 
-type scheduledCommand interface {
-	Command() *cobra.Command
-	validate() error
-}
-
 func NewTask(root *Root, l *log.Logger) *Task {
 	c := &Task{
 		root: root,
@@ -59,15 +63,18 @@ func NewTask(root *Root, l *log.Logger) *Task {
 		cmd: &cobra.Command{
 			Use:   "task",
 			Short: "Schedule account tasks as a long-running service",
-			Long: "Schedule sign, partner, scrobble and daily song challenge jobs using five-field cron expressions. " +
+			Long: "Schedule sign, partner, scrobble, daily song challenge and fans group jobs using five-field cron expressions. " +
 				"Login is required. Without --runAll or any task selector the command fails fast. " +
-				"Explicit selectors register only those jobs; --runAll schedules all four jobs. The service runs until interrupted.",
+				"Explicit selectors register only those jobs; --runAll schedules all five jobs. The service runs until interrupted. " +
+				"The fans group task changes account state (plays, hearts, likes and public notes); its notes are kept by default.",
 			Example: "  # Schedule all tasks\n" +
 				"  ncmctl task --runAll\n\n" +
 				"  # Schedule only sign and scrobble\n" +
 				"  ncmctl task --sign --scrobble\n\n" +
 				"  # Run scrobble daily at 20:00 in the selected time zone\n" +
-				"  ncmctl task --scrobble --scrobble.cron '0 20 * * *' --location Asia/Shanghai",
+				"  ncmctl task --scrobble --scrobble.cron '0 20 * * *' --location Asia/Shanghai\n\n" +
+				"  # Run fans group missions daily at 10:30\n" +
+				"  ncmctl task --fansgroup --fansgroup.cron '30 10 * * *'",
 			Args: cobra.NoArgs,
 		},
 	}
@@ -88,7 +95,7 @@ func (c *Task) Command() *cobra.Command {
 
 func (c *Task) addFlags() {
 	c.cmd.PersistentFlags().StringVarP(&c.opts.Location, "location", "l", "Asia/Shanghai", "IANA time zone used for cron schedules")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.RunAll, "runAll", false, "schedule all tasks (sign, partner, scrobble and daily song challenge)")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.RunAll, "runAll", false, "schedule all tasks (sign, partner, scrobble, daily song challenge and fans group)")
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Partner, "partner", false, "schedule the music-partner evaluation task")
 	c.cmd.PersistentFlags().StringVar(&c.opts.PartnerOptsCrontab, "partner.cron", "0 18 * * *", "five-field cron schedule for the partner task")
@@ -106,12 +113,21 @@ func (c *Task) addFlags() {
 
 	c.cmd.PersistentFlags().BoolVar(&c.opts.SongShare, "share", false, "schedule the public daily song challenge task")
 	c.cmd.PersistentFlags().StringVar(&c.opts.ShareOptsCrontab, "share.cron", "0 9 * * *", "five-field cron schedule for daily song challenge")
+	// ShareOpts 与 FansGroupOpts 存在同名字段, 此处显式限定
 	c.cmd.PersistentFlags().Int64Var(&c.opts.SongID, "share.song-id", 0, "fixed song ID for daily song challenge")
-	c.cmd.PersistentFlags().StringVar(&c.opts.Image, "share.image", "", "fixed image file for daily song challenge")
-	c.cmd.PersistentFlags().StringVar(&c.opts.Title, "share.title", "", "title override for daily song challenge")
-	c.cmd.PersistentFlags().StringVar(&c.opts.Message, "share.message", "", "message override for daily song challenge")
+	c.cmd.PersistentFlags().StringVar(&c.opts.ShareOpts.Image, "share.image", "", "fixed image file for daily song challenge")
+	c.cmd.PersistentFlags().StringVar(&c.opts.ShareOpts.Title, "share.title", "", "title override for daily song challenge")
+	c.cmd.PersistentFlags().StringVar(&c.opts.ShareOpts.Message, "share.message", "", "message override for daily song challenge")
 	c.cmd.PersistentFlags().BoolVar(&c.opts.Draw, "share.draw", true, "draw rewards after daily song challenge")
-	c.cmd.PersistentFlags().BoolVar(&c.opts.Delete, "share.delete", false, "delete each new note after lottery")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.ShareOpts.Delete, "share.delete", false, "delete each new note after lottery")
+
+	c.cmd.PersistentFlags().BoolVar(&c.opts.FansGroup, "fansgroup", false, "schedule the fans group missions task (plays, hearts, likes and public notes; notes are kept by default)")
+	c.cmd.PersistentFlags().StringVar(&c.opts.FansGroupOptsCrontab, "fansgroup.cron", "30 10 * * *", "five-field cron schedule for the fans group task")
+	c.cmd.PersistentFlags().StringSliceVar(&c.opts.GroupID, "fansgroup.group-id", []string{defaultFansGroupID}, "fans group IDs (digits only); comma-separated or repeated")
+	c.cmd.PersistentFlags().StringVar(&c.opts.FansGroupOpts.Title, "fansgroup.title", "", "title override for fans group notes")
+	c.cmd.PersistentFlags().StringVar(&c.opts.FansGroupOpts.Message, "fansgroup.message", "", "message override for fans group notes; at least 10 Unicode characters")
+	c.cmd.PersistentFlags().StringVar(&c.opts.FansGroupOpts.Image, "fansgroup.image", "", "fixed image file for fans group notes")
+	c.cmd.PersistentFlags().BoolVar(&c.opts.FansGroupOpts.Delete, "fansgroup.delete", false, "delete notes published by the fans group task after the mission loop")
 }
 
 func (c *Task) validate() error {
@@ -155,8 +171,24 @@ func (c *Task) validate() error {
 				return fmt.Errorf("ParseStandard: %w", err)
 			}
 
-			if c.opts.Delete && !c.opts.Draw {
+			if c.opts.ShareOpts.Delete && !c.opts.Draw {
 				return errors.New("share.delete requires draw=true")
+			}
+			return nil
+		}
+		fansGroup = func() error {
+			if c.opts.FansGroupOptsCrontab == "" {
+				return errors.New("fansgroup.crontab is required")
+			}
+
+			if _, err := cron.ParseStandard(c.opts.FansGroupOptsCrontab); err != nil {
+				return fmt.Errorf("ParseStandard: %w", err)
+			}
+
+			for _, id := range c.opts.GroupID {
+				if !isNumericString(id) {
+					return fmt.Errorf("fansgroup.group-id must be a non-empty numeric string, got %q", id)
+				}
 			}
 			return nil
 		}
@@ -190,6 +222,12 @@ func (c *Task) validate() error {
 			return err
 		}
 	}
+
+	if sel.FansGroup {
+		if err := fansGroup(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -198,18 +236,19 @@ type taskSelection struct {
 	Partner   bool
 	Scrobble  bool
 	SongShare bool
+	FansGroup bool
 }
 
 func (c *Task) taskSelection() (taskSelection, error) {
 	o := c.opts
 	if o.RunAll {
-		return taskSelection{SignIn: true, Partner: true, Scrobble: true, SongShare: true}, nil
+		return taskSelection{SignIn: true, Partner: true, Scrobble: true, SongShare: true, FansGroup: true}, nil
 	}
 
-	if !o.SignIn && !o.Partner && !o.Scrobble && !o.SongShare {
-		return taskSelection{}, errors.New("no task selected: specify at least one of --sign/--partner/--scrobble/--share or --runAll")
+	if !o.SignIn && !o.Partner && !o.Scrobble && !o.SongShare && !o.FansGroup {
+		return taskSelection{}, errors.New("no task selected: specify at least one of --sign/--partner/--scrobble/--share/--fansgroup or --runAll")
 	}
-	return taskSelection{SignIn: o.SignIn, Partner: o.Partner, Scrobble: o.Scrobble, SongShare: o.SongShare}, nil
+	return taskSelection{SignIn: o.SignIn, Partner: o.Partner, Scrobble: o.Scrobble, SongShare: o.SongShare, FansGroup: o.FansGroup}, nil
 }
 
 func (c *Task) registerScheduledCommand(ctx context.Context, job *cron.Cron, name, schedule, cronError string, command scheduledCommand) error {
@@ -301,6 +340,12 @@ func (c *Task) execute(ctx context.Context, _ []string) error {
 			command.opts = c.opts.ShareOpts
 			return c.registerScheduledCommand(ctx, job, "share", c.opts.ShareOptsCrontab, "[share] crontab error", command)
 		}
+		fansGroup = func() error {
+			// 复用一次性命令完整流程, 不在 task.go 复制乐迷团 API 编排 (US-005)
+			command := NewFansGroup(c.root, c.l)
+			command.opts = c.opts.FansGroupOpts
+			return c.registerScheduledCommand(ctx, job, "fansgroup", c.opts.FansGroupOptsCrontab, "[fansgroup] crontab error", command)
+		}
 	)
 
 	sel, err := c.taskSelection()
@@ -328,6 +373,12 @@ func (c *Task) execute(ctx context.Context, _ []string) error {
 
 	if sel.SongShare {
 		if err := dailySongShare(); err != nil {
+			return err
+		}
+	}
+
+	if sel.FansGroup {
+		if err := fansGroup(); err != nil {
 			return err
 		}
 	}

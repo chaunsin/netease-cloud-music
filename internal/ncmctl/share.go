@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -25,9 +24,42 @@ import (
 	"github.com/chaunsin/netease-cloud-music/api/eapi"
 	"github.com/chaunsin/netease-cloud-music/api/weapi"
 	"github.com/chaunsin/netease-cloud-music/pkg/log"
+	"github.com/chaunsin/netease-cloud-music/pkg/utils"
 )
 
 const dailySongCoverLimit int64 = 20 << 20
+
+// validateLocalImage 校验 path 为存在、非符号链接、非空常规文件; share 与 fansgroup 共用。
+func validateLocalImage(path string) error {
+	i, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+
+	if i.Mode()&os.ModeSymlink != 0 || !i.Mode().IsRegular() || i.Size() == 0 {
+		return errors.New("must be a non-empty regular file, not a symlink")
+	}
+	return nil
+}
+
+// validateNoteContent 校验笔记标题/正文/图片参数, share 与 fansgroup 命令共用:
+// 标题不得为纯空白, 正文 TrimSpace 后至少 10 个 Unicode 字符, 图片须为可用本地文件。
+func validateNoteContent(title, message, image string) error {
+	if title != "" && strings.TrimSpace(title) == "" {
+		return errors.New("title must not be empty")
+	}
+
+	if message != "" && utf8.RuneCountInString(strings.TrimSpace(message)) < 10 {
+		return errors.New("message must contain at least 10 Unicode characters")
+	}
+
+	if image != "" {
+		if err := validateLocalImage(image); err != nil {
+			return fmt.Errorf("image: %w", err)
+		}
+	}
+	return nil
+}
 
 type dailySongState string
 
@@ -128,23 +160,8 @@ func (c *DailySongShare) validateFlags(parent bool) error {
 		return errors.New("song-id must be a positive integer")
 	}
 
-	if c.opts.Title != "" && strings.TrimSpace(c.opts.Title) == "" {
-		return errors.New("title must not be empty")
-	}
-
-	if c.opts.Message != "" && utf8.RuneCountInString(strings.TrimSpace(c.opts.Message)) < 10 {
-		return errors.New("message must contain at least 10 Unicode characters")
-	}
-
-	if c.opts.Image != "" {
-		i, e := os.Lstat(c.opts.Image)
-		if e != nil {
-			return fmt.Errorf("image: %w", e)
-		}
-
-		if i.Mode()&os.ModeSymlink != 0 || !i.Mode().IsRegular() || i.Size() == 0 {
-			return errors.New("image must be a non-empty regular file, not a symlink")
-		}
+	if err := validateNoteContent(c.opts.Title, c.opts.Message, c.opts.Image); err != nil {
+		return err
 	}
 
 	// if c.opts.Delete && (!parent || !c.opts.Draw) {
@@ -347,11 +364,24 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 			return err
 		}
 
-		// 下载歌曲封面图
-		image, cleanup, ime := c.prepareImage(ctx, song.cover)
-		if ime != nil {
-			return ime
+		// 下载歌曲封面图: --image 优先, 否则封面下载到临时文件
+		var (
+			image   string
+			cleanup func()
+		)
+
+		switch {
+		case c.opts.Image != "":
+			image, cleanup = c.opts.Image, func() {}
+		case song.cover == "":
+			return errors.New("song has no cover URL; specify --image")
+		default:
+			image, cleanup, err = downloadImageToTemp(ctx, c.root.Cfg.Network.Timeout, song.cover, dailySongCoverLimit, "ncmctl-daily-song-*.img")
+			if err != nil {
+				return fmt.Errorf("download cover: %w", err)
+			}
 		}
+
 		defer cleanup()
 
 		// 上传图片
@@ -419,8 +449,10 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 	if c.opts.Delete && publish == nil {
 		c.cmd.Println("  删除动态: 本次未发布新动态，--delete 已忽略")
 	} else if c.opts.Delete && publish != nil && publish.ID > 0 {
-		// 避免风控睡眠5到10秒再删除
-		time.Sleep(time.Second * time.Duration(5+rand.IntN(10)))
+		// 避免风控睡眠5到14秒再删除
+		if err := utils.Sleep(ctx, 5*time.Second, 14*time.Second); err != nil {
+			return err
+		}
 
 		d, err := e.EventDelete(ctx, &eapi.EventDeleteReq{Id: publish.ID})
 		if err != nil {
@@ -502,7 +534,9 @@ func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, w *weapi.Api, g 
 		}
 
 		// 避免风控睡眠1到5秒
-		time.Sleep(time.Second * time.Duration(1+rand.IntN(5)))
+		if err := utils.Sleep(ctx, 1*time.Second, 5*time.Second); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -567,34 +601,28 @@ func (c *DailySongShare) text(s dailySong) (string, string) {
 	return t, m
 }
 
-func (c *DailySongShare) prepareImage(ctx context.Context, cover string) (string, func(), error) {
-	if c.opts.Image != "" {
-		return c.opts.Image, func() {}, nil
-	}
-
-	if cover == "" {
-		return "", func() {}, errors.New("song has no cover URL; specify --image")
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cover, http.NoBody)
+// downloadImageToTemp downloads url into a temp file capped at limit bytes and
+// returns the file path plus a cleanup func removing it.
+func downloadImageToTemp(ctx context.Context, timeout time.Duration, url string, limit int64, prefix string) (string, func(), error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", func() {}, err
 	}
 
-	client := &http.Client{Timeout: c.root.Cfg.Network.Timeout}
+	client := &http.Client{Timeout: timeout}
 
 	res, err := client.Do(req)
 	if err != nil {
-		return "", func() {}, fmt.Errorf("download cover: %w", err)
+		return "", func() {}, fmt.Errorf("download: %w", err)
 	}
 
 	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode/100 != 2 {
-		return "", func() {}, fmt.Errorf("download cover: HTTP %s", res.Status)
+		return "", func() {}, fmt.Errorf("download: HTTP %s", res.Status)
 	}
 
-	tmp, err := os.CreateTemp("", "ncmctl-daily-song-*.img")
+	tmp, err := os.CreateTemp("", prefix)
 	if err != nil {
 		return "", func() {}, err
 	}
@@ -604,7 +632,7 @@ func (c *DailySongShare) prepareImage(ctx context.Context, cover string) (string
 		cleanup = func() { _ = os.Remove(name) }
 	)
 
-	n, err := io.Copy(tmp, io.LimitReader(res.Body, dailySongCoverLimit+1))
+	n, err := io.Copy(tmp, io.LimitReader(res.Body, limit+1))
 	if ce := tmp.Close(); err == nil {
 		err = ce
 	}
@@ -614,9 +642,9 @@ func (c *DailySongShare) prepareImage(ctx context.Context, cover string) (string
 		return "", func() {}, err
 	}
 
-	if n > dailySongCoverLimit {
+	if n > limit {
 		cleanup()
-		return "", func() {}, errors.New("cover exceeds 20 MiB")
+		return "", func() {}, fmt.Errorf("downloaded %d bytes exceeds %d limit", n, limit)
 	}
 	return name, cleanup, nil
 }

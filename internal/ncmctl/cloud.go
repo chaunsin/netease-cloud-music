@@ -456,7 +456,9 @@ retry:
 	// v.Status=9得条件下出现过云盘上传成功的情况,即使不走下面的CloudPublish逻辑,目前暂时未找到原因
 	if v, ok := statusResp.Statuses[infoResp.SongId]; ok && v.Status != 0 {
 		c.l.Warnf("CloudMusicStatus status: %v retry #%v\n", statusResp.Statuses, retryNum)
-		time.Sleep(time.Second * 30)
+		if err := utils.Sleep(ctx, 30*time.Second); err != nil {
+			return err
+		}
 		goto retry
 	}
 

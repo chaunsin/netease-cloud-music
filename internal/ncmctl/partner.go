@@ -203,7 +203,9 @@ func (c *Partner) do(ctx context.Context) error {
 		}
 
 		// 模拟听歌消耗得时间,随机15-24秒
-		time.Sleep(time.Second * time.Duration(15+rand.IntN(10)))
+		if err := utils.Sleep(ctx, 15*time.Second, 24*time.Second); err != nil {
+			return err
+		}
 
 		// 随机一个分数,然后从对应分数组中取一个tag
 		star := c.opts.Star[rand.IntN(len(c.opts.Star))]
@@ -314,7 +316,9 @@ func (c *Partner) do(ctx context.Context) error {
 			}
 
 			// 模拟听歌消耗得时间,随机15-24秒
-			time.Sleep(time.Second * time.Duration(15+rand.IntN(10)))
+			if err := utils.Sleep(ctx, 15*time.Second, 24*time.Second); err != nil {
+				return err
+			}
 
 			// 随机一个分数,然后从对应分数组中取一个tag
 			star := c.opts.Star[rand.IntN(len(c.opts.Star))]

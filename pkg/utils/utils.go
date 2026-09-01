@@ -6,6 +6,7 @@ package utils
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/md5" //nolint:gosec // NetEase exposes MD5 checksums for media integrity verification.
 	cryptorand "crypto/rand"
 	"encoding/hex"
@@ -283,6 +284,35 @@ func TimeUntilMidnight(timeZone string) (time.Duration, error) {
 	now := time.Now().In(loc)
 	midnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
 	return midnight.Sub(now), nil
+}
+
+// Sleep 等待 d 后返回, 期间响应 ctx 取消: 取消时立即返回 ctx.Err(), 不等待满时长。
+// 传入 randomMax 时改为在闭区间 [d, randomMax] 内均匀随机取值, 用于需要随机化
+// 等待时长的场景; 省略 randomMax 则按 d 固定等待。
+func Sleep(ctx context.Context, d time.Duration, randomMax ...time.Duration) error {
+	hi := d
+	if len(randomMax) > 0 {
+		hi = randomMax[0]
+	}
+
+	// 区间倒置会让 rand.Int64N 收到非正数而 panic, 提前暴露配置错误
+	if hi < d {
+		return fmt.Errorf("invalid sleep range: min %v > max %v", d, hi)
+	}
+
+	if hi > d {
+		d += time.Duration(rand.Int64N(int64(hi-d) + 1))
+	}
+
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 // Filename 清理文件名中的非法字符.
