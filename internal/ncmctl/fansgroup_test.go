@@ -5,6 +5,7 @@ package ncmctl
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -35,14 +36,60 @@ func TestParseMissionParamsPlay(t *testing.T) {
 	p, err = parseMissionParams(`{"songId":"1"}`, `{"songId":"2"}`)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"1"}, mergeSongIDs(p))
+
+	// 数字形态: songId/songIds 均可为 number
+	p, err = parseMissionParams(`{"songIds":[111,222],"songId":333}`, "")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"111", "222", "333"}, mergeSongIDs(p))
 }
 
 func TestParseMissionParamsShare(t *testing.T) {
 	// 分享任务黄金向量: actionCustomParams.progressParams
 	p, err := parseMissionParams(`{"actionCustomParams":{"progressParams":{"resourceId":"666","resourceType":"4"}}}`, "")
 	require.NoError(t, err)
-	assert.Equal(t, "666", p.ActionCustomParams.ProgressParams.ResourceID)
-	assert.Equal(t, "4", p.ActionCustomParams.ProgressParams.ResourceType)
+	assert.Equal(t, "666", string(p.ActionCustomParams.ProgressParams.ResourceID))
+	assert.Equal(t, "4", string(p.ActionCustomParams.ProgressParams.ResourceType))
+
+	// 线上真实载荷: resourceId 为字符串, resourceType 与 songId 为数字, fansGroupId 为 null。
+	// 三者混发曾让 resourceType 声明为 string 时整个任务解析失败。
+	raw := `{"actionType":"custom","actionCustomName":"SHARE_SONG_EVENT","actionCustomParams":` +
+		`{"progressParams":{"resourceId":"3357361025","resourceType":4,"action":"share","fansGroupId":null}},` +
+		`"songId":3357361025}`
+	p, err = parseMissionParams(raw, "")
+	require.NoError(t, err)
+	assert.Equal(t, "3357361025", string(p.ActionCustomParams.ProgressParams.ResourceID))
+	assert.Equal(t, "4", string(p.ActionCustomParams.ProgressParams.ResourceType))
+	assert.Equal(t, []string{"3357361025"}, mergeSongIDs(p))
+}
+
+func TestFlexString(t *testing.T) {
+	// 字符串 / 数字 / null 均可落到 flexString, 非标量快速失败
+	for _, tc := range []struct {
+		raw  string
+		want string
+	}{
+		{`"123"`, "123"},
+		{`123`, "123"},
+		{`0`, "0"},
+		{`-1`, "-1"},
+		{`"a\"b"`, `a"b`}, // 转义序列需还原
+		{`null`, ""},
+		{`"null"`, "null"}, // 字符串 "null" 不应被当成 null
+	} {
+		var v flexString
+		require.NoError(t, json.Unmarshal([]byte(tc.raw), &v), "raw=%s", tc.raw)
+		assert.Equal(t, tc.want, string(v), "raw=%s", tc.raw)
+	}
+
+	for _, raw := range []string{`{"a":1}`, `[1]`, `true`} {
+		var v flexString
+		require.Error(t, json.Unmarshal([]byte(raw), &v), "raw=%s", raw)
+	}
+
+	// 数组元素同样逐项生效
+	var ids []flexString
+	require.NoError(t, json.Unmarshal([]byte(`["a",1,null]`), &ids))
+	assert.Equal(t, []flexString{"a", "1", ""}, ids)
 }
 
 func TestParseMissionParamsEdgeCases(t *testing.T) {
@@ -61,13 +108,18 @@ func TestParseMissionParamsEdgeCases(t *testing.T) {
 	require.ErrorContains(t, err, "oops")
 	require.ErrorContains(t, err, "songIds")
 
-	// 字段值类型异常: songId 为数字而非字符串
-	_, err = parseMissionParams(`{"songId":123}`, "")
-	require.ErrorContains(t, err, "songId")
+	// 非标量值: 报错而非静默接受 (数字/字符串/null 之外的类型不兜底)
+	_, err = parseMissionParams(`{"songId":{"nested":1}}`, "")
+	require.ErrorContains(t, err, "flexString")
+
+	// 数组内字符串与数字混发
+	p, err = parseMissionParams(`{"songIds":["1",2,null]}`, "")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"1", "2"}, mergeSongIDs(p))
 }
 
 func TestSpeedUpSongIDs(t *testing.T) {
-	var m eapi.FansGroupMissionOriginality
+	var m eapi.FansGroupMissionAllRespDataNormalData
 
 	m.Button.Url = `{"songId":"111"}`
 	assert.Equal(t, []string{"111"}, speedUpSongIDs(&m, nil))
@@ -89,7 +141,7 @@ func TestSpeedUpSongIDs(t *testing.T) {
 	assert.Equal(t, []string{"555"}, speedUpSongIDs(&m, []string{"555"}))
 
 	// 全空且无回退 → 空 (AC-022: 跳过而非硬编码)
-	empty := eapi.FansGroupMissionOriginality{}
+	empty := eapi.FansGroupMissionAllRespDataNormalData{}
 	assert.Empty(t, speedUpSongIDs(&empty, nil))
 }
 

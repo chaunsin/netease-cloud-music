@@ -31,6 +31,9 @@ test-qinglong:
 test-live:
 	NCMCTL_RUN_LIVE_TESTS=1 go test -count=1 -v ./api/eapi ./api/weapi
 
+.PHONY: check
+check: fmt lintfix test
+
 .PHONY: install
 install:
 	cd cmd/ncmctl && go install .

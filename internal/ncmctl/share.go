@@ -438,8 +438,8 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 			return fmt.Errorf("confirm published note: %w", err)
 		}
 
-		if classifyGuide(g) != stateCompleted {
-			return errors.New("published note was not confirmed by activity guide")
+		if state := classifyGuide(g); state != stateCompleted {
+			return fmt.Errorf("published note was not confirmed by activity guide: %s", state)
 		}
 
 		publish = pub
@@ -480,8 +480,9 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, w *weapi.Api, g *eapi.DailySongShareRegistrationGuideResp, count int64, explicit bool) error {
 	const maxDraws = 8 // SPEC: 单次活动抽奖上限为 8 次？
 
-	// 目前出现了这种情况, HaveRewardCount=2 RewardCount=0, 当发布笔记之后+抽奖之后出现满足 RestChance<=0情况
-	//
+	// 目前出现了这种情况, HaveRewardCount=2 RewardCount=0, 当发布一次笔记之后+抽奖之后出现
+	// HaveRewardCount=1 RewardCount=0 的情况。而在手机端查看时提示需要在发一条笔记可以抽奖，
+	// 而我再执行命令时没有发动态自行抽奖又可以抽奖，不知是不是官方存在bug问题。为此暂时使用相加策略，如果两个值都为0那么肯定没有抽奖机会了
 	n := min(g.Data.RegisteredGuide.RewardCount+g.Data.RegisteredGuide.HaveRewardCount, maxDraws)
 
 	if n <= 0 {
@@ -512,7 +513,7 @@ func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, w *weapi.Api, g 
 
 		// 会出现抽不到奖品的情况返回结果为: {"code":200,"data":{"userId":1289504343,"batchIdemKey":null,"idempotentId":"5ffed82c-1a6d-4fc5-b1f5-265862cc36e3","activityId":11066304,"prizeSchemeId":11147804,"drawPrizeTime":1787627166087,"drawPrizeInfoList":[],"prizeDetailInfoMap":{},"noLotteryContent":null,"restChance":0,"collectDTO":null},"message":""}
 		if len(resp.Data.PrizeDetailInfoMap) == 0 {
-			c.cmd.Println("，很遗憾没抽到")
+			c.cmd.Println("，很遗憾没抽到!")
 		} else {
 			for _, p := range resp.Data.PrizeDetailInfoMap {
 				c.cmd.Printf("，奖品「%s」,说明: %s,兑换: %s\n", p.PrizeName, p.WinPrizeDesc, p.ExchangeUrl)

@@ -254,11 +254,18 @@ ncmctl fansgroup --group-id 1872529203038486609 \
   --title '我的打卡标题' \
   --message '这是一段至少十个字符的打卡正文' \
   --delete
+
+# 等价的短参数写法（-g/-t/-m/-i/-d）
+ncmctl fansgroup -g 1872529203038486609 \
+  -t '我的打卡标题' \
+  -m '这是一段至少十个字符的打卡正文' \
+  -d
 ```
 
 说明：
 
 - `--group-id` 默认为内置乐迷团 ID，每个值必须为纯数字。
+- 短参数取 flag 名称首字母：`-g`/`-t`/`-m`/`-i`/`-d` 分别等价于 `--group-id`/`--title`/`--message`/`--image`/`--delete`。`task --fansgroup.*` 调度参数仍只有长参数形式。
 - `--title` 和 `--message` 缺省时使用内置文案；`--message` 覆盖时 TrimSpace 后至少 10 个字符。
 - `--image` 需为本地非空常规文件；缺省时下载乐迷团头像作为笔记图片。
 - `--delete` 只删除本次执行链内发布成功的动态，未发布时不删除；删除失败会逐行输出但不影响退出码。

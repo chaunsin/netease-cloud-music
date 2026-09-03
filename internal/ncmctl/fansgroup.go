@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	defaultFansGroupID       = "1872529203038486609" // 内置默认乐迷团 (PRD 待确认项 11.1 Q8, 帮助文本明示)
+	defaultFansGroupID       = "1872529203038486609" // 音乐合伙人的乐迷团 (PRD 待确认项 11.1 Q8, 帮助文本明示)
 	audioFetchLimit    int64 = 512 << 10             // 单次音频拉取上限 512 KiB (PRD FR-04)
 	fansAvatarLimit    int64 = 20 << 20              // 头像下载上限 20 MiB, 对齐 share 命令封面约定
 )
@@ -71,7 +71,9 @@ func NewFansGroup(root *Root, l *log.Logger) *FansGroup {
 				"  # 执行默认乐迷团的全部任务\n" +
 				"  ncmctl fansgroup\n\n" +
 				"  # 指定乐迷团, 任务完成后删除本次发布的笔记\n" +
-				"  ncmctl fansgroup --group-id 1872529203038486609 --delete",
+				"  ncmctl fansgroup --group-id 1872529203038486609 --delete\n\n" +
+				"  # 等价的短参数写法\n" +
+				"  ncmctl fansgroup -g 1872529203038486609 -d",
 			Args: func(cmd *cobra.Command, args []string) error {
 				if len(args) > 1 {
 					return fmt.Errorf("only one optional 'status' argument is allowed, got %v", args)
@@ -103,12 +105,11 @@ func (c *FansGroup) Command() *cobra.Command {
 
 func (c *FansGroup) addFlags() {
 	f := c.cmd.Flags()
-	f.StringSliceVar(&c.opts.GroupID, "group-id", []string{defaultFansGroupID},
-		"fans group IDs (digits only); comma-separated or repeated")
-	f.StringVar(&c.opts.Title, "title", "", "note title override")
-	f.StringVar(&c.opts.Message, "message", "", "note message override; at least 10 Unicode characters")
-	f.StringVar(&c.opts.Image, "image", "", "local image file; empty downloads the fans group avatar")
-	f.BoolVar(&c.opts.Delete, "delete", false, "delete notes published by this run after the mission loop")
+	f.StringSliceVarP(&c.opts.GroupID, "group-id", "g", []string{defaultFansGroupID}, "fans group IDs (digits only); comma-separated or repeated")
+	f.StringVarP(&c.opts.Title, "title", "t", "", "note title override")
+	f.StringVarP(&c.opts.Message, "message", "m", "", "note message override; at least 10 Unicode characters")
+	f.StringVarP(&c.opts.Image, "image", "i", "", "local image file; empty downloads the fans group avatar")
+	f.BoolVarP(&c.opts.Delete, "delete", "d", false, "delete notes published by this run after the mission loop")
 }
 
 func (c *FansGroup) validate() error {
@@ -323,6 +324,7 @@ func (c *FansGroup) runGroup(ctx context.Context, e *eapi.Api, w *weapi.Api, gid
 		return fmt.Errorf("fans group %s: %w", gid, err)
 	}
 
+	// todo: 后续考虑自动加入相应的乐迷团
 	if !member.Data.FansGroupMemberDetail.Joined {
 		c.cmd.Printf("\n👥 乐迷团 %s(groupID %s): 未加入,跳过任务执行\n", detail.Data.FansGroupInfo.FansGroupName, gid)
 		return nil // 未加入不判失败 (D3)
@@ -341,7 +343,7 @@ func (c *FansGroup) runGroup(ctx context.Context, e *eapi.Api, w *weapi.Api, gid
 	c.cmd.Printf("\n👥 乐迷团: %s(groupID %s)\n", rt.groupName, gid)
 	c.printMissions(missions)
 
-	// normal 任务分发循环 (5.1.2): 只依据服务端标题与进度, 不硬编码任务数量或顺序
+	// 执行普通任务
 	for i := range missions.Data.Normal.Data {
 		m := &missions.Data.Normal.Data[i]
 		if missionCompleted(m.Status, m.CurrentProgress, m.AllProgress) {
@@ -350,14 +352,10 @@ func (c *FansGroup) runGroup(ctx context.Context, e *eapi.Api, w *weapi.Api, gid
 			continue
 		}
 
-		// 同团任务间等待: 每个任务完成或跳过后、执行下一任务前 2~5s (5.1.2, D5)
-		if i > 0 {
-			if sleepErr := utils.Sleep(ctx, 2*time.Second, 5*time.Second); sleepErr != nil {
-				return sleepErr
-			}
+		if sleepErr := utils.Sleep(ctx, 2*time.Second, 5*time.Second); sleepErr != nil {
+			return sleepErr
 		}
 
-		// 按任务标题关键词分发到对应执行器 (D7: 未知类型安全跳过, 不算失败)
 		var (
 			result      taskResult
 			dispatchErr error
@@ -384,7 +382,8 @@ func (c *FansGroup) runGroup(ctx context.Context, e *eapi.Api, w *weapi.Api, gid
 		rt.results = append(rt.results, result)
 	}
 
-	// 今日加速任务 (5.1.7): 无任务或已完成时静默跳过
+	// 执行加速任务，无任务或已完成时静默跳过
+	// 注意: 加速任务存在随机性，存在评论、红心等，目前只实现了红心。
 	if o := missions.Data.Originality.Data; o.Title != "" && !missionCompleted(o.Status, o.CurrentProgress, o.AllProgress) {
 		result, speedErr := c.runSpeedUpMission(ctx, e, &o, rt)
 		if speedErr != nil {
@@ -425,7 +424,7 @@ func (c *FansGroup) runGroup(ctx context.Context, e *eapi.Api, w *weapi.Api, gid
 }
 
 // runPlayMission 播放歌曲任务 (5.1.3), 经 weapi 上报播放日志故不依赖 eapi 客户端。
-func (c *FansGroup) runPlayMission(ctx context.Context, w *weapi.Api, m *eapi.FansGroupMissionItem, rt *fansGroupRuntime) (taskResult, error) {
+func (c *FansGroup) runPlayMission(ctx context.Context, w *weapi.Api, m *eapi.FansGroupMissionAllRespDataNormalData, rt *fansGroupRuntime) (taskResult, error) {
 	params, err := parseMissionParams(m.Button.Url, m.IconUi.TargetUrl)
 	if err != nil {
 		c.cmd.Printf("  [%s] 任务参数解析失败: %v\n", m.Title, err)
@@ -502,7 +501,7 @@ func (c *FansGroup) playOnce(ctx context.Context, w *weapi.Api, songID int64) bo
 		return false
 	}
 
-	if len(player.Data) == 0 { // 空切片防护 (5.4)
+	if len(player.Data) == 0 {
 		c.cmd.Printf("    歌曲 %d(%s): 播放地址响应为空\n", songID, song.name)
 		return false
 	}
@@ -567,7 +566,7 @@ func (c *FansGroup) reportLog(ctx context.Context, w *weapi.Api, logs []map[stri
 }
 
 // runShareMission 分享歌曲任务 (5.1.4): 仅做分享进度上报。
-func (c *FansGroup) runShareMission(ctx context.Context, e *eapi.Api, m *eapi.FansGroupMissionItem) (taskResult, error) {
+func (c *FansGroup) runShareMission(ctx context.Context, e *eapi.Api, m *eapi.FansGroupMissionAllRespDataNormalData) (taskResult, error) {
 	params, err := parseMissionParams(m.Button.Url, "")
 	if err != nil {
 		c.cmd.Printf("  [%s] 任务参数解析失败: %v\n", m.Title, err)
@@ -575,13 +574,13 @@ func (c *FansGroup) runShareMission(ctx context.Context, e *eapi.Api, m *eapi.Fa
 	}
 
 	// 不猜测资源 ID (D8): 参数缺失直接失败
-	resourceID := params.ActionCustomParams.ProgressParams.ResourceID
+	resourceID := string(params.ActionCustomParams.ProgressParams.ResourceID)
 	if resourceID == "" {
 		c.cmd.Printf("  [%s] 任务参数中无 resourceId\n", m.Title)
 		return taskResult{Title: m.Title, Status: taskFailed}, nil
 	}
 
-	resourceType := params.ActionCustomParams.ProgressParams.ResourceType
+	resourceType := string(params.ActionCustomParams.ProgressParams.ResourceType)
 	if resourceType == "" {
 		resourceType = "4" // 缺省按歌曲 (5.1.4)
 	}
@@ -611,7 +610,7 @@ func (c *FansGroup) runShareMission(ctx context.Context, e *eapi.Api, m *eapi.Fa
 }
 
 // runLikeMission 点赞乐迷笔记任务 (5.1.5), 前置获取推荐 Feed 作为点赞候选。
-func (c *FansGroup) runLikeMission(ctx context.Context, e *eapi.Api, m *eapi.FansGroupMissionItem, rt *fansGroupRuntime) (taskResult, error) {
+func (c *FansGroup) runLikeMission(ctx context.Context, e *eapi.Api, m *eapi.FansGroupMissionAllRespDataNormalData, rt *fansGroupRuntime) (taskResult, error) {
 	remaining := missionRemaining(m.CurrentProgress, m.AllProgress)
 
 	// likeFeedRequest 保证 FansGroupId 显式传入: wrapper 对该字段无默认值,
@@ -633,13 +632,15 @@ func (c *FansGroup) runLikeMission(ctx context.Context, e *eapi.Api, m *eapi.Fan
 	}
 
 	// 过滤可点赞帖子: threadId 非空、未点赞、非本人帖子 (5.1.5)
-	posts := make([]eapi.FansGroupFeedPost, 0, len(feed.Data.Posts))
-	for _, p := range feed.Data.Posts {
-		if p.ThreadID == "" || p.Info.Liked || p.User.UserID == c.uid {
+	posts := make([]eapi.FansGroupFeedRecommendRespDataRecords, 0)
+
+	for i := range feed.Data.Records {
+		p := &feed.Data.Records[i]
+		if p.ThreadId == "" || p.Info.Liked || p.User.UserId == c.uid {
 			continue
 		}
 
-		posts = append(posts, p)
+		posts = append(posts, *p)
 	}
 
 	if len(posts) == 0 {
@@ -653,7 +654,7 @@ func (c *FansGroup) runLikeMission(ctx context.Context, e *eapi.Api, m *eapi.Fan
 	// 点赞迭代之间 1~3s (D5)
 	result, err := runIterations(ctx, m.Title, n, 1*time.Second, 3*time.Second, func(round, ok int) (bool, error) {
 		resp, likeErr := e.ResourceLike(ctx, &eapi.ResourceLikeReq{
-			ThreadId: posts[round].ThreadID,
+			ThreadId: posts[round].ThreadId,
 			// appLogExt 构造点赞日志扩展字段, 携带乐迷团归属标记。
 			// addRefer/multiRefer 指向当前乐迷团 ID 的完整 JSON 结构待 Phase 1 验证 (SPEC 11.1 Q3),
 			// 若点赞不被任务计数仅需调整本函数。
@@ -683,7 +684,7 @@ func (c *FansGroup) runLikeMission(ctx context.Context, e *eapi.Api, m *eapi.Fan
 }
 
 // runNoteMission 发布图文笔记任务 (5.1.6)。
-func (c *FansGroup) runNoteMission(ctx context.Context, e *eapi.Api, m *eapi.FansGroupMissionItem, rt *fansGroupRuntime) (taskResult, error) {
+func (c *FansGroup) runNoteMission(ctx context.Context, e *eapi.Api, m *eapi.FansGroupMissionAllRespDataNormalData, rt *fansGroupRuntime) (taskResult, error) {
 	// --image 非空时直接使用本地文件(校验已在 validate 完成); 否则下载乐迷团头像 (5.1.6)
 	var (
 		image   string
@@ -787,7 +788,7 @@ func (c *FansGroup) noteText(groupName string) (string, string) {
 
 // runSpeedUpMission 今日加速任务 (5.1.7): 通过红心/取消红心完成收藏类加速。
 // 副标题无法识别时同样按红心流程处理并输出原始副标题 (FR-08)。
-func (c *FansGroup) runSpeedUpMission(ctx context.Context, e *eapi.Api, m *eapi.FansGroupMissionOriginality, rt *fansGroupRuntime) (taskResult, error) {
+func (c *FansGroup) runSpeedUpMission(ctx context.Context, e *eapi.Api, m *eapi.FansGroupMissionAllRespDataNormalData, rt *fansGroupRuntime) (taskResult, error) {
 	var (
 		songIDs   = speedUpSongIDs(m, rt.songIDs)
 		likeIDs   = toInt64SongIDs(songIDs)
@@ -952,18 +953,45 @@ const (
 	taskFailed  taskStatus = "failed"
 )
 
+// flexString 接收既可能是字符串也可能是数字的 JSON 值: 服务端在同一批参数里混用两种类型
+// (实测分享任务 progressParams 的 resourceId 为字符串而 resourceType 为数字, songId 亦为数字)。
+// null 视为空值; 对象与数组等非标量直接报错, 避免静默吞掉类型错误。
+type flexString string
+
+func (f *flexString) UnmarshalJSON(data []byte) error {
+	switch {
+	case len(data) == 0:
+		return errors.New("flexString: empty JSON value")
+	case string(data) == "null":
+		*f = ""
+	case data[0] == '"': // 字符串: 走标准解码以还原转义序列
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+
+		*f = flexString(s)
+	case data[0] == '-' || (data[0] >= '0' && data[0] <= '9'): // 数字: 按字面量保留
+		*f = flexString(data)
+	default:
+		return fmt.Errorf("flexString: unsupported JSON value %s", data)
+	}
+	return nil
+}
+
 // missionButtonParams 是任务 button.url / iconUi.targetUrl 携带的参数 JSON 的结构化表示。
 // 字段均为可选: 不同任务类型只填充其中的子集, 解析后按非空原则取值 (D8, 禁止正则兜底)。
+// ID 与类型字段统一用 flexString, 兼容服务端字符串/数字混发。
 type missionButtonParams struct {
-	SongID   string   `json:"songId"`
-	SongIDs  []string `json:"songIds"`
-	TrackID  string   `json:"trackId"`
-	TrackIDs []string `json:"trackIds"`
+	SongID   flexString   `json:"songId"`
+	SongIDs  []flexString `json:"songIds"`
+	TrackID  flexString   `json:"trackId"`
+	TrackIDs []flexString `json:"trackIds"`
 
 	ActionCustomParams struct {
 		ProgressParams struct {
-			ResourceID   string `json:"resourceId"`
-			ResourceType string `json:"resourceType"`
+			ResourceID   flexString `json:"resourceId"`
+			ResourceType flexString `json:"resourceType"`
 		} `json:"progressParams"`
 	} `json:"actionCustomParams"`
 }
@@ -1032,18 +1060,22 @@ func toInt64SongIDs(ids []string) []int64 {
 }
 
 // mergeSongIDs 非空合并任务参数中的歌曲 ID (5.1.3): SongIDs → SongID → TrackIDs → TrackID。
+// null 与空值项直接丢弃, 避免空串流入播放与红心链路。
 func mergeSongIDs(p *missionButtonParams) []string {
 	ids := make([]string, 0, len(p.SongIDs)+len(p.TrackIDs)+2)
 
-	ids = append(ids, p.SongIDs...)
-	if p.SongID != "" {
-		ids = append(ids, p.SongID)
+	appendIDs := func(list ...flexString) {
+		for _, id := range list {
+			if id != "" {
+				ids = append(ids, string(id))
+			}
+		}
 	}
 
-	ids = append(ids, p.TrackIDs...)
-	if p.TrackID != "" {
-		ids = append(ids, p.TrackID)
-	}
+	appendIDs(p.SongIDs...)
+	appendIDs(p.SongID)
+	appendIDs(p.TrackIDs...)
+	appendIDs(p.TrackID)
 	return ids
 }
 
@@ -1059,7 +1091,7 @@ func songIDsFromJSON(raw string) []string {
 // speedUpSongIDs 解析加速任务歌曲 ID: 依次尝试 Button.Url / LogInfo / MissionDetail 中的
 // JSON (5.1.7); 单个来源解析失败按空处理并继续尝试, 全部为空时回退到 normal 播放任务
 // 累积的歌曲 ID, 仍为空则跳过 (AC-022), 不使用硬编码歌曲。
-func speedUpSongIDs(m *eapi.FansGroupMissionOriginality, fallback []string) []string {
+func speedUpSongIDs(m *eapi.FansGroupMissionAllRespDataNormalData, fallback []string) []string {
 	for _, raw := range []string{m.Button.Url, m.LogInfo} {
 		if ids := songIDsFromJSON(raw); len(ids) > 0 {
 			return ids

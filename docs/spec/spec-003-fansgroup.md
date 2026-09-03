@@ -28,7 +28,7 @@
 | D3 | 命令退出码 | 仅当「某团至少执行过一个任务且最终结果全部为 failed」时该团失败；任一团失败 → 命令退出非零 | 空集（任务列表为空/全部 skipped/未加入）不判失败（PRD FR-09 字面边界的歧义消解）；部分成功靠服务端进度幂等在下轮 cron 自然补偿 |
 | D4 | task 集成 | `--runAll` 四项 → 五项；复用 `registerScheduledCommand` 复制 `FansGroupOpts` 执行 | 不在 `task.go` 复制第二套乐迷团编排（US-005） |
 | D5 | 防风控等待 | `sleepRange` 有名变量集中定义 + 单一 `sleep(ctx, r)` 辅助函数，`math/rand/v2` 均匀取值，timer+select 响应 context 取消 | 与现有 `share`/`partner` 裸 `time.Sleep` 的关键差异，也是 AC-031 的实现基础 |
-| D6 | 短参数 | 不设短参数，`StringSliceVar`/`StringVar`/`BoolVar` 对齐 `share.go` 骨架 | **与 PRD FR-01 存在偏差**，详见 4.1 偏差说明与 11.1 待确认项 Q1 |
+| D6 | 短参数 | （已按 PRD FR-01 修订）`StringSliceVarP`/`StringVarP`/`BoolVarP` 注册 `-g`/`-t`/`-m`/`-i`/`-d`，取 flag 名称首字母 | 原决策为不设短参数并对齐 `share.go` 骨架，偏差已关闭：用户确认恢复 PRD 字面要求，详见 4.1 与 11.1 Q1 结论 |
 | D7 | 未知任务类型 | 输出原始标题并 `skipped`，不算失败 | FR-03：官方新增任务类型不应导致命令不可用 |
 | D8 | 解析策略 | 只走结构化 JSON 解析（`missionButtonParams`），失败即报告该任务失败 | PRD 产品方案明确禁止正则兜底 |
 
@@ -212,22 +212,34 @@ var (
 任务参数结构化解析（禁止正则兜底）：
 
 ```go
+// flexString 接收既可能是字符串也可能是数字的 JSON 值: 服务端在同一批参数里混用两种类型
+// (实测分享任务 progressParams 的 resourceId 为字符串而 resourceType 为数字, songId 亦为数字)。
+// null 视为空值; 对象与数组等非标量直接报错, 避免静默吞掉类型错误。
+type flexString string
+
 // missionButtonParams 是任务 button.url / iconUi.targetUrl 携带的参数 JSON 的结构化表示。
 // 字段均为可选：不同任务类型只填充其中的子集，解析后按非空原则取值。
+// ID 与类型字段统一用 flexString，兼容服务端字符串/数字混发。
 type missionButtonParams struct {
-	SongID   string   `json:"songId"`
-	SongIDs  []string `json:"songIds"`
-	TrackID  string   `json:"trackId"`
-	TrackIDs []string `json:"trackIds"`
+	SongID   flexString   `json:"songId"`
+	SongIDs  []flexString `json:"songIds"`
+	TrackID  flexString   `json:"trackId"`
+	TrackIDs []flexString `json:"trackIds"`
 
 	ActionCustomParams struct {
 		ProgressParams struct {
-			ResourceID   string `json:"resourceId"`
-			ResourceType string `json:"resourceType"`
+			ResourceID   flexString `json:"resourceId"`
+			ResourceType flexString `json:"resourceType"`
 		} `json:"progressParams"`
 	} `json:"actionCustomParams"`
 }
 ```
+
+> **实测修正（2026-09-02）**：初版把这些字段声明为 `string`，线上分享任务返回
+> `{"progressParams":{"resourceId":"3357361025","resourceType":4,...},"songId":3357361025}`
+> 时 `json.Unmarshal` 直接报 `cannot unmarshal number into Go struct field ... of type string`，
+> 整个分享任务判 failed；播放任务的 `songId` 同样可能是数字，会连带失败。
+> 因此统一改为 `flexString`：**不要把这里的字段类型改回 `string`**。
 
 单团执行期状态（不持久化，随命令结束丢弃）：
 
@@ -262,29 +274,31 @@ type taskResult struct {
 
 ### 4.1 Command Surface
 
-一次性命令 flags（对齐仓库命令层主流惯例，无短参数）：
+一次性命令 flags（短参数按 PRD FR-01 取 flag 名称首字母，长短参数语义完全等价）：
 
-| Flag | 默认值 | 约束/行为 |
-|------|--------|-----------|
-| `--group-id` | `defaultFansGroupID`（内置 `1872529203038486609`） | `StringSliceVar`，天然支持逗号分隔与重复传参；每个值必须为非空纯数字字符串 |
-| `--title` | 空（内置默认标题） | `TrimSpace` 后非空 |
-| `--message` | 空（内置默认正文，含随机元素） | `TrimSpace` 后至少 10 个 Unicode 字符 |
-| `--image` | 空 | 存在的非符号链接、非空常规文件（`validateLocalImage`）；空时下载乐迷团头像 |
-| `--delete` | `false` | 发布成功且任务循环完成后延时删除本次动态 |
+| Flag | 短参数 | 默认值 | 约束/行为 |
+|------|--------|--------|-----------|
+| `--group-id` | `-g` | `defaultFansGroupID`（内置 `1872529203038486609`） | `StringSliceVarP`，天然支持逗号分隔与重复传参；每个值必须为非空纯数字字符串 |
+| `--title` | `-t` | 空（内置默认标题） | `TrimSpace` 后非空 |
+| `--message` | `-m` | 空（内置默认正文，含随机元素） | `TrimSpace` 后至少 10 个 Unicode 字符 |
+| `--image` | `-i` | 空 | 存在的非符号链接、非空常规文件（`validateLocalImage`）；空时下载乐迷团头像 |
+| `--delete` | `-d` | `false` | 发布成功且任务循环完成后延时删除本次动态 |
 
 ```go
 func (c *FansGroup) addFlags() {
 	f := c.cmd.Flags()
-	f.StringSliceVar(&c.opts.GroupID, "group-id", []string{defaultFansGroupID},
+	// 短参数取 flag 名称首字母 (PRD-003 短参数约定), 与 share.go 的 -i/-t/-m 语义一致;
+	// -d 未被本命令占用, 无需像 share.go 那样让位给 --draw 而改用大写 -D。
+	f.StringSliceVarP(&c.opts.GroupID, "group-id", "g", []string{defaultFansGroupID},
 		"fans group IDs (digits only); comma-separated or repeated")
-	f.StringVar(&c.opts.Title, "title", "", "note title override")
-	f.StringVar(&c.opts.Message, "message", "", "note message override; at least 10 Unicode characters")
-	f.StringVar(&c.opts.Image, "image", "", "local image file; empty downloads the fans group avatar")
-	f.BoolVar(&c.opts.Delete, "delete", false, "delete notes published by this run after the mission loop")
+	f.StringVarP(&c.opts.Title, "title", "t", "", "note title override")
+	f.StringVarP(&c.opts.Message, "message", "m", "", "note message override; at least 10 Unicode characters")
+	f.StringVarP(&c.opts.Image, "image", "i", "", "local image file; empty downloads the fans group avatar")
+	f.BoolVarP(&c.opts.Delete, "delete", "d", false, "delete notes published by this run after the mission loop")
 }
 ```
 
-**与 PRD FR-01 的偏差说明（D6）**：PRD FR-01 要求短参数 `-g`/`-t`/`-m`/`-i`/`-d` 并声明「遵循仓库现有 pflag `VarP` 惯例」。经源码核实：`VarP` 用法仅存在于 `task` 的 `--location/-l` 与 `scrobble` 的 `--num/-n` 两处；命令骨架参照物 `share.go` 的全部 flags 以及 `task` 的全部 `--<task>.<option>` 子参数均无短参数。本 SPEC 按命令层主流惯例设计为无短参数。若确认遵循 PRD 字面要求，仅需将注册改为 `VarP` 系列并补短参数说明，不影响其余设计（待确认项 11.1 Q8）。
+**PRD FR-01 短参数偏差说明（D6，已关闭）**：初版按命令层主流惯例（参照 `share.go` 无短参数的 flags）设计为无短参数。现已确认遵循 PRD 字面要求，注册改为 `VarP` 系列并补齐 `-g`/`-t`/`-m`/`-i`/`-d`：`VarP` 用法在命令层另有 `task --location/-l`、`scrobble --num/-n` 等先例，短参数与根命令持久参数 `-c`（`--config`）及本命令其他短参数均无冲突。`share.go` 的 `--delete` 用大写 `-D` 是因其 `-d` 已分配给 `--draw`，本命令无 `--draw`，故取小写 `-d`。
 
 位置参数：仅允许零个或一个 `status` 字面量（对齐 `share.go` 的 `Args` 闭包模式）；`status` 与 `--delete`/`--title`/`--message`/`--image` 组合时在 `validate` 快速失败（AC-004）；`--group-id` 与 `status` 兼容（status 支持多团查询，AC-005）。
 
@@ -652,7 +666,8 @@ task 侧 flags（`PersistentFlags`，对齐现有惯例不设短参数）：
 
 ### 9.1 Unit Tests（`internal/ncmctl/fansgroup_test.go`，fake transport / 纯函数）
 
-- `missionButtonParams` 黄金向量：播放任务（`songIds` 数组）、分享任务（`actionCustomParams.progressParams`）、字段全空、畸形 JSON、字段值类型异常；解析失败错误信息包含原文片段。
+- `missionButtonParams` 黄金向量：播放任务（`songIds` 数组）、分享任务（`actionCustomParams.progressParams`，含 `resourceType`/`songId` 为数字的线上真实载荷）、字段全空、畸形 JSON、非标量类型（对象/数组/bool）报错；解析失败错误信息包含原文片段。
+- `flexString` 单测：`"123"`/`123`/`0`/`-1`/转义字符串/`null`/字符串 `"null"` 的取值，对象、数组、`true` 报错。
 - `sleepRange`/`sleep`：区间内取值（注入可控 rand 或统计边界样本）；`ctx` 已取消/取消中立即返回 `ctx.Err()`，不阻塞（AC-031）。
 - 默认文案：长度 ≥10 Unicode 字符；随机后缀两次生成不相等。
 - `taskStatus` 聚合：done/partial/skipped/failed 组合下的团级判定，重点覆盖空集不判失败（D3）、点赞「帖子不足但全部成功」为 done（5.1.5）。
@@ -709,7 +724,7 @@ task 侧 flags（`PersistentFlags`，对齐现有惯例不设短参数）：
 
 | # | 问题 | 影响面 | 来源 |
 |---|------|--------|------|
-| Q1 | **短参数偏差决策**：PRD FR-01 要求 `-g`/`-t`/`-m`/`-i`/`-d`，本 SPEC 按命令层主流惯例（share/task 子参数均无短参数）设计为无短参数（D6）。是否恢复 PRD 字面要求？ | 4.1 flag 注册一行改动 | 本 SPEC 审查 |
+| Q1 | ~~**短参数偏差决策**~~ **已关闭（采纳 PRD FR-01）**：已按 `-g`/`-t`/`-m`/`-i`/`-d` 注册短参数，D6 随之修订为带短参数方案。`share.go` 的 `--delete` 用大写 `-D` 属冲突规避（`-d` 已给 `--draw`），本命令无 `--draw` 故取小写 `-d` | 4.1 flag 注册 | 用户确认 |
 | Q2 | `FansGroupFeedRecommendResp.Data` 下帖子数组的挂载层级与字段路径（`threadId`/`info.liked`/`user.userId`） | 3.1 类型化、5.1.5 过滤 | PRD 风险表 |
 | Q3 | `ResourceLikeReq.AppLogExt` 的 JSON 结构（`addRefer`/`multiRefer` 如何指向乐迷团 ID） | 5.1.5 点赞计数 | PRD 风险表 |
 | Q4 | `WebLog` play 载荷细节：`source`/`sourceId` 在无专辑时的取值；play 事件是否必须携带 `content`；`id`（数字）与 `sourceId`（字符串）的值类型差异 | 5.1.3 播放有效性 | 源码样本注释 |

@@ -671,7 +671,7 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 
 		if eapiEncrypted {
 			xaeapi := requestHeaders.Get("X-Aeapi")
-			c.l.Debugf("x-aepai value %v", xaeapi)
+			c.l.Debugf("func=%s x-aepai=%v", opts.Func, xaeapi)
 
 			plaintext, decryptErr := crypto.EApiDecrypt(string(decryptData), "") // 二进制方式解密
 			if decryptErr != nil {

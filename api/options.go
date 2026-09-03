@@ -133,6 +133,7 @@ func (o *Options) SetHeaders(h map[string]string) *Options {
 
 func (o *Options) clone() *Options {
 	clone := &Options{
+		Func:       o.Func,
 		Method:     o.Method,
 		CryptoMode: o.CryptoMode,
 		Headers:    o.Headers.Clone(),
