@@ -295,7 +295,8 @@ type SongLikeReq struct {
 }
 
 type SongLikeResp struct {
-	Code int `json:"code"`
+	Code       int   `json:"code"`
+	PlaylistId int64 `json:"playlistId"` // 实测返回: 收藏夹ID ({"playlistId":1981392816,"code":200})
 }
 
 // SongLike 红心或取消红心歌曲.

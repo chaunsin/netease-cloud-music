@@ -41,6 +41,58 @@ func TestParseMissionParamsPlay(t *testing.T) {
 	p, err = parseMissionParams(`{"songIds":[111,222],"songId":333}`, "")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"111", "222", "333"}, mergeSongIDs(p))
+
+	// 线上真实播放任务载荷 (2026-09-04 日志解密原文): songIds 嵌套在 actionMnbParams 内,
+	// 顶层 songId 为空。修复前该载荷 mergeSongIDs 返回空, 触发 runPlayMission 提前
+	// taskFailed("任务参数中无可用歌曲ID"), playOnce 从未执行。
+	realPlay := `{"actionType":"mnb","actionMnbName":"nm.play.playSongs",` +
+		`"actionMnbParams":{"songIndex":0,"songIds":[3372978601,3357688069],` +
+		`"playParams":{"playerType":"music","showUI":"true"}}}`
+	p, err = parseMissionParams(realPlay, "")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"3372978601", "3357688069"}, mergeSongIDs(p))
+
+	// 顶层 + 嵌套混合: 顶层优先于嵌套
+	mixed := `{"songIds":["11"],"actionMnbParams":{"songIds":["22","33"]}}`
+	p, err = parseMissionParams(mixed, "")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"11", "22", "33"}, mergeSongIDs(p))
+}
+
+func TestMergeSongIDsNested(t *testing.T) {
+	// 嵌套为空时退化为纯顶层行为
+	p, err := parseMissionParams(`{"songId":"1","songIds":["2"]}`, "")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"2", "1"}, mergeSongIDs(p))
+
+	// 仅嵌套有值 (播放任务真实情形), 数字/字符串混发
+	p, err = parseMissionParams(`{"actionMnbParams":{"songIds":[111,"222"],"songId":333}}`, "")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"111", "222", "333"}, mergeSongIDs(p))
+
+	// 嵌套 trackId(s) 也并入
+	p, err = parseMissionParams(`{"actionMnbParams":{"trackIds":["9"],"trackId":"8"}}`, "")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"9", "8"}, mergeSongIDs(p))
+
+	// 嵌套内 null 项丢弃
+	p, err = parseMissionParams(`{"actionMnbParams":{"songIds":["1",null],"songId":null}}`, "")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"1"}, mergeSongIDs(p))
+
+	// 顶层与嵌套都为空
+	p, err = parseMissionParams(`{"actionMnbParams":{}}`, "")
+	require.NoError(t, err)
+	assert.Empty(t, mergeSongIDs(p))
+}
+
+func TestIsDuplicateEventID(t *testing.T) {
+	rt := &fansGroupRuntime{eventIDs: []int64{37891477077}}
+	assert.True(t, isDuplicateEventID(rt, 37891477077))         // 已存在 → 服务端去重
+	assert.False(t, isDuplicateEventID(rt, 37891477078))        // 新动态ID
+	assert.False(t, isDuplicateEventID(rt, 0))                  // id<=0 属"成功但无ID"分支
+	assert.False(t, isDuplicateEventID(rt, -1))                 // 负数同理
+	assert.False(t, isDuplicateEventID(&fansGroupRuntime{}, 1)) // 空执行链
 }
 
 func TestParseMissionParamsShare(t *testing.T) {

@@ -43,8 +43,24 @@ type FansGroupDetailGetResp struct {
 			TopicId           string `json:"topicId"`       // 话题ID
 			HeadAvatarUrl     string `json:"headAvatarUrl"` // 头像URL
 			Musician          bool   `json:"musician"`      // 是否音乐人
+			// 以下为 2026-09-04 载荷实测补充字段 (其余 UI 向嵌套结构 kolUsers/liveDTO/
+			// lotteryDTO/listenTogether 等暂未建模, 需要时再补)
+			HeadIdType              string `json:"headIdType"`      // eg: "ARTIST_ID"
+			HeadHomepageUrl         string `json:"headHomepageUrl"` // 歌手主页跳转链接
+			FansNameplate           string `json:"fansNameplate"`   // 铭牌名 eg: "音乐合伙人"
+			Hidden                  bool   `json:"hidden"`
+			Brief                   string `json:"brief"`
+			MainState               bool   `json:"mainState"`
+			ShowFansSay             bool   `json:"showFansSay"`
+			NewMembersThisWeekCount int64  `json:"newMembersThisWeekCount"` // 本周新增成员
+			ActiveMembersCount      int64  `json:"activeMembersCount"`      // 活跃成员
+			PlayedSongUvCount       int64  `json:"playedSongUvCount"`       // 播放歌曲UV
+			FansNoteUvCount         int64  `json:"fansNoteUvCount"`         // 乐迷笔记UV
+			TotalMembersCount       int64  `json:"totalMembersCount"`       // 成员总数
 		} `json:"fansGroupInfo"`
+		IsNewPage bool `json:"isNewPage"`
 	} `json:"data"`
+	Error bool `json:"error"`
 }
 
 // FansGroupDetailGet 获取乐迷团详情 (含 boardId 等关键信息).
@@ -88,7 +104,7 @@ type FansGroupMissionAllRespDataNormalData struct {
 	Status           string `json:"status"`           // "INIT"=未开始 "PROCESSING"=进行中 "COMPLETED"=已完成
 	CurrentProgress  int    `json:"currentProgress"`  // 当前进度 eg: 0
 	AllProgress      int    `json:"allProgress"`      // 总进度 eg: 2
-	DeadlintTime     int64  `json:"deadlineTime"`     // eg: 1788451199999
+	DeadlineTime     int64  `json:"deadlineTime"`     // eg: 1788451199999
 	Integral         string `json:"integral"`         // 奖励积分
 	Order            int    `json:"order"`            // 排序 eg: 1
 	LogInfo          string `json:"logInfo"`          // 日志信息JSON eg: "{\"missionId\":3899306,\"missionType\":\"normal\"}"
@@ -238,7 +254,8 @@ type FansGroupFeedRecommendRespDataRecords struct {
 		ImageIosUrl     string `json:"imageIosUrl"`
 		ImageUrl        string `json:"imageUrl"`
 	} `json:"pendantData"` // 挂件数据，有些记录可能为 null
-	Pics               []PicInfo     `json:"pics"`
+	// Pics 动态图片 (2026-09-04 实测: 扁平层仅含 URL/Str-ID/尺寸, 数字 ID 全集在嵌套 picInfo 内).
+	Pics               []FeedPic     `json:"pics"`
 	PlaylistInfo       any           `json:"playlistInfo"`
 	PointTopicInfo     *ActivityInfo `json:"pointTopicInfo"`
 	PrivacySetting     int           `json:"privacySetting"`
@@ -433,31 +450,59 @@ type IpLocation struct {
 	Location string `json:"location"`
 }
 
-// PicInfo 图片信息.
-type PicInfo struct {
-	Format           string  `json:"format"`
-	Height           float64 `json:"height"`
+// FeedPic 乐迷团动态图片元素 (2026-09-04 实测载荷): 扁平层承载展示 URL、Str 形态 ID 与尺寸,
+// 数字形态 ID 全集位于嵌套 picInfo 对象内, 故拆为 FeedPic(扁平)+PicInfo(嵌套) 两层建模.
+type FeedPic struct {
+	// 扁平层
+	OriginUrl        string  `json:"originUrl"`
+	SquareUrl        string  `json:"squareUrl"`
+	RectangleUrl     string  `json:"rectangleUrl"`
+	PcSquareUrl      any     `json:"pcSquareUrl"`    // 实测为 URL string
+	PcRectangleUrl   any     `json:"pcRectangleUrl"` // 实测为 URL string
 	OriginId         int64   `json:"originId"`
 	OriginIdStr      string  `json:"originIdStr"`
-	OriginJpgId      int64   `json:"originJpgId"`
-	PcRectangleId    int64   `json:"pcRectangleId"`
-	PcRectangleIdStr string  `json:"pcRectangleIdStr"`
-	PcRectangleUrl   any     `json:"pcRectangleUrl"`
-	PcSquareId       int64   `json:"pcSquareId"`
-	PcSquareIdStr    string  `json:"pcSquareIdStr"`
-	PcSquareUrl      any     `json:"pcSquareUrl"`
-	RectangleId      int64   `json:"rectangleId"`
-	RectangleIdStr   string  `json:"rectangleIdStr"`
-	SquareId         int64   `json:"squareId"`
 	SquareIdStr      string  `json:"squareIdStr"`
-	Tags             any     `json:"tags"`
-	TranscodeStatus  any     `json:"transcodeStatus"`
-	VideoDurationMs  int     `json:"videoDurationMs"`
-	VideoId          any     `json:"videoId"`
-	VideoNosKey      any     `json:"videoNosKey"`
-	VideoOriginalUrl any     `json:"videoOriginalUrl"`
-	VideoUrl         any     `json:"videoUrl"`
+	RectangleIdStr   string  `json:"rectangleIdStr"`
+	PcSquareIdStr    string  `json:"pcSquareIdStr"`
+	PcRectangleIdStr string  `json:"pcRectangleIdStr"`
+	Format           string  `json:"format"`
 	Width            float64 `json:"width"`
+	Height           float64 `json:"height"`
+	VideoNosKey      any     `json:"videoNosKey"`
+	VideoDurationMs  int     `json:"videoDurationMs"`
+	VideoUrl         any     `json:"videoUrl"`
+	VideoOriginalUrl any     `json:"videoOriginalUrl"`
+	Tags             any     `json:"tags"`
+
+	// 嵌套层: 数字 ID 全集与转码信息
+	PicInfo PicInfo `json:"picInfo"`
+}
+
+// PicInfo 乐迷团动态图片嵌套 picInfo 对象 (数字 ID 全集).
+type PicInfo struct {
+	OriginId         int64   `json:"originId"`
+	SquareId         int64   `json:"squareId"`
+	RectangleId      int64   `json:"rectangleId"`
+	PcSquareId       int64   `json:"pcSquareId"`
+	PcRectangleId    int64   `json:"pcRectangleId"`
+	OriginJpgId      int64   `json:"originJpgId"`
+	OriginIdStr      string  `json:"originIdStr"`
+	SquareIdStr      string  `json:"squareIdStr"`
+	RectangleIdStr   string  `json:"rectangleIdStr"`
+	PcSquareIdStr    string  `json:"pcSquareIdStr"`
+	PcRectangleIdStr string  `json:"pcRectangleIdStr"`
+	PcSquareUrl      any     `json:"pcSquareUrl"`
+	PcRectangleUrl   any     `json:"pcRectangleUrl"`
+	Format           string  `json:"format"`
+	Width            float64 `json:"width"`
+	Height           float64 `json:"height"`
+	VideoNosKey      any     `json:"videoNosKey"`
+	VideoDurationMs  int     `json:"videoDurationMs"`
+	VideoUrl         any     `json:"videoUrl"`
+	VideoOriginalUrl any     `json:"videoOriginalUrl"`
+	VideoId          any     `json:"videoId"`
+	TranscodeStatus  any     `json:"transcodeStatus"`
+	Tags             any     `json:"tags"`
 }
 
 // TailMark 尾部标记（可能为 null）.
@@ -711,23 +756,24 @@ type FansGroupUserGroupDetailGetReq struct {
 }
 
 type FansGroupUserGroupDetailGetRespDataFansGroupMemberDetail struct {
-	UserId           int64     `json:"userId"`
-	Nickname         string    `json:"nickname"`
-	AvatarUrl        string    `json:"avatarUrl"`
-	AvatarDetail     any       `json:"avatarDetail"`
-	AccountStatus    int64     `json:"accountStatus"`
-	Active           bool      `json:"active"`
-	Joined           bool      `json:"joined"`
-	UserHidden       bool      `json:"userHidden"`
-	UserPriority     bool      `json:"userPriority"`
-	Follow           bool      `json:"follow"`
-	FansGroupId      string    `json:"fansGroupId"`
-	RemainingUpgrade int64     `json:"remainingUpgrade"`
-	Identity         int64     `json:"identity"`
-	VipRights        VipRights `json:"vipRights"`
-	Integral         float64   `json:"integral"` // 当前已获得的亲密值
-	No               string    `json:"no"`
-	Level            struct {
+	UserId           int64  `json:"userId"`
+	Nickname         string `json:"nickname"`
+	AvatarUrl        string `json:"avatarUrl"`
+	AvatarDetail     any    `json:"avatarDetail"`
+	AccountStatus    int64  `json:"accountStatus"`
+	Active           bool   `json:"active"`
+	Joined           bool   `json:"joined"`
+	UserHidden       bool   `json:"userHidden"`
+	UserPriority     bool   `json:"userPriority"`
+	Follow           bool   `json:"follow"`
+	FansGroupId      string `json:"fansGroupId"`
+	RemainingUpgrade int64  `json:"remainingUpgrade"`
+	// Identify 身份标识码 (2026-09-04 实测键名为 identify, eg: 99; 原误写为 identity 导致永不解析).
+	Identify  int64     `json:"identify"`
+	VipRights VipRights `json:"vipRights"`
+	Integral  string    `json:"integral"` // 当前已获得的亲密值
+	No        string    `json:"no"`
+	Level     struct {
 		Level              string `json:"level"`
 		LvelPicUrl         string `json:"levelPicUrl"`
 		LevelIntegral      int64  `json:"levelIntegral"`
@@ -739,23 +785,32 @@ type FansGroupUserGroupDetailGetRespDataFansGroupMemberDetail struct {
 		Segment            string `json:"segment"`     // eg: LV.2
 		SegmentCode        string `json:"segmentCode"` // eg: 2
 	} `json:"level"`
+	// FansNameplate 乐迷团铭牌 (2026-09-04 实测载荷补全内层字段与外层 json tag, 此前仅靠大小写不敏感兜底).
 	FansNameplate struct {
 		BackgroundColor        any    `json:"backgroundColor"`
 		BackgroundEdgeUrl      string `json:"backgroundEdgeUrl"`
 		BackgroundUrl          string `json:"backgroundUrl"`
-		BizCode                string `json:"bizCode"`
+		BizCode                string `json:"bizCode"` // eg: FANS_NAMEPLATE
 		Degrade                bool   `json:"degrade"`
 		ExtParams              any    `json:"extParams"`
-		Level                  string `json:"level"`
+		Level                  string `json:"level"` // eg: "2"
 		LevelUrl               string `json:"levelUrl"`
 		NameplateTagImgExtInfo any    `json:"nameplateTagImgExtInfo"`
 		RelatedId              any    `json:"relatedId"`
 		SocialUserTargetMap    any    `json:"socialUserTargetMap"`
 		Target                 string `json:"target"`
-		Text                   string `json:"text"`
+		Text                   string `json:"text"` // eg: 音乐合伙人乐迷
 		TextColor              any    `json:"textColor"`
-		Type                   string `json:"type"`
-	}
+		Type                   string `json:"type"` // eg: "1"
+		// 以下为 2026-09-04 载荷实测补充字段
+		NameplateType            string `json:"nameplateType"` // eg: "normal"
+		ActiveStartDate          any    `json:"activeStartDate"`
+		ActiveEndDate            any    `json:"activeEndDate"`
+		WearingNameplate         bool   `json:"wearingNameplate"`
+		FansGroupUserNameplateId int64  `json:"fansGroupUserNameplateId"`
+		FansGroupId              int64  `json:"fansGroupId"`
+		UserId                   int64  `json:"userId"`
+	} `json:"fansNameplate"`
 }
 
 type FansGroupUserGroupDetailGetRespData struct {

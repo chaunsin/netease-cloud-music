@@ -383,7 +383,7 @@ func (c *FansGroup) runGroup(ctx context.Context, e *eapi.Api, w *weapi.Api, gid
 	}
 
 	// 执行加速任务，无任务或已完成时静默跳过
-	// 注意: 加速任务存在随机性，存在评论、红心等，目前只实现了红心。
+	// 注意: 加速任务存在随机性，存在评论、点赞、红心等，目前只实现了红心。
 	if o := missions.Data.Originality.Data; o.Title != "" && !missionCompleted(o.Status, o.CurrentProgress, o.AllProgress) {
 		result, speedErr := c.runSpeedUpMission(ctx, e, &o, rt)
 		if speedErr != nil {
@@ -731,14 +731,14 @@ func (c *FansGroup) runNoteMission(ctx context.Context, e *eapi.Api, m *eapi.Fan
 		return taskResult{Title: m.Title, Status: taskFailed}, nil
 	}
 
-	var (
-		title, message = c.noteText(rt.groupName)
-		remaining      = missionRemaining(m.CurrentProgress, m.AllProgress)
-	)
+	remaining := missionRemaining(m.CurrentProgress, m.AllProgress)
 
 	// 发布失败时不删除、不重发 (AC-019)
 	// 发布迭代之间 2~5s (D5)
+	// 每次发布都重新生成文案: 内置默认正文带随机编号, 避免同轮多次发布内容相同被服务端去重 (5.1.6)。
 	return runIterations(ctx, m.Title, remaining, 2*time.Second, 5*time.Second, func(_, ok int) (bool, error) {
+		title, message := c.noteText(rt.groupName)
+
 		resp, publishErr := e.EventPublish(ctx, &eapi.EventPublishReq{
 			Type:             "noresource",
 			Title:            title,
@@ -757,6 +757,14 @@ func (c *FansGroup) runNoteMission(ctx context.Context, e *eapi.Api, m *eapi.Fan
 		}
 
 		if resp.Id > 0 {
+			// 服务端去重检测: 同一动态ID已在本次执行链内出现过, 说明本次发布被服务端
+			// 合并到已有动态、未产生新进度。不计入 eventIDs(避免 --delete 重复删除),
+			// 本轮按失败计使最终状态如实反映为 partial, 并提示差异化内容。
+			if isDuplicateEventID(rt, resp.Id) {
+				c.cmd.Printf("    发布被服务端去重(动态ID %d 重复), 本次内容未产生新进度; 若使用 --message 固定文案请改为差异化内容\n", resp.Id)
+				return false, nil
+			}
+
 			c.cmd.Printf("    发布笔记成功: 动态ID %d(%d/%d)\n", resp.Id, ok+1, remaining)
 			rt.eventIDs = append(rt.eventIDs, resp.Id) // 仅供 --delete 使用
 		} else {
@@ -766,8 +774,14 @@ func (c *FansGroup) runNoteMission(ctx context.Context, e *eapi.Api, m *eapi.Fan
 	})
 }
 
+// isDuplicateEventID 判断动态ID是否已在本次执行链内发布过 (服务端内容去重的标志)。
+// 仅对 id>0 且已存在于 rt.eventIDs 中者返回 true; id<=0 属"成功但无ID"分支, 不算去重。
+func isDuplicateEventID(rt *fansGroupRuntime, id int64) bool {
+	return id > 0 && slices.Contains(rt.eventIDs, id)
+}
+
 // noteText 生成笔记标题与正文: --title/--message 优先 (校验已在 validate 完成);
-// 默认正文带随机元素, 避免连续多日内容相同 (5.1.6)。
+// 默认正文带随机元素, 每次调用编号不同, 避免同轮多次发布及连续多日内容相同被服务端去重 (5.1.6)。
 func (c *FansGroup) noteText(groupName string) (string, string) {
 	title := strings.TrimSpace(c.opts.Title)
 	if title == "" {
@@ -988,6 +1002,18 @@ type missionButtonParams struct {
 	TrackID  flexString   `json:"trackId"`
 	TrackIDs []flexString `json:"trackIds"`
 
+	// ActionMnbParams 是 mnb(客户端播放器动作) 任务参数内的嵌套结构。
+	// 实测播放任务的 songIds 仅存在于此嵌套层 (button.url 形如
+	// {"actionType":"mnb","actionMnbName":"nm.play.playSongs",
+	//  "actionMnbParams":{"songIds":[...],"songIndex":0,...}}), 顶层 songId 为空。
+	ActionMnbParams struct {
+		SongID  flexString   `json:"songId"`
+		SongIDs []flexString `json:"songIds"`
+		// 服务端同层也可能携带 trackId(s), 一并解析以防后续任务复用同一结构。
+		TrackID  flexString   `json:"trackId"`
+		TrackIDs []flexString `json:"trackIds"`
+	} `json:"actionMnbParams"`
+
 	ActionCustomParams struct {
 		ProgressParams struct {
 			ResourceID   flexString `json:"resourceId"`
@@ -1059,10 +1085,14 @@ func toInt64SongIDs(ids []string) []int64 {
 	return out
 }
 
-// mergeSongIDs 非空合并任务参数中的歌曲 ID (5.1.3): SongIDs → SongID → TrackIDs → TrackID。
+// mergeSongIDs 非空合并任务参数中的歌曲 ID (5.1.3)。
+// 合并顺序: 顶层 SongIDs→SongID→TrackIDs→TrackID → 嵌套(actionMnbParams) SongIDs→SongID→TrackIDs→TrackID。
+// 顶层优先是因为分享/红心任务把 ID 放在顶层, 播放任务仅嵌套层有值、顶层为空;
+// 二者互斥, 顺序不影响实际取值, 仅作稳定约定。
 // null 与空值项直接丢弃, 避免空串流入播放与红心链路。
 func mergeSongIDs(p *missionButtonParams) []string {
-	ids := make([]string, 0, len(p.SongIDs)+len(p.TrackIDs)+2)
+	ids := make([]string, 0, len(p.SongIDs)+len(p.TrackIDs)+
+		len(p.ActionMnbParams.SongIDs)+len(p.ActionMnbParams.TrackIDs)+4)
 
 	appendIDs := func(list ...flexString) {
 		for _, id := range list {
@@ -1076,6 +1106,10 @@ func mergeSongIDs(p *missionButtonParams) []string {
 	appendIDs(p.SongID)
 	appendIDs(p.TrackIDs...)
 	appendIDs(p.TrackID)
+	appendIDs(p.ActionMnbParams.SongIDs...)
+	appendIDs(p.ActionMnbParams.SongID)
+	appendIDs(p.ActionMnbParams.TrackIDs...)
+	appendIDs(p.ActionMnbParams.TrackID)
 	return ids
 }
 

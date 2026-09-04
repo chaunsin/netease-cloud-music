@@ -166,12 +166,24 @@ type eventUploadImgResp struct {
 
 	PicSubtype string `json:"picSubtype"`
 	PicInfo    struct {
-		OriginId    int64  `json:"originId"`
-		SquareId    int64  `json:"squareId"`
-		RectangleId int64  `json:"rectangleId"`
-		Format      string `json:"format"`
-		Width       int    `json:"width"`
-		Height      int    `json:"height"`
+		OriginId      int64  `json:"originId"`
+		SquareId      int64  `json:"squareId"`
+		RectangleId   int64  `json:"rectangleId"`
+		PcSquareId    int64  `json:"pcSquareId"`
+		PcRectangleId int64  `json:"pcRectangleId"`
+		OriginJpgId   int64  `json:"originJpgId"`
+		Format        string `json:"format"`
+		Width         int    `json:"width"`
+		Height        int    `json:"height"`
+		// Str 后缀为对应 ID 的字符串形态 (实测与数字值一致)
+		OriginIdStr      string `json:"originIdStr"`
+		SquareIdStr      string `json:"squareIdStr"`
+		RectangleIdStr   string `json:"rectangleIdStr"`
+		PcSquareIdStr    string `json:"pcSquareIdStr"`
+		PcRectangleIdStr string `json:"pcRectangleIdStr"`
+		OriginJpgIdStr   string `json:"originJpgIdStr"`
+		PcSquareUrl    any `json:"pcSquareUrl"`
+		PcRectangleUrl any `json:"pcRectangleUrl"`
 	} `json:"picInfo"`
 }
 
@@ -271,14 +283,15 @@ func (a *Api) uploadEventImage(ctx context.Context, funcName, filePath, uploadNo
 		return nil, fmt.Errorf("get event img info failed: code=%d, msg=%s", imgReply.Code, imgReply.Message)
 	}
 
-	// 构建 picInfo
+	// 构建 picInfo (实测服务端对 pcSquareId/pcRectangleId/originJpgId 返回独立 ID,
+	// 不能用 squareId/rectangleId/originId 冒充)
 	return &eventImgPicInfo{
 		OriginId:      strconv.FormatInt(imgReply.PicInfo.OriginId, 10),
 		SquareId:      strconv.FormatInt(imgReply.PicInfo.SquareId, 10),
 		RectangleId:   strconv.FormatInt(imgReply.PicInfo.RectangleId, 10),
-		PcSquareId:    strconv.FormatInt(imgReply.PicInfo.SquareId, 10),
-		PcRectangleId: strconv.FormatInt(imgReply.PicInfo.RectangleId, 10),
-		OriginJpgId:   strconv.FormatInt(imgReply.PicInfo.OriginId, 10),
+		PcSquareId:    strconv.FormatInt(imgReply.PicInfo.PcSquareId, 10),
+		PcRectangleId: strconv.FormatInt(imgReply.PicInfo.PcRectangleId, 10),
+		OriginJpgId:   strconv.FormatInt(imgReply.PicInfo.OriginJpgId, 10),
 		Width:         imgReply.PicInfo.Width,
 		Height:        imgReply.PicInfo.Height,
 		Index:         index,

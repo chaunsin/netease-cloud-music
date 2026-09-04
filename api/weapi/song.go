@@ -44,6 +44,9 @@ type SongDetailRespSongs struct {
 
 	// Name 歌曲标题
 	Name string `json:"name"`
+	// MainTitle/AdditionalTitle 2026-09-04 实测新增: 主标题与附加标题(如括号副题)
+	MainTitle       string `json:"mainTitle"`
+	AdditionalTitle string `json:"additionalTitle"`
 	// Id 歌曲ID
 	Id int64 `json:"id"`
 	// Pst 功能未知
@@ -146,6 +149,11 @@ type SongDetailRespSongs struct {
 	Rtype int64 `json:"rtype"`
 	// PublishTime 毫秒为单位的Unix时间戳
 	PublishTime int64 `json:"publishTime"`
+	// 以下为 2026-09-04 实测补充字段
+	ArtistClassics bool  `json:"artistClassics"`
+	MarkTags       []any `json:"markTags"`
+	SongFeature    any   `json:"songFeature"`
+	DisplayTags    any   `json:"displayTags"`
 }
 
 // SongDetail 根据歌曲id获取歌曲详情
@@ -327,6 +335,15 @@ type SongPlayerRespV1Data struct {
 	Time                   int64                        `json:"time"` // 音乐时长,单位毫秒
 	Message                any                          `json:"message"`
 	LevelConfuse           any                          `json:"levelConfuse"`
+	// 以下为 2026-09-04 fansgroup 播放链路实测补充字段
+	ClosedGain  float64 `json:"closedGain"`
+	ClosedPeak  float64 `json:"closedPeak"`
+	MusicId     string  `json:"musicId"` // eg: "16732703906"
+	Sr          int64   `json:"sr"`      // 采样率 eg: 48000
+	BeatType    int64   `json:"beatType"`
+	Accompany   any     `json:"accompany"`
+	AuEff       any     `json:"auEff"`
+	ImmerseType any     `json:"immerseType"`
 }
 
 // SongPlayerV1 音乐播放详情
