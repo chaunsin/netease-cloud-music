@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand/v2"
 	"net/http"
 	"slices"
@@ -1091,8 +1092,21 @@ func toInt64SongIDs(ids []string) []int64 {
 // 二者互斥, 顺序不影响实际取值, 仅作稳定约定。
 // null 与空值项直接丢弃, 避免空串流入播放与红心链路。
 func mergeSongIDs(p *missionButtonParams) []string {
-	ids := make([]string, 0, len(p.SongIDs)+len(p.TrackIDs)+
-		len(p.ActionMnbParams.SongIDs)+len(p.ActionMnbParams.TrackIDs)+4)
+	capHint := 0
+	for _, n := range [...]int{
+		len(p.SongIDs),
+		len(p.TrackIDs),
+		len(p.ActionMnbParams.SongIDs),
+		len(p.ActionMnbParams.TrackIDs),
+		4,
+	} {
+		if n > math.MaxInt-capHint {
+			capHint = math.MaxInt
+			break
+		}
+		capHint += n
+	}
+	ids := make([]string, 0, capHint)
 
 	appendIDs := func(list ...flexString) {
 		for _, id := range list {
