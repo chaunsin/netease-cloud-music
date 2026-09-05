@@ -11,6 +11,8 @@ version: "0.4.0"
 - [Getting help](#getting-help)
 - [Global flags](#global-flags)
 - [task](#task)
+- [share](#share)
+- [fansgroup](#fansgroup)
 - [sign](#sign)
 - [partner](#partner)
 - [scrobble](#scrobble)
@@ -57,11 +59,14 @@ Global `--debug` enables raw API request/response logging outside the proxy reda
 Run selected account tasks on cron schedules as a long-running service. Login is required.
 
 ```bash
-# No selectors means all three jobs
-ncmctl task
+# Schedule all five jobs
+ncmctl task --runAll
 
 # Explicitly schedule the daily public song challenge
 ncmctl task --share
+
+# Schedule only the fans-group job
+ncmctl task --fansgroup
 
 # Only sign and scrobble
 ncmctl task --sign --scrobble
@@ -74,11 +79,12 @@ ncmctl task --scrobble \
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--runAll` | false | Register all four jobs (sign, partner, scrobble, daily song challenge) |
+| `--runAll` | false | Register all five jobs (sign, partner, scrobble, daily song challenge, fans group) |
 | `--sign` | false | Register the sign job |
 | `--partner` | false | Register the partner job |
 | `--scrobble` | false | Register the scrobble job |
 | `--share` | false | Register the public daily song challenge job |
+| `--fansgroup` | false | Register the fans-group missions job |
 | `--sign.cron` | `0 10 * * *` | Sign schedule |
 | `--partner.cron` | `0 18 * * *` | Partner schedule |
 | `--scrobble.cron` | `0 18 * * *` | Scrobble schedule |
@@ -88,6 +94,11 @@ ncmctl task --scrobble \
 | `--share.title` / `--share.message` | empty | Text overrides |
 | `--share.draw` | true | Draw server-reported rewards after publishing |
 | `--share.delete` | false | Delete only the new note after lottery; may affect full attendance |
+| `--fansgroup.cron` | `30 10 * * *` | Fans-group schedule |
+| `--fansgroup.group-id` | `1872529203038486609` | Numeric group IDs; comma-separated or repeated |
+| `--fansgroup.title` / `--fansgroup.message` | empty | Fans-group note text overrides; a custom message needs at least 10 Unicode characters |
+| `--fansgroup.image` | empty | Fixed local image; empty uses the fans-group avatar |
+| `--fansgroup.delete` | false | Delete notes published by that run after its mission loop |
 | `--sign.automatic` | false | Claim available sign rewards and eligible VIP rewards; increased account risk |
 | `--partner.star` | `3,4` | Base evaluation score choices, each 1-5 |
 | `--partner.extStar` | `2,3,4` | Extra evaluation score choices, each 1-5 |
@@ -95,7 +106,7 @@ ncmctl task --scrobble \
 | `--scrobble.num` | 300 | Requested play-log count, 1-300 |
 | `-l, --location` | `Asia/Shanghai` | IANA timezone for cron |
 
-Schedules use standard five-field cron syntax. Press Ctrl+C or send SIGTERM to stop the service.
+Schedules use standard five-field cron syntax. With no task selector and without `--runAll`, the command exits with an error. Fans-group scheduling changes account state and keeps newly published notes by default. Press Ctrl+C or send SIGTERM to stop the service.
 
 ## share
 
@@ -106,6 +117,40 @@ ncmctl share status
 ncmctl share --song-id 1820944399
 ncmctl share draw --count 1
 ```
+
+## fansgroup
+
+Inspect or run daily fans-group missions. Login is required. The execution mode reports play logs and share progress, likes fan notes, publishes public image-text notes, and uses heart/unheart actions for the daily speed-up mission. These actions can trigger account risk controls; published notes are kept by default.
+
+```bash
+# Read-only status for the default group
+ncmctl fansgroup status
+
+# Run outstanding missions for the default group
+ncmctl fansgroup
+
+# Process multiple groups serially
+ncmctl fansgroup --group-id 1872529203038486609,1872529203038486610
+
+# Use custom note content and remove notes published by this run
+ncmctl fansgroup -g 1872529203038486609 \
+  -t 'My check-in title' \
+  -m 'A custom message with at least ten characters' \
+  -i ./fansgroup-cover.jpg \
+  -d
+```
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `-g, --group-id` | `1872529203038486609` | Numeric fans-group IDs; comma-separated or repeated |
+| `-t, --title` | empty (generated title) | Public-note title override; whitespace-only values are rejected |
+| `-m, --message` | empty (randomized built-in text) | Public-note message override; after trimming, it must contain at least 10 Unicode characters |
+| `-i, --image` | empty (fans-group avatar) | Non-empty local regular file used for the public note; symlinks are rejected |
+| `-d, --delete` | false | Delete only notes successfully published by this run, after the mission loop |
+
+`status` still requires an authenticated session. It accepts `--group-id` but rejects all note-writing flags (`--title`, `--message`, `--image`, and `--delete`). The command does not join groups automatically; groups the account has not joined are skipped.
+
+Groups and missions run serially with random waits between actions. The speed-up flow unhearts, hearts, then unhearts a selected song; if the final cleanup fails, the command reports that a heart may remain. `--delete` never targets an older note, and a deletion failure is reported without changing the mission result. Read failures and groups whose attempted missions all fail produce a non-zero exit after other groups have been processed. Completed and unknown tasks, unjoined groups, and like or speed-up tasks with no usable candidates are skipped according to server-reported progress.
 
 ## sign
 

@@ -756,24 +756,23 @@ type FansGroupUserGroupDetailGetReq struct {
 }
 
 type FansGroupUserGroupDetailGetRespDataFansGroupMemberDetail struct {
-	UserId           int64  `json:"userId"`
-	Nickname         string `json:"nickname"`
-	AvatarUrl        string `json:"avatarUrl"`
-	AvatarDetail     any    `json:"avatarDetail"`
-	AccountStatus    int64  `json:"accountStatus"`
-	Active           bool   `json:"active"`
-	Joined           bool   `json:"joined"`
-	UserHidden       bool   `json:"userHidden"`
-	UserPriority     bool   `json:"userPriority"`
-	Follow           bool   `json:"follow"`
-	FansGroupId      string `json:"fansGroupId"`
-	RemainingUpgrade int64  `json:"remainingUpgrade"`
-	// Identify 身份标识码 (2026-09-04 实测键名为 identify, eg: 99; 原误写为 identity 导致永不解析).
-	Identify  int64     `json:"identify"`
-	VipRights VipRights `json:"vipRights"`
-	Integral  string    `json:"integral"` // 当前已获得的亲密值
-	No        string    `json:"no"`
-	Level     struct {
+	UserId           int64     `json:"userId"`
+	Nickname         string    `json:"nickname"`
+	AvatarUrl        string    `json:"avatarUrl"`
+	AvatarDetail     any       `json:"avatarDetail"`
+	AccountStatus    int64     `json:"accountStatus"`
+	Active           bool      `json:"active"`
+	Joined           bool      `json:"joined"`
+	UserHidden       bool      `json:"userHidden"`
+	UserPriority     bool      `json:"userPriority"`
+	Follow           bool      `json:"follow"`
+	FansGroupId      string    `json:"fansGroupId"`
+	RemainingUpgrade int64     `json:"remainingUpgrade"`
+	Identify         int64     `json:"identify"`
+	VipRights        VipRights `json:"vipRights"`
+	Integral         string    `json:"integral"` // 当前已获得的亲密值
+	No               string    `json:"no"`
+	Level            struct {
 		Level              string `json:"level"`
 		LvelPicUrl         string `json:"levelPicUrl"`
 		LevelIntegral      int64  `json:"levelIntegral"`
@@ -785,24 +784,22 @@ type FansGroupUserGroupDetailGetRespDataFansGroupMemberDetail struct {
 		Segment            string `json:"segment"`     // eg: LV.2
 		SegmentCode        string `json:"segmentCode"` // eg: 2
 	} `json:"level"`
-	// FansNameplate 乐迷团铭牌 (2026-09-04 实测载荷补全内层字段与外层 json tag, 此前仅靠大小写不敏感兜底).
 	FansNameplate struct {
-		BackgroundColor        any    `json:"backgroundColor"`
-		BackgroundEdgeUrl      string `json:"backgroundEdgeUrl"`
-		BackgroundUrl          string `json:"backgroundUrl"`
-		BizCode                string `json:"bizCode"` // eg: FANS_NAMEPLATE
-		Degrade                bool   `json:"degrade"`
-		ExtParams              any    `json:"extParams"`
-		Level                  string `json:"level"` // eg: "2"
-		LevelUrl               string `json:"levelUrl"`
-		NameplateTagImgExtInfo any    `json:"nameplateTagImgExtInfo"`
-		RelatedId              any    `json:"relatedId"`
-		SocialUserTargetMap    any    `json:"socialUserTargetMap"`
-		Target                 string `json:"target"`
-		Text                   string `json:"text"` // eg: 音乐合伙人乐迷
-		TextColor              any    `json:"textColor"`
-		Type                   string `json:"type"` // eg: "1"
-		// 以下为 2026-09-04 载荷实测补充字段
+		BackgroundColor          any    `json:"backgroundColor"`
+		BackgroundEdgeUrl        string `json:"backgroundEdgeUrl"`
+		BackgroundUrl            string `json:"backgroundUrl"`
+		BizCode                  string `json:"bizCode"` // eg: FANS_NAMEPLATE
+		Degrade                  bool   `json:"degrade"`
+		ExtParams                any    `json:"extParams"`
+		Level                    string `json:"level"` // eg: "2"
+		LevelUrl                 string `json:"levelUrl"`
+		NameplateTagImgExtInfo   any    `json:"nameplateTagImgExtInfo"`
+		RelatedId                any    `json:"relatedId"`
+		SocialUserTargetMap      any    `json:"socialUserTargetMap"`
+		Target                   string `json:"target"`
+		Text                     string `json:"text"` // eg: 音乐合伙人乐迷
+		TextColor                any    `json:"textColor"`
+		Type                     string `json:"type"`          // eg: "1"
 		NameplateType            string `json:"nameplateType"` // eg: "normal"
 		ActiveStartDate          any    `json:"activeStartDate"`
 		ActiveEndDate            any    `json:"activeEndDate"`

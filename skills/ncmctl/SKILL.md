@@ -3,7 +3,8 @@ name: ncmctl
 description: >-
   Install, configure, operate, and troubleshoot the ncmctl command-line client for NetEase Cloud
   Music. Use this skill when the user mentions ncmctl or asks for CLI-based NetEase login, Cookie or
-  CookieCloud import, QR/SMS login, scheduled sign/partner/scrobble tasks, song download, cloud-disk
+  CookieCloud import, QR/SMS login, scheduled sign, partner, scrobble, share, or `fansgroup` tasks,
+  song download, cloud-disk
   upload, NCM-to-MP3/FLAC decryption, API crypto/curl debugging, Docker deployment, or the local
   HTTP(S) capture proxy. Also use it for ncmctl flags, shell completion, config files, runtime paths,
   credentials, and proxy CA safety. Do not trigger for general music recommendations, official app usage, or repository
@@ -45,8 +46,9 @@ Prebuilt binaries are published on the project's GitHub Releases page.
 | --- | --- | --- |
 | `login` | No | Phone/SMS, password, Cookie, CookieCloud, or QR login |
 | `logout` | Existing session | Log out, remove the default Cookie and XEAPI state, and optionally remove the anonymous token |
-| `task` | Yes | Run sign, partner, scrobble, and optionally daily song challenge on cron schedules |
+| `task` | Yes | Schedule sign, partner, scrobble, daily song challenge, and fans-group jobs |
 | `share` | Yes | Publish a public daily song note, inspect status, or draw rewards |
+| `fansgroup` | Yes | Inspect or run fans-group daily missions; execution may publish public notes that are kept by default |
 | `sign` | Yes | Run YunBei and VIP daily sign-in actions; VIP sign-in needs no active entitlement |
 | `partner` | Yes | Submit music-partner evaluations once |
 | `scrobble` | Yes | Submit play logs, up to 300 per day |
@@ -87,7 +89,7 @@ For custom configuration, copy the full schema from `config/config.yaml`, edit i
 
 ## Safety boundaries
 
-- **Account risk:** `scrobble`, partner evaluation, daily song publishing, automatic reward claims, and other automation can trigger NetEase risk control. Scrobble has a particularly high ban risk.
+- **Account risk:** `scrobble`, partner evaluation, daily song publishing, fans-group missions, automatic reward claims, and other automation can trigger NetEase risk control. `fansgroup` changes play and like state and may publish public notes that are kept by default. Scrobble has a particularly high ban risk.
 - **Credentials:** Cookie values, `MUSIC_U`, phone passwords, CookieCloud UUID/passwords, and XEAPI dynamic/session keys are secrets. Phone-password, CookieCloud, and XEAPI key inputs are flags; they do not provide a hidden prompt or dedicated environment variable. In particular, `proxy --xeapi-session-key` is visible in shell history and process arguments.
 - **TLS verification:** The current NetEase API and CookieCloud clients disable server-certificate verification. HTTPS traffic is encrypted but the peer identity is not authenticated; use only a trusted network path and CookieCloud server.
 - **State files:** Cookies, XEAPI session state, and anonymous tokens are sensitive. ncmctl creates its managed state files with restrictive permissions on POSIX, but backups, exported Cookies, and user-provided `header.yaml` files remain the user's responsibility. Prefer `login cookie -f` over placing a Cookie string directly in shell history.
@@ -100,13 +102,17 @@ For custom configuration, copy the full schema from `config/config.yaml`, edit i
 
 ## Common workflows
 
-### Schedule sign and scrobble
+### Schedule account tasks
 
 ```bash
 ncmctl task --sign --scrobble
+ncmctl task --fansgroup
+ncmctl task --runAll
 ```
 
-`task` is a long-running service. With no selectors it registers sign, partner, and scrobble; explicit selectors limit the jobs. Press Ctrl+C or send SIGTERM to stop it.
+`task` is a long-running service. With no selector and without `--runAll`, it exits with an error. Explicit selectors register only those jobs; `--runAll` registers all five jobs. The fans-group schedule defaults to 10:30 in the selected time zone. Press Ctrl+C or send SIGTERM to stop the service.
+
+Use `ncmctl fansgroup status` for a read-only view. Running `ncmctl fansgroup` executes outstanding missions for the default group, including actions that change the account; read `references/commands.md` before automating it.
 
 ### Download a playlist
 
