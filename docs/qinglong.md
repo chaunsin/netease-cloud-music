@@ -241,7 +241,7 @@ qinglong-2.png
 
 ### 2.5 定时任务相关环境变量配置
 
-默认情况下,此脚本会执行所有定时任务，如需关闭某些任务可以添加环境变量进行相应的控制。
+默认执行签到和音乐合伙人任务；刷歌、每日推歌挑战、乐迷团任务和签到自动领奖默认关闭。可以通过以下环境变量分别控制：
 
 环境变量主要有
 
@@ -249,9 +249,11 @@ qinglong-2.png
 - `NCMCTL_QINGLONG_SIGN_AUTOMATIC` 每日签到任务是否自动领取奖励，目前建议关闭避免封号,默认关闭 true: 开启 false: 关闭(默认)
 - `NCMCTL_QINGLONG_SCROBBLE` 是否开启刷歌 true: 开启 false: 关闭(默认)
 - `NCMCTL_QINGLONG_PARTNER` 是否开启音乐合伙人 true: 开启(默认) false: 关闭
+- `NCMCTL_QINGLONG_SHARE` 是否开启每日推歌挑战 true: 开启 false: 关闭(默认)
+- `NCMCTL_QINGLONG_FANSGROUP` 是否开启乐迷团每日任务 true: 开启 false: 关闭(默认)
 
 **提示**:
-如果没有相应的权限，或已经彻底完成得任务，建议关闭不然会有封号的风险,相关问题参考: [https://github.com/chaunsin/netease-cloud-music/issues/24](https://github.com/chaunsin/netease-cloud-music/issues/24)
+每日推歌挑战会发布公开动态、默认抽奖并保留动态；乐迷团任务可能修改播放记录、红心和点赞，也可能发布默认保留的公开动态。确认这些账号副作用后再开启。没有相应权限或不再需要执行的任务应保持关闭，相关问题参考: [https://github.com/chaunsin/netease-cloud-music/issues/24](https://github.com/chaunsin/netease-cloud-music/issues/24)
 
 ## 3. 常见问题
 

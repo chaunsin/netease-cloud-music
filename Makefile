@@ -26,6 +26,7 @@ test: test-qinglong
 .PHONY: test-qinglong
 test-qinglong:
 	bash script/qinglong/tests/install_test.sh
+	bash script/qinglong/tests/task_test.sh
 
 .PHONY: test-live
 test-live:

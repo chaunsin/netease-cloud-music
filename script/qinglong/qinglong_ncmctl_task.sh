@@ -23,6 +23,10 @@ NCMCTL_QINGLONG_SIGN_AUTOMATIC=${NCMCTL_QINGLONG_SIGN_AUTOMATIC:-false}
 NCMCTL_QINGLONG_SCROBBLE=${NCMCTL_QINGLONG_SCROBBLE:-false}
 # 是否开启音乐合伙人签到功能，默认开启
 NCMCTL_QINGLONG_PARTNER=${NCMCTL_QINGLONG_PARTNER:-true}
+# 是否开启每日推歌挑战，默认关闭
+NCMCTL_QINGLONG_SHARE=${NCMCTL_QINGLONG_SHARE:-false}
+# 是否开启乐迷团每日任务，默认关闭
+NCMCTL_QINGLONG_FANSGROUP=${NCMCTL_QINGLONG_FANSGROUP:-false}
 
 # 将变量值转换为小写
 to_lower() {
@@ -50,3 +54,16 @@ if [[ "$(to_lower "${NCMCTL_QINGLONG_PARTNER}")" == "true" ]]; then
   echo "--- 执行音乐合伙人签到任务完成 ---"
 fi
 
+# 执行每日推歌挑战，默认会抽奖并保留发布的公开动态。
+if [[ "$(to_lower "${NCMCTL_QINGLONG_SHARE}")" == "true" ]]; then
+  echo ">>> 执行每日推歌挑战 <<<"
+  ncmctl share
+  echo "--- 执行每日推歌挑战完成 ---"
+fi
+
+# 执行乐迷团每日任务，可能修改播放、红心、点赞和公开动态。
+if [[ "$(to_lower "${NCMCTL_QINGLONG_FANSGROUP}")" == "true" ]]; then
+  echo ">>> 执行乐迷团每日任务 <<<"
+  ncmctl fansgroup
+  echo "--- 执行乐迷团每日任务完成 ---"
+fi

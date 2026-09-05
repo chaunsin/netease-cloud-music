@@ -182,8 +182,8 @@ type eventUploadImgResp struct {
 		PcSquareIdStr    string `json:"pcSquareIdStr"`
 		PcRectangleIdStr string `json:"pcRectangleIdStr"`
 		OriginJpgIdStr   string `json:"originJpgIdStr"`
-		PcSquareUrl    any `json:"pcSquareUrl"`
-		PcRectangleUrl any `json:"pcRectangleUrl"`
+		PcSquareUrl      any    `json:"pcSquareUrl"`
+		PcRectangleUrl   any    `json:"pcRectangleUrl"`
 	} `json:"picInfo"`
 }
 
