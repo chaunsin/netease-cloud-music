@@ -74,13 +74,19 @@ jobs:
 
       # Step 4: 打印 changelog
       - name: Print Changelog
+        env:
+          CHANGELOG: ${{ steps.changelog.outputs.changelog }}
+          COMPARE_URL: ${{ steps.changelog.outputs.compareurl }}
+          GH_PAGES_HASH: ${{ steps.changelog.outputs.gh-pages-hash }}
         run: |
-          echo "Changelog:"
-          echo "GitHub Pages Hash: ${{ steps.changelog.outputs.gh-pages-hash }}"    
-          echo "Compare URL: ${{ steps.changelog.outputs.compareurl }}"
-          echo "Compare URL: ${{ steps.changelog.outputs.compareurl }}" > note.md
-          echo "${{ steps.changelog.outputs.changelog }}"
-          echo "${{ steps.changelog.outputs.changelog }}" >> note.md
+          printf '%s\n' "Changelog:"
+          printf 'GitHub Pages Hash: %s\n' "$GH_PAGES_HASH"
+          printf 'Compare URL: %s\n' "$COMPARE_URL"
+          printf '%s\n' "$CHANGELOG"
+          {
+            printf 'Compare URL: %s\n' "$COMPARE_URL"
+            printf '%s\n' "$CHANGELOG"
+          } > note.md
 
       # Step 5: 发布
       - name: Run GoReleaser
