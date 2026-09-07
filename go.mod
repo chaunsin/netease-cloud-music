@@ -1,6 +1,6 @@
 module github.com/chaunsin/netease-cloud-music
 
-go 1.25.0
+go 1.26.0
 
 require (
 	codeberg.org/sbinet/mozcookie v0.4.0
@@ -17,8 +17,8 @@ require (
 	github.com/go-resty/resty/v2 v2.17.2
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/google/uuid v1.6.0
-	github.com/klauspost/compress v1.19.2
-	github.com/mattn/go-runewidth v0.0.28
+	github.com/klauspost/compress v1.20.0
+	github.com/mattn/go-runewidth v0.0.29
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/spf13/cobra v1.10.2
@@ -26,7 +26,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/wneessen/go-mail v0.8.1
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/net v0.58.0
 	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0
