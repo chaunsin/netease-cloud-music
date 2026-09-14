@@ -469,6 +469,13 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 		return fmt.Errorf("SongMusicQuality(%v) not support %v", songId, types.Level(c.opts.Level))
 	}
 
+	// SongMusicQuality 可能返回全空音质(如无版权/试听歌曲), 此时 quality 为 nil,
+	// 但 SongPlayerV1 仍可能返回可用音源; quality 后续仅用于日志输出, 此处提取码率避免空指针解引用。
+	var br int64
+	if quality != nil {
+		br = quality.Br
+	}
+
 	// // 获取下载链接地址
 	// var downReq = &weapi.SongDownloadUrlReq{
 	// 	Id: songIdStr,
@@ -551,11 +558,11 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 
 		switch ret.Code {
 		case -110:
-			msg = fmt.Errorf("无音源(%v) br: %v code: %v", songId, quality.Br, ret.Code)
+			msg = fmt.Errorf("无音源(%v) br: %v code: %v", songId, br, ret.Code)
 		case -105: // Pending: 待确定完善,目前测试发现,当用户没有会员权益时,会返回-105，其他情况可能也会返回此值
-			msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, ret.Code)
+			msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, br, ret.Code)
 		default:
-			msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, quality.Br, ret.Code)
+			msg = fmt.Errorf("资源已下架或无版权(%v) br: %v code: %v", songId, br, ret.Code)
 		}
 
 		c.l.Warnf("资源已下架或无版权(%v) code=%v message=%v", songId, ret.Code, ret.Message)
@@ -596,7 +603,7 @@ func (c *Download) download(ctx context.Context, cli *api.Client, request *weapi
 
 	size := resp.ContentLength
 	c.l.Debugf("id=%v status=%d downloadUrl=%v wantLevel=%v-%v realLevel=%v-%v encodeType=%v type=%v size=%vM,%vKB free=%v tempFile=%s outDir=%s",
-		drd.Id, resp.StatusCode, drd.Url, c.opts.Level, quality.Br, drd.Level, drd.Br, drd.EncodeType, drd.Type, size/utils.MB, size, types.Free(drd.Fee), file.Name(), dest)
+		drd.Id, resp.StatusCode, drd.Url, c.opts.Level, br, drd.Level, drd.Br, drd.EncodeType, drd.Type, size/utils.MB, size, types.Free(drd.Fee), file.Name(), dest)
 
 	// 校验md5文件完整性
 	if _, err := file.Seek(0, io.SeekStart); err != nil {

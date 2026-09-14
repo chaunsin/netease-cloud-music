@@ -89,6 +89,10 @@ func TestDownload(t *testing.T) {
 	if !ok && strict {
 		t.Fatalf("SongMusicQuality(%v) not support %v", songId, lv)
 	}
+	// 音质全空时FindBetter返回nil(如无版权/试听歌曲), 后续SongDownloadUrl需要Br参数, 此处快速失败。
+	if quality == nil {
+		t.Fatalf("SongMusicQuality(%v) returned no available quality", songId)
+	}
 
 	// 获取下载链接地址
 	downReq := &weapi.SongDownloadUrlReq{
