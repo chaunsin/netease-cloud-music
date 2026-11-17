@@ -12,11 +12,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	neturl "net/url"
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -472,7 +474,6 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 	request := c.cli.R().
 		SetHeader("Connection", "keep-alive").
 		SetHeader("Accept", "*/*").
-		SetHeader("Accept-Encoding", "gzip, deflate, br").
 		SetHeader("Content-Type", "application/x-www-form-urlencoded").
 		SetHeader("Accept-language", "zh-CN,zh-Hans;q=0.9").
 		SetHeader("Referer", "https://music.163.com").
@@ -626,6 +627,15 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
 
+	encryptedResponse := cryptoMode == CryptoModeLinux || cryptoMode == CryptoModeXEAPI ||
+		cryptoMode == CryptoModeEAPI && eapiEncrypted
+	if encryptedResponse || opts.redactLogs {
+		// Resty formats application/json bodies before protocol decryption and reports
+		// encrypted binary as malformed JSON. Sensitive response bodies also stay out
+		// of Resty's request/response dump.
+		request.SetDebug(false)
+	}
+
 	antiToken, hasAntiToken := policy.cookieScalar("x-antiCheatToken")
 	if !hasAntiToken {
 		antiToken = requestHeaders.Get("X-Anticheattoken")
@@ -658,7 +668,14 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		return nil, fmt.Errorf("do request: %w", err)
 	}
 
-	c.l.Debugf("[response.raw] func=%s status=%d body=%s", opts.Func, response.StatusCode(), response.Body())
+	switch {
+	case opts.redactLogs:
+		c.l.Debugf("[response.raw] func=%s status=%d bytes=%d redacted=true", opts.Func, response.StatusCode(), len(response.Body()))
+	case encryptedResponse:
+		c.l.Debugf("[response.raw] func=%s status=%d bytes=%d", opts.Func, response.StatusCode(), len(response.Body()))
+	default:
+		c.l.Debugf("[response.raw] func=%s status=%d body=%s", opts.Func, response.StatusCode(), response.Body())
+	}
 
 	var decryptData []byte
 
@@ -706,7 +723,17 @@ func (c *Client) Request(ctx context.Context, url string, req, resp any, opts *O
 		return nil, fmt.Errorf("%s crypto mode unknown", opts.CryptoMode)
 	}
 
-	c.l.Debugf("[response.decrypt] func=%s crypto=%s decrypt=%s", opts.Func, opts.CryptoMode, decryptData)
+	if opts.redactLogs {
+		c.l.Debugf("[response.decrypt] func=%s crypto=%s bytes=%d redacted=true", opts.Func, opts.CryptoMode, len(decryptData))
+
+		if c.l.Logger().Enabled(ctx, slog.LevelDebug) {
+			if shape := jsonKeyShape(decryptData); shape != "" {
+				c.l.Debugf("[response.shape] func=%s keys=%s", opts.Func, shape)
+			}
+		}
+	} else {
+		c.l.Debugf("[response.decrypt] func=%s crypto=%s decrypt=%s", opts.Func, opts.CryptoMode, decryptData)
+	}
 
 	decode := json.NewDecoder(bytes.NewReader(decryptData))
 	// decode.DisallowUnknownFields()
@@ -856,6 +883,9 @@ func (c *Client) Upload(ctx context.Context, url string, data io.Reader, resp an
 		SetHeader("Referer", "https://music.163.com").
 		SetHeader("User-Agent", ua).
 		SetBody(body)
+	if opts.redactLogs {
+		request.SetDebug(false)
+	}
 
 	setRequestHeaders(request, requestHeaders, excludedHeaders)
 	request.Header.Del("Cookie")
@@ -877,7 +907,11 @@ func (c *Client) Upload(ctx context.Context, url string, data io.Reader, resp an
 		return nil, fmt.Errorf("do upload: %w", err)
 	}
 
-	c.l.Debugf("[upload.response] func=%s method=%s url=%s status=%d bytes=%d", opts.Func, opts.Method, url, response.StatusCode(), len(response.Body()))
+	if opts.redactLogs {
+		c.l.Debugf("[upload.response] func=%s method=%s status=%d bytes=%d redacted=true", opts.Func, opts.Method, response.StatusCode(), len(response.Body()))
+	} else {
+		c.l.Debugf("[upload.response] func=%s method=%s url=%s status=%d bytes=%d", opts.Func, opts.Method, url, response.StatusCode(), len(response.Body()))
+	}
 
 	if resp != nil {
 		if err := json.NewDecoder(bytes.NewReader(response.Body())).Decode(&resp); err != nil {
@@ -1131,3 +1165,71 @@ func unescapeCookieValue(value string) string {
 // 	log.Debugf("---------------- response ----------------\n%s\n", string(dumpResp))
 // 	return nil
 // }
+
+// jsonShapeMaxDepth/jsonShapeMaxKeys 限定键路径取证行的规模, 避免大正文把日志刷满。
+const (
+	jsonShapeMaxDepth    = 4
+	jsonShapeMaxKeys     = 64
+	jsonShapeArraySample = 2
+)
+
+// jsonKeyShape 输出 JSON 正文的键路径清单, 只含键名与层级、不含任何取值, 因此可以在
+// SetRedactLogs 的响应上安全落盘: 用于取证「结构体没映射到的字段到底叫什么、嵌在哪一层」。
+// 非 JSON 正文返回空串; 路径字典序去重。
+func jsonKeyShape(data []byte) string {
+	if len(data) == 0 {
+		return ""
+	}
+
+	var document any
+	if err := json.Unmarshal(data, &document); err != nil {
+		return ""
+	}
+
+	var paths []string
+
+	record := func(path string) {
+		if len(paths) >= jsonShapeMaxKeys || slices.Contains(paths, path) {
+			return
+		}
+
+		paths = append(paths, path)
+	}
+
+	var walk func(prefix string, value any, depth int)
+
+	walk = func(prefix string, value any, depth int) {
+		if depth > jsonShapeMaxDepth || len(paths) >= jsonShapeMaxKeys {
+			return
+		}
+
+		switch typed := value.(type) {
+		case map[string]any:
+			keys := make([]string, 0, len(typed))
+			for key := range typed {
+				keys = append(keys, key)
+			}
+
+			slices.Sort(keys)
+
+			for _, key := range keys {
+				path := key
+				if prefix != "" {
+					path = prefix + "." + key
+				}
+
+				record(path)
+				walk(path, typed[key], depth+1)
+			}
+		case []any:
+			limit := min(len(typed), jsonShapeArraySample)
+			for _, element := range typed[:limit] {
+				walk(prefix+"[]", element, depth+1)
+			}
+		}
+	}
+
+	walk("", document, 1)
+
+	return strings.Join(paths, ",")
+}

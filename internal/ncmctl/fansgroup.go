@@ -8,9 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math/rand/v2"
-	"net/http"
 	"slices"
 	"strconv"
 	"strings"
@@ -146,7 +144,7 @@ func (c *FansGroup) validate() error {
 	}
 
 	// 标题/正文/图片规则与 share 命令一致, 共用校验
-	return validateNoteContent(c.opts.Title, c.opts.Message, c.opts.Image)
+	return validateNoteContent(c.opts.Title, c.opts.Message, c.opts.Image, 10)
 }
 
 // load 创建 API 客户端并校验登录, 复用 share.go load() 模式。
@@ -511,7 +509,7 @@ func (c *FansGroup) playOnce(ctx context.Context, w *weapi.Api, songID int64) bo
 		return false
 	}
 
-	if err := fetchAudioSample(ctx, player.Data[0].Url, audioFetchLimit, c.root.Cfg.Network.Timeout); err != nil {
+	if err := fetchMediaAudioSample(ctx, mediaPlain, c.root.Cfg.Network.Timeout, player.Data[0].Url, audioFetchLimit); err != nil {
 		c.cmd.Printf("    歌曲 %d(%s): 拉取音频失败: %v\n", songID, song.name, err)
 		return false
 	}
@@ -698,7 +696,7 @@ func (c *FansGroup) runNoteMission(ctx context.Context, e *eapi.Api, m *eapi.Fan
 	case rt.avatarURL == "":
 		prepErr = errors.New("fans group has no avatar URL; specify --image")
 	default:
-		image, cleanup, prepErr = downloadImageToTemp(ctx, c.root.Cfg.Network.Timeout, rt.avatarURL, fansAvatarLimit, "ncmctl-fansgroup-*.img")
+		image, cleanup, prepErr = downloadMediaToTemp(ctx, mediaPlain, c.root.Cfg.Network.Timeout, rt.avatarURL, fansAvatarLimit, "ncmctl-fansgroup-*.img")
 		if prepErr != nil {
 			prepErr = fmt.Errorf("download avatar: %w", prepErr)
 		}
@@ -1146,37 +1144,6 @@ func speedUpSongIDs(m *eapi.FansGroupMissionAllRespDataNormalData, fallback []st
 		}
 	}
 	return fallback
-}
-
-// fetchAudioSample 以 Range 请求限量拉取音频数据模拟播放缓冲, 遵循 ctx 取消;
-// 上报时长与实际拉取解耦 (FR-04)。
-func fetchAudioSample(ctx context.Context, url string, limit int64, timeout time.Duration) error {
-	// fail-fast: limit<=0 会构造非法 Range 头 (bytes=0--1)
-	if limit <= 0 {
-		return errors.New("audio sample limit must be positive")
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Range", fmt.Sprintf("bytes=0-%d", limit-1))
-
-	client := &http.Client{Timeout: timeout}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode/100 != 2 {
-		return fmt.Errorf("HTTP %s", res.Status)
-	}
-
-	_, err = io.Copy(io.Discard, io.LimitReader(res.Body, limit))
-	return err
 }
 
 // runIterations 任务迭代统一脚手架 (5.1.2/5.3): 每轮先检查 ctx 取消, 轮间在

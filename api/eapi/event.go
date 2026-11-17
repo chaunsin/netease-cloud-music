@@ -92,7 +92,7 @@ func (a *Api) EventPublish(ctx context.Context, req *EventPublishReq) (*EventPub
 	var (
 		url   = "https://interface3.music.163.com/eapi/note/share/friends/resource"
 		reply EventPublishResp
-		opts  = api.NewOptions("eapi.EventPublish").SetEAPI()
+		opts  = api.NewOptions("eapi.EventPublish").SetEAPI().SetRedactLogs()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -235,7 +235,7 @@ func (a *Api) uploadEventImage(ctx context.Context, funcName, filePath, uploadNo
 			Type:       "image",
 		}
 		tokenReply eventNosTokenResp
-		tokenOpts  = api.NewOptions(funcName).SetEAPI()
+		tokenOpts  = api.NewOptions(funcName).SetEAPI().SetRedactLogs()
 	)
 
 	if _, err = a.client.Request(ctx, tokenURL, tokenReq, &tokenReply, tokenOpts); err != nil {
@@ -254,7 +254,7 @@ func (a *Api) uploadEventImage(ctx context.Context, funcName, filePath, uploadNo
 			"X-Nos-Token":  tokenReply.Result.Token,
 			"Content-Type": utils.DetectContentType(data, ext),
 		}
-		opts = api.NewOptions(funcName).SetMethod(http.MethodPut).SetHeaders(headers)
+		opts = api.NewOptions(funcName).SetMethod(http.MethodPut).SetHeaders(headers).SetRedactLogs()
 	)
 
 	reply, err := a.client.Upload(ctx, uploadURL, bytes.NewReader(data), nil, opts, nil) // resp 暂时为空后续补充

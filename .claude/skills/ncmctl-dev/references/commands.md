@@ -23,7 +23,7 @@ Execution order:
 1. Cobra parses persistent flags (`--debug`, `--config`, and `--home`).
 2. `PersistentPreRunE` loads and validates runtime configuration, applies CLI overrides, and initializes the logger. Load `references/configuration.md` through the skill routing table when changing this step.
 3. The selected command validates arguments and runs its operation.
-4. `Root.Execute` closes the logger after Cobra returns, including command-error paths. Keep critical root cleanup outside `PersistentPostRunE`, because Cobra skips post-run hooks when `RunE` returns an error.
+4. `Root.Execute` closes the logger after Cobra returns, including command-error paths. Keep critical root cleanup outside `PersistentPostRunE`, because Cobra skips post-run hooks when `RunE` returns an error. Place cleanup that must run on error paths in `RunE` deferred calls or directly after `Root.Execute` returns.
 
 `Root` owns address-stable logger storage before registering the command tree. Constructors receive that address, and `PersistentPreRunE` initializes the same storage after configuration and CLI overrides are final. Command methods log through their direct `c.l` field; do not copy a nil logger during construction, add package-level fallbacks, or reach through nested `root` fields to find the active logger. `log.GetDefault()` remains an alias for lower-level packages that still use package-level logging.
 
@@ -36,7 +36,7 @@ Execution order:
 | `login cookiecloud` | `login_cookiecloud.go` | Contacts CookieCloud, sets matching NetEase cookies on the persistent client, then validates the account |
 | `login qrcode` | `login_qrcode.go` | Calls live login endpoints, writes a temporary `qrcode.png`, removes it after success |
 | `logout` | `logout.go` | Calls the logout endpoint, then removes the default Cookie and XEAPI state; `--clear-anonymous-token` also removes the anonymous token |
-| `task` | `task.go` | Registers `sign`, `partner`, and/or `scrobble` in a long-running cron service |
+| `task` | `task.go` | Registers `sign`, `yunbei`, `partner`, `scrobble`, `share`, and/or `fansgroup` in a long-running cron service |
 | `sign` | `sign.go` | Performs YunBei and VIP account actions; optional automatic reward claims |
 | `partner` | `partner.go` | Reports plays and submits music-partner evaluations after randomized waits |
 | `scrobble` | `scrobble.go` | Sends play logs and writes Badger dedup/daily-counter records |
@@ -61,12 +61,13 @@ Follow the nearest existing command rather than requiring one rigid shape. Most 
 6. Register a top-level command in `Root.New()`; register a nested command in the nearest parent constructor.
 7. Add focused tests for parsing, validation, output, cancellation, and error propagation.
 8. Build the binary and compare `ncmctl <command> --help` with the user documentation.
+9. Run the documentation checklist at the end of this file.
 
 Use `RunE` so command and scheduler failures remain machine-visible. `partner` follows this contract; preserve it when changing its execution path.
 
 ## API client lifecycle
 
-Runtime commands should use the error-returning constructor:
+Inside `internal/ncmctl`, use the `closeAPIClient` helper instead of an ad-hoc deferred close:
 
 ```go
 cli, err := api.NewClient(c.root.Cfg.Network, c.l)
@@ -78,14 +79,18 @@ defer closeAPIClient(ctx, cli, c.l)
 request := weapi.New(cli)
 ```
 
-For login-required work, verify authentication before the first account mutation. Add token refresh only where the command's control flow requires it, and make sure early returns do not skip cleanup. `closeAPIClient` drains the Cookie transport, closes idle connections, triggers the final export, and logs errors returned by `Client.Close`. Prefer it over a bare ignored close. The Cookie exporter currently logs its own export failure internally, so do not promise stronger error propagation without changing and testing that contract.
+`closeAPIClient` drains the Cookie transport, closes idle connections, triggers the final export, and logs errors returned by `Client.Close`. Prefer it over a bare ignored close. The Cookie exporter currently logs its own export failure internally; do not promise stronger error propagation without changing and testing that contract.
+
+For login-required work, verify authentication before the first account mutation. Add token refresh only where the command's control flow requires it, and make sure early returns do not skip cleanup.
+
+For Cookie persistence and transport ownership details, see `references/configuration.md` § Cookie persistence and `references/api-guide.md` § Constructing a client.
 
 ## Scheduled tasks
 
 `task` has two modes:
 
-- With `--runAll` it registers all four jobs (sign, partner, scrobble, daily song challenge); with no selector and without `--runAll` it fails fast requiring at least one selector.
-- With any of `--sign`, `--partner`, `--scrobble`, or `--share`, it registers only the selected jobs.
+- With `--runAll` it registers all six jobs (sign, yunbei, partner, scrobble, share, fansgroup); with no selector and without `--runAll` it fails fast requiring at least one selector.
+- With any of `--sign`, `--yunbei`, `--partner`, `--scrobble`, `--share`, or `--fansgroup`, it registers only the selected jobs. `--share` runs the daily song challenge/share task; `--fansgroup` runs the fans group missions task.
 
 The scheduler creates fresh command instances and copies embedded option structs into them. When adding a scheduled option, update the `TaskOpts` embedding/fields, flag binding, validation, and command-copy path together. Keep cron parsing in validation and timezone loading before job registration.
 
@@ -119,7 +124,11 @@ The flag is retained for compatibility but tag writing is not implemented. Do no
 
 ### `curl --method`
 
-`--method` selects the exported Go API method name and overrides the positional method name; it is not an HTTP verb. The request type is obtained by reflection, JSON decoding rejects unknown fields, and unknown `--kind` values must fail rather than fall back to WEAPI.
+`--method` takes precedence over the positional method name: when both are supplied, `--method` selects the exported Go API method name used for reflection. The positional argument is the default; `--method` overrides it. The request type is obtained by reflection, JSON decoding rejects unknown fields, and unknown `--kind` values must fail rather than fall back to WEAPI.
+
+### `crypto encrypt`
+
+`--kind` selects the protocol (WEAPI, EAPI, Linux, XEAPI). Unknown `--kind` values must fail before sending any request. HAR input may contain secrets; apply `SetRedactLogs()` to any endpoint that emits them. Direct XEAPI encryption requires an explicit session key — do not infer it from persisted state.
 
 ### `crypto decrypt`
 

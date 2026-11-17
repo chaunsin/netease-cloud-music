@@ -25,11 +25,16 @@ import (
 )
 
 type signFlowTransport struct {
-	responses [][]byte
-	paths     []string
+	responses       [][]byte
+	paths           []string
+	beforeRoundTrip func(*http.Request)
 }
 
 func (t *signFlowTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if t.beforeRoundTrip != nil {
+		t.beforeRoundTrip(request)
+	}
+
 	if _, err := io.Copy(io.Discard, request.Body); err != nil {
 		return nil, err
 	}

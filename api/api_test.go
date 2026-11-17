@@ -11,9 +11,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -353,6 +355,163 @@ type customEAPIRequest struct{}
 
 func (customEAPIRequest) MarshalJSON() ([]byte, error) {
 	return []byte(`{"id":"custom"}`), nil
+}
+
+type restyLogCounter struct {
+	calls int
+}
+
+func (l *restyLogCounter) Errorf(_ string, _ ...any) {
+	l.calls++
+}
+
+func (l *restyLogCounter) Warnf(_ string, _ ...any) {
+	l.calls++
+}
+
+func (l *restyLogCounter) Debugf(_ string, _ ...any) {
+	l.calls++
+}
+
+func TestRequestEncryptedEAPISuppressesRestyDebugFormatting(t *testing.T) {
+	var encryptedForm url.Values
+
+	encryptedClient := newEAPIRequestTestClient(
+		t,
+		encryptEAPIResponse(t, gzipEAPIResponse(t, []byte(`{"code":200,"data":true}`))),
+		&encryptedForm,
+	)
+	encryptedLogs := &restyLogCounter{}
+	encryptedClient.cli.SetDebug(true).SetLogger(encryptedLogs)
+
+	var encryptedReply eapiTestResponse
+
+	_, err := encryptedClient.Request(
+		context.Background(),
+		"https://music.163.com/eapi/test/debug",
+		&typedEAPIRequest{ID: "encrypted"},
+		&encryptedReply,
+		NewOptions("encrypted-debug").SetEAPI(),
+	)
+	require.NoError(t, err)
+	assert.Zero(t, encryptedLogs.calls)
+
+	var plaintextForm url.Values
+
+	plaintextClient := newEAPIRequestTestClient(t, []byte(`{"code":200,"data":true}`), &plaintextForm)
+	plaintextLogs := &restyLogCounter{}
+	plaintextClient.cli.SetDebug(true).SetLogger(plaintextLogs)
+
+	plaintextRequest := &typedEAPIRequest{ID: "plaintext"}
+	plaintextRequest.SetResponseEncrypted(false)
+
+	var plaintextReply eapiTestResponse
+
+	_, err = plaintextClient.Request(
+		context.Background(),
+		"https://music.163.com/eapi/test/debug",
+		plaintextRequest,
+		&plaintextReply,
+		NewOptions("plaintext-debug").SetEAPI(),
+	)
+	require.NoError(t, err)
+	assert.Positive(t, plaintextLogs.calls)
+}
+
+func TestRequestRedactsMarkedResponseBodyFromDebugLogs(t *testing.T) {
+	const secret = "sensitive-check-token"
+
+	home := t.TempDir()
+	logPath := filepath.Join(home, "api.log")
+	logConfig := &log.Config{App: "test", Format: "text", Level: "debug"}
+	logConfig.Rotate.Filename = logPath
+	logConfig.Rotate.MaxSize = 1
+	logger := log.New(logConfig)
+	client, err := NewClient(&Config{
+		Debug:   true,
+		Timeout: time.Second,
+		HomeDir: home,
+		Cookie: cookie.Config{
+			Filepath: filepath.Join(home, "cookie.json"),
+			Interval: 0,
+		},
+	}, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, client.Close(context.Background()))
+		require.NoError(t, logger.Close())
+	})
+
+	body := encryptEAPIResponse(t, []byte(`{"code":200,"checkToken":"`+secret+`"}`))
+
+	client.SetTransport(testRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode:    http.StatusOK,
+			Header:        make(http.Header),
+			Body:          io.NopCloser(bytes.NewReader(body)),
+			ContentLength: int64(len(body)),
+			Request:       request,
+		}, nil
+	}))
+
+	var reply struct {
+		Code       int    `json:"code"`
+		CheckToken string `json:"checkToken"`
+	}
+
+	_, err = client.Request(
+		context.Background(),
+		"https://music.163.com/eapi/test/sensitive",
+		&typedEAPIRequest{ID: "fixed"},
+		&reply,
+		NewOptions("sensitive-debug").SetEAPI().SetRedactLogs(),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, secret, reply.CheckToken)
+
+	logged, err := os.ReadFile(logPath)
+	require.NoError(t, err)
+	assert.NotContains(t, string(logged), secret)
+	assert.Contains(t, string(logged), "func=sensitive-debug")
+	assert.Contains(t, string(logged), "redacted=true")
+}
+
+func TestUploadRedactsMarkedRestyDebugDump(t *testing.T) {
+	client := newEAPIRequestTestClient(t, []byte(`{}`), nil)
+	debugLogs := &restyLogCounter{}
+	client.cli.SetDebug(true).SetLogger(debugLogs)
+
+	_, err := client.Upload(
+		context.Background(),
+		"https://example.com/sensitive-upload",
+		strings.NewReader("sensitive body"),
+		nil,
+		NewOptions("sensitive-upload").SetMethod(http.MethodPut).SetRedactLogs(),
+		nil,
+	)
+	require.NoError(t, err)
+	assert.Zero(t, debugLogs.calls)
+}
+
+func TestRequestLeavesContentEncodingNegotiationToTransport(t *testing.T) {
+	var (
+		form   url.Values
+		header http.Header
+	)
+
+	client := newEAPIRequestTestClientWithHeaders(t, []byte(`{"code":200,"data":true}`), &form, &header)
+
+	var reply eapiTestResponse
+
+	_, err := client.Request(
+		context.Background(),
+		"https://music.163.com/weapi/test/compression",
+		map[string]string{"id": "fixed"},
+		&reply,
+		NewOptions("compression-negotiation"),
+	)
+	require.NoError(t, err)
+	assert.Empty(t, header.Values("Accept-Encoding"))
 }
 
 func TestRequestEAPINormalizesUntypedPayloads(t *testing.T) {
@@ -1472,4 +1631,90 @@ func TestUploadContextCancellation(t *testing.T) {
 	_, err := client.Upload(ctx, "https://music.163.com/upload", strings.NewReader("data"), nil, nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), context.Canceled.Error())
+}
+
+// TestJSONKeyShape 覆盖脱敏响应的键路径取证行: 它是 Q3/YunbeiReserveInfo 这类
+// 「正文被 SetRedactLogs 挡掉、但需要知道未映射字段叫什么」场景的唯一取证手段，
+// 因此「绝不出现取值」与两个规模上限都必须钉住。
+func TestJSONKeyShape(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		json string
+		want []string
+	}{
+		{
+			name: "nested objects sorted",
+			json: `{"code":200,"data":{"type":"PREV_BOOKED_UNCLAIMED","reserveInfo":{"checkToken":"SECRET"}}}`,
+			want: []string{"code", "data", "data.reserveInfo", "data.reserveInfo.checkToken", "data.type"},
+		},
+		{
+			name: "array elements share paths",
+			json: `{"data":{"list":[{"name":"b","id":1},{"id":2,"name":"a"}]}}`,
+			want: []string{"data", "data.list", "data.list[].id", "data.list[].name"},
+		},
+		{
+			name: "array sampling limits elements",
+			json: `{"items":[{"first":1},{"second":2},{"third":3}]}`,
+			want: []string{"items", "items[].first", "items[].second"},
+		},
+		{
+			name: "depth capped",
+			json: `{"a":{"b":{"c":{"d":{"e":1}}}}}`,
+			want: []string{"a", "a.b", "a.b.c", "a.b.c.d"},
+		},
+		{
+			name: "scalars only",
+			json: `{"code":200,"message":"ok"}`,
+			want: []string{"code", "message"},
+		},
+		{name: "empty body", json: "", want: nil},
+		{name: "not json", json: `<html>nope</html>`, want: nil},
+		{name: "top level array of scalars", json: `[1,2,3]`, want: nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := jsonKeyShape([]byte(tt.json))
+			if len(tt.want) == 0 {
+				assert.Empty(t, got)
+				return
+			}
+
+			assert.Equal(t, tt.want, strings.Split(got, ","))
+		})
+	}
+
+	t.Run("values never leak", func(t *testing.T) {
+		t.Parallel()
+
+		got := jsonKeyShape([]byte(`{"data":{"checkToken":"SUPERSECRET","reqId":"REQ-ID-VALUE","amounts":[7]}}`))
+		assert.NotContains(t, got, "SUPERSECRET")
+		assert.NotContains(t, got, "REQ-ID-VALUE")
+		assert.NotContains(t, got, "7")
+	})
+
+	t.Run("key count capped", func(t *testing.T) {
+		t.Parallel()
+
+		var body strings.Builder
+
+		body.WriteString(`{"data":{`)
+
+		for index := range jsonShapeMaxKeys + 20 {
+			if index > 0 {
+				body.WriteString(",")
+			}
+
+			fmt.Fprintf(&body, `"k%03d":{}`, index)
+		}
+
+		body.WriteString("}}")
+
+		got := jsonKeyShape([]byte(body.String()))
+		assert.Len(t, strings.Split(got, ","), jsonShapeMaxKeys)
+	})
 }

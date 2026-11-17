@@ -146,14 +146,17 @@ type YunbeiReserveInfoReq struct {
 }
 
 type YunbeiReserveInfoResp struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Success bool   `json:"success"`
-	Data    struct {
-		Type          string `json:"type"`
-		ReqId         string `json:"reqId"`
-		CurrentAmount int64  `json:"currentAmount"`
-	} `json:"data"`
+	Code    int                       `json:"code"`
+	Message string                    `json:"message"`
+	Success bool                      `json:"success"`
+	Data    YunbeiReserveInfoRespData `json:"data"`
+}
+
+type YunbeiReserveInfoRespData struct {
+	Type          string `json:"type"` // NO_PREV_NO_BOOK, NO_PREV_BOOKED, PREV_BOOKED_UNCLAIMED, PREV_CLAIMED_NO_BOOKED or PREV_CLAIMED_BOOKED
+	ReqId         string `json:"reqId"`
+	CheckToken    string `json:"checkToken"`
+	CurrentAmount int64  `json:"currentAmount"`
 }
 
 // YunbeiReserveInfo 获取预约活动领云贝信息.
@@ -161,7 +164,7 @@ func (a *Api) YunbeiReserveInfo(ctx context.Context, req *YunbeiReserveInfoReq) 
 	var (
 		url   = "https://interface3.music.163.com/eapi/new/yunbei/activity/reserve/info"
 		reply YunbeiReserveInfoResp
-		opts  = api.NewOptions("eapi.YunbeiReserveInfo").SetEAPI()
+		opts  = api.NewOptions("eapi.YunbeiReserveInfo").SetEAPI().SetRedactLogs()
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -248,10 +251,12 @@ type YunBeiTaskTodoRespData struct {
 	DepositCode int64  `json:"depositCode"`
 	ExpireTime  int64  `json:"expireTime"`
 	Link        string `json:"link"`
-	Period      int64  `json:"period"`
-	TaskName    string `json:"taskName"`
-	TaskPoint   int64  `json:"taskPoint"`
-	UserTaskId  int64  `json:"userTaskId"`
+	// Period 常规任务为 1；特殊福利任务合法为 0，不能当缺失值拒绝（2026-10-30 实测）。
+	Period     int64  `json:"period"`
+	TaskId     int64  `json:"taskId"`
+	TaskName   string `json:"taskName"`
+	TaskPoint  int64  `json:"taskPoint"`
+	UserTaskId int64  `json:"userTaskId"`
 }
 
 // YunBeiTaskTodo 返回待完成的任务列表.

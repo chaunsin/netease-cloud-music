@@ -41,7 +41,7 @@ Read the matching tests beside each file before changing a shared helper.
 - Use `ConnectAccept` for non-target hostname CONNECT traffic and `ConnectMitm` for matched hostname targets. For an IP CONNECT, boundedly inspect only enough TLS ClientHello bytes to select a route while concurrently observing the upstream: an exposed configured target SNI may be MITM'd, while upstream-first traffic, a missing or malformed SNI, an ECH case that does not expose the target, a non-target SNI, or non-TLS traffic must replay the exact inspected prefixes and remain a transparent tunnel. Never delay a server-first protocol while waiting for client bytes.
 - Keep the outer proxy listener on HTTP/1.1. HTTP/2 is default-on only inside a CONNECT MITM tunnel: set the leaf `tls.Config.NextProtos` before installing a `GetConfigForClient` wrapper, advertise `h2` and `http/1.1`, and enable `ForceAttemptHTTP2` on the upstream transport. The two TLS legs negotiate independently; fallback is an ALPN choice, never an HTTP/1.1 replay after an h2 request has started. CONNECT-tunnel h2c compatibility is not an outer proxy protocol.
 - When an IP CONNECT is selected for MITM, sign for its SNI but keep HTTP/1.1 and HTTP/2 upstream dials pinned to the original CONNECT address. Preserve `ForceAttemptHTTP2` and the original transport settings when cloning; set TLS `ServerName` to the SNI without replacing HTTPDNS routing with a fresh DNS lookup.
-- Arm the bounded CONNECT handshake deadline before acknowledging a target tunnel. Preserve it across zero-value `SetDeadline`, `SetReadDeadline`, and `SetWriteDeadline` calls made by `net/http` or goproxy during hijacking; clear it explicitly only after TLS succeeds, a complete HTTP/1.1 header arrives, or all 24 bytes of `http2.ClientPreface` arrive. A strict incomplete preface, including its first 18 bytes ending in `\r\n\r\n`, is not a complete HTTP/1.1 header.
+- Arm the bounded CONNECT handshake deadline before acknowledging a target tunnel. Preserve it across zero-value `SetDeadline`, `SetReadDeadline`, and `SetWriteDeadline` calls made by `net/http` or goproxy during hijacking (a zero `time.Time{}` in Go's `net` semantics means "cancel the deadline", which would remove the guard); clear it explicitly only after TLS succeeds, a complete HTTP/1.1 header arrives, or all 24 bytes of `http2.ClientPreface` arrive. A strict incomplete preface, including its first 18 bytes ending in `\r\n\r\n`, is not a complete HTTP/1.1 header.
 - Capture request bytes while the transport reads them; never pre-read the client body. The current policy omits every body with `ContentLength < 0`, including finite chunked requests, to avoid delaying long-lived streams. Do not relax it without defining response ordering, shutdown, and early-close behavior.
 - Bound every captured body with `MaxBodyBytes`. Record truncation, omission, read, close, or content-decoding failures as observation metadata.
 - Preserve original bodies, headers, encodings, and transport semantics. A capture wrapper must forward reads and closes to the real body on every path.
@@ -58,17 +58,29 @@ Classify API, WEAPI, EAPI, Linux API, XEAPI, and generic traffic without writing
 - Passive XEAPI decoding recovers `R`, validates the outer `S` X25519/GCM frame without claiming to decrypt it, and decrypts `B` only when `R` names a session in the shared cache. Restore the logical method, `/api/...` path, query, content type, and Base64 inner body before recursive redaction.
 - Never label ciphertext, a guessed value, or a local round-trip result as observed plaintext.
 
-The XEAPI cache is process-local, concurrency-safe, update-ordered, capped at 256 entries with session IDs of at most 1024 bytes, and never persisted. Startup seeds retain their `state-file` or `command-line` source; later complete valid `X-Encr-Ssid` / `X-Encr-Sskey` response headers replace the same ID while other IDs remain available for concurrent in-flight traffic. Learn headers synchronously in the transport immediately after they arrive and before returning the response. Header learning must not depend on HTTP status, body capture/decryption, recorder submission, or output queue capacity. Invalid pairs produce value-free diagnostics and never replace an existing entry. Repeated identical header pairs may refresh eviction order but must not rebuild an unchanged snapshot.
+The XEAPI cache is process-local, concurrency-safe, and never persisted. Its invariants:
+
+| Property | Value |
+| --- | --- |
+| Max entries | 256 session IDs |
+| Max session ID length | 1024 bytes |
+| Seed sources | `state-file` or `command-line` (startup only) |
+| Update rule | Later complete valid `X-Encr-Ssid`/`X-Encr-Sskey` pairs replace the same ID; other IDs remain |
+| Learning timing | Synchronously in transport, immediately after headers arrive, before returning the response |
+| Invalid pairs | Produce value-free diagnostics; never replace an existing entry |
+| Identical duplicates | May refresh eviction order but must not rebuild an unchanged snapshot |
+
+Header learning must not depend on HTTP status, body capture/decryption, recorder submission, or output queue capacity.
 
 XEAPI requests are `decrypted` only when `B/R/S` are unambiguous and valid and the session key matches. Preserve recovered metadata and report `partial` when one field has conflicting values across duplicates or sources, the session is empty/unknown, a recoverable field fails, or capture omission/truncation/read failure makes the observation incomplete. Identical duplicates are safe to accept. Use `failed` for an invalid/missing `R` only when the request copy is complete. A response-learned key applies to later requests; do not retry an earlier empty-session request.
 
-For XEAPI responses, valid JSON is `plaintext`; an empty body is not plaintext. Otherwise attempt only raw-binary traditional EAPI AES-ECB decryption and bounded inner-gzip expansion, including for non-200 responses. Any omitted, truncated, read-failed, or content-decoding-failed response observation is `partial`, regardless of what its captured prefix resembles. Do not add speculative ASCII-hex compatibility. Provisional XEAPI request records must default `responseEncrypted` to true so dropped request output cannot prevent independent response decryption.
+For XEAPI responses, valid JSON is `plaintext`; an empty body is not plaintext. Otherwise attempt only raw-binary traditional EAPI AES-ECB decryption and bounded inner-gzip expansion, including for non-200 responses. Any omitted, truncated, read-failed, or content-decoding-failed response observation is `partial`, regardless of what its captured prefix resembles. Do not add speculative ASCII-hex compatibility. Provisional XEAPI request records must default `responseEncrypted` to true so that if the request output is dropped, the response can still be decrypted independently without waiting for the request record.
 
 Redact recursively by default across URLs, headers, forms, JSON, nested JSON strings, diagnostics, recovered metadata, and protocol output. For XEAPI, redact every outer `R` copy because its static-key plaintext contains the session ID. If structured redaction cannot be proven safe, emit a bounded placeholder or summary. Invalid UTF-8 and malformed unstructured bodies must fail closed.
 
 Do not use `url.URL.Query()` for capture formatting because it silently discards malformed fields. Preserve any safely decoded field name and replace an unparseable value with `[REDACTED]`; if the name is also unsafe, replace both name and value.
 
-Keep display placeholders out of protocol parsing, parameter precedence, and conflict detection. The `go.mod` language baseline is Go 1.25.0, whose original standard library has no `ParseQuery` parameter-count limit; the limit was added in Go 1.26 and backported to Go 1.25.6. A toolchain with that limit may reject a whole query before parsing fields. Represent the whole-query failure with a bounded placeholder instead of treating it as a malformed field or bypassing the limit.
+Keep display placeholders out of protocol parsing, parameter precedence, and conflict detection. The `go.mod` language baseline is Go 1.25.0, whose original standard library has no `ParseQuery` parameter-count limit; the limit was added in Go 1.26 and backported to Go 1.25.6 (it affects how `url.ParseQuery` handles large query strings in capture formatting). A toolchain with that limit may reject a whole query before parsing fields. Represent the whole-query failure with a bounded placeholder instead of treating it as a malformed field or bypassing the limit.
 
 Only explicit `ShowSensitive` or `--show-sensitive` may expose raw sensitive values. Keep even that mode bounded, and never add secrets to debug logs or test fixtures.
 
@@ -78,7 +90,7 @@ Only explicit `ShowSensitive` or `--show-sensitive` may expose raw sensitive val
 
 Treat an `Out.Write` error or short write as an observation failure: report one bounded, always-redacted `CAPTURE_OUTPUT_ERROR` diagnostic to `ErrOut`, without retrying or affecting forwarded traffic.
 
-Closing the recorder marks it closed and waits only for a bounded interval. Do not turn output draining into an unbounded shutdown wait. If `Out.Write` never returns, the command can finish after the timeout while the recorder worker remains blocked; do not promise unconditional worker-goroutine exit.
+Closing the recorder marks it closed and waits only for a bounded interval (see `recorder.go` for the timeout constant). Do not turn output draining into an unbounded shutdown wait. If `Out.Write` never returns, the command can finish after the timeout while the recorder worker remains blocked; do not promise unconditional worker-goroutine exit.
 
 ## CA security
 

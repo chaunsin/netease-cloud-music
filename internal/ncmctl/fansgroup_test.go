@@ -267,7 +267,7 @@ func TestRunIterations(t *testing.T) {
 
 func TestFetchAudioSampleInvalidLimit(t *testing.T) {
 	// limit<=0 直接 fail-fast, 不发起请求 (否则会构造非法 Range 头 bytes=0--1)
-	err := fetchAudioSample(context.Background(), "http://127.0.0.1:1/a.mp3", 0, time.Second)
+	err := fetchMediaAudioSample(context.Background(), mediaPlain, time.Second, "http://127.0.0.1:1/a.mp3", 0)
 	require.ErrorContains(t, err, "limit must be positive")
 }
 
@@ -343,11 +343,11 @@ func TestTaskSelectionFansGroup(t *testing.T) {
 	assert.False(t, sel.SignIn)
 	assert.False(t, sel.SongShare)
 
-	// --runAll 五项全选 (AC-026)
+	// --runAll 六项全选 (AC-026)
 	c.opts.RunAll = true
 	sel, err = c.taskSelection()
 	require.NoError(t, err)
-	assert.True(t, sel.SignIn && sel.Partner && sel.Scrobble && sel.SongShare && sel.FansGroup)
+	assert.True(t, sel.SignIn && sel.YunBei && sel.Partner && sel.Scrobble && sel.SongShare && sel.FansGroup)
 }
 
 func TestTaskValidateFansGroup(t *testing.T) {

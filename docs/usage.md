@@ -17,7 +17,7 @@
 
 ## 开始之前
 
-- `sign`、`partner`、`scrobble`、`share`、`fansgroup`、`cloud` 和部分 `curl` 调用会修改账号数据，不要把它们当作连通性测试。
+- `sign`、`yunbei`、`partner`、`scrobble`、`share`、`fansgroup`、`cloud` 和部分 `curl` 调用会修改账号数据，不要把它们当作连通性测试。
 - `scrobble` 存在较高的账号风控风险；`sign --automatic` 也会执行额外的奖励领取操作；`fansgroup` 会修改播放记录和点赞、切换歌曲红心状态，并发布公开动态。
 - 当前网易 API 和 CookieCloud HTTP 客户端未校验服务端 TLS 证书，只应在可信网络中使用。
 - 全局 `--debug` 会记录 API 请求和响应，其中可能包含 Cookie、Token、设备标识等敏感数据。调试日志和重定向输出应按凭据文件保护。
@@ -32,6 +32,7 @@
 | `ncmctl login <method>`              | 否     | 通过手机、Cookie、CookieCloud 或二维码登录 |
 | `ncmctl logout`                      | 已有会话  | 远端退出并删除默认 Cookie 和 XEAPI 会话状态  |
 | `ncmctl task [flags]`                | 是     | 按 cron 长期调度账号任务                |
+| `ncmctl yunbei [status]`             | 是     | 查询或显式执行云贝任务                  |
 | `ncmctl share [flags]`    | 是     | 发布每日推歌公开动态，可查询状态或抽奖    |
 | `ncmctl fansgroup [status]`          | 是     | 执行乐迷团每日任务，可只读查询状态          |
 | `ncmctl sign [flags]`                | 是     | 立即执行一次云贝签到和黑胶乐签                |
@@ -165,19 +166,20 @@ ncmctl logout --clear-anonymous-token
 
 ## 每日任务
 
-`task` 是长期运行的调度服务；`sign`、`partner`、`scrobble`、`share` 和 `fansgroup` 则执行一次后退出。
+`task` 是长期运行的调度服务；`sign`、`yunbei`、`partner`、`scrobble`、`share` 和 `fansgroup` 则执行一次后退出。
 
 
 | 命令         | 作用              | 默认调度时间 |
 | ---------- | --------------- | ------ |
 | `sign`     | 云贝签到和黑胶乐签       | 10:00  |
+| `yunbei`   | 云贝任务                 | 12:00  |
 | `partner`  | 音乐合伙人测评         | 18:00  |
 | `scrobble` | 上报播放日志，最多 300 首 | 18:00  |
 | `share` | 发布每日推歌公开动态并按服务端机会抽奖 | 09:00  |
 | `fansgroup` | 执行乐迷团每日任务 | 10:30  |
 
 
-指定 `--runAll` 注册全部五项任务；不带任何任务开关时 `task` 会直接报错退出。启动后持续运行到收到 `Ctrl+C`：
+指定 `--runAll` 注册全部六项任务；不带任何任务开关时 `task` 会直接报错退出。启动后持续运行到收到 `Ctrl+C`：
 
 ```bash
 ncmctl task --runAll
@@ -192,6 +194,9 @@ ncmctl task --sign
 # 调度签到和播放日志上报
 ncmctl task --sign --scrobble
 
+# 每天 12:00 调度云贝签到和领奖
+ncmctl task --yunbei --yunbei.task sign,claim
+
 # 每天 20:00 执行播放日志上报
 ncmctl task --scrobble \
   --scrobble.cron '0 20 * * *' \
@@ -204,6 +209,7 @@ ncmctl task --scrobble \
 
 ```bash
 ncmctl sign
+ncmctl yunbei status
 ncmctl partner
 ncmctl scrobble --num 200
 ncmctl fansgroup status
@@ -211,6 +217,32 @@ ncmctl fansgroup
 ```
 
 `sign --automatic` 会在签到后领取可用的云贝和符合条件的 VIP 奖励，因此会执行更多账号操作。`partner` 会在每个测评项目之间等待 15 至 24 秒。`scrobble` 风控风险较高，且可用歌曲不足或本地去重命中时，实际完成数可能少于请求数。
+
+### 云贝任务
+
+只读查看余额、签到、预约、任务进度和待领奖项：
+
+```bash
+ncmctl yunbei status
+```
+
+任务行会同时显示服务端 `taskId`、`userTaskId`、`actionType` 和 `subAction`，便于确认当天任务身份；这些字段不会自动绕过本地稳定 ID 校验。
+
+执行模式必须显式选择任务。`--task` 可逗号分隔或重复提供，`--all` 选择本地登记的全部任务：
+
+```bash
+ncmctl yunbei --task sign,claim
+ncmctl yunbei --task reserve,view-vip-center,follow-artist
+ncmctl yunbei --all --delete
+```
+
+可选名称为 `sign`、`reserve`、`view-vip-center`、`like-comment`、`follow-artist`、`collect-song`、`like-song`、`publish-note`、`share-song`、`listen-indie`、`play-daily-recommend` 和 `claim`。
+
+执行顺序固定，所有写操作都会刷新服务端状态确认。关注歌手和红心歌曲只使用原状态明确为“未关注/未红心”的动态候选，任务确认后立即恢复并再次查询。小众歌曲每首真实等待 30 秒，单次云贝数量直接使用服务端返回值；日推播放按任务剩余秒数运行，可能超过 45 分钟。`publish-note` 会发布公开图文，默认保留；服务端按「发布一条≥20字的图文笔记」判定该任务，正文 TrimSpace 后不足 20 个字符时动态仍会发布成功但任务不计入，因此 `--message` 覆盖要求至少 20 个字符，缺省时使用满足长度的内置文案；`--image` 只接受内容与扩展名一致的 JPEG、PNG、GIF 或 WebP 文件，最大 20 MiB；`--delete` 只处理本次创建并确认的动态。笔记计入是异步的，`publish-note` 因此按 15 秒间隔最多重读 7 次（约 90 秒）等待服务端登记；超出窗口仍报 `publish-note: action succeeded but task state did not change` 并以非零退出，此时任务其实可能已经达成，用 `yunbei status` 复核后单独执行 `ncmctl yunbei --task claim` 领取即可（同一轮里未确认的任务会阻断领取）。
+
+`--all` 不会绕过服务端身份校验。当日任务没有稳定 `taskId` 时只展示并跳过，不会根据中文任务名或固定资源 ID 猜测执行。目前评论点赞、歌单收藏和站外分享可能落入这一情况；预约领奖缺少服务端 `checkToken` 时也会拒绝写入。跳过不代表任务已完成。
+
+`play-daily-recommend` 当前标记为「取证未闭环」并直接跳过（不计入失败）：2026-11-03 实测 `startplay`/`play` 上报都返回成功，但 `听音乐30分钟` 的进度整轮恒为 `0/1800`，说明日推秒数的计数来源不是这条链路；取证前运行它只会白耗数十分钟播放与流量。恢复条件见 `docs/spec/spec-004-yunbei.md` 的 G9/Q7。
 
 ### 每日推歌挑战
 
@@ -290,7 +322,7 @@ ncmctl task --fansgroup \
   --fansgroup.delete
 ```
 
-`task --runAll` 会注册包括 `fansgroup` 在内的全部五项任务。
+`task --runAll` 会注册包括 `yunbei` 和 `fansgroup` 在内的全部六项任务。
 
 ## 音乐下载
 

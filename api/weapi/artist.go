@@ -98,3 +98,44 @@ func (a *Api) ArtistSongs(ctx context.Context, req *ArtistSongsReq) (*ArtistSong
 	_ = resp
 	return &reply, nil
 }
+
+type ArtistSublistReq struct {
+	Offset int64 `json:"offset"`
+	Limit  int64 `json:"limit"`
+	Total  bool  `json:"total"`
+}
+
+type ArtistSublistResp struct {
+	types.RespCommon[[]ArtistSublistRespData]
+
+	HasMore bool  `json:"hasMore"`
+	Count   int64 `json:"count"`
+}
+
+type ArtistSublistRespData struct {
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// ArtistSublist returns the artists followed by the current account.
+func (a *Api) ArtistSublist(ctx context.Context, req *ArtistSublistReq) (*ArtistSublistResp, error) {
+	if req == nil {
+		req = &ArtistSublistReq{Limit: 1000}
+	} else if req.Limit <= 0 {
+		req.Limit = 1000
+	}
+
+	var (
+		url   = "https://music.163.com/weapi/artist/sublist"
+		reply ArtistSublistResp
+		opts  = api.NewOptions("weapi.ArtistSublist")
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+
+	_ = resp
+	return &reply, nil
+}

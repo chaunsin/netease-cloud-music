@@ -8,10 +8,7 @@ import (
 	cryptorand "crypto/rand"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -42,15 +39,17 @@ func validateLocalImage(path string) error {
 	return nil
 }
 
-// validateNoteContent 校验笔记标题/正文/图片参数, share 与 fansgroup 命令共用:
-// 标题不得为纯空白, 正文 TrimSpace 后至少 10 个 Unicode 字符, 图片须为可用本地文件。
-func validateNoteContent(title, message, image string) error {
+// validateNoteContent 校验笔记标题/正文/图片参数, share、fansgroup 与 yunbei 命令共用:
+// 标题不得为纯空白, 正文 TrimSpace 后至少 messageMin 个 Unicode 字符, 图片须为可用本地文件。
+// messageMin 由调用方决定, 因为各任务对正文长度的服务端要求不同: 每日推歌与乐迷团是 10,
+// 云贝「发布图文笔记」的 V3 taskDescription 明确要求「≥20字」。
+func validateNoteContent(title, message, image string, messageMin int) error {
 	if title != "" && strings.TrimSpace(title) == "" {
 		return errors.New("title must not be empty")
 	}
 
-	if message != "" && utf8.RuneCountInString(strings.TrimSpace(message)) < 10 {
-		return errors.New("message must contain at least 10 Unicode characters")
+	if message != "" && utf8.RuneCountInString(strings.TrimSpace(message)) < messageMin {
+		return fmt.Errorf("message must contain at least %d Unicode characters", messageMin)
 	}
 
 	if image != "" {
@@ -160,7 +159,7 @@ func (c *DailySongShare) validateFlags(parent bool) error {
 		return errors.New("song-id must be a positive integer")
 	}
 
-	if err := validateNoteContent(c.opts.Title, c.opts.Message, c.opts.Image); err != nil {
+	if err := validateNoteContent(c.opts.Title, c.opts.Message, c.opts.Image, 10); err != nil {
 		return err
 	}
 
@@ -293,7 +292,7 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 			return selectErr
 		}
 
-		t, m := c.text(song)
+		t, m := noteText(c.opts.Title, c.opts.Message, dailySongNoteMessage, song)
 		c.cmd.Println("  dry-run 预览:")
 		c.cmd.Printf("    歌曲: %s(ID %d)\n", song.name, song.id)
 		c.cmd.Printf("    标题: %s\n", t)
@@ -376,7 +375,7 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 		case song.cover == "":
 			return errors.New("song has no cover URL; specify --image")
 		default:
-			image, cleanup, err = downloadImageToTemp(ctx, c.root.Cfg.Network.Timeout, song.cover, dailySongCoverLimit, "ncmctl-daily-song-*.img")
+			image, cleanup, err = downloadMediaToTemp(ctx, mediaPlain, c.root.Cfg.Network.Timeout, song.cover, dailySongCoverLimit, "ncmctl-daily-song-*.img")
 			if err != nil {
 				return fmt.Errorf("download cover: %w", err)
 			}
@@ -392,7 +391,7 @@ func (c *DailySongShare) execute(ctx context.Context) error {
 
 		var (
 			id         = strconv.FormatInt(song.id, 10)
-			title, msg = c.text(song)
+			title, msg = noteText(c.opts.Title, c.opts.Message, dailySongNoteMessage, song)
 		)
 
 		// 发布动态
@@ -530,7 +529,7 @@ func (c *DailySongShare) draw(ctx context.Context, a *eapi.Api, w *weapi.Api, g 
 		}
 
 		// 以服务端剩余次数为准，避免单次消耗多次机会时超额抽奖
-		if resp.Data.RestChance <= 0 && total <= 0 {
+		if resp.Data.RestChance <= 0 || total <= 0 {
 			break
 		}
 
@@ -588,64 +587,20 @@ func (c *DailySongShare) selectSong(ctx context.Context, w *weapi.Api) (dailySon
 	return valid[int((uint64(b[0])<<8|uint64(b[1]))%uint64(len(valid)))], nil
 }
 
-func (c *DailySongShare) text(s dailySong) (string, string) {
-	t := strings.TrimSpace(c.opts.Title)
-	if t == "" {
-		t = "今日推荐: " + s.name
+// dailySongNoteMessage 是每日推歌挑战赛笔记的内置正文 (spec-002 固定文案)。
+const dailySongNoteMessage = "分享一首今天听到的好歌，欢迎一起听听。"
+
+// noteText 决定动态标题与正文: 显式覆盖值优先, 否则歌名拼进默认标题, 正文回落到 defaultMessage。
+func noteText(overrideTitle, overrideMessage, defaultMessage string, song dailySong) (string, string) {
+	title := strings.TrimSpace(overrideTitle)
+	if title == "" {
+		title = "今日推荐: " + song.name
 	}
 
-	m := strings.TrimSpace(c.opts.Message)
-	if m == "" {
-		m = "分享一首今天听到的好歌，欢迎一起听听。"
+	message := strings.TrimSpace(overrideMessage)
+	if message == "" {
+		message = defaultMessage
 	}
 
-	return t, m
-}
-
-// downloadImageToTemp downloads url into a temp file capped at limit bytes and
-// returns the file path plus a cleanup func removing it.
-func downloadImageToTemp(ctx context.Context, timeout time.Duration, url string, limit int64, prefix string) (string, func(), error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
-	if err != nil {
-		return "", func() {}, err
-	}
-
-	client := &http.Client{Timeout: timeout}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return "", func() {}, fmt.Errorf("download: %w", err)
-	}
-
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode/100 != 2 {
-		return "", func() {}, fmt.Errorf("download: HTTP %s", res.Status)
-	}
-
-	tmp, err := os.CreateTemp("", prefix)
-	if err != nil {
-		return "", func() {}, err
-	}
-
-	var (
-		name    = filepath.Clean(tmp.Name())
-		cleanup = func() { _ = os.Remove(name) }
-	)
-
-	n, err := io.Copy(tmp, io.LimitReader(res.Body, limit+1))
-	if ce := tmp.Close(); err == nil {
-		err = ce
-	}
-
-	if err != nil {
-		cleanup()
-		return "", func() {}, err
-	}
-
-	if n > limit {
-		cleanup()
-		return "", func() {}, fmt.Errorf("downloaded %d bytes exceeds %d limit", n, limit)
-	}
-	return name, cleanup, nil
+	return title, message
 }

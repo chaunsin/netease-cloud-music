@@ -29,6 +29,8 @@ type Options struct {
 	cookies     []*http.Cookie
 	cookieIndex map[string]int
 	cookieErr   error
+
+	redactLogs bool
 }
 
 func NewOptions(fn ...string) *Options {
@@ -71,6 +73,13 @@ func (o *Options) SetLinuxAPI() *Options {
 
 func (o *Options) SetMethod(method string) *Options {
 	o.Method = method
+	return o
+}
+
+// SetRedactLogs suppresses Resty dumps and response bodies for requests whose
+// headers or decoded responses contain secrets. Normal response decoding is unchanged.
+func (o *Options) SetRedactLogs() *Options {
+	o.redactLogs = true
 	return o
 }
 
@@ -139,6 +148,7 @@ func (o *Options) clone() *Options {
 		Headers:    o.Headers.Clone(),
 		cookies:    cloneCookies(o.cookies),
 		cookieErr:  o.cookieErr,
+		redactLogs: o.redactLogs,
 	}
 
 	if clone.Method == "" {

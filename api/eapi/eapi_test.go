@@ -182,7 +182,7 @@ func TestMusicianVipTasksResponseMode(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, req.ER)
 			assert.Equal(t, tt.wantEncrypted, *req.ER)
-			assertJSONBoolField(t, transport.payload, "e_r", tt.wantEncrypted)
+			assertEAPIResponseEncrypted(t, transport.payload, tt.wantEncrypted)
 		})
 	}
 }
@@ -202,7 +202,7 @@ func TestV3SongDetailForwardsEAPICommon(t *testing.T) {
 
 	_, err := New(client).V3SongDetail(context.Background(), req)
 	require.NoError(t, err)
-	assertJSONBoolField(t, transport.payload, "e_r", false)
+	assertEAPIResponseEncrypted(t, transport.payload, false)
 	assertJSONStringField(t, transport.payload, "header", req.Header)
 	assertJSONStringField(t, transport.payload, "deviceId", req.DeviceId)
 	assertJSONStringField(t, transport.payload, "os", req.OS)
@@ -217,15 +217,18 @@ func TestFansGroupHonorsPlainResponseMode(t *testing.T) {
 
 	_, err := New(client).FansGroupDetailGet(context.Background(), req)
 	require.NoError(t, err)
-	assertJSONBoolField(t, transport.payload, "e_r", false)
+	assertEAPIResponseEncrypted(t, transport.payload, false)
 }
 
 type recordingEAPITransport struct {
 	responseBody []byte
 	payload      map[string]json.RawMessage
+	path         string
 }
 
 func (t *recordingEAPITransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	t.path = request.URL.Path
+
 	body, err := io.ReadAll(request.Body)
 	if err != nil {
 		return nil, err
@@ -303,11 +306,11 @@ func newLiveEAPI(t *testing.T) *Api {
 	return New(client)
 }
 
-func assertJSONBoolField(t *testing.T, payload map[string]json.RawMessage, name string, want bool) {
+func assertEAPIResponseEncrypted(t *testing.T, payload map[string]json.RawMessage, want bool) {
 	t.Helper()
 
 	var got bool
-	require.NoError(t, json.Unmarshal(payload[name], &got))
+	require.NoError(t, json.Unmarshal(payload["e_r"], &got))
 	assert.Equal(t, want, got)
 }
 

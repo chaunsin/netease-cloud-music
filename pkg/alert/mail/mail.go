@@ -57,7 +57,8 @@ func New(cfg *Config) (*Client, error) {
 		mail.WithPort(int(cfg.Port)),
 		mail.WithSMTPAuth(mail.SMTPAuthPlain),
 		mail.WithUsername(cfg.Username),
-		mail.WithPassword(cfg.Password))
+		mail.WithPassword(cfg.Password),
+	)
 	if err != nil {
 		return nil, err
 	}

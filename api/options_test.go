@@ -103,6 +103,14 @@ func TestOptionsCookieCopiesAreIsolated(t *testing.T) {
 	assert.Equal(t, "clone", clone.Headers.Get("X-Test"))
 }
 
+func TestOptionsClonePreservesLogRedaction(t *testing.T) {
+	opts := NewOptions().SetRedactLogs()
+	clone := cloneOptions(opts)
+
+	assert.True(t, opts.redactLogs)
+	assert.True(t, clone.redactLogs)
+}
+
 func TestOptionsInvalidCookieBatchIsAtomicAndSticky(t *testing.T) {
 	client := newCookieTransportTestClient(t)
 	calls := 0

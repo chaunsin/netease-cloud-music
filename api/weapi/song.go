@@ -380,6 +380,67 @@ func (a *Api) SongPlayerV1(ctx context.Context, req *SongPlayerV1Req) (*SongPlay
 	return &reply, nil
 }
 
+type SongLikeListReq struct {
+	Uid int64 `json:"uid"`
+}
+
+type SongLikeListResp struct {
+	types.RespCommon[any]
+
+	Ids        []int64 `json:"ids"`
+	CheckPoint int64   `json:"checkPoint"`
+}
+
+// SongLikeList returns all song IDs liked by the requested user.
+func (a *Api) SongLikeList(ctx context.Context, req *SongLikeListReq) (*SongLikeListResp, error) {
+	var (
+		url   = "https://music.163.com/weapi/song/like/get"
+		reply SongLikeListResp
+		opts  = api.NewOptions("weapi.SongLikeList")
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+
+	_ = resp
+	return &reply, nil
+}
+
+type SongLikeReq struct {
+	types.ReqCommon
+
+	TrackId     int64  `json:"trackId"`
+	Like        bool   `json:"like"`
+	Alg         string `json:"alg,omitempty"`
+	RqRefer     string `json:"rqRefer,omitempty"`
+	SongRqRefer string `json:"songRqRefer,omitempty"`
+}
+
+type SongLikeResp struct {
+	types.RespCommon[any]
+
+	PlaylistId int64 `json:"playlistId"`
+}
+
+// SongLike changes the current account's heart state for one song.
+func (a *Api) SongLike(ctx context.Context, req *SongLikeReq) (*SongLikeResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/song/like"
+		reply SongLikeResp
+		opts  = api.NewOptions("weapi.SongLike")
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+
+	_ = resp
+	return &reply, nil
+}
+
 type SongDownloadUrlReq struct {
 	Id string `json:"id"`
 	Br string `json:"br"`

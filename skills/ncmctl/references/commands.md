@@ -11,6 +11,7 @@ version: "0.4.0"
 - [Getting help](#getting-help)
 - [Global flags](#global-flags)
 - [task](#task)
+- [yunbei](#yunbei)
 - [share](#share)
 - [fansgroup](#fansgroup)
 - [sign](#sign)
@@ -59,8 +60,11 @@ Global `--debug` enables raw API request/response logging outside the proxy reda
 Run selected account tasks on cron schedules as a long-running service. Login is required.
 
 ```bash
-# Schedule all five jobs
+# Schedule all six jobs
 ncmctl task --runAll
+
+# Schedule selected YunBei tasks at noon
+ncmctl task --yunbei --yunbei.task sign,claim
 
 # Explicitly schedule the daily public song challenge
 ncmctl task --share
@@ -79,13 +83,20 @@ ncmctl task --scrobble \
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--runAll` | false | Register all five jobs (sign, partner, scrobble, daily song challenge, fans group) |
+| `--runAll` | false | Register all six jobs (sign, YunBei, partner, scrobble, daily song challenge, fans group) |
 | `--sign` | false | Register the sign job |
+| `--yunbei` | false | Register the YunBei task job |
 | `--partner` | false | Register the partner job |
 | `--scrobble` | false | Register the scrobble job |
 | `--share` | false | Register the public daily song challenge job |
 | `--fansgroup` | false | Register the fans-group missions job |
 | `--sign.cron` | `0 10 * * *` | Sign schedule |
+| `--yunbei.cron` | `0 12 * * *` | YunBei schedule |
+| `--yunbei.task` | empty | YunBei tasks; comma-separated or repeated |
+| `--yunbei.all` | false | Select every YunBei task |
+| `--yunbei.title` / `--yunbei.message` | empty | Public YunBei note text overrides |
+| `--yunbei.image` | empty | Local image for the public YunBei note |
+| `--yunbei.delete` | false | Delete only the public YunBei note created and confirmed by that run |
 | `--partner.cron` | `0 18 * * *` | Partner schedule |
 | `--scrobble.cron` | `0 18 * * *` | Scrobble schedule |
 | `--share.cron` | `0 9 * * *` | Daily song challenge schedule |
@@ -106,17 +117,106 @@ ncmctl task --scrobble \
 | `--scrobble.num` | 300 | Requested play-log count, 1-300 |
 | `-l, --location` | `Asia/Shanghai` | IANA timezone for cron |
 
-Schedules use standard five-field cron syntax. With no task selector and without `--runAll`, the command exits with an error. Fans-group scheduling changes account state and keeps newly published notes by default. Press Ctrl+C or send SIGTERM to stop the service.
+Schedules use standard five-field cron syntax. With no task selector and without `--runAll`, the command exits with an error. YunBei and fans-group scheduling change account state and keep newly published notes by default. Sign and YunBei share one in-process gate, so overlapping triggers retry three times and then skip instead of running concurrently. Press Ctrl+C or send SIGTERM to stop the service.
+
+## yunbei
+
+Inspect YunBei state or explicitly run selected tasks. Login is required. `status` is read-only; execution requires `--task` or `--all`.
+
+```bash
+ncmctl yunbei status
+ncmctl yunbei --task sign --task claim
+ncmctl yunbei --task reserve,listen-indie
+ncmctl yunbei --all --delete
+```
+
+`status` includes each entry's server `taskId`, `userTaskId`, `actionType`, and `subAction` for diagnosis. Those values are displayed only; unknown tasks are not routed by their translated name.
+
+Valid task names are `sign`, `reserve`, `view-vip-center`, `like-comment`, `follow-artist`, `collect-song`, `like-song`, `publish-note`, `share-song`, `listen-indie`, `play-daily-recommend`, and `claim`.
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `-t, --task` | empty | Tasks to run; comma-separated or repeated |
+| `--all` | false | Select every YunBei task, including account-changing and long-running work |
+| `--title` / `--message` | empty | Public-note text overrides; a custom message needs at least 20 Unicode characters, matching the server rule 「发布一条≥20字的图文笔记」 |
+| `--image` | empty | JPEG, PNG, GIF, or WebP regular file up to 20 MiB; content and extension must match, and symlinks are rejected |
+| `--delete` | false | Delete only the public note created by this run after task confirmation |
+
+The command loads one server snapshot, executes tasks serially in fixed stages, and confirms every write against refreshed server state. Artist follows and song likes are performed only when the original state is known, then reversed and queried again. Indie listening uses the server's `singleAmount` and a real 30-second wait per song. Daily-recommend playback uses the remaining seconds reported by the task and may run for more than 45 minutes. Cancellation stops new writes and gives compensation and note deletion a bounded cleanup window.
+
+`publish-note` really publishes a public note. The server gates that task on 「发布一条≥20字的图文笔记」, so a note whose trimmed message is shorter than 20 Unicode characters publishes successfully and returns a positive event ID yet never advances the task; the built-in text and the `--message` floor both enforce the 20-character rule. A compliant note does advance it, but the server credits it asynchronously (measured between 3 seconds and 9.5 minutes), so `publish-note` re-reads the task up to 7 times, 15 seconds apart, instead of using the one-second window the other writes get. If the credit still has not appeared after roughly 90 seconds the run exits non-zero with `action succeeded but task state did not change` even though the note counts — verify with `yunbei status` and collect the reward with a separate `--task claim` run, because the same run blocks claiming entries whose credit is unconfirmed. Notes are deleted only when `--delete` confirmed the task in that run, so a note left unconfirmed by this timing gap stays public.
+
+`--all` selects the full local registry, but server availability still controls execution. Entries not present under a stable server task ID are shown as unavailable and skipped; ncmctl does not match translated task names or use fixed comment, playlist, song, or artist IDs. At present this affects comment-like, playlist-collect, and external-share tasks when the server supplies no stable identity. Reserve reward collection also refuses to send if the current response omits `checkToken`. These skips are deliberate safety boundaries, not successful task completion.
+
+`play-daily-recommend` is gated off before its handler runs. Measured on 2026-11-03, its `startplay`/`play` reports to `/weapi/feedback/weblog` all returned `code=200 data=success` while `听音乐30分钟` stayed at `0/1800` for the whole run (still 0 more than three minutes after the report), so the seconds are counted by some other route that has not been evidenced. The run prints `取证未闭环，已跳过` and counts the task as skipped rather than failed, which also avoids tens of minutes of pointless audio fetching and waiting. See spec-004 G9 and Q7 before re-enabling it.
 
 ## share
 
-Publish a public song note for the daily challenge. It changes account state, draws by default, and keeps the note by default. `status` is read-only; `draw --count N` consumes existing server-reported chances. `--dry-run` does not register, upload, publish, trigger, draw, or delete. `--delete` requires the publish command with `--draw=true` and only targets the event created in that run.
+Publish a public song note for the daily song challenge. Login is required. The publish flow changes account state, draws available rewards by default, and keeps the published note by default.
+
+The command accepts one optional positional argument: `status` for a read-only view or `draw` for standalone lottery. Without a positional argument, the full publish flow runs.
 
 ```bash
+# Read-only daily challenge state
 ncmctl share status
+
+# Publish with a specific song
 ncmctl share --song-id 1820944399
-ncmctl share draw --count 1
+
+# Publish with custom note content and a local image
+ncmctl share --song-id 1820944399 \
+  --title '每日打卡' \
+  --message '分享一首今天听到的好歌，推荐给大家' \
+  --image ./cover.jpg
+
+# Preview without any account changes
+ncmctl share --dry-run
+
+# Publish, draw, then delete the new note
+ncmctl share --delete
+
+# Publish without drawing
+ncmctl share --draw=false
+
+# Draw existing chances without publishing
+ncmctl share draw
+ncmctl share draw --count 3
 ```
+
+| Flag | Short | Default | Description |
+| --- | --- | --- | --- |
+| `--song-id` | `-s` | 0 (daily recommendations) | Song ID; empty selects a random song from daily recommendations |
+| `--image` | `-i` | empty (song cover) | Local image file; empty downloads the song cover to a temporary file |
+| `--title` | `-t` | empty (`今日推荐: <song name>`) | Note title override; whitespace-only values are rejected |
+| `--message` | `-m` | empty (built-in text) | Note message override; must contain at least 10 Unicode characters after trimming |
+| `--draw` | `-d` | true | Draw available rewards after publishing |
+| `--delete` | `-D` | false | Delete the note published by this run after lottery; may affect full-attendance eligibility |
+| `--dry-run` | - | false | Read state and prepare text without changing account state, uploading, or drawing |
+| `--count` | `-n` | 0 (all server-reported chances) | Number of draws, 1–8; used by the publish flow and by `draw` |
+
+### Subcommands
+
+**`share status`**: Read-only view of the daily song challenge state: registration status, activity cycle, published-note count, and available reward chances. Accepts no execution or note-writing flags (`--song-id`, `--image`, `--title`, `--message`, `--draw`, `--delete`, `--dry-run` are all rejected).
+
+**`share draw`**: Consume existing server-reported lottery chances without publishing a new note. Accepts `--count` to limit the number of draws; without it, draws all available chances. Rejects `--dry-run` and `--delete`.
+
+### Publish flow
+
+The full publish sequence:
+
+1. **Load account state**: authenticate, fetch user info and the registration guide.
+2. **Register activity**: if not yet registered for the current cycle, the command registers automatically.
+3. **Select song**: use `--song-id` if provided; otherwise pick a random song from daily recommendations.
+4. **Download or use image**: `--image` selects a local file; otherwise the song cover is downloaded to a temporary file (up to 20 MiB).
+5. **Upload image**: upload the image via the event upload endpoint.
+6. **Publish note**: publish a public song note via the daily song share endpoint.
+7. **Trigger challenge**: notify the server that the daily share action has been performed, then re-read the guide to confirm the note was credited.
+8. **Draw rewards**: if `--draw` is true (the default), consume available lottery chances. When a YunBei prize is drawn, it is automatically claimed. Each draw waits 1–5 seconds to reduce risk-control exposure.
+9. **Delete note**: if `--delete`, wait 5–14 seconds, then delete only the note published by this run.
+
+`--dry-run` stops after step 3, printing the selected song and prepared text without registering, uploading, publishing, triggering, drawing, or deleting.
+
+Already-published state (`stateCompleted`) skips steps 3–7; `--delete` is silently ignored when no new note was published in this run.
 
 ## fansgroup
 

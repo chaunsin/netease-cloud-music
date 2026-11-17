@@ -4,6 +4,7 @@
 package weapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -512,53 +513,100 @@ type YunBeiTaskListV3Resp struct {
 	types.RespCommon[YunBeiTaskListRespV3Data]
 }
 
+type YunBeiTaskExtInfo struct {
+	MissionCode string `json:"missionCode"`
+}
+
+type YunBeiTaskPointDetail struct {
+	ProgressRate     int64  `json:"progressRate"`
+	RewardExtendInfo string `json:"rewardExtendInfo"`
+	RewardId         int64  `json:"rewardId"`
+	RewardType       int64  `json:"rewardType"`
+	SortValue        int64  `json:"sortValue"`
+	StageType        int64  `json:"stageType"`
+	Status           int64  `json:"status"`
+	SumTarget        int64  `json:"sumTarget"`
+	Times            int64  `json:"times"`
+	UserMissionId    int64  `json:"userMissionId"`
+	Value            int64  `json:"value"`
+	Worth            int64  `json:"worth"`
+}
+
+type YunBeiTaskListV3Item struct {
+	ActionType       int64                   `json:"actionType"`
+	BackgroundPicUrl any                     `json:"backgroundPicUrl"`
+	Completed        bool                    `json:"completed"`
+	CompletedIconUrl any                     `json:"completedIconUrl"`
+	CompletedPoint   int64                   `json:"completedPoint"`
+	ExtInfoMap       *YunBeiTaskExtInfo      `json:"extInfoMap"`
+	Link             string                  `json:"link"`
+	LinkText         string                  `json:"linkText"`
+	Period           int64                   `json:"period"`
+	Position         int64                   `json:"position"`
+	Status           int64                   `json:"status"`
+	SubAction        string                  `json:"subAction"`
+	TargetPoint      int64                   `json:"targetPoint"`
+	TargetStatus     any                     `json:"targetStatus"`
+	TargetUserTaskId int64                   `json:"targetUserTaskId"`
+	TaskDescription  string                  `json:"taskDescription"`
+	TaskId           int64                   `json:"taskId"`
+	TaskName         string                  `json:"taskName"`
+	TaskPoint        int64                   `json:"taskPoint"`
+	TaskPointDetail  []YunBeiTaskPointDetail `json:"taskPointDetail"`
+	TaskType         string                  `json:"taskType"`
+	UserTaskId       int64                   `json:"userTaskId"`
+	WebPicUrl        string                  `json:"webPicUrl"`
+	WordsPicUrl      any                     `json:"wordsPicUrl"`
+}
+
+type YunBeiTaskListV3Bucket struct {
+	List     []YunBeiTaskListV3Item `json:"list"`
+	TypeList []struct {
+		Name string `json:"name"`
+	} `json:"typeList"`
+}
+
 type YunBeiTaskListRespV3Data struct {
-	Newbie any `json:"newbie"`
-	Normal struct {
-		List []struct {
-			ActionType       int64 `json:"actionType"`
-			BackgroundPicUrl any   `json:"backgroundPicUrl"`
-			Completed        bool  `json:"completed"`
-			CompletedIconUrl any   `json:"completedIconUrl"`
-			CompletedPoint   int64 `json:"completedPoint"`
-			ExtInfoMap       *struct {
-				MissionCode string `json:"missionCode"`
-			} `json:"extInfoMap"`
-			Link             string `json:"link"`
-			LinkText         string `json:"linkText"`
-			Period           int64  `json:"period"`
-			Position         int64  `json:"position"`
-			Status           int64  `json:"status"`
-			TargetPoint      int64  `json:"targetPoint"`
-			TargetStatus     any    `json:"targetStatus"`
-			TargetUserTaskId int64  `json:"targetUserTaskId"`
-			TaskDescription  string `json:"taskDescription"`
-			TaskId           int64  `json:"taskId"`
-			TaskName         string `json:"taskName"`
-			TaskPoint        int64  `json:"taskPoint"`
-			TaskPointDetail  []struct {
-				ProgressRate     int64  `json:"progressRate"`
-				RewardExtendInfo string `json:"rewardExtendInfo"`
-				RewardId         int64  `json:"rewardId"`
-				RewardType       int64  `json:"rewardType"`
-				SortValue        int64  `json:"sortValue"`
-				StageType        int64  `json:"stageType"`
-				Status           int64  `json:"status"`
-				SumTarget        int64  `json:"sumTarget"`
-				Times            int64  `json:"times"`
-				UserMissionId    int64  `json:"userMissionId"`
-				Value            int64  `json:"value"`
-				Worth            int64  `json:"worth"`
-			} `json:"taskPointDetail"`
-			TaskType    string `json:"taskType"`
-			UserTaskId  int64  `json:"userTaskId"`
-			WebPicUrl   string `json:"webPicUrl"`
-			WordsPicUrl any    `json:"wordsPicUrl"`
-		} `json:"list"`
-		TypeList []struct {
-			Name string `json:"name"`
-		} `json:"typeList"`
-	} `json:"normal"`
+	Newbie        any                        `json:"newbie"`
+	UnknownBucket map[string]json.RawMessage `json:"-"`
+	Normal        YunBeiTaskListV3Bucket     `json:"normal"`
+}
+
+func (d *YunBeiTaskListRespV3Data) UnmarshalJSON(data []byte) error {
+	type plain YunBeiTaskListRespV3Data
+
+	var decoded plain
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+
+	*d = YunBeiTaskListRespV3Data(decoded)
+
+	var buckets map[string]json.RawMessage
+	if err := json.Unmarshal(data, &buckets); err != nil {
+		return err
+	}
+
+	delete(buckets, "normal")
+
+	for name, raw := range buckets {
+		if !nonEmptyYunBeiBucket(raw) {
+			delete(buckets, name)
+		}
+	}
+
+	if len(buckets) != 0 {
+		d.UnknownBucket = buckets
+	}
+	return nil
+}
+
+func nonEmptyYunBeiBucket(raw json.RawMessage) bool {
+	trimmed := bytes.TrimSpace(raw)
+	return len(trimmed) != 0 &&
+		!bytes.Equal(trimmed, []byte("null")) &&
+		!bytes.Equal(trimmed, []byte("{}")) &&
+		!bytes.Equal(trimmed, []byte("[]"))
 }
 
 // YunBeiTaskListV3 获取用户云贝任务列表V3(任务中心)
@@ -569,6 +617,106 @@ func (a *Api) YunBeiTaskListV3(ctx context.Context, req *YunBeiTaskListV3Req) (*
 		url   = "https://music.163.com/weapi/usertool/task/list/all/v3"
 		reply YunBeiTaskListV3Resp
 		opts  = api.NewOptions("weapi.YunBeiTaskListV3")
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiDistributionListReq struct {
+	types.ReqCommon
+}
+
+type YunBeiDistributionListResp struct {
+	types.RespCommon[YunBeiDistributionListRespData]
+}
+
+type YunBeiDistributionListRespData struct {
+	Times        int64 `json:"times"`
+	Amount       int64 `json:"amount"`
+	SingleAmount int64 `json:"singleAmount"`
+}
+
+// YunBeiDistributionList returns today's indie-listening progress and amount.
+func (a *Api) YunBeiDistributionList(ctx context.Context, req *YunBeiDistributionListReq) (*YunBeiDistributionListResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/ad/power/yunbei/distribution/list"
+		reply YunBeiDistributionListResp
+		opts  = api.NewOptions("weapi.YunBeiDistributionList")
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiDistributionRecommendSongReq struct {
+	types.ReqCommon
+
+	Offset int `json:"offset"`
+	Limit  int `json:"limit"`
+}
+
+type YunBeiDistributionRecommendSongResp struct {
+	types.RespCommon[[]YunBeiDistributionRecommendSongRespData]
+}
+
+type YunBeiDistributionRecommendSongRespData struct {
+	SongId              int64  `json:"songId"`
+	SongName            string `json:"songName"`
+	AlbumId             int64  `json:"albumId"`
+	AlbumName           string `json:"albumName"`
+	AlbumUrl            string `json:"albumUrl"`
+	ArtistId            int64  `json:"artistId"`
+	ArtistName          string `json:"artistName"`
+	Alg                 string `json:"alg"`
+	CompleteStatus      bool   `json:"completeStatus"`
+	LikeFlag            bool   `json:"likeFlag"`
+	SongChorusStartTime int64  `json:"songChorusStartTime"`
+}
+
+// YunBeiDistributionRecommendSong returns today's indie-song candidates.
+func (a *Api) YunBeiDistributionRecommendSong(ctx context.Context, req *YunBeiDistributionRecommendSongReq) (*YunBeiDistributionRecommendSongResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/ad/power/yunbei/distribution/recommend/song"
+		reply YunBeiDistributionRecommendSongResp
+		opts  = api.NewOptions("weapi.YunBeiDistributionRecommendSong")
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiDistributionCreateReq struct {
+	types.ReqCommon
+
+	YunbeiAmount int64 `json:"yunbeiAmount"`
+}
+
+type YunBeiDistributionCreateResp struct {
+	types.RespCommon[bool]
+}
+
+// YunBeiDistributionCreate records one completed 30-second indie-song listen.
+func (a *Api) YunBeiDistributionCreate(ctx context.Context, req *YunBeiDistributionCreateReq) (*YunBeiDistributionCreateResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/ad/power/yunbei/distribution/create"
+		reply YunBeiDistributionCreateResp
+		opts  = api.NewOptions("weapi.YunBeiDistributionCreate")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -621,9 +769,10 @@ func (a *Api) YunBeiTaskTodo(ctx context.Context, req *YunBeiTaskTodoReq) (*YunB
 }
 
 type YunBeiTaskFinishReq struct {
-	Period      string `json:"period"`      // eg: 1
-	UserTaskId  string `json:"userTaskId"`  // eg: 293239602686
-	DepositCode string `json:"depositCode"` // eg: 1304
+	// Period 按服务端 todo 下发的值原样发送；常规任务为 1，特殊福利任务为 0（2026-10-30 实测）。
+	Period      string `json:"period"`
+	UserTaskId  string `json:"userTaskId"`
+	DepositCode string `json:"depositCode"`
 }
 
 type YunBeiTaskFinishResp struct {
@@ -638,6 +787,37 @@ func (a *Api) YunBeiTaskFinish(ctx context.Context, req *YunBeiTaskFinishReq) (*
 		url   = "https://music.163.com/weapi/usertool/task/point/receive"
 		reply YunBeiTaskFinishResp
 		opts  = api.NewOptions("weapi.YunBeiTaskFinish")
+	)
+
+	resp, err := a.client.Request(ctx, url, req, &reply, opts)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+
+	_ = resp
+	return &reply, nil
+}
+
+type YunBeiVIPCenterTaskExternalReq struct {
+	Type int64 `json:"type"`
+}
+
+type YunBeiVIPCenterTaskExternalResp struct {
+	types.RespCommon[YunBeiVIPCenterTaskExternalRespData]
+}
+
+// YunBeiVIPCenterTaskExternalRespData 端点在 music.163.com 与 interface.music.163.com
+// 均返回外层包裹内层的双层成功响应（2026-10-30 interface 域名实测抓包确认）。
+type YunBeiVIPCenterTaskExternalRespData struct {
+	types.RespCommon[bool]
+}
+
+// YunBeiVIPCenterTaskExternal reports the YunBei entry's completed VIP-center view.
+func (a *Api) YunBeiVIPCenterTaskExternal(ctx context.Context, req *YunBeiVIPCenterTaskExternalReq) (*YunBeiVIPCenterTaskExternalResp, error) {
+	var (
+		url   = "https://interface.music.163.com/weapi/vipnewcenter/app/level/task/external"
+		reply YunBeiVIPCenterTaskExternalResp
+		opts  = api.NewOptions("weapi.YunBeiVIPCenterTaskExternal")
 	)
 
 	resp, err := a.client.Request(ctx, url, req, &reply, opts)
@@ -864,6 +1044,10 @@ func (a *Api) YunBeiRecommendConfig(ctx context.Context, req *YunBeiRecommendCon
 
 type YunBeiBalanceReq struct {
 	types.ReqCommon
+
+	// Currency 必填：空请求体会返回 balance=0 的假余额（2026-10-30 实测），
+	// 桌面客户端抓包（39.har）携带 "credit"，即云贝。
+	Currency string `json:"currency"`
 }
 
 type YunBeiBalanceResp struct {
@@ -1273,7 +1457,7 @@ type YunBeiActivityReserveResp struct {
 }
 
 type YunBeiActivityReserveRespData struct {
-	Type          string `json:"type"`          // eg: NO_PREV_BOOKED:? PREV_CLAIMED_NO_BOOKED:未预约,PREV_CLAIMED_BOOKED:已预约
+	Type          string `json:"type"`          // eg: NO_PREV_BOOKED:本期已预约且无上期奖励, PREV_CLAIMED_NO_BOOKED:未预约, PREV_CLAIMED_BOOKED:已预约
 	CurrentAmount int64  `json:"currentAmount"` // 当前可领取的数量
 	ImgUrl        string `json:"imgUrl"`
 	Title         string `json:"title"`

@@ -32,7 +32,9 @@ api/weapi, api/eapi, api/api, api/linux
 
 ## Constructing a client
 
-Use `api.NewClient` wherever initialization errors can be returned. `api.New` panics and is retained only for callers or tests that intentionally accept that behavior.
+Use `api.NewClient` wherever initialization errors can be returned. `api.New` panics on initialization failure and is retained only for callers or tests that intentionally accept that behavior.
+
+The general-purpose constructor and cleanup pattern:
 
 ```go
 cli, err := api.NewClient(networkConfig, logger)
@@ -46,9 +48,9 @@ defer func() {
 }()
 ```
 
-Inside `internal/ncmctl`, use the existing `closeAPIClient` helper instead of repeating cleanup logic. Load `references/configuration.md` through the skill routing table when changing Cookie configuration or persistence behavior.
+Inside `internal/ncmctl`, use the existing `closeAPIClient` helper instead of repeating cleanup logic — it handles Cookie drain, idle-connection close, final export, and error logging. Load `references/configuration.md` through the skill routing table when changing Cookie configuration or persistence behavior.
 
-`Client` owns Cookie handling through its transport boundary. `GetClient().Jar` is intentionally `nil`; do not assign it or replace `GetClient().Transport`, because either bypasses the supported Cookie ownership model. Tests and advanced callers that need a fake or custom lower transport use `Client.SetTransport(http.RoundTripper)`, which preserves Cookie merge and response writeback; custom transports must honor request context cancellation. `Close(ctx)` immediately closes the Cookie transport entry, then a shared background shutdown waits current `RoundTrip` calls and their Cookie writeback, closes idle connections, and persists XEAPI, anonymous, and Cookie state. A canceled context returns early without stopping that shutdown; a later `Close` waits for the same result. It does not track the complete lifetime of `Request`, `Upload`, or `Download`; callers must finish those before closing the client.
+`Client` owns Cookie handling through its transport boundary. `GetClient().Jar` is intentionally `nil`; do not assign it or replace `GetClient().Transport`, because either bypasses the supported Cookie ownership model. `Close(ctx)` immediately closes the Cookie transport entry, then a shared background shutdown waits current `RoundTrip` calls and their Cookie writeback, closes idle connections, and persists XEAPI, anonymous, and Cookie state. A canceled context returns early without stopping that shutdown; a later `Close` waits for the same result. It does not track the complete lifetime of `Request`, `Upload`, or `Download`; callers must finish those before closing the client.
 
 ## Adding an endpoint
 
@@ -102,6 +104,10 @@ opts.SetHeader("key", "value")
 opts.SetCookies(cookies...)
 ```
 
+Endpoints whose headers or decoded response contain a secret use `SetRedactLogs()`.
+The request still decodes normally, but Resty dumps are disabled and protocol-aware
+debug logs emit only the function name, status, and byte count.
+
 Code that previously assigned the removed `Options.Cookies` field must migrate to `SetCookies`.
 
 For one logical request, Cookie precedence is `Options.SetCookies > URL-scoped persistent Jar > protocol defaults`. `Options.SetHeader` and `Options.SetHeaders` intentionally ignore `Cookie`; callers must use `SetCookies`. Same-name option Cookies use the last value, and only that value is sent. Invalid option or Jar Cookies fail before transport without exposing their values in the error. The original request Header contains only Options Cookies; Jar, protocol defaults, and frozen identity are added at each `RoundTrip`. After XEAPI URL rewriting, `Request` freezes only the Cookie values used by CSRF, protocol headers, and encrypted identity; ordinary Jar Cookies are read again before every physical send. This keeps protocol identity consistent across retries without modifying the caller's options or business payload. Cookie defaults are only sent to `music.163.com` and its subdomains; redirects otherwise retain the standard `net/http` header-copy behavior while the transport re-evaluates URL-scoped Jar cookies at every hop. As in Go 1.26's `net/http.Client`, a non-empty custom `Host` replaces the URL authority for Cookie Jar lookup, protocol-default scoping, and response writeback; it does not change the transport URL or the route authenticated by EAPI/XEAPI encryption.
@@ -113,7 +119,7 @@ Available modes:
 | `CryptoModeWEAPI` | Default Web and mini-program requests | Plain JSON response |
 | `CryptoModeEAPI` | PC and mobile requests | JSON-object payloads receive missing `e_r=true` and `header="{}"`; `e_r` selects plaintext or encrypted responses and `x-aeapi` selects inner gzip compression |
 | `CryptoModeLinux` | Linux-client requests | Uses the Linux request and response path |
-| `CryptoModeAPI` | Plain API requests | The generic layer does not serialize `req` into query or form parameters |
+| `CryptoModeAPI` | Plain API requests that bypass protocol encryption (e.g. CDN or status endpoints) | The generic layer does not serialize `req` into query or form parameters |
 | `CryptoModeXEAPI` | Stateful Aegis/XEAPI requests | Client coordinates URL rewriting, keys, session headers, and response decryption |
 
 There is no `api.WithCryptoMode`. Select modes with `SetCryptoModeWEAPI`, `SetCryptoModeEAPI`, `SetCryptoModeLinux`, `SetCryptoModeAPI`, or `SetCryptoModeXEAPI`.
@@ -124,7 +130,7 @@ For EAPI requests, `Client.Request` normalizes every payload from its final JSON
 
 The generic layer can only observe the wire JSON. A plain `bool` cannot express both an omitted value and an explicit `false`; requests that need that distinction use `*bool` with `omitempty`, as `types.EApiReqCommon` does. Its `SetResponseEncrypted(false)` method selects a plaintext response. This is a source-breaking change from the former `ER bool` and `Header any` fields; migrate struct literals to the setter (or a `*bool`) and a JSON string header.
 
-For an `e_r=false` response, `Client.Request` decodes plaintext JSON. For an `e_r=true` response, it decrypts raw binary ciphertext; when `x-aeapi=true`, the decrypted payload is gzip-compressed and is transparently expanded. ASCII-hex ciphertext and plaintext JSON are not accepted as `e_r=true` response bodies. EAPI response-processing failures return `*api.APIError`, which callers can retrieve with `errors.As`. Its `StatusCode` is the HTTP status, and `Err` contains any decryption, decompression, or JSON-decoding failure. Non-200 responses go through the same response processing before `Client.Request` returns `APIError`.
+For response decoding rules and `*api.APIError` semantics, see `references/protocols.md` § EAPI.
 
 ## Transport security
 
@@ -164,11 +170,12 @@ Do not:
 Prefer deterministic, offline tests:
 
 - `httptest.Server` or a fake `RoundTripper` for methods, request serialization, headers, cookies, retries, and timeouts;
-- inject a fake through `Client.SetTransport`, never by replacing `Client.GetClient().Transport`, when Cookie behavior must remain under test;
+- inject a fake through `Client.SetTransport(http.RoundTripper)` — which preserves Cookie merge and response writeback — never by replacing `Client.GetClient().Transport`; custom transports must honor request context cancellation;
 - table tests for endpoint request/response shapes and transport-versus-business errors;
 - malformed HTTP or JSON responses, canceled contexts, and boundary-size cases;
 - injected reader, writer, and closer failures at client transport boundaries;
 - local trusted and untrusted TLS servers for certificate-validation behavior.
+- use `api.New` (panic form) only in tests that explicitly accept that behavior; prefer `api.NewClient` everywhere else.
 
 Useful focused commands:
 
